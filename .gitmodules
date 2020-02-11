@@ -1,0 +1,3 @@
+[submodule "neuroGLM"]
+	path = submodules/neuroGLM
+	url = https://github.com/pillowlab/neuroGLM
