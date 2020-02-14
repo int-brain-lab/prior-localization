@@ -1,60 +1,68 @@
-trialdata = load('/home/berk/Documents/Projects/ibl_shared/DY_010_recording_data.mat');
+load('./data/DY_010_2020-02-04.mat');
 
-duration = 1.;
-preStimTime = 0.1;
-numcells = 1;
-cellname = 'cell195';
+duration = 2.;
+preStimTime = 0.6;
+postStimTime = duration - preStimTime;
+numcells = length(cluster_ids);
 
-expt = buildGLM.initExperiment('s', 0.001, 'IBL_DY_006_BWM', 'contrast');
+expt = buildGLM.initExperiment('s', 0.001, 'IBL_DY_010_BWM', 'contrast');
 expt = buildGLM.registerTiming(expt, 'stimOn', 'Stimulus on time');
 expt = buildGLM.registerValue(expt, 'contrast', 'Contrast of stimulus');
 
-cells = struct;
-if numcells > 1
-    for i = 0:numcells - 1
-        cellname = strcat('cell', num2str(i));
-        expt = buildGLM.registerSpikeTrain(expt, cellname, 'a neuron');
-        cells.(cellname) = trialdata.(cellname);
+goodcellnames = fieldnames(spiket);
+goodcells = struct;
+fitobs = struct;
+for i = 1:length(cluster_ids)
+    cellname = goodcellnames{i};
+    trialspkcount = zeros(length(stimtContra), 1);
+    for j = 1:length(stimtContra)
+        currwind = [stimtContra(j) - preStimTime, stimtContra(j) + postStimTime];
+        windspikes = (spiket.(cellname) >= currwind(1)) & (spiket.(cellname) <= currwind(2));
+        trialspkcount(j) = sum(windspikes);
     end
-elseif numcells == 1
-    expt = buildGLM.registerSpikeTrain(expt, cellname, 'our neuron');
-    cells.(cellname) = trialdata.(cellname);
+    if all(trialspkcount)
+        fitobs.(cellname) = buildGLM.registerSpikeTrain(expt, cellname, 'a neuron');
+        goodcells.(cellname) = spiket.(cellname);
+    end  
 end
+disp(['Found ',num2str(length(fields(goodcells))),' cells with spikes during every trial']);
 
-stimOnTimes = trialdata.stimOnTimes;
-contrast = trialdata.contrast;
-goodtrials = 0;
-badtrials = [];
-for i = 1:length(stimOnTimes)
-    starttime = stimOnTimes(i) - preStimTime;
-    endtime = starttime + (duration - preStimTime);
+goodcellnames = fieldnames(goodcells);
+for i = 1:length(stimtContra)
+    starttime = stimtContra(i) - preStimTime;
+    endtime = starttime + duration;
     currtrial = buildGLM.newTrial(expt, duration);
-    currtrial.stimOn = stimOnTimes(i) - starttime;
-    currtrial.contrast = contrast(i);
-    cellnames = fieldnames(cells);
-    for k = 1:numel(cellnames)
-        cellspikes = cells.(cellnames{k});
-        trialinds = starttime <= cellspikes & cellspikes <= endtime;
+    currtrial.stimOn = stimtContra(i) - starttime;
+    currtrial.contrast = contrastContra(i);
+    for k = 1:numel(goodcellnames)
+        cellname = goodcellnames{k};
+        cellspikes = goodcells.(cellname);
+        trialinds = (starttime <= cellspikes) & (cellspikes <= endtime);
         trialspikes = cellspikes(trialinds);
-        currtrial.(cellnames{k}) = trialspikes - starttime;
+        currtrial.(goodcellnames{k}) = trialspikes - starttime;
+        fitobs.(cellname) = buildGLM.addTrial(fitobs.(cellname), currtrial, i);
     end
-    if sum(trialinds) == 0
-        badtrials = [badtrials i];
-        continue
-    end
-    goodtrials = goodtrials + 1;
-    expt = buildGLM.addTrial(expt, currtrial, goodtrials);
 end
 
-dspec = buildGLM.initDesignSpec(expt);
-bs = basisFactory.makeSmoothTemporalBasis('boxcar', 0.6, 50, expt.binfun);
-dspec = buildGLM.addCovariateTiming(dspec, 'stimOn', 'stimOn', 'stimulus on', bs);
-dm = buildGLM.compileSparseDesignMatrix(dspec, 1:goodtrials);
-dm.X = full(dm.X);
 
-y = buildGLM.getBinnedSpikeTrain(expt, cellname);
-
-[w, dev, stats] = glmfit(dm.X, y, 'poisson', 'link', 'log');
-ws = buildGLM.combineWeights(dm, w(1:end-1));
-plot(ws.stimOn.data)
-        
+numtrials = numel(stimtContra);
+cellweights = struct;
+cellstats = struct;
+tic
+for i = 1:numel(goodcellnames)
+    cellname = goodcellnames{i};
+    dspec = buildGLM.initDesignSpec(fitobs.(cellname));
+    bs = basisFactory.makeSmoothTemporalBasis('raised cosine', 0.8, 25, expt.binfun);
+    dspec = buildGLM.addCovariateTiming(dspec, 'stimOn', 'stimOn', 'stimulus on', bs);
+    dspec = buildGLM.addCovariateSpiketrain(dspec, 'hist', cellname, 'History filter');
+    dm = buildGLM.compileSparseDesignMatrix(dspec, 1:numtrials);
+    if nnz(dm.X) / numel(dm.X) > 0.15
+        dm.X = full(dm.X);
+    end
+    disp(strcat('fitting cell', ' ', cellname));
+    y = buildGLM.getBinnedSpikeTrain(fitobs.(cellname), cellname);
+    [w, dev, stats] = glmfit(dm.X, y, 'poisson', 'link', 'log');
+    cellweights.(cellname) = buildGLM.combineWeights(dm, w(2:end));
+    cellstats.(cellname) = stats;
+end
+toc

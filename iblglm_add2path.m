@@ -14,4 +14,7 @@ addpath(genpath([repo_path filesep 'data']));
 glm_path = [repo_path filesep 'neuroGLM'];
 addpath(glm_path);
 
-clear matlab_path folder_path;
+regress_path = [repo_path filesep 'neuroGLM' filesep 'matRegress'];
+addpath(regress_path);
+
+clear repo_path glm_path regress_path;
