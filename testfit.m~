@@ -1,7 +1,7 @@
 load('./data/DY_010_2020-02-04.mat');
 
 duration = 1.;
-preStimTime = 0.1;
+preStimTime = 0.6;
 postStimTime = duration - preStimTime;
 numcells = length(cluster_ids);
 
@@ -24,7 +24,7 @@ for i = 1:length(cluster_ids)
     if all(trialspkcount)
         fitobs.(cellname) = buildGLM.registerSpikeTrain(expt, cellname, 'a neuron');
         goodcells.(cellname) = spiket.(cellname);
-    end
+    end  
 end
 disp(['Found ',num2str(length(fields(goodcells))),' cells with spikes during every trial']);
 
