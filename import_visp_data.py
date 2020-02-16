@@ -15,12 +15,12 @@ def session_to_trials(session_id, t_before=0.2, t_after=0.3, maxlen=1.):
                    'trials.contrastRight',
                    'trials.goCue_times',
                    'trials.stimOn_times', ]
-    starttimes = one.load(session_id, 'trials.goCue_times')[0]
-    endttimes = one.load(session_id, 'trials.feedback_times')[0]
+    starttimes = one.load(session_id, 'trials.goCue_times')[0] - t_before
+    endttimes = one.load(session_id, 'trials.feedback_times')[0] + t_after
     with np.errstate(invalid='ignore'):
         keeptrials = (endttimes - starttimes) <= maxlen
     # Check to see if t_before and t_after result in overlapping trial windows
-    if np.any(starttimes[keeptrials][1:] - t_before < endttimes[keeptrials][:-1] + t_after):
+    if np.any(starttimes[keeptrials][1:] < endttimes[keeptrials][:-1]):
         raise ValueError("Current values of t_before and t_after result in overlapping trial "
                          "windows.")
     spiket, clu = one.load(session_id, ['spikes.times', 'spikes.clusters'])
@@ -31,8 +31,8 @@ def session_to_trials(session_id, t_before=0.2, t_after=0.3, maxlen=1.):
     endlast = 0
     trials = []
     for i, (start, end) in enumerate(np.vstack((starttimes, endttimes)).T[keeptrials]):
-        startind = np.searchsorted(spiket[endlast:], start - t_before) + endlast
-        endind = np.searchsorted(spiket[endlast:], end + t_after, side='right') + endlast
+        startind = np.searchsorted(spiket[endlast:], start) + endlast
+        endind = np.searchsorted(spiket[endlast:], end, side='right') + endlast
         endlast = endind
         trial_clu = np.unique(clu[startind:endind])
         trialspiking[trial_clu, i] = 1
@@ -41,7 +41,7 @@ def session_to_trials(session_id, t_before=0.2, t_after=0.3, maxlen=1.):
         trialdict['spikes'] = spiket[startind:endind] - start
         trialdict['clu'] = clu[startind:endind]
         trials.append(trialdict)
-    return trials
+    return trials, clu_ids
 
 
 def matexport_trials_spikes(session_id, details):
@@ -51,19 +51,20 @@ def matexport_trials_spikes(session_id, details):
     sess['subject_name'] = details['subject']
     sess['session_date'] = details['start_time']
     sess['subject_lab'] = details['lab']
-    trials = session_to_trials(session_id, maxlen=1.5)
+    trials, clu_ids = session_to_trials(session_id, maxlen=1.5)
     # For loop to delete trials with ipsilateral stimulus or zero contrast
     for i, trial in enumerate(trials):
         if (trial['contrastRight'] == np.nan) | (trial['contrastRight'] == 0):
             del trials[i]
     # Save to a matlab file
+    sess['trials'] = trials
+    sess['clusters'] = clu_ids
     savemat(f"./data/{sess['subject_name']}_{sess['session_date'].split('T')[0]}.mat",
             sess)
 
 
 if __name__ == "__main__":
-    oneinst = one.ONE()
     # Get VisP probe from Yang Dan lab, primary visual areas in upper part of probe
-    ids, details = oneinst.search(subject='DY_010', dataset_types=['spikes.clusters'],
-                                  date_range=['2020-02-03', '2020-02-05'], details=True)
+    ids, details = one.search(subject='ZM_2240', dataset_types=['spikes.clusters'],
+                              date_range=['2020-01-23', '2020-01-30'], details=True)
     matexport_trials_spikes(ids[0], details[0])
