@@ -4,7 +4,7 @@ from sklearn.manifold import Isomap
 import brainbox as bb
 from oneibl import one
 from brainbox.core import TimeSeries
-from cuml.manifold import UMAP, TSNE
+from cuml.manifold import UMAP
 from cuml import PCA
 import plotly.express as px
 import plotly.io as pio
@@ -14,7 +14,7 @@ from warnings import warn
 one = one.ONE()
 
 
-def dim_red(sessid, filename, binsize=0.15, surpwind=0.6, method='tnse', probe_idx=None,
+def dim_red(sessid, filename, binsize=0.15, surpwind=0.6, method='umap', probe_idx=None,
             depth_range=None):
     """Reduce dimension of all trials in a session using the specified method, then save the
     plot of the embeddings in a plotly html file specified. Can use umap, tsne, pca, or Isomap.
@@ -34,7 +34,7 @@ def dim_red(sessid, filename, binsize=0.15, surpwind=0.6, method='tnse', probe_i
         Window about stimulus onset for which to apply 'surprise' or
         'unsurprise' labels to spike bins, by default 0.6
     method : str, optional
-        Dimensionality reduction method, valid options are 'tsne', 'umap', 'PCA', or
+        Dimensionality reduction method, valid options are 'umap', 'PCA', or
         'isomap', by default 'tnse'
     probe_idx : int, optional
         Which probe to use, if a session has multiple probes, by default None and will use probe 1.
@@ -102,8 +102,6 @@ def dim_red(sessid, filename, binsize=0.15, surpwind=0.6, method='tnse', probe_i
         embeddings = embeddings.as_matrix()
     elif method == 'isomap':
         embeddings = Isomap(n_components=3).fit_transform(surpdata.values[normfilter, :-1])
-    elif method == 'tsne':
-        embeddings = TSNE(n_components=3).fit_transform(surpdata.values[normfilter, :-1])
 
     labeledembed = np.column_stack((embeddings,
                                     surpdata.surprise[normfilter]))
@@ -126,7 +124,7 @@ def dim_red(sessid, filename, binsize=0.15, surpwind=0.6, method='tnse', probe_i
 
 if __name__ == "__main__":
     from ibl_pipeline import subject, ephys
-    METHOD = 'umap'
+    METHOD = 'tsne'
     sessions = subject.Subject * subject.SubjectProject *\
         ephys.acquisition.Session * ephys.ProbeTrajectory()
     bwm_sess = sessions & 'subject_project = "ibl_neuropixel_brainwide_01"' & \
@@ -137,7 +135,7 @@ if __name__ == "__main__":
             METHOD + '.html'
         fullpath = './data/' + filename
         try:
-            dim_red(sess_id, fullpath, surpwind=0.8, method='umap', probe_idx=0)
+            dim_red(sess_id, fullpath, surpwind=0.8, method=METHOD, probe_idx=0)
             print(filename + ' session succeeded')
         except TypeError:
             print(filename + ' session failed because no spike data.')
