@@ -8,12 +8,14 @@ from cuml.manifold import UMAP, TSNE
 from cuml import PCA
 import plotly.express as px
 import plotly.io as pio
+from warnings import warn
 # import plotly.graph_objects as go
 
 one = one.ONE()
 
 
-def dim_red(sessid, filename, binsize=0.15, surpwind=0.6, method='tnse'):
+def dim_red(sessid, filename, binsize=0.15, surpwind=0.6, method='tnse', probe_idx=None,
+            depth_range=None):
     """Reduce dimension of all trials in a session using the specified method, then save the
     plot of the embeddings in a plotly html file specified. Can use umap, tsne, pca, or Isomap.
     Requires Nvidia RAPIDS framework installed along with rapids cuML, a library for GPU
@@ -34,12 +36,31 @@ def dim_red(sessid, filename, binsize=0.15, surpwind=0.6, method='tnse'):
     method : str, optional
         Dimensionality reduction method, valid options are 'tsne', 'umap', 'PCA', or
         'isomap', by default 'tnse'
+    probe_idx : int, optional
+        Which probe to use, if a session has multiple probes, by default None and will use probe 1.
+    depth_range : list of ints, optional,
+        Range of depths on the probe from which to accept spikes. By default set to None, but if
+        set to a 2-element list or array will serve as the start and end depths.
     """
     try:
-        spikes, clus = one.load(sessid, ['spikes.times', 'spikes.clusters'])
+        spikes, clus, depths = one.load(sessid, ['spikes.times',
+                                                 'spikes.clusters',
+                                                 'spikes.depths'])
     except ValueError:
-        raise RuntimeError('Session has two probes which have not been merged into a file, '
-                           'Please try another session.')
+        if probe_idx is None:
+            warn('Session has two probes. Defaulting to first probe. If a specific probe is '
+                 'desired, pass int as argument to probe_idx')
+            probe_idx = 0
+        spikes = one.load(sessid, ['spikes.times'])[probe_idx]
+        clus = one.load(sessid, ['spikes.clusters'])[probe_idx]
+        depths = one.load(sessid, ['spikes.depths'])[probe_idx]
+
+    if depth_range is not None:
+        filt = (depths <= depth_range[1]) & (depths >= depth_range[0])
+        spikes = spikes[filt]
+        clus = clus[filt]
+        depths = depths[filt]
+
     trialdata = one.load_object(sessid, 'trials')
 
     spikeseries = TimeSeries(spikes, clus, columns=['clusters'])
@@ -101,3 +122,24 @@ def dim_red(sessid, filename, binsize=0.15, surpwind=0.6, method='tnse'):
     #                                               line=dict(width=0, color='rgba(0, 0, 0, 0)'),
     #                                   opacity=0.99)))
     pio.write_html(fig, filename)
+
+
+if __name__ == "__main__":
+    from ibl_pipeline import subject, ephys
+    METHOD = 'umap'
+    sessions = subject.Subject * subject.SubjectProject *\
+        ephys.acquisition.Session * ephys.ProbeTrajectory()
+    bwm_sess = sessions & 'subject_project = "ibl_neuropixel_brainwide_01"' & \
+        'task_protocol = "_iblrig_tasks_ephysChoiceWorld6.2.5"'
+    for s in bwm_sess:
+        sess_id = str(s['session_uuid'])
+        filename = s['subject_nickname'] + '_' + str(s['session_start_time'].date()) +\
+            METHOD + '.html'
+        fullpath = './data/' + filename
+        try:
+            dim_red(sess_id, fullpath, surpwind=0.8, method='umap', probe_idx=0)
+            print(filename + ' session succeeded')
+        except TypeError:
+            print(filename + ' session failed because no spike data.')
+        except ValueError:
+            print(filename + ' session failed. Possible mismatch of probe indices in ONE.')

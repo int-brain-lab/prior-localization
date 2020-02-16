@@ -63,4 +63,6 @@ for i = 1:length(cell_ids)
     cellweights.(cellname) = buildGLM.combineWeights(dm, wml);
     cellstats.(cellname) = wvar;
 end
+[~, sessname, ~] = fileparts(trialfilename);
+save(strcat(sessname, '_fit.mat'), 'cellweights', 'cellstats');
 
