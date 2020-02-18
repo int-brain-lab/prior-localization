@@ -1,7 +1,8 @@
 from oneibl import one
 import numpy as np
 from scipy.io import savemat
-
+import pandas as pd
+import itertools as it
 one = one.ONE()
 
 
@@ -52,8 +53,18 @@ def session_to_trials(session_id, t_before=0.2, t_after=0.6, maxlen=1.):
     return trials, clu_ids
 
 
-def sep_trials_conds(trials, clu_ids):
-    
+def sep_trials_conds(trials):
+    df = pd.DataFrame(trials)
+    contrast = [1., 0.25, 0.125, 0.0625, 0]
+    bias = [0.2, 0.5, 0.8]
+    stimulus = ['Left', 'Right']
+    conditions = it.product(bias, stimulus, contrast)
+    condtrials = {}
+    for b, s, c in conditions:
+        trialinds = df[(df['contrast' + s] == c) & (df['probabilityLeft'] == b)].index
+        condtrials[(b, s, c)] = [x for i, x in enumerate(trials) if i in trialinds]
+    return condtrials
+
 
 def matexport_alltrials(session_id, details):
     # Load raw one output and then remove overarching data type name (e.g. trails, spikes)

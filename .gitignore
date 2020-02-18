@@ -1,5 +1,7 @@
 /.vscode/
 *.mat
 *.html
+*.log
+*.p
 /data/*_fits/
 */__pycache__/*

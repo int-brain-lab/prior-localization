@@ -1,11 +1,12 @@
 function [cellweights, cellstats] = full_fit(trialfilename)
 %FIT_TRIAL Fits GLM to all neurons in a given trial
 %   Fits a GLM using neuroGLM to the trial-by-trial data in trialfilename.
-mintrials = 45;
+disp(strcat('Fitting file:', trialfilename))
+mintrials = 8;
+wts_per_kern = 10;
 trialdata = load(trialfilename);
 expt = buildGLM.initExperiment('s', 0.025, trialdata.subject_name, 'brainwide_map');
 expt = buildGLM.registerTiming(expt, 'stimOn', 'stimulus on time');
-expt = buildGLM.registerValue(expt, 'contrast', 'Stimulus contrast');
 expt = buildGLM.registerTiming(expt, 'feedback_t', 'Time feedback was administered');
 
 cell_ids = trialdata.clusters;
@@ -24,11 +25,14 @@ for i = 1:length(cell_ids)
         end
         trialobj = buildGLM.newTrial(fitobjs.(cellname), 0.5 + currtrial.feedback_times);
         trialobj.stimOn = currtrial.stimOn_times;
-        trialobj.contrast = currtrial.contrastRight;
-        % trialobj.resp_time = currtrial.response_times;
         trialobj.feedback_t = currtrial.feedback_times;
         trialobj.(cellname) = currtrial.spikes(currtrial.clu == cell_ids(i));
-        fitobjs.(cellname) = buildGLM.addTrial(fitobjs.(cellname), trialobj, goodtrialnum);
+        try
+            fitobjs.(cellname) = buildGLM.addTrial(fitobjs.(cellname), trialobj, goodtrialnum);
+        catch
+            disp('SOMETHING IS BROKEN')
+            continue
+        end
         goodtrialnum = goodtrialnum + 1;
     end
     if (goodtrialnum == 1) || (numel(fitobjs.(cellname).trial) < mintrials)
@@ -36,7 +40,7 @@ for i = 1:length(cell_ids)
         continue
     end
     dspec = buildGLM.initDesignSpec(fitobjs.(cellname));
-    bs = basisFactory.makeSmoothTemporalBasis('raised cosine', 0.6, 10, expt.binfun);
+    bs = basisFactory.makeSmoothTemporalBasis('raised cosine', 0.6, wts_per_kern, expt.binfun);
     dspec = buildGLM.addCovariateTiming(dspec, 'stimOn', 'stimOn', 'Stimulus on', bs);
     dspec = buildGLM.addCovariateTiming(dspec, 'feedback_t', 'feedback_t', 'feedback time', bs);
     dm = buildGLM.compileSparseDesignMatrix(dspec, 1:goodtrialnum - 1);
@@ -56,4 +60,4 @@ for i = 1:length(cell_ids)
     cellweights.(cellname) = buildGLM.combineWeights(dm, wml);
     cellstats.(cellname) = wvar;
 end
-save(strcat(sessname, '_fit.mat'), 'cellweights', 'cellstats');
+save(strcat('./fits/', sessname, '_fit.mat'), 'cellweights', 'cellstats');
