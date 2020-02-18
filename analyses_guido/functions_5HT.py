@@ -21,6 +21,8 @@ from sklearn.metrics import f1_score, confusion_matrix
 def paths():
     if expanduser('~') == '/home/guido':
         data_path = '/media/guido/data/Flatiron/'
+    elif expanduser('~') == '/home/berk':
+        data_path = '/media/berk/Storage/flatiron/'
     else:
         data_path = join(expanduser('~'), 'Downloads', 'FlatIron')
     fig_path = join(expanduser('~'), 'Figures', '5HT', 'ephys')

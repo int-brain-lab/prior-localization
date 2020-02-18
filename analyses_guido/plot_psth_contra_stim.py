@@ -14,7 +14,7 @@ import numpy as np
 import shutil
 from functions_5HT import download_data, paths, sessions
 
-download = False
+download = True
 overwrite = True
 frontal_control = 'Frontal'
 

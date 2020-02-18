@@ -5,7 +5,7 @@ from scipy.io import savemat
 one = one.ONE()
 
 
-def session_to_trials(session_id, t_before=0.2, t_after=0.3, maxlen=1.):
+def session_to_trials(session_id, t_before=0.2, t_after=0.6, maxlen=1.):
     trialstypes = ['trials.choice',
                    'trials.response_times',
                    'trials.probabilityLeft',
@@ -18,7 +18,7 @@ def session_to_trials(session_id, t_before=0.2, t_after=0.3, maxlen=1.):
     starttimes = one.load(session_id, 'trials.goCue_times')[0] - t_before
     endttimes = one.load(session_id, 'trials.feedback_times')[0] + t_after
     with np.errstate(invalid='ignore'):
-        keeptrials = (endttimes - starttimes) <= maxlen
+        keeptrials = (endttimes - starttimes) <= maxlen + t_before + t_after
     # Check to see if t_before and t_after result in overlapping trial windows
     if np.any(starttimes[keeptrials][1:] < endttimes[keeptrials][:-1]):
         raise ValueError("Current values of t_before and t_after result in overlapping trial "
@@ -28,6 +28,14 @@ def session_to_trials(session_id, t_before=0.2, t_after=0.3, maxlen=1.):
     trialspiking = np.zeros((clu_ids.max() + 1, np.sum(keeptrials)))
     tmp = one.load(session_id, dataset_types=trialstypes)
     trialdata = {x.split('.')[1]: tmp[i][keeptrials] for i, x in enumerate(trialstypes)}
+
+    # Block probabilities in trial data aren't accurate and need to be remapped 🙄
+    probs = trialdata['probabilityLeft']
+    validvals = np.array([0.2, 0.5, 0.8])
+    diffs = np.abs(np.array([x - validvals for x in probs]))
+    maps = diffs.argmin(axis=1)
+    trialdata['probabilityLeft'] = validvals[maps]
+
     endlast = 0
     trials = []
     for i, (start, end) in enumerate(np.vstack((starttimes, endttimes)).T[keeptrials]):
@@ -44,7 +52,10 @@ def session_to_trials(session_id, t_before=0.2, t_after=0.3, maxlen=1.):
     return trials, clu_ids
 
 
-def matexport_trials_spikes(session_id, details):
+def sep_trials_conds(trials, clu_ids):
+    
+
+def matexport_alltrials(session_id, details):
     # Load raw one output and then remove overarching data type name (e.g. trails, spikes)
     sess = {}
     # Save some session metadata
@@ -66,5 +77,5 @@ def matexport_trials_spikes(session_id, details):
 if __name__ == "__main__":
     # Get VisP probe from Yang Dan lab, primary visual areas in upper part of probe
     ids, details = one.search(subject='ZM_2240', dataset_types=['spikes.clusters'],
-                              date_range=['2020-01-23', '2020-01-30'], details=True)
-    matexport_trials_spikes(ids[0], details[0])
+                              date_range=['2020-01-24', '2020-01-24'], details=True)
+    matexport_alltrials(ids[0], details[0])

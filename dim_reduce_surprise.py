@@ -15,7 +15,7 @@ one = one.ONE()
 
 
 def dim_red(sessid, filename, binsize=0.15, surpwind=0.6, method='umap', probe_idx=None,
-            depth_range=None):
+            depth_range=None, only_good_clu=True):
     """Reduce dimension of all trials in a session using the specified method, then save the
     plot of the embeddings in a plotly html file specified. Can use umap, tsne, pca, or Isomap.
     Requires Nvidia RAPIDS framework installed along with rapids cuML, a library for GPU
@@ -47,6 +47,7 @@ def dim_red(sessid, filename, binsize=0.15, surpwind=0.6, method='umap', probe_i
                                                  'spikes.clusters',
                                                  'spikes.depths'])
     except ValueError:
+        multi_probe = True
         if probe_idx is None:
             warn('Session has two probes. Defaulting to first probe. If a specific probe is '
                  'desired, pass int as argument to probe_idx')
@@ -57,6 +58,15 @@ def dim_red(sessid, filename, binsize=0.15, surpwind=0.6, method='umap', probe_i
 
     if depth_range is not None:
         filt = (depths <= depth_range[1]) & (depths >= depth_range[0])
+        spikes = spikes[filt]
+        clus = clus[filt]
+        depths = depths[filt]
+
+    if only_good_clu:
+        clusterdata = one.load_object(sessid, 'clusters')
+        ks2label = clusterdata.metrics.ks2_label
+        goodclu = np.array(ks2label.index[ks2label == 'good'])
+        filt = np.isin(clus, goodclu)
         spikes = spikes[filt]
         clus = clus[filt]
         depths = depths[filt]
@@ -79,6 +89,7 @@ def dim_red(sessid, filename, binsize=0.15, surpwind=0.6, method='umap', probe_i
         endunsurprises = unsurprises + surpwind
     unsurprises = np.vstack([unsurprises, endunsurprises]).T
     binnedspikes = bb.processing.bin_spikes(spikeseries, binsize)
+    print(binnedspikes.values.shape)
 
     surp_steps = np.vstack((np.ones(surprises.shape[0]), np.zeros(surprises.shape[0]))).T
     unsurp_steps = np.vstack((2 * np.ones(unsurprises.shape[0]), np.zeros(unsurprises.shape[0]))).T
@@ -111,7 +122,7 @@ def dim_red(sessid, filename, binsize=0.15, surpwind=0.6, method='umap', probe_i
             'No surprise': 'rgb(0, 0, 128)'}
     plotdf = pd.DataFrame(data=labeledembed, columns=['x', 'y', 'z', 'surprise'])
     plotdf.surprise.replace(catnames, inplace=True)
-    fig = px.scatter_3d(plotdf, x='x', y='y', z='z', color='surprise', opacity=0.3,
+    fig = px.scatter_3d(plotdf, x='x', y='y', z='z', color='surprise', opacity=0.2,
                         color_discrete_map=cmap)
     # fig = go.Figure(data=go.Scatter3d(x=plotdf.x, y=plotdf.y, z=plotdf.z,
     #                                   mode='markers',
@@ -124,7 +135,7 @@ def dim_red(sessid, filename, binsize=0.15, surpwind=0.6, method='umap', probe_i
 
 if __name__ == "__main__":
     from ibl_pipeline import subject, ephys
-    METHOD = 'tsne'
+    METHOD = 'PCA'
     sessions = subject.Subject * subject.SubjectProject *\
         ephys.acquisition.Session * ephys.ProbeTrajectory()
     bwm_sess = sessions & 'subject_project = "ibl_neuropixel_brainwide_01"' & \
@@ -141,3 +152,5 @@ if __name__ == "__main__":
             print(filename + ' session failed because no spike data.')
         except ValueError:
             print(filename + ' session failed. Possible mismatch of probe indices in ONE.')
+        except AttributeError:
+            print(filename + ' session failed due to problems with ks2 metrics not present')

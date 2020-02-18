@@ -1,3 +1,5 @@
 /.vscode/
 *.mat
 *.html
+/data/*_fits/
+*/__pycache__/*

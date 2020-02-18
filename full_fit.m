@@ -1,14 +1,11 @@
-function [cellweights, cellstats] = fit_trial(trialfilename, contrast)
+function [cellweights, cellstats] = full_fit(trialfilename)
 %FIT_TRIAL Fits GLM to all neurons in a given trial
 %   Fits a GLM using neuroGLM to the trial-by-trial data in trialfilename.
-contrastlevels = [0.0625, 0.125, 0.25, 1.0];
-mintrials = 250;
-contidx = contrastlevels == contrast;
+mintrials = 45;
 trialdata = load(trialfilename);
 expt = buildGLM.initExperiment('s', 0.025, trialdata.subject_name, 'brainwide_map');
 expt = buildGLM.registerTiming(expt, 'stimOn', 'stimulus on time');
 expt = buildGLM.registerValue(expt, 'contrast', 'Stimulus contrast');
-% expt = buildGLM.registerTiming(expt, 'resp_time', 'Animal response time');
 expt = buildGLM.registerTiming(expt, 'feedback_t', 'Time feedback was administered');
 
 cell_ids = trialdata.clusters;
@@ -16,19 +13,16 @@ fitobjs = struct;
 cellweights = struct;
 cellstats = struct;
 [~, sessname, ~] = fileparts(trialfilename);
-for i = 1:numel(cell_ids)
+for i = 1:length(cell_ids)
     cellname = strcat('cell', num2str(cell_ids(i)));
     fitobjs.(cellname) = buildGLM.registerSpikeTrain(expt, cellname, 'the neuron');
     goodtrialnum = 1;
     for j = 1:length(trialdata.trials)
         currtrial = trialdata.trials{j};
-%         if currtrial.contrastRight ~= contrastlevels(contidx)
-%             continue
-%         end
         if isempty(currtrial.spikes(currtrial.clu == cell_ids(i)))
             continue
         end
-        trialobj = buildGLM.newTrial(fitobjs.(cellname), 0.6 + currtrial.feedback_times);
+        trialobj = buildGLM.newTrial(fitobjs.(cellname), 0.5 + currtrial.feedback_times);
         trialobj.stimOn = currtrial.stimOn_times;
         trialobj.contrast = currtrial.contrastRight;
         % trialobj.resp_time = currtrial.response_times;
@@ -42,9 +36,8 @@ for i = 1:numel(cell_ids)
         continue
     end
     dspec = buildGLM.initDesignSpec(fitobjs.(cellname));
-    bs = basisFactory.makeSmoothTemporalBasis('raised cosine', 0.6, 20, expt.binfun);
+    bs = basisFactory.makeSmoothTemporalBasis('raised cosine', 0.6, 10, expt.binfun);
     dspec = buildGLM.addCovariateTiming(dspec, 'stimOn', 'stimOn', 'Stimulus on', bs);
-    % dspec = buildGLM.addCovariateTiming(dspec, 'resp_time', 'resp_time', 'Animal response t', bs);
     dspec = buildGLM.addCovariateTiming(dspec, 'feedback_t', 'feedback_t', 'feedback time', bs);
     dm = buildGLM.compileSparseDesignMatrix(dspec, 1:goodtrialnum - 1);
     dm = buildGLM.removeConstantCols(dm);
@@ -54,7 +47,6 @@ for i = 1:numel(cell_ids)
     end
     disp(strcat('fitting :', cellname));
     y = buildGLM.getBinnedSpikeTrain(fitobjs.(cellname), cellname);
-%     w = dm.X' * dm.X \ dm.X' * y;
     wInit = dm.X \ y; % least sq for init
     fnlin = @nlfuns.exp; % Inverse link function
     lfunc = @(w)(glms.neglog.poisson(w, dm.X, y, fnlin)); % Loss func
@@ -63,5 +55,5 @@ for i = 1:numel(cell_ids)
     wvar = diag(inv(hessian));
     cellweights.(cellname) = buildGLM.combineWeights(dm, wml);
     cellstats.(cellname) = wvar;
-    save(strcat(sessname, '_fit.mat'), 'cellweights', 'cellstats');
 end
+save(strcat(sessname, '_fit.mat'), 'cellweights', 'cellstats');
