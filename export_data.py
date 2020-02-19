@@ -1,6 +1,5 @@
 from oneibl import one
 import numpy as np
-from scipy.io import savemat
 import pandas as pd
 import itertools as it
 one = one.ONE()
@@ -16,7 +15,7 @@ def session_to_trials(session_id, t_before=0.2, t_after=0.6, maxlen=1.):
                    'trials.contrastRight',
                    'trials.goCue_times',
                    'trials.stimOn_times', ]
-    starttimes = one.load(session_id, 'trials.goCue_times')[0] - t_before
+    starttimes = one.load(session_id, 'trials.stimOn_times')[0] - t_before
     endttimes = one.load(session_id, 'trials.feedback_times')[0] + t_after
     with np.errstate(invalid='ignore'):
         keeptrials = (endttimes - starttimes) <= maxlen + t_before + t_after
@@ -55,38 +54,12 @@ def session_to_trials(session_id, t_before=0.2, t_after=0.6, maxlen=1.):
 
 def sep_trials_conds(trials):
     df = pd.DataFrame(trials)
-    contrast = [1., 0.25, 0.125, 0.0625, 0]
+    contr = {'Nonzero': [1., 0.25, 0.125, 0.0625], 'Zero': [0., ]}
     bias = [0.2, 0.5, 0.8]
     stimulus = ['Left', 'Right']
-    conditions = it.product(bias, stimulus, contrast)
+    conditions = it.product(bias, stimulus, contr)
     condtrials = {}
     for b, s, c in conditions:
-        trialinds = df[(df['contrast' + s] == c) & (df['probabilityLeft'] == b)].index
+        trialinds = df[np.isin(df['contrast' + s], contr[c]) & (df['probabilityLeft'] == b)].index
         condtrials[(b, s, c)] = [x for i, x in enumerate(trials) if i in trialinds]
     return condtrials
-
-
-def matexport_alltrials(session_id, details):
-    # Load raw one output and then remove overarching data type name (e.g. trails, spikes)
-    sess = {}
-    # Save some session metadata
-    sess['subject_name'] = details['subject']
-    sess['session_date'] = details['start_time']
-    sess['subject_lab'] = details['lab']
-    trials, clu_ids = session_to_trials(session_id, maxlen=1.5)
-    # For loop to delete trials with ipsilateral stimulus or zero contrast
-    for i, trial in enumerate(trials):
-        if (trial['contrastRight'] == np.nan) | (trial['contrastRight'] == 0):
-            del trials[i]
-    # Save to a matlab file
-    sess['trials'] = trials
-    sess['clusters'] = clu_ids
-    savemat(f"./data/{sess['subject_name']}_{sess['session_date'].split('T')[0]}.mat",
-            sess)
-
-
-if __name__ == "__main__":
-    # Get VisP probe from Yang Dan lab, primary visual areas in upper part of probe
-    ids, details = one.search(subject='ZM_2240', dataset_types=['spikes.clusters'],
-                              date_range=['2020-01-24', '2020-01-24'], details=True)
-    matexport_alltrials(ids[0], details[0])

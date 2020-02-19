@@ -29,7 +29,7 @@ from tqdm import tqdm
 
 wts_per_kern = 10
 kern_length = 0.6  # seconds
-glm_binsize = 0.025  # seconds
+glm_binsize = 0.020  # seconds
 
 
 def fit_cond(condtrials, cond, sess_info):
@@ -57,6 +57,7 @@ def fit_session(session_id, subject_name, sessdate, batch_size, log=False):
     # Break trials apart into different condition sets
     condtrials = sep_trials_conds(trials)
     condkeys = list(condtrials.keys())
+    numkeys = len(condkeys)
     sess_info = {'subject': subject_name, 'clu_ids': clu_ids}
     # Empty lists to store processes running fits and the logs they produce in
     procs = []
@@ -68,21 +69,21 @@ def fit_session(session_id, subject_name, sessdate, batch_size, log=False):
     # That will fit all cells in the session for the given condition. When the batch size is
     # reached, stop iterating for a while (loop) and let the fits run.
     # after the whole batch of fits is done move on to the next
-    for i in range(len(condkeys)):
+    for i in range(numkeys):
         cond = condkeys.pop(0)
         p, f = fit_cond(condtrials, cond, sess_info)
         procs.append(p)
         logs.append(f)
-        if (i + 1) % batch_size == 0:
+        if ((i + 1) % batch_size == 0) or (i == numkeys - 1):
             print('\nNew batch of fits\n')  # flake8: noqa
             statuses = {None: 'R', 1: 'F', 0: 'D'}
             while True:
                 retcodes = [p.poll() for p in procs]
                 procstat = [(i, statuses[c]) for i, c in enumerate(retcodes)]
+                print(''.join([c for i, c in procstat]), end='\r')
                 if all(r is not None for r in retcodes):
                     _ = [f.close() for f in logs]
                     break
-                print(''.join([c for i, c in procstat]), end='\r')
                 time.sleep(0.1)
             os.system('rm ./data/*contrast.mat')
             procs = []
@@ -91,7 +92,7 @@ def fit_session(session_id, subject_name, sessdate, batch_size, log=False):
                 os.system('rm ./data/*.log')
 
     # This is a bit gross, but makes for a pretty pandas DF with easy indexing.
-    # Start by filling the template dict with NaN values so we can know later which cells weren't
+    # Start by filling the template dict with NaN values so we can know later which entries weren't
     # fit via a glm.
     nanarr = np.nan * np.ones(wts_per_kern)
     defaultentry = {'stimOn': nanarr, 'fdbck': nanarr, 'bias': np.nan,
@@ -106,7 +107,7 @@ def fit_session(session_id, subject_name, sessdate, batch_size, log=False):
     # We will use multi-indexing with pandas to identify fit entries.
     allfits = pd.DataFrame(allfits).set_index(['cell_name', 'stim', 'bias', 'contr'])
     # iterate through each fit, add the results to the dataframe
-    print('Converting all fits to pandas data frame')
+    print('\nConverting all fits to pandas data frame')
     for i, cond in tqdm(enumerate(condtrials.keys())):
         b, s, c = cond
         filename = f'./fits/bias_{b}_{s}Trial_{c}contrast_fit.mat'
@@ -135,9 +136,9 @@ def fit_session(session_id, subject_name, sessdate, batch_size, log=False):
 if __name__ == "__main__":
     SUBJECT = 'ZM_2240'
     KEEPLOGS = False
-    BATCH_SIZE = 15  # Number of parallel fits
-    DATE = '2020-01-21'
+    BATCH_SIZE = 12  # Number of parallel fits
+    DATE = '2020-01-23'
     one = one.ONE()
     ids = one.search(subject=SUBJECT, date_range=[DATE, DATE],
                      dataset_types=['spikes.clusters'])
-    fit_session(ids[0], SUBJECT, DATE, BATCH_SIZE)
+    fit_session(ids[0], SUBJECT, DATE, BATCH_SIZE, log=KEEPLOGS)

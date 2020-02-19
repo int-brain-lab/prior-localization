@@ -5,7 +5,7 @@ disp(strcat('Fitting file:', trialfilename))
 mintrials = 8;
 wts_per_kern = 10;
 trialdata = load(trialfilename);
-expt = buildGLM.initExperiment('s', 0.025, trialdata.subject_name, 'brainwide_map');
+expt = buildGLM.initExperiment('s', 0.02, trialdata.subject_name, 'brainwide_map');
 expt = buildGLM.registerTiming(expt, 'stimOn', 'stimulus on time');
 expt = buildGLM.registerTiming(expt, 'feedback_t', 'Time feedback was administered');
 
@@ -31,7 +31,7 @@ for i = 1:length(cell_ids)
             fitobjs.(cellname) = buildGLM.addTrial(fitobjs.(cellname), trialobj, goodtrialnum);
         catch
             disp('SOMETHING IS BROKEN')
-            continue
+            quit(1)
         end
         goodtrialnum = goodtrialnum + 1;
     end
