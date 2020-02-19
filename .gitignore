@@ -2,6 +2,7 @@
 *.mat
 *.html
 *.log
+*.png
 *.p
 /data/*_fits/
 */__pycache__/

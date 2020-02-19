@@ -59,6 +59,8 @@ def plot_cellkerns(cell, data):
                                                 label=f'bias {bias} contrast {contr}')
                     currc += 1
             axes[2 * j, i].set_title(f'{side} stimulus {kern} PSTH')
+            newlims = axes[2 * j, i].get_ylim()
+            axes[2 * j, i].set_ylim([newlims[0], newlims[1] * 1.3])  # Make sure get full PSTH
             axes[2 * j + 1, i].set_title(f'{side} stimulus, {kern} kernel')
             axes[2 * j + 1, i].legend()
     plt.tight_layout()
