@@ -47,7 +47,7 @@ def dim_red(sessid, filename, binsize=0.15, surpwind=0.6, method='umap', probe_i
                                                  'spikes.clusters',
                                                  'spikes.depths'])
     except ValueError:
-        multi_probe = True
+        # multi_probe = True
         if probe_idx is None:
             warn('Session has two probes. Defaulting to first probe. If a specific probe is '
                  'desired, pass int as argument to probe_idx')

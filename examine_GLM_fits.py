@@ -13,7 +13,7 @@ def expnd_err(errors, weights):
     expnd = []
     _ = [expnd.extend([x] * mult) for x in errors]
     if len(expnd) != weights.shape[0]:
-        diff = weights.shape[0] - len(expnd) 
+        diff = weights.shape[0] - len(expnd)
         expnd.extend([errors[-1]] * diff)
     return np.array(expnd)
 
@@ -50,8 +50,8 @@ for cell in fitcells:
     stimerr = expnd_err(cellstats[cell][:20], currwts['stimOn']['data'])
     axes[1].errorbar(currwts['stimOn']['tr'], currwts['stimOn']['data'], stimerr)
     axes[1].set_title('GLM weights for post-stimulus-on')
-    # bbp.peri_event_time_histogram(spikes, clus, rt[fittrials], cellind, t_after=0.6, t_before=0.01,
-    #                               ax=axes[2])
+    # bbp.peri_event_time_histogram(spikes, clus, rt[fittrials], cellind, t_after=0.6,
+    #                               t_before=0.01, ax=axes[2])
     # axes[2].set_title('PETH for response of animal')
     # rterr = expnd_err(cellstats[cell][10:20], currwts['resp_time']['data'])
     # axes[3].errorbar(currwts['resp_time']['tr'], currwts['resp_time']['data'], rterr)
