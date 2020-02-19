@@ -58,6 +58,6 @@ for i = 1:length(cell_ids)
     [wml, ~, ~, ~, ~, hessian] = fminunc(lfunc, wInit, opts);
     wvar = diag(inv(hessian));
     cellweights.(cellname) = buildGLM.combineWeights(dm, wml);
-    cellstats.(cellname) = wvar;
+    cellstats.(cellname) = sqrt(wvar) / goodtrialnum;
 end
 save(strcat('./fits/', sessname, '_fit.mat'), 'cellweights', 'cellstats');
