@@ -136,10 +136,10 @@ def fit_session(session_id, subject_name, sessdate, batch_size, probe_idx=0, log
 
 
 if __name__ == "__main__":
-    SUBJECT = 'ZM_2240'
+    SUBJECT = 'SWC_015'
     KEEPLOGS = False
     BATCH_SIZE = 12  # Number of parallel fits
-    DATE = '2020-01-23'
+    DATE = '2020-01-21'
     one = one.ONE()
     ids = one.search(subject=SUBJECT, date_range=[DATE, DATE],
                      dataset_types=['spikes.clusters'])
