@@ -15,6 +15,7 @@ By Berk
 
 from export_data import session_to_trials, sep_trials_conds
 import os
+# import sys
 import numpy as np
 import pandas as pd
 from oneibl import one
@@ -51,7 +52,7 @@ def fit_cond(condtrials, cond, sess_info):
     return process, lf
 
 
-def fit_session(session_id, subject_name, sessdate, batch_size, log=False):
+def fit_session(session_id, subject_name, sessdate, batch_size, probe_idx=0, log=False):
     # Take the session data and extract trial-by-trial spike times using export_data's s2tr fun
     trials, clu_ids = session_to_trials(session_id, t_after=0.5)
     # Break trials apart into different condition sets
@@ -123,7 +124,8 @@ def fit_session(session_id, subject_name, sessdate, batch_size, log=False):
         os.mkdir(f'./fits/{subject_name}')
 
     today = str(date.today())
-    subjfilepath = os.path.abspath(f'./fits/{subject_name}/{sessdate}_session_{today}_fit.p')
+    subjfilepath = os.path.abspath(f'./fits/{subject_name}/'
+                                   f'{sessdate}_session_{today}_probe{probe_idx}_fit.p')
     outdict = {'subject': subject_name, 'session_uuid': session_id, 'wts_per_kern': wts_per_kern,
                'kern_length': kern_length, 'glm_binsize': glm_binsize, 'fits': allfits}
     fw = open(subjfilepath, 'wb')

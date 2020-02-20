@@ -23,7 +23,7 @@ def remap_trialp(probs):
     return validvals[maps]
 
 
-def session_to_trials(session_id, t_before=0.2, t_after=0.6, maxlen=1.):
+def session_to_trials(session_id, probe_idx=0, t_before=0.2, t_after=0.6, maxlen=1.):
     starttimes = one.load(session_id, 'trials.stimOn_times')[0] - t_before
     endtimes = one.load(session_id, 'trials.feedback_times')[0] + t_after
     with np.errstate(invalid='ignore'):
@@ -32,7 +32,11 @@ def session_to_trials(session_id, t_before=0.2, t_after=0.6, maxlen=1.):
     if np.any(starttimes[keeptrials][1:] < endtimes[keeptrials][:-1]):
         raise ValueError("Current values of t_before and t_after result in overlapping trial "
                          "windows.")
-    spiket, clu = one.load(session_id, ['spikes.times', 'spikes.clusters'])
+    try:
+        spiket, clu = one.load(session_id, ['spikes.times', 'spikes.clusters'])
+    except ValueError:
+        spiket = one.load(session_id, ['spikes.times', 'spikes.clusters'])[probe_idx]
+        clu = one.load(session_id, ['spikes.clusters'])[probe_idx]
     clu_ids = np.unique(clu)
     trialspiking = np.zeros((clu_ids.max() + 1, np.sum(keeptrials)))
     tmp = one.load(session_id, dataset_types=trialstypes)

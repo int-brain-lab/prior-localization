@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 # Get names of subjects for which fits are available
 subjects = [x for x in os.listdir('./fits/') if os.path.isdir(f'./fits/{x}/')]
 dates = {sub: os.listdir(f'./fits/{sub}/') for sub in subjects}
+one = one.ONE()
 
 for subject in subjects:
     if not os.path.exists(f'./fits/{subject}/plots/'):
@@ -19,7 +20,6 @@ for subject in subjects:
 
         currfit = np.load(f'./fits/{subject}/{filename}', allow_pickle=True)
 
-        one = one.ONE()
         spikes, clus = one.load(currfit['session_uuid'],
                                 dataset_types=['spikes.times', 'spikes.clusters'])
         trialdf = trialinfo_to_df(currfit['session_uuid'])

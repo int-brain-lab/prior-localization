@@ -2,7 +2,7 @@ function [cellweights, cellstats] = full_fit(trialfilename)
 %FIT_TRIAL Fits GLM to all neurons in a given trial
 %   Fits a GLM using neuroGLM to the trial-by-trial data in trialfilename.
 disp(strcat('Fitting file:', trialfilename))
-mintrials = 8;
+mintrials = 5;
 wts_per_kern = 10;
 trialdata = load(trialfilename);
 expt = buildGLM.initExperiment('s', 0.02, trialdata.subject_name, 'brainwide_map');
