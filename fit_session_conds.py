@@ -29,7 +29,7 @@ from tqdm import tqdm
 
 
 wts_per_kern = 10
-kern_length = 0.6  # seconds
+kern_length = 0.8  # seconds
 glm_binsize = 0.020  # seconds
 
 
@@ -41,7 +41,7 @@ def fit_cond(condtrials, cond, sess_info):
     lf = open(logfile, 'w')
     startargs = ['matlab', '-nodisplay', '-r', ]
     startcom = 'iblglm_add2path; full_fit('
-    endcom = '); exit;'
+    endcom = f',{wts_per_kern}, {glm_binsize}, {kern_length}); exit;'
 
     outdict = {'trials': fittrials, 'subject_name': sess_info['subject'],
                'clusters': sess_info['clu_ids']}
@@ -54,7 +54,7 @@ def fit_cond(condtrials, cond, sess_info):
 
 def fit_session(session_id, subject_name, sessdate, batch_size, probe_idx=0, log=False):
     # Take the session data and extract trial-by-trial spike times using export_data's s2tr fun
-    trials, clu_ids = session_to_trials(session_id, t_after=0.5)
+    trials, clu_ids = session_to_trials(session_id, t_after=kern_length)
     # Break trials apart into different condition sets
     condtrials = sep_trials_conds(trials)
     condkeys = list(condtrials.keys())
@@ -136,10 +136,10 @@ def fit_session(session_id, subject_name, sessdate, batch_size, probe_idx=0, log
 
 
 if __name__ == "__main__":
-    SUBJECT = 'SWC_015'
+    SUBJECT = 'ZM_2240'
     KEEPLOGS = False
     BATCH_SIZE = 12  # Number of parallel fits
-    DATE = '2020-01-21'
+    DATE = '2020-01-23'
     one = one.ONE()
     ids = one.search(subject=SUBJECT, date_range=[DATE, DATE],
                      dataset_types=['spikes.clusters'])

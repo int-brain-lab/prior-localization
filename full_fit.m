@@ -1,11 +1,11 @@
-function [cellweights, cellstats] = full_fit(trialfilename)
+function [cellweights, cellstats] = full_fit(trialfilename, wts_per_kern, binw, kernlen)
 %FIT_TRIAL Fits GLM to all neurons in a given trial
 %   Fits a GLM using neuroGLM to the trial-by-trial data in trialfilename.
 disp(strcat('Fitting file:', trialfilename))
 mintrials = 5;
-wts_per_kern = 10;
+
 trialdata = load(trialfilename);
-expt = buildGLM.initExperiment('s', 0.02, trialdata.subject_name, 'brainwide_map');
+expt = buildGLM.initExperiment('s', binw, trialdata.subject_name, 'brainwide_map');
 expt = buildGLM.registerTiming(expt, 'stimOn', 'stimulus on time');
 expt = buildGLM.registerTiming(expt, 'feedback_t', 'Time feedback was administered');
 
@@ -23,7 +23,7 @@ for i = 1:length(cell_ids)
         if isempty(currtrial.spikes(currtrial.clu == cell_ids(i)))
             continue
         end
-        trialobj = buildGLM.newTrial(fitobjs.(cellname), 0.5 + currtrial.feedback_times);
+        trialobj = buildGLM.newTrial(fitobjs.(cellname), kernlen + currtrial.feedback_times);
         trialobj.stimOn = currtrial.stimOn_times;
         trialobj.feedback_t = currtrial.feedback_times;
         trialobj.(cellname) = currtrial.spikes(currtrial.clu == cell_ids(i));
@@ -40,13 +40,13 @@ for i = 1:length(cell_ids)
         continue
     end
     dspec = buildGLM.initDesignSpec(fitobjs.(cellname));
-    bs = basisFactory.makeSmoothTemporalBasis('raised cosine', 0.6, wts_per_kern, expt.binfun);
+    bs = basisFactory.makeSmoothTemporalBasis('raised cosine', kernlen, wts_per_kern, expt.binfun);
     dspec = buildGLM.addCovariateTiming(dspec, 'stimOn', 'stimOn', 'Stimulus on', bs);
     dspec = buildGLM.addCovariateTiming(dspec, 'feedback_t', 'feedback_t', 'feedback time', bs);
     dm = buildGLM.compileSparseDesignMatrix(dspec, 1:goodtrialnum - 1);
     dm = buildGLM.removeConstantCols(dm);
     dm = buildGLM.addBiasColumn(dm);  % comment this out if using GLMfit
-    if nnz(dm.X) / numel(dm.X) > 0.70
+    if nnz(dm.X) / numel(dm.X) > 0.20
         dm.X = full(dm.X);
     end
     disp(strcat('fitting :', cellname));
@@ -58,6 +58,6 @@ for i = 1:length(cell_ids)
     [wml, ~, ~, ~, ~, hessian] = fminunc(lfunc, wInit, opts);
     wvar = diag(inv(hessian));
     cellweights.(cellname) = buildGLM.combineWeights(dm, wml);
-    cellstats.(cellname) = sqrt(wvar) / goodtrialnum;
+    cellstats.(cellname) = sqrt(wvar);
 end
 save(strcat('./fits/', sessname, '_fit.mat'), 'cellweights', 'cellstats');

@@ -7,7 +7,8 @@ import seaborn as sns
 
 def err_wght_sync(errors, weights):
     if len(weights) % len(errors) != 0:
-        raise ValueError('Weight len isn\'t a full multiple of stats len. '
+        raise ValueError(f'Weight len {len(weights)} isn\'t a full multiple'
+                         f'of stats len {len(errors)}. '
                          'Make sure when fitting that the binsize and number of weights results'
                          ' in a whole-number multiple of kernel length and parameters.')
     mult = np.round(len(weights) / len(errors)).astype(int)
@@ -43,7 +44,7 @@ def plot_cellkerns(cell, data):
                     if contr == 'Zero':
                         filt1 = tdf[f'contrast{side}'] == 0
                     else:
-                        filt1 = tdf[f'contrast{side}'] != 0
+                        filt1 = np.isfinite(tdf[f'contrast{side}'])
                     filt2 = tdf['probabilityLeft'] == bias
                     event_t = tdf[filt1 & filt2][kernmap[kern]]
                     bbp.peri_event_time_histogram(spikes, clus, event_t, int(cell[4:]), t_before=0,
