@@ -13,7 +13,7 @@ This is ugly and should be improved soon.
 By Berk
 """
 
-from export_data import session_to_trials, sep_trials_conds
+from export_funs import session_to_trials, sep_trials_conds
 import os
 # import sys
 import numpy as np
