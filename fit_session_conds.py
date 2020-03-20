@@ -14,6 +14,7 @@ By Berk
 """
 
 from export_funs import session_to_trials, sep_trials_conds
+from prior_funcs import fit_sess_psytrack
 import os
 # import sys
 import numpy as np
@@ -52,7 +53,8 @@ def fit_cond(condtrials, cond, sess_info):
     return process, lf
 
 
-def fit_session(session_id, subject_name, sessdate, batch_size, probe_idx=0, log=False):
+def fit_session(session_id, subject_name, sessdate, batch_size,
+                prior_estimate='psytrack', probe_idx=0, log=False):
     # Take the session data and extract trial-by-trial spike times using export_data's s2tr fun
     trials, clu_ids = session_to_trials(session_id, t_after=kern_length)
     # Break trials apart into different condition sets
@@ -60,6 +62,15 @@ def fit_session(session_id, subject_name, sessdate, batch_size, probe_idx=0, log
     condkeys = list(condtrials.keys())
     numkeys = len(condkeys)
     sess_info = {'subject': subject_name, 'clu_ids': clu_ids}
+    if prior_estimate == 'psytrack':
+        wts, stds = fit_sess_psytrack(session_id)
+        prior_est = (wts[0] - wts[0].min()) / (wts[0] - wts[0].min()).max()
+    for cond in condtrials:
+        for trial in condtrials[cond]:
+            if trial['trialnum'] == 0:
+                del trial
+                continue
+            trial['prior'] = prior_est[trial['trialnum'] - 1]
     # Empty lists to store processes running fits and the logs they produce in
     procs = []
     logs = []

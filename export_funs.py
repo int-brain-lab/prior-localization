@@ -28,6 +28,7 @@ def session_to_trials(session_id, probe_idx=0, t_before=0.2, t_after=0.6, maxlen
     endtimes = one.load(session_id, 'trials.feedback_times')[0] + t_after
     with np.errstate(invalid='ignore'):
         keeptrials = (endtimes - starttimes) <= maxlen + t_before + t_after
+        trialinds = np.nonzero(keeptrials)[0]
     # Check to see if t_before and t_after result in overlapping trial windows
     if np.any(starttimes[keeptrials][1:] < endtimes[keeptrials][:-1]):
         raise ValueError("Current values of t_before and t_after result in overlapping trial "
@@ -56,6 +57,7 @@ def session_to_trials(session_id, probe_idx=0, t_before=0.2, t_after=0.6, maxlen
                      for x in trialdata}
         trialdict['spikes'] = spiket[startind:endind] - start
         trialdict['clu'] = clu[startind:endind]
+        trialdict['trialnum'] = trialinds[i]
         trials.append(trialdict)
     return trials, clu_ids
 
@@ -69,6 +71,7 @@ def trialinfo_to_df(session_id, maxlen=1.8):
     trialdata = {x.split('.')[1]: tmp[i][keeptrials] for i, x in enumerate(trialstypes)}
     trialdata['probabilityLeft'] = remap_trialp(trialdata['probabilityLeft'])
     trialdf = pd.DataFrame(trialdata)
+    trialdf.set_index(np.nonzero(keeptrials)[0], inplace=True)
     return trialdf
 
 
