@@ -8,6 +8,7 @@ trialdata = load(trialfilename);
 expt = buildGLM.initExperiment('s', binw, trialdata.subject_name, 'brainwide_map');
 expt = buildGLM.registerTiming(expt, 'stimOn', 'stimulus on time');
 expt = buildGLM.registerTiming(expt, 'feedback_t', 'Time feedback was administered');
+expt = buildGLM.registerValue(expt, 'prior', 'Prior estimate')
 
 cell_ids = trialdata.clusters;
 fitobjs = struct;
@@ -26,6 +27,7 @@ for i = 1:length(cell_ids)
         trialobj = buildGLM.newTrial(fitobjs.(cellname), kernlen + currtrial.feedback_times);
         trialobj.stimOn = currtrial.stimOn_times;
         trialobj.feedback_t = currtrial.feedback_times;
+        trialobj.prior = currtrial.prior;
         trialobj.(cellname) = currtrial.spikes(currtrial.clu == cell_ids(i));
         try
             fitobjs.(cellname) = buildGLM.addTrial(fitobjs.(cellname), trialobj, goodtrialnum);
@@ -43,6 +45,7 @@ for i = 1:length(cell_ids)
     bs = basisFactory.makeSmoothTemporalBasis('raised cosine', kernlen, wts_per_kern, expt.binfun);
     dspec = buildGLM.addCovariateTiming(dspec, 'stimOn', 'stimOn', 'Stimulus on', bs);
     dspec = buildGLM.addCovariateTiming(dspec, 'feedback_t', 'feedback_t', 'feedback time', bs);
+    dspec = buildGLM.addCovariateBoxcar(dspec, 'prior', 'stimOn', 'feedback_t', 'Prior estimate')
     dm = buildGLM.compileSparseDesignMatrix(dspec, 1:goodtrialnum - 1);
     dm = buildGLM.removeConstantCols(dm);
     dm = buildGLM.addBiasColumn(dm);  % comment this out if using GLMfit

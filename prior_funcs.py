@@ -52,7 +52,7 @@ def fit_sess_psytrack(session):
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     one = one.ONE()
-    session = one.search(subject='ZM_2240', date_range=['2020-01-23', '2020-01-23'],
+    session = one.search(subject='CSHL060', date_range=['2020-03-09', '2020-03-09'],
                          dataset_types=['spikes.clusters'])[0]
     wMode, std = fit_sess_psytrack(session)
     trialnumbers = np.arange(1, wMode.shape[1] + 1)

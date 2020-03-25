@@ -1,3 +1,9 @@
+"""
+Functions for loading and exporting data into various formats, particularly for transferring data
+to MATLAB, and for breaking data into trial-wise representations (with or without spiking data)
+
+By Berk Gercek, Spring 2020
+"""
 from oneibl import one
 import numpy as np
 import pandas as pd
@@ -23,50 +29,74 @@ def remap_trialp(probs):
     return validvals[maps]
 
 
-def session_to_trials(session_id, probe_idx=0, t_before=0.2, t_after=0.6, maxlen=1.):
+def session_trialwise(session_id, probe_idx=0, t_before=0.2, t_after=0.6):
+    '''
+    Utility function for loading a session from Alyx in a trial-wise format. All times are relative
+    to trial start time, as defined by stim on time. Returns a list of dicts in which each element
+    is the information about a single trial.
+    '''
+    # Load trial start and end times
     starttimes = one.load(session_id, 'trials.stimOn_times')[0] - t_before
     endtimes = one.load(session_id, 'trials.feedback_times')[0] + t_after
-    with np.errstate(invalid='ignore'):
-        keeptrials = (endtimes - starttimes) <= maxlen + t_before + t_after
-        trialinds = np.nonzero(keeptrials)[0]
     # Check to see if t_before and t_after result in overlapping trial windows
-    if np.any(starttimes[keeptrials][1:] < endtimes[keeptrials][:-1]):
+    if np.any(starttimes[1:] < endtimes[:-1]):
         raise ValueError("Current values of t_before and t_after result in overlapping trial "
                          "windows.")
+    # Load spikes. Throws an error if it is a multi-probe session. Pass probe index in that case.
     try:
         spiket, clu = one.load(session_id, ['spikes.times', 'spikes.clusters'])
     except ValueError:
         spiket = one.load(session_id, ['spikes.times', 'spikes.clusters'])[probe_idx]
         clu = one.load(session_id, ['spikes.clusters'])[probe_idx]
+    # Get cluster ids
     clu_ids = np.unique(clu)
-    trialspiking = np.zeros((clu_ids.max() + 1, np.sum(keeptrials)))
+    # Array indicating whether cluster i spiked during trial j
+    trialspiking = np.zeros((clu_ids.max() + 1, len(starttimes)))
+    # Container for all trial type objects
     tmp = one.load(session_id, dataset_types=trialstypes)
-    trialdata = {x.split('.')[1]: tmp[i][keeptrials] for i, x in enumerate(trialstypes)}
-
+    # Break container out into a dict with labels
+    trialdata = {x.split('.')[1]: tmp[i] for i, x in enumerate(trialstypes)}
+    # Fix weird block probabilities in some sessions
     trialdata['probabilityLeft'] = remap_trialp(trialdata['probabilityLeft'])
 
+    # Run a sliding window through the length of a trial, assigning spikes to the appropriate
+    # trial identity. endlast is the last spike time before the trial ended.
     endlast = 0
     trials = []
-    for i, (start, end) in enumerate(np.vstack((starttimes, endtimes)).T[keeptrials]):
+    for i, (start, end) in enumerate(np.vstack((starttimes, endtimes)).T):
         startind = np.searchsorted(spiket[endlast:], start) + endlast
         endind = np.searchsorted(spiket[endlast:], end, side='right') + endlast
         endlast = endind
+        # Find which clusters spiked during a trial, and set the i,j element of trialspiking to 1
+        # for those clusters which fired a spike.
         trial_clu = np.unique(clu[startind:endind])
         trialspiking[trial_clu, i] = 1
+        # Build a dict of relevant information for the given trial
         trialdict = {x: (trialdata[x][i] if x[-5:] != 'times' else trialdata[x][i] - start)
                      for x in trialdata}
+        # Align spike times s.t. trial start = 0
         trialdict['spikes'] = spiket[startind:endind] - start
+        # Clusters for spikes
         trialdict['clu'] = clu[startind:endind]
-        trialdict['trialnum'] = trialinds[i]
+        # Actual trial number
+        trialdict['trialnum'] = i
         trials.append(trialdict)
     return trials, clu_ids
 
 
-def trialinfo_to_df(session_id, maxlen=1.8):
+def trialinfo_to_df(session_id, maxlen=None):
+    '''
+    Takes all trial-related data types out of Alyx and stores them in a pandas dataframe, with an
+    optional limit on the length of trials. Will retain trial numbers from the experiment as
+    indices for reference.
+    '''
     starttimes = one.load(session_id, 'trials.stimOn_times')[0]
     endtimes = one.load(session_id, 'trials.feedback_times')[0]
-    with np.errstate(invalid='ignore'):
-        keeptrials = (endtimes - starttimes) <= maxlen
+    if maxlen is not None:
+        with np.errstate(invalid='ignore'):
+            keeptrials = (endtimes - starttimes) <= maxlen
+    else:
+        keeptrials = range(len(starttimes))
     tmp = one.load(session_id, dataset_types=trialstypes)
     trialdata = {x.split('.')[1]: tmp[i][keeptrials] for i, x in enumerate(trialstypes)}
     trialdata['probabilityLeft'] = remap_trialp(trialdata['probabilityLeft'])
@@ -76,6 +106,16 @@ def trialinfo_to_df(session_id, maxlen=1.8):
 
 
 def sep_trials_conds(trials):
+    '''
+    Separate trials (passed as a list of dicts) into different IBL-task conditions, and returns
+    trials in a dict with conditions being the keys. Condition key is product of:
+
+    Contrast: Nonzero or Zero
+    Bias block: P(Left) = [0.2, 0.5, 0.8]
+    Stimulus side: ['Left', 'Right']
+
+    example key is ('Nonzero', 0.5, 'Right')
+    '''
     df = pd.DataFrame(trials)
     contr = {'Nonzero': [1., 0.25, 0.125, 0.0625], 'Zero': [0., ]}
     bias = [0.2, 0.5, 0.8]
@@ -86,3 +126,22 @@ def sep_trials_conds(trials):
         trialinds = df[np.isin(df['contrast' + s], contr[c]) & (df['probabilityLeft'] == b)].index
         condtrials[(b, s, c)] = [x for i, x in enumerate(trials) if i in trialinds]
     return condtrials
+
+
+def filter_trials(trials, clu_ids, max_len=2., recomp_clusters=True):
+    keeptrials = []
+    if recomp_clusters:
+        newclu = np.zeros(clu_ids.max() + 1)
+    for i, trial in enumerate(trials):
+        if trial['feedback_times'] - trial['stimOn_times'] > max_len:
+            continue
+        else:
+            keeptrials.append(trial)
+            if recomp_clusters:
+                trialclu = np.unique(trial['clu'])
+                newclu[trialclu] = 1
+    if recomp_clusters:
+        filtered_clu = np.nonzero(newclu)[0]
+        return keeptrials, filtered_clu
+    else:
+        return keeptrials

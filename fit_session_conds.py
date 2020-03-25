@@ -13,7 +13,7 @@ This is ugly and should be improved soon.
 By Berk
 """
 
-from export_funs import session_to_trials, sep_trials_conds
+from export_funs import session_trialwise, sep_trials_conds, filter_trials
 from prior_funcs import fit_sess_psytrack
 import os
 # import sys
@@ -54,9 +54,10 @@ def fit_cond(condtrials, cond, sess_info):
 
 
 def fit_session(session_id, subject_name, sessdate, batch_size,
-                prior_estimate='psytrack', probe_idx=0, log=False):
+                prior_estimate='psytrack', max_len=2., probe_idx=0, log=False):
     # Take the session data and extract trial-by-trial spike times using export_data's s2tr fun
-    trials, clu_ids = session_to_trials(session_id, t_after=kern_length)
+    trials, clu_ids = session_trialwise(session_id, t_after=kern_length)
+    trials, clu_ids = filter_trials(trials, clu_ids, max_len)  
     # Break trials apart into different condition sets
     condtrials = sep_trials_conds(trials)
     condkeys = list(condtrials.keys())
@@ -64,7 +65,7 @@ def fit_session(session_id, subject_name, sessdate, batch_size,
     sess_info = {'subject': subject_name, 'clu_ids': clu_ids}
     if prior_estimate == 'psytrack':
         wts, stds = fit_sess_psytrack(session_id)
-        prior_est = (wts[0] - wts[0].min()) / (wts[0] - wts[0].min()).max()
+        prior_est = wts[0]
     for cond in condtrials:
         for trial in condtrials[cond]:
             if trial['trialnum'] == 0:
