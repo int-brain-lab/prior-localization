@@ -30,7 +30,7 @@ from tqdm import tqdm
 
 
 wts_per_kern = 10
-kern_length = 0.8  # seconds
+kern_length = 0.6  # seconds
 glm_binsize = 0.020  # seconds
 
 
@@ -57,21 +57,21 @@ def fit_session(session_id, subject_name, sessdate, batch_size,
                 prior_estimate='psytrack', max_len=2., probe_idx=0, log=False):
     # Take the session data and extract trial-by-trial spike times using export_data's s2tr fun
     trials, clu_ids = session_trialwise(session_id, t_after=kern_length)
-    trials, clu_ids = filter_trials(trials, clu_ids, max_len)  
+    trials, clu_ids = filter_trials(trials, clu_ids, max_len)
     # Break trials apart into different condition sets
     condtrials = sep_trials_conds(trials)
     condkeys = list(condtrials.keys())
     numkeys = len(condkeys)
     sess_info = {'subject': subject_name, 'clu_ids': clu_ids}
     if prior_estimate == 'psytrack':
-        wts, stds = fit_sess_psytrack(session_id)
-        prior_est = wts[0]
+        wts, stds = fit_sess_psytrack(session_id, maxlength=max_len, as_df=True)
+        prior_est = wts['bias']
     for cond in condtrials:
         for trial in condtrials[cond]:
             if trial['trialnum'] == 0:
-                del trial
                 continue
-            trial['prior'] = prior_est[trial['trialnum'] - 1]
+            trial['prior'] = prior_est.loc[trial['trialnum']]
+        condtrials[cond] = list(filter(lambda x: x['trialnum'] != 0, condtrials[cond]))
     # Empty lists to store processes running fits and the logs they produce in
     procs = []
     logs = []
@@ -108,8 +108,8 @@ def fit_session(session_id, subject_name, sessdate, batch_size,
     # Start by filling the template dict with NaN values so we can know later which entries weren't
     # fit via a glm.
     nanarr = np.nan * np.ones(wts_per_kern)
-    defaultentry = {'stimOn': nanarr, 'fdbck': nanarr, 'bias': np.nan,
-                    'stimOnStat': nanarr, 'fdbckStat': nanarr, 'biasStat': np.nan}
+    defaultentry = {'stimOn': nanarr, 'fdbck': nanarr, 'prior': np.nan,
+                    'stimOnStat': nanarr, 'fdbckStat': nanarr, 'priorStat': np.nan}
     allfits = []
     for clu in clu_ids:
         for b, s, c in condtrials.keys():
@@ -128,9 +128,10 @@ def fit_session(session_id, subject_name, sessdate, batch_size,
         for cell in fit['cellweights']:
             allfits.loc[cell, s, b, c] = (fit['cellweights'][cell]['stimOn']['data'],
                                           fit['cellweights'][cell]['feedback_t']['data'],
+                                          fit['cellweights'][cell]['prior']['data'],
                                           fit['cellstats'][cell][:wts_per_kern],
-                                          fit['cellstats'][cell][wts_per_kern:-1],
-                                          fit['cellstats'][cell][-1])
+                                          fit['cellstats'][cell][wts_per_kern:-2],
+                                          fit['cellstats'][cell][-2])
 
     if not os.path.exists(os.path.abspath(f'./fits/{subject_name}')):
         os.mkdir(f'./fits/{subject_name}')
@@ -150,7 +151,7 @@ def fit_session(session_id, subject_name, sessdate, batch_size,
 if __name__ == "__main__":
     SUBJECT = 'ZM_2240'
     KEEPLOGS = False
-    BATCH_SIZE = 12  # Number of parallel fits
+    BATCH_SIZE = 4  # Number of parallel fits
     DATE = '2020-01-23'
     one = one.ONE()
     ids = one.search(subject=SUBJECT, date_range=[DATE, DATE],

@@ -8,7 +8,7 @@ trialdata = load(trialfilename);
 expt = buildGLM.initExperiment('s', binw, trialdata.subject_name, 'brainwide_map');
 expt = buildGLM.registerTiming(expt, 'stimOn', 'stimulus on time');
 expt = buildGLM.registerTiming(expt, 'feedback_t', 'Time feedback was administered');
-expt = buildGLM.registerValue(expt, 'prior', 'Prior estimate')
+expt = buildGLM.registerValue(expt, 'prior', 'Prior estimate');
 
 cell_ids = trialdata.clusters;
 fitobjs = struct;
@@ -42,10 +42,15 @@ for i = 1:length(cell_ids)
         continue
     end
     dspec = buildGLM.initDesignSpec(fitobjs.(cellname));
-    bs = basisFactory.makeSmoothTemporalBasis('raised cosine', kernlen, wts_per_kern, expt.binfun);
+    binfun = expt.binfun;
+    bs = basisFactory.makeSmoothTemporalBasis('raised cosine', kernlen, wts_per_kern, binfun);
     dspec = buildGLM.addCovariateTiming(dspec, 'stimOn', 'stimOn', 'Stimulus on', bs);
     dspec = buildGLM.addCovariateTiming(dspec, 'feedback_t', 'feedback_t', 'feedback time', bs);
-    dspec = buildGLM.addCovariateBoxcar(dspec, 'prior', 'stimOn', 'feedback_t', 'Prior estimate')
+    % Make boxcar associated with the value of the prior estimate for that trial
+    bs2 = basisFactory.makeSmoothTemporalBasis('boxcar', kernlen, 1, binfun);
+    stimHandle = @(trials, expt) trials.prior * basisFactory.boxcarStim(binfun(trials.stimOn), ...
+        binfun(trials.feedback_t), binfun(trials.feedback_t + kernlen));
+    dspec = buildGLM.addCovariate(dspec, 'prior', 'prior effect on activity', stimHandle, bs2);
     dm = buildGLM.compileSparseDesignMatrix(dspec, 1:goodtrialnum - 1);
     dm = buildGLM.removeConstantCols(dm);
     dm = buildGLM.addBiasColumn(dm);  % comment this out if using GLMfit

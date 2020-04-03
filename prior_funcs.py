@@ -1,11 +1,12 @@
 from psytrack.hyperOpt import hyperOpt
 import numpy as np
+import pandas as pd
 from oneibl import one
 from export_funs import trialinfo_to_df
 import os
 
 
-def fit_sess_psytrack(session, maxlength=2.5):
+def fit_sess_psytrack(session, maxlength=2.5, normfac=5., as_df=False):
     '''
     Use Nick's Psytrack code to fit a session. Very slow to run.
 
@@ -37,6 +38,9 @@ def fit_sess_psytrack(session, maxlength=2.5):
     # sL = np.vstack((sL[1:], sL[:-1])).T  # Add a history term going back 1 trial
     sR = tmp.contrastRight.apply(np.nan_to_num).values[1:].reshape(-1, 1)
     # sR = np.vstack((sR[1:], sR[:-1])).T  # History term is prior value of contr on that side
+    if normfac is not None:
+        sL = np.tanh(normfac * sL) / np.tanh(normfac)
+        sR = np.tanh(normfac * sR) / np.tanh(normfac)
 
     data = {'inputs': {'sL': sL, 'sR': sR},
             'y': choices, }
@@ -47,6 +51,8 @@ def fit_sess_psytrack(session, maxlength=2.5):
                    'sigDay': None}
     opt_list = ['sigma']
     hyp, evd, wMode, hess = hyperOpt(data, hyper_guess, weights, opt_list)
+    if as_df:
+        wMode = pd.DataFrame(wMode.T, index=trialdf.index[1:], columns=['left', 'right', 'bias'])
     return wMode, hess['W_std']
 
 
