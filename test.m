@@ -1,6 +1,7 @@
-function [cellweights, cellstats] = full_fit(trialfilename, wts_per_kern, binw, kernlen)
-%FIT_TRIAL Fits GLM to all neurons in a given trial
-%   Fits a GLM using neuroGLM to the trial-by-trial data in trialfilename.
+trialfilename = './data/bias_0.2_LeftTrial_Nonzerocontrast.mat';
+kernlen = 0.6;
+wts_per_kern = 10;
+binw = 0.02;
 disp(strcat('Fitting file:', trialfilename))
 mintrials = 5;
 
@@ -53,7 +54,7 @@ for i = 1:length(cell_ids)
     dspec = buildGLM.addCovariate(dspec, 'prior', 'prior effect on activity', stimHandle, bs2);
     dm = buildGLM.compileSparseDesignMatrix(dspec, 1:goodtrialnum - 1);
     dm = buildGLM.removeConstantCols(dm);
-    % dm = buildGLM.addBiasColumn(dm);  % comment this out if using GLMfit
+    dm = buildGLM.addBiasColumn(dm);  % comment this out if using GLMfit
     if nnz(dm.X) / numel(dm.X) > 0.20
         dm.X = full(dm.X);
     end
@@ -68,4 +69,4 @@ for i = 1:length(cell_ids)
     cellweights.(cellname) = buildGLM.combineWeights(dm, wml);
     cellstats.(cellname) = sqrt(wvar);
 end
-save(strcat('./fits/', sessname, '_fit.mat'), 'cellweights', 'cellstats');
+% save(strcat('./fits/', sessname, '_fit.mat'), 'cellweights', 'cellstats');

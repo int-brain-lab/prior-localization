@@ -45,8 +45,8 @@ def fit_sess_psytrack(session, maxlength=2.5, normfac=5., as_df=False):
     data = {'inputs': {'sL': sL, 'sR': sR},
             'y': choices, }
     weights = {'bias': 1, 'sL': 1, 'sR': 1}
-    K = np.sum(list(weights.values()))
-    hyper_guess = {'sigma': [2**-5] * K,
+    # K = np.sum(list(weights.values()))
+    hyper_guess = {'sigma': 2**-5,
                    'sigInit': 2**5,
                    'sigDay': None}
     opt_list = ['sigma']

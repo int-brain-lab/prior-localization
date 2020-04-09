@@ -108,7 +108,7 @@ def fit_session(session_id, subject_name, sessdate, batch_size,
     # Start by filling the template dict with NaN values so we can know later which entries weren't
     # fit via a glm.
     nanarr = np.nan * np.ones(wts_per_kern)
-    defaultentry = {'stimOn': nanarr, 'fdbck': nanarr, 'prior': np.nan,
+    defaultentry = {'stimOn': nanarr, 'fdbck': nanarr, 'prior': nanarr,
                     'stimOnStat': nanarr, 'fdbckStat': nanarr, 'priorStat': np.nan}
     allfits = []
     for clu in clu_ids:
@@ -130,8 +130,8 @@ def fit_session(session_id, subject_name, sessdate, batch_size,
                                           fit['cellweights'][cell]['feedback_t']['data'],
                                           fit['cellweights'][cell]['prior']['data'],
                                           fit['cellstats'][cell][:wts_per_kern],
-                                          fit['cellstats'][cell][wts_per_kern:-2],
-                                          fit['cellstats'][cell][-2])
+                                          fit['cellstats'][cell][wts_per_kern:-1],
+                                          fit['cellstats'][cell][-1])
 
     if not os.path.exists(os.path.abspath(f'./fits/{subject_name}')):
         os.mkdir(f'./fits/{subject_name}')

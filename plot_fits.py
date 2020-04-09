@@ -1,6 +1,6 @@
 import os
 from fitplot_funs import plot_cellkerns, get_fullfit_cells
-from export_data import trialinfo_to_df
+from export_funs import trialinfo_to_df
 import numpy as np
 from oneibl import one
 import matplotlib.pyplot as plt
@@ -16,6 +16,8 @@ for subject in subjects:
     if not os.path.exists(f'./fits/{subject}/plots/'):
         os.mkdir(f'./fits/{subject}/plots')
     for filename in dates[subject]:
+        if filename.split('.')[-1] != 'p':
+            continue
         if os.path.isdir(f'./fits/{subject}/{filename}'):
             continue
         print(f'Working on {subject} : {filename}')

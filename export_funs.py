@@ -101,7 +101,8 @@ def trialinfo_to_df(session_id, maxlen=None):
     trialdata = {x.split('.')[1]: tmp[i][keeptrials] for i, x in enumerate(trialstypes)}
     trialdata['probabilityLeft'] = remap_trialp(trialdata['probabilityLeft'])
     trialdf = pd.DataFrame(trialdata)
-    trialdf.set_index(np.nonzero(keeptrials)[0], inplace=True)
+    if maxlen is not None:
+        trialdf.set_index(np.nonzero(keeptrials)[0], inplace=True)
     return trialdf
 
 
