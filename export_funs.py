@@ -22,7 +22,7 @@ trialstypes = ['trials.choice',
 
 
 def remap_trialp(probs):
-    # Block probabilities in trial data aren't accurate and need to be remapped 🙄
+    # Block probabilities in trial data aren't accurate and need to be remapped
     validvals = np.array([0.2, 0.5, 0.8])
     diffs = np.abs(np.array([x - validvals for x in probs]))
     maps = diffs.argmin(axis=1)
