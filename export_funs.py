@@ -46,7 +46,7 @@ def session_trialwise(session_id, probe_idx=0, t_before=0.2, t_after=0.6):
     try:
         spiket, clu = one.load(session_id, ['spikes.times', 'spikes.clusters'])
     except ValueError:
-        spiket = one.load(session_id, ['spikes.times', 'spikes.clusters'])[probe_idx]
+        spiket = one.load(session_id, ['spikes.times'])[probe_idx]
         clu = one.load(session_id, ['spikes.clusters'])[probe_idx]
     # Get cluster ids
     clu_ids = np.unique(clu)

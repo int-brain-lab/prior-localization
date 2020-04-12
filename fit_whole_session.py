@@ -30,7 +30,8 @@ t_bef = 0.4
 
 def fit_session(session_id, subject_name, sessdate, prior_estimate='psytrack',
                 max_len=2., probe_idx=0, logging=False):
-    trials, clu_ids = session_trialwise(session_id, t_before=t_bef, t_after=kern_length)
+    trials, clu_ids = session_trialwise(session_id, t_before=t_bef, t_after=kern_length,
+                                        probe_idx=probe_idx)
     trials, clu_ids = filter_trials(trials, clu_ids, max_len)
     if prior_estimate == 'psytrack':
         print('Fitting psytrack model...')
@@ -106,7 +107,8 @@ def fit_session(session_id, subject_name, sessdate, prior_estimate='psytrack',
     subjfilepath = os.path.abspath(f'./fits/{subject_name}/'
                                    f'{sessdate}_session_{today}_probe{probe_idx}_fit.p')
     outdict = {'subject': subject_name, 'session_uuid': session_id, 'wts_per_kern': wts_per_kern,
-               'kern_length': kern_length, 'glm_binsize': glm_binsize, 'fits': allfits}
+               'kern_length': kern_length, 'glm_binsize': glm_binsize,
+               'prior_est': prior_est, 'probe_idx': probe_idx, 'fits': allfits}
     fw = open(subjfilepath, 'wb')
     pickle.dump(outdict, fw)
     fw.close()
@@ -117,7 +119,7 @@ def fit_session(session_id, subject_name, sessdate, prior_estimate='psytrack',
 if __name__ == "__main__":
     SUBJECT = 'ZM_2240'
     KEEPLOGS = True
-    DATE = '2020-01-23'
+    DATE = '2020-01-22'
     one = one.ONE()
     ids = one.search(subject=SUBJECT, date_range=[DATE, DATE],
                      dataset_types=['spikes.clusters'])
