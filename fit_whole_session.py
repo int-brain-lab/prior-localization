@@ -97,8 +97,7 @@ def fit_session(session_id, subject_name, sessdate, prior_estimate='psytrack',
                              fits['cellstats'][cell][wts_per_kern: 2 * wts_per_kern],
                              fits['cellstats'][cell][2 * wts_per_kern: 3 * wts_per_kern],
                              fits['cellstats'][cell][3 * wts_per_kern: 4 * wts_per_kern],
-                             fits['cellstats'][cell][-2],
-                             fits['cellstats'][cell][-1],)
+                             fits['cellstats'][cell][-2],)
 
     if not os.path.exists(os.path.abspath(f'./fits/{subject_name}')):
         os.mkdir(f'./fits/{subject_name}')
