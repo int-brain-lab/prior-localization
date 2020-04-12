@@ -33,6 +33,10 @@ wts_per_kern = 10
 kern_length = 0.6  # seconds
 glm_binsize = 0.020  # seconds
 
+startargs = ['matlab', '-nodisplay', '-r', ]
+startcom = 'iblglm_add2path; full_fit('
+endcom = f',{wts_per_kern}, {glm_binsize}, {kern_length}); exit;'
+
 
 def fit_cond(condtrials, cond, sess_info):
     bias, stimside, contr = cond
@@ -66,6 +70,9 @@ def fit_session(session_id, subject_name, sessdate, batch_size,
     if prior_estimate == 'psytrack':
         wts, stds = fit_sess_psytrack(session_id, maxlength=max_len, as_df=True)
         prior_est = wts['bias']
+    else:
+        raise NotImplementedError("Only psytrack estimates are currently supported")
+
     for cond in condtrials:
         for trial in condtrials[cond]:
             if trial['trialnum'] == 0:
