@@ -24,11 +24,11 @@ parfor i = 1:length(cell_ids)
     cellname = strcat('cell', num2str(cell_ids(i)));
     currfit = buildGLM.registerSpikeTrain(expt, cellname, 'neurons spikes');
     goodtrialnum = 1;
-    for j = 1:length(trialdata.trials)
+    for j = 1:length(trialdata.trials)-1
         currtrial = trialdata.trials{j};
-        if isempty(currtrial.spikes(currtrial.clu == cell_ids(i)))
-            continue
-        end
+%         if isempty(currtrial.spikes(currtrial.clu == cell_ids(i)))
+%             continue
+%         end
         trialobj = buildGLM.newTrial(currfit, kernlen + currtrial.feedback_times);
         trialobj.stimOn = currtrial.stimOn_times;
         trialobj.feedback_t = currtrial.feedback_times;
@@ -36,7 +36,10 @@ parfor i = 1:length(cell_ids)
         trialobj.reward = currtrial.feedbackType;
         tot_len = expt.binfun(trialobj.duration);
         prior_len = expt.binfun(trialobj.feedback_t);
-        trialobj.prvec = currtrial.prior .* [ones(prior_len, 1); zeros(tot_len - prior_len, 1)];
+        nextrial = trialdata.trials{j+1};
+        currvec = currtrial.prior * ones(prior_len, 1);
+        nexvec = nextrial.prior * ones(tot_len - prior_len, 1);
+        trialobj.prvec = [currvec; nexvec];
         trialobj.(cellname) = currtrial.spikes(currtrial.clu == cell_ids(i));
         if find(isfinite([currtrial.contrastLeft, currtrial.contrastRight])) == 2
             trialobj.side = 1;

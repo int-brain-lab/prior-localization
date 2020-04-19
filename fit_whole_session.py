@@ -117,10 +117,10 @@ def fit_session(session_id, subject_name, sessdate, prior_estimate='psytrack',
 
 
 if __name__ == "__main__":
-    SUBJECT = 'SWC_015'
+    SUBJECT = 'ZM_2240'
     KEEPLOGS = True
-    DATE = '2020-01-21'
+    DATE = '2020-01-22'
     one = one.ONE()
     ids = one.search(subject=SUBJECT, date_range=[DATE, DATE],
                      dataset_types=['spikes.clusters'])
-    fit_session(ids[0], SUBJECT, DATE, logging=KEEPLOGS, probe_idx=1)
+    fit_session(ids[0], SUBJECT, DATE, logging=KEEPLOGS, probe_idx=0)
