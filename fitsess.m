@@ -20,15 +20,15 @@ weights = cell(1, length(cell_ids));
 stats = cell(1, length(cell_ids));
 names = cell(1, length(cell_ids));
 [~, sessname, ~] = fileparts(trialfilename);
-parfor i = 1:length(cell_ids)
+for i = 1:length(cell_ids)
     cellname = strcat('cell', num2str(cell_ids(i)));
     currfit = buildGLM.registerSpikeTrain(expt, cellname, 'neurons spikes');
     goodtrialnum = 1;
     for j = 1:length(trialdata.trials)-1
         currtrial = trialdata.trials{j};
-%         if isempty(currtrial.spikes(currtrial.clu == cell_ids(i)))
-%             continue
-%         end
+        if isempty(currtrial.spikes(currtrial.clu == cell_ids(i)))
+            continue
+        end
         trialobj = buildGLM.newTrial(currfit, kernlen + currtrial.feedback_times);
         trialobj.stimOn = currtrial.stimOn_times;
         trialobj.feedback_t = currtrial.feedback_times;

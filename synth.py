@@ -1,5 +1,9 @@
 import numpy as np
 from numpy.random import normal
+from datetime import date
+from scipy.io import savemat
+from iofuns import loadmat
+import os
 
 
 NUMCELLS = 30
@@ -19,18 +23,22 @@ def simulate_cell(stimkern, fdbkkern, pgain, gain, num_trials=500):
     priors = np.random.choice(priorvals, size=num_trials, p=priorprobs)
     contrasts = np.random.uniform(size=num_trials)
     trialspikes = []
-    for start, end, prior, contrast in zip(stimtimes, fdbktimes, priors, contrasts):
-        trial_len = int(np.ceil((end + 0.4 + 0.6) / SIMBINSIZE))
+    trialrange = range(num_trials)
+    for i, start, end, prior, contrast in zip(trialrange, stimtimes, fdbktimes, priors, contrasts):
+        trial_len = int(np.ceil((end + 0.6) / SIMBINSIZE))
         stimarr = np.zeros(trial_len)
         fdbkarr = np.zeros(trial_len)
         stimarr[int(np.round(start / SIMBINSIZE))] = 1 * contrast
         fdbkarr[int(np.round(end / SIMBINSIZE))] = 1
-        stimarr = np.convolve(stimkern * SIMBINSIZE, stimarr)[:trial_len]
-        fdbkarr = np.convolve(fdbkkern * SIMBINSIZE, fdbkarr)[:trial_len]
+        stimarr = np.convolve(stimkern, stimarr)[:trial_len - 1]
+        fdbkarr = np.convolve(fdbkkern, fdbkarr)[:trial_len - 1]
         fdbkind = int(np.round(end / SIMBINSIZE))
-        priorarr = np.array([prior] * fdbkind + [prior + .05] * (trial_len - fdbkind))
+        try:
+            priorarr = np.array([prior] * fdbkind + [priors[i + 1]] * (trial_len - fdbkind))
+        except IndexError:
+            continue
         priorarr = pgain * priorarr
-        kernsum = priorarr + stimarr + fdbkarr
+        kernsum = priorarr[:-1] + stimarr + fdbkarr
         ratevals = (np.exp(kernsum) + gain) * SIMBINSIZE
         spikecounts = np.random.poisson(ratevals)
         spike_times = []
@@ -41,23 +49,32 @@ def simulate_cell(stimkern, fdbkkern, pgain, gain, num_trials=500):
             else:
                 curr_t = i * SIMBINSIZE
             for j in range(spikecounts[i]):
-                spike_times.append(curr_t + noisevals[j] * SIMBINSIZE / 8)
+                jitterspike = curr_t + noisevals[j] * SIMBINSIZE / 8
+                if jitterspike < 0:
+                    jitterspike = 0
+                spike_times.append(jitterspike)
         trialspikes.append(spike_times)
     return trialspikes, contrasts, priors, stimtimes, fdbktimes
 
 
 if __name__ == "__main__":
+    import matplotlib.pyplot as plt
+    # import brainbox.plot as bbp
+    from scipy.interpolate import interp1d
     cell = 'cell17'
-    gain = 10  # Hz
-    perc_corr = 0.9
-    tot_trials = 1000
+    gain = 0.1  # Hz
+    perc_corr = 0.6
+    tot_trials = 10000
     fitdata = np.load('./fits/ZM_2240/2020-01-22_session_2020-04-15_probe0_fit.p',
                       allow_pickle=True)
+    fitbinsize = 0.02
+    kernel_t = np.arange(0, 0.6, fitbinsize)
+    sim_t = np.arange(0, 0.6 - fitbinsize + 1e-10, SIMBINSIZE)
     fits = fitdata['fits']
-    stimonL_kern = fits['stim_L'][cell]
-    stimonR_kern = fits['stim_R'][cell]
-    fdbkcorr_kern = fits['fdbck_corr'][cell]
-    fdbkincorr_kern = fits['fdbck_incorr'][cell]
+    stimonL_kern = interp1d(kernel_t, fits['stim_L'][cell])(sim_t)
+    stimonR_kern = interp1d(kernel_t, fits['stim_R'][cell])(sim_t)
+    fdbkcorr_kern = interp1d(kernel_t, fits['fdbck_corr'][cell])(sim_t)
+    fdbkincorr_kern = interp1d(kernel_t, fits['fdbck_incorr'][cell])(sim_t)
     priorgain = fits['prior'][cell]
     leftcorrtrials = simulate_cell(stimonL_kern, fdbkcorr_kern, priorgain, gain,
                                    int(tot_trials * 0.5 * perc_corr))
@@ -67,4 +84,45 @@ if __name__ == "__main__":
                                     int(tot_trials * 0.5 * perc_corr))
     rightincorrtrials = simulate_cell(stimonR_kern, fdbkincorr_kern, priorgain, gain,
                                       int(tot_trials * 0.5 * (1 - perc_corr)))
-                                     
+    conds = [('Left', 1), ('Left', -1), ('Right', 1), ('Right', -1)]
+    trialdata = [leftcorrtrials, leftincorrtrials, rightcorrtrials, rightincorrtrials]
+    trials = []
+    for cond, tr in zip(conds, trialdata):
+        spikes, contr, priors, stimt, fdbkt = tr
+        for i in range(len(spikes)):
+            trialdict = {'spikes': np.array(spikes[i]),
+                         'clu': np.ones(len(spikes[i])),
+                         'contrastLeft': contr[i] if cond[0] == 'Left' else np.nan,
+                         'contrastRight': contr[i] if cond[0] == 'Right' else np.nan,
+                         'stimOn_times': stimt[i],
+                         'feedback_times': fdbkt[i],
+                         'prior': priors[i],
+                         'feedbackType': cond[1]}
+            trials.append(trialdict)
+    currdate = str(date.today())
+    outdict = {'subject_name': 'SYNTHETIC', 'trials': trials, 'clusters': np.array([1])}
+    datafile = os.path.abspath(f'./data/SYNTHETIC_{currdate}_tmp.mat')
+    savemat(datafile, outdict)
+    os.system('matlab -nodisplay -r "iblglm_add2path; '
+              f'fitsess(\'{datafile}\', 10, 0.02, 0.6); exit;"')
+    fitdata = loadmat(f'./fits/SYNTHETIC_{currdate}_tmp_fit.mat')
+    kernt = np.arange(0, 0.6, 0.02)
+    simt = np.arange(0, 0.6, SIMBINSIZE)
+    fig, axes = plt.subplots(3, 1)
+    axes[0].plot(kernt, fitdata['cellweights']['cell1']['stonL']['data'],
+                 label='recovered L')
+    axes[0].plot(sim_t, stimonL_kern, label='True L')
+    axes[0].plot(kernt, fitdata['cellweights']['cell1']['stonR']['data'], label='recovered R')
+    axes[0].plot(sim_t, stimonR_kern, label='True R')
+    axes[0].legend()
+
+    axes[1].plot(sim_t, fdbkcorr_kern, label='True correct')
+    axes[1].plot(kernt, fitdata['cellweights']['cell1']['fdbckCorr']['data'],
+                 label='recovered correct feedback')
+    axes[1].plot(sim_t, fdbkincorr_kern, label='True incorrect')
+    axes[1].plot(kernt, fitdata['cellweights']['cell1']['fdbckInc']['data'],
+                 label='recovered incorrect feedback')
+    axes[1].legend()
+
+    axes[2].bar([0, 1], [priorgain, fitdata['cellweights']['cell1']['prvec']['data']])
+    plt.savefig('/home/berk/Documents/parameter_recovery.png', dpi=800)
