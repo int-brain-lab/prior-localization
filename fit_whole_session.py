@@ -40,11 +40,12 @@ def fit_session(session_id, subject_name, sessdate, prior_estimate='psytrack',
     else:
         raise NotImplementedError('Only psytrack currently supported')
 
-    for trial in trials:
-        if trial['trialnum'] == 0:
+    for i, trial in enumerate(trials):
+        if i == 0:
+            firsttrial = trial['trialnum']
             continue
         trial['prior'] = prior_est.loc[trial['trialnum']]
-    trials = list(filter(lambda x: x['trialnum'] != 0, trials))
+    trials = list(filter(lambda x: x['trialnum'] != firsttrial, trials))
     datafile = os.path.abspath(f'./data/{subject_name}_{sessdate}_tmp.mat')
     logfile = datafile[:-4] + '.log'
     lf = open(logfile, 'w')
@@ -76,7 +77,8 @@ def fit_session(session_id, subject_name, sessdate, prior_estimate='psytrack',
 
     lf.close()
     if not logging:
-        os.system('rm ./data/' + logfile)
+        os.system('rm ' + logfile)
+        os.system('rm ' + datafile)
 
     # Coerce fit data into a pandas array
     nanarr = np.nan * np.ones(wts_per_kern)
@@ -117,10 +119,27 @@ def fit_session(session_id, subject_name, sessdate, prior_estimate='psytrack',
 
 
 if __name__ == "__main__":
-    SUBJECT = 'ZM_2240'
-    KEEPLOGS = True
-    DATE = '2020-01-22'
+    from ibl_pipeline import subject, ephys
+    from glob import glob
     one = one.ONE()
-    ids = one.search(subject=SUBJECT, date_range=[DATE, DATE],
-                     dataset_types=['spikes.clusters'])
-    fit_session(ids[0], SUBJECT, DATE, logging=KEEPLOGS, probe_idx=0)
+    sessions = subject.Subject * subject.SubjectProject *\
+        ephys.acquisition.Session * ephys.ProbeTrajectory()
+    bwm_sess = sessions & 'subject_project = "ibl_neuropixel_brainwide_01"' & \
+        'task_protocol = "_iblrig_tasks_ephysChoiceWorld6.2.5"'
+    for s in bwm_sess:
+        sess_id = str(s['session_uuid'])
+        nickname = s['subject_nickname']
+        sessdate = str(s['session_start_time'].date())
+        probe = s['probe_idx']
+        if not os.path.exists(f'./fits/{nickname}'):
+            os.mkdir(f'./fits/{nickname}')
+        subpaths = [n for n in glob(os.path.abspath(f'./fits/{nickname}/{sessdate}*_probe0_fit.p'))
+                    if os.path.isfile(n)]
+        if len(subpaths) == 0:
+            try:
+                print(f'Working on {nickname} on {sessdate} probe {probe}')
+                fit_session(sess_id, nickname, sessdate, logging=False, probe_idx=probe)
+                print(f'Subject {nickname} on {sessdate} succeeded!')
+            except Exception as err:
+                print(f'Subject {nickname} on {sessdate} failed: ', type(err), *err.args)
+                continue

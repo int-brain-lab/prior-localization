@@ -20,7 +20,8 @@ weights = cell(1, length(cell_ids));
 stats = cell(1, length(cell_ids));
 names = cell(1, length(cell_ids));
 [~, sessname, ~] = fileparts(trialfilename);
-for i = 1:length(cell_ids)
+
+parfor i = 1:length(cell_ids)
     cellname = strcat('cell', num2str(cell_ids(i)));
     currfit = buildGLM.registerSpikeTrain(expt, cellname, 'neurons spikes');
     goodtrialnum = 1;
@@ -52,7 +53,7 @@ for i = 1:length(cell_ids)
             currfit = buildGLM.addTrial(currfit, trialobj, goodtrialnum);
         catch
             disp('Something broke.')
-            quit(1)
+            continue
         end
         goodtrialnum = goodtrialnum + 1;
     end

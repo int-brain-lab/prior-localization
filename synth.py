@@ -61,10 +61,10 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     # import brainbox.plot as bbp
     from scipy.interpolate import interp1d
-    cell = 'cell17'
+    cell = 'cell232'
     gain = 0.1  # Hz
     perc_corr = 0.6
-    tot_trials = 10000
+    tot_trials = 1000
     fitdata = np.load('./fits/ZM_2240/2020-01-22_session_2020-04-15_probe0_fit.p',
                       allow_pickle=True)
     fitbinsize = 0.02

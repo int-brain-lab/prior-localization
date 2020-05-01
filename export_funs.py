@@ -64,6 +64,8 @@ def session_trialwise(session_id, probe_idx=0, t_before=0.2, t_after=0.6):
     endlast = 0
     trials = []
     for i, (start, end) in enumerate(np.vstack((starttimes, endtimes)).T):
+        if any(np.isnan((start, end))):
+            continue
         startind = np.searchsorted(spiket[endlast:], start) + endlast
         endind = np.searchsorted(spiket[endlast:], end, side='right') + endlast
         endlast = endind
