@@ -33,6 +33,7 @@ parfor i = 1:length(cell_ids)
         trialobj = buildGLM.newTrial(currfit, kernlen + currtrial.feedback_times);
         trialobj.stimOn = currtrial.stimOn_times;
         trialobj.feedback_t = currtrial.feedback_times;
+        trialobj.decstart = currtrial.feedback_times - (0.5 * kernlen);
         trialobj.prior = currtrial.prior;
         trialobj.reward = currtrial.feedbackType;
         tot_len = expt.binfun(trialobj.duration);
@@ -64,19 +65,25 @@ parfor i = 1:length(cell_ids)
     dspec = buildGLM.initDesignSpec(currfit);
     binfun = expt.binfun;
     bs = basisFactory.makeSmoothTemporalBasis('raised cosine', kernlen, wts_per_kern, binfun);
+    decbs = basisFactory.makeSmoothTemporalBasis('raised cosine', kernlen * 0.5, wts_per_kern, binfun);
     stonHandle = @(trial, expt) (trial.contr * basisFactory.deltaStim(binfun(trial.stimOn), binfun(trial.duration)));
 %     priorHandle = @(trial, expt) (trial.prior * basisFactory.deltaStim(binfun(0), binfun(trial.duration)));
-    % stonL = @(trial) (trial.side == -1);
+    stonL = @(trial) (trial.side == -1);
     stonR = @(trial) (trial.side == 1);
     correct = @(trial) (trial.reward == 1);
     incorr = @(trial) (trial.reward == -1);
-    % dspec = buildGLM.addCovariate(dspec, 'stonL', 'Stimulus on L modulated by contrast', stonHandle, bs, 0, stonL);
+    dspec = buildGLM.addCovariate(dspec, 'stonL', 'Stimulus on L modulated by contrast', stonHandle, bs, 0, stonL);
     dspec = buildGLM.addCovariate(dspec, 'stonR', 'Stimulus on R modulated by contrast', stonHandle, bs, 0, stonR);
     dspec = buildGLM.addCovariateRaw(dspec, 'prvec', 'Vector of prior values until fdbck');
     dspec = buildGLM.addCovariateTiming(dspec, 'fdbckCorr', 'feedback_t', 'Response to correct feedback',...
         bs, 0, correct);
     dspec = buildGLM.addCovariateTiming(dspec, 'fdbckInc', 'feedback_t', 'Response to incorr fdbck', ...
         bs, 0, incorr);
+    dspec = buildGLM.addCovariateTiming(dspec, 'decL', 'decstart', 'Response to incorr fdbck', ...
+        decbs, 0, stonL);
+    dspec = buildGLM.addCovariateTiming(dspec, 'decR', 'decstart', 'Response to incorr fdbck', ...
+        decbs, 0, stonR);
+    
     dm = buildGLM.compileSparseDesignMatrix(dspec, 1:goodtrialnum - 1);
     dm = buildGLM.removeConstantCols(dm);
     dm = buildGLM.addBiasColumn(dm);

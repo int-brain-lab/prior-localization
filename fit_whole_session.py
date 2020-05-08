@@ -45,7 +45,8 @@ def fit_session(session_id, subject_name, sessdate, prior_estimate='psytrack',
             firsttrial = trial['trialnum']
             continue
         trial['prior'] = prior_est.loc[trial['trialnum']]
-    trials = list(filter(lambda x: x['trialnum'] != firsttrial, trials))
+    trials = list(filter(lambda x: (x['trialnum'] != firsttrial) &
+                         np.isfinite(x['contrastRight']), trials))
     datafile = os.path.abspath(f'./data/{subject_name}_{sessdate}_tmp.mat')
     logfile = datafile[:-4] + '.log'
     lf = open(logfile, 'w')
@@ -82,16 +83,22 @@ def fit_session(session_id, subject_name, sessdate, prior_estimate='psytrack',
 
     # Coerce fit data into a pandas array
     nanarr = np.nan * np.ones(wts_per_kern)
-    defaultentry = {'stim_L': nanarr, 'stim_R': nanarr, 'fdbck_corr': nanarr,
-                    'fdbck_incorr': nanarr, 'prior': np.nan, 'varstim_L': nanarr,
-                    'varstim_R': nanarr, 'varfdbck_corr': nanarr, 'varfdbck_incorr': nanarr,
+    defaultentry = {# 'stim_L': nanarr,
+                    'stim_R': nanarr,
+                    'fdbck_corr': nanarr,
+                    'fdbck_incorr': nanarr,
+                    'prior': np.nan,
+                    # 'varstim_L': nanarr,
+                    'varstim_R': nanarr,
+                    'varfdbck_corr': nanarr,
+                    'varfdbck_incorr': nanarr,
                     'varprior': nanarr}
     nulldict = [{'cell': cell, **defaultentry} for cell in clu_ids]
     allfits = pd.DataFrame(nulldict).set_index('cell')
     print('Loading fit data into pandas array and saving...')
     fits = loadmat(f'./fits/{subject_name}_{sessdate}_tmp_fit.mat')
     for cell in tqdm(fits['cellweights']):
-        allfits.loc[cell] = (fits['cellweights'][cell]['stonL']['data'],
+        allfits.loc[cell] = (#fits['cellweights'][cell]['stonL']['data'],
                              fits['cellweights'][cell]['stonR']['data'],
                              fits['cellweights'][cell]['fdbckCorr']['data'],
                              fits['cellweights'][cell]['fdbckInc']['data'],
@@ -99,7 +106,7 @@ def fit_session(session_id, subject_name, sessdate, prior_estimate='psytrack',
                              fits['cellstats'][cell][:wts_per_kern],
                              fits['cellstats'][cell][wts_per_kern: 2 * wts_per_kern],
                              fits['cellstats'][cell][2 * wts_per_kern: 3 * wts_per_kern],
-                             fits['cellstats'][cell][3 * wts_per_kern: 4 * wts_per_kern],
+                             #fits['cellstats'][cell][3 * wts_per_kern: 4 * wts_per_kern],
                              fits['cellstats'][cell][-2],)
 
     if not os.path.exists(os.path.abspath(f'./fits/{subject_name}')):
@@ -121,11 +128,27 @@ def fit_session(session_id, subject_name, sessdate, prior_estimate='psytrack',
 if __name__ == "__main__":
     from ibl_pipeline import subject, ephys
     from glob import glob
+    import sys
     one = one.ONE()
+    if len(sys.argv) > 1:
+        nickname = sys.argv[1]
+        sessdate = sys.argv[2]
+        if len(sys.argv) == 4:
+            probe = int(sys.argv[3])
+        else:
+            probe = 0
+        if not os.path.exists(f'./fits/{nickname}'):
+            os.mkdir(f'./fits/{nickname}')
+        sess_id = one.search(subject=nickname, date_range=[sessdate, sessdate],
+                             dataset_types=['spikes.clusters'])[0]
+        fit_session(sess_id, nickname, sessdate, logging=False, probe_idx=probe)
+        exit()
+
     sessions = subject.Subject * subject.SubjectProject *\
         ephys.acquisition.Session * ephys.ProbeTrajectory()
     bwm_sess = sessions & 'subject_project = "ibl_neuropixel_brainwide_01"' & \
         'task_protocol = "_iblrig_tasks_ephysChoiceWorld6.2.5"'
+    currdate = str(date.today())
     for s in bwm_sess:
         sess_id = str(s['session_uuid'])
         nickname = s['subject_nickname']
@@ -133,8 +156,9 @@ if __name__ == "__main__":
         probe = s['probe_idx']
         if not os.path.exists(f'./fits/{nickname}'):
             os.mkdir(f'./fits/{nickname}')
-        subpaths = [n for n in glob(os.path.abspath(f'./fits/{nickname}/{sessdate}*_probe0_fit.p'))
-                    if os.path.isfile(n)]
+        subpaths = [n for n in
+            glob(os.path.abspath(f'./fits/{nickname}/{sessdate}_session_{currdate}_probe0_fit.p'))
+            if os.path.isfile(n)]
         if len(subpaths) == 0:
             try:
                 print(f'Working on {nickname} on {sessdate} probe {probe}')

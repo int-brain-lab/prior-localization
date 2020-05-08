@@ -3,6 +3,7 @@ from numpy.random import normal
 from datetime import date
 from scipy.io import savemat
 from iofuns import loadmat
+from fitplot_funs import err_wght_sync
 import os
 
 
@@ -61,11 +62,11 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     # import brainbox.plot as bbp
     from scipy.interpolate import interp1d
-    cell = 'cell232'
-    gain = 0.1  # Hz
+    cell = 'cell601'
+    gain = 1  # Hz
     perc_corr = 0.6
-    tot_trials = 1000
-    fitdata = np.load('./fits/ZM_2240/2020-01-22_session_2020-04-15_probe0_fit.p',
+    tot_trials = 10000
+    fitdata = np.load('./fits/ZM_2240/2020-01-21_session_2020-04-24_probe0_fit.p',
                       allow_pickle=True)
     fitbinsize = 0.02
     kernel_t = np.arange(0, 0.6, fitbinsize)
@@ -108,21 +109,38 @@ if __name__ == "__main__":
     fitdata = loadmat(f'./fits/SYNTHETIC_{currdate}_tmp_fit.mat')
     kernt = np.arange(0, 0.6, 0.02)
     simt = np.arange(0, 0.6, SIMBINSIZE)
-    fig, axes = plt.subplots(3, 1)
-    axes[0].plot(kernt, fitdata['cellweights']['cell1']['stonL']['data'],
-                 label='recovered L')
+    fig, axes = plt.subplots(5, 1)
+    stLwts = fitdata['cellweights']['cell1']['stonL']['data']
+    stLerr = np.sqrt(err_wght_sync(fitdata['cellstats']['cell1'][:10], stLwts))
+    axes[0].fill_between(kernt, stLwts - stLerr, stLwts + stLerr, alpha=0.5, color='blue',
+                         label='recovered L error')
+    axes[0].plot(kernt, stLwts, label='recovered L')
     axes[0].plot(sim_t, stimonL_kern, label='True L')
-    axes[0].plot(kernt, fitdata['cellweights']['cell1']['stonR']['data'], label='recovered R')
-    axes[0].plot(sim_t, stimonR_kern, label='True R')
     axes[0].legend()
 
-    axes[1].plot(sim_t, fdbkcorr_kern, label='True correct')
-    axes[1].plot(kernt, fitdata['cellweights']['cell1']['fdbckCorr']['data'],
-                 label='recovered correct feedback')
-    axes[1].plot(sim_t, fdbkincorr_kern, label='True incorrect')
-    axes[1].plot(kernt, fitdata['cellweights']['cell1']['fdbckInc']['data'],
-                 label='recovered incorrect feedback')
+    stRwts = fitdata['cellweights']['cell1']['stonR']['data']
+    stRerr = np.sqrt(err_wght_sync(fitdata['cellstats']['cell1'][10:20], stRwts))
+    axes[1].fill_between(kernt, stRwts - stRerr, stRwts + stRerr, alpha=0.5, color='blue',
+                         label='recovered R error')
+    axes[1].plot(kernt, stRwts, label='recovered R')
+    axes[1].plot(sim_t, stimonR_kern, label='True R')
     axes[1].legend()
 
-    axes[2].bar([0, 1], [priorgain, fitdata['cellweights']['cell1']['prvec']['data']])
+    fdCwts = fitdata['cellweights']['cell1']['fdbckCorr']['data']
+    fdCerr = np.sqrt(err_wght_sync(fitdata['cellstats']['cell1'][20:30], fdCwts))
+    axes[2].plot(sim_t, fdbkcorr_kern, label='True correct')
+    axes[2].fill_between(kernt, fdCwts - fdCerr, fdCwts + fdCerr, alpha=0.5, color='orange',
+                         label='recovered correct error')
+    axes[2].plot(kernt, fdCwts, label='recovered correct')
+    axes[2].legend()
+
+    fdIwts = fitdata['cellweights']['cell1']['fdbckInc']['data']
+    fdIerr = np.sqrt(err_wght_sync(fitdata['cellstats']['cell1'][30:40], fdIwts))
+    axes[3].plot(sim_t, fdbkincorr_kern, label='True incorrect')
+    axes[3].fill_between(kernt, fdIwts - fdIerr, fdIwts + fdIerr, alpha=0.5, color='orange',
+                         label='recovered incorr error')
+    axes[3].plot(kernt, fdIwts, label='recovered incorr')
+    axes[3].legend()
+
+    axes[4].bar([0, 1], [priorgain, fitdata['cellweights']['cell1']['prvec']['data']])
     plt.savefig('/home/berk/Documents/parameter_recovery.png', dpi=800)
