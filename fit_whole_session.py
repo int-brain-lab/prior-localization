@@ -45,8 +45,7 @@ def fit_session(session_id, subject_name, sessdate, prior_estimate='psytrack',
             firsttrial = trial['trialnum']
             continue
         trial['prior'] = prior_est.loc[trial['trialnum']]
-    trials = list(filter(lambda x: (x['trialnum'] != firsttrial) &
-                         np.isfinite(x['contrastRight']), trials))
+    trials = list(filter(lambda x: (x['trialnum'] != firsttrial), trials))
     datafile = os.path.abspath(f'./data/{subject_name}_{sessdate}_tmp.mat')
     logfile = datafile[:-4] + '.log'
     lf = open(logfile, 'w')
@@ -83,30 +82,38 @@ def fit_session(session_id, subject_name, sessdate, prior_estimate='psytrack',
 
     # Coerce fit data into a pandas array
     nanarr = np.nan * np.ones(wts_per_kern)
-    defaultentry = {# 'stim_L': nanarr,
+    defaultentry = {'stim_L': nanarr,
                     'stim_R': nanarr,
                     'fdbck_corr': nanarr,
                     'fdbck_incorr': nanarr,
+                    'decision_L': nanarr,
+                    'decision_R': nanarr,
                     'prior': np.nan,
-                    # 'varstim_L': nanarr,
+                    'varstim_L': nanarr,
                     'varstim_R': nanarr,
                     'varfdbck_corr': nanarr,
                     'varfdbck_incorr': nanarr,
+                    'vardecL': nanarr,
+                    'vardecR': nanarr,
                     'varprior': nanarr}
     nulldict = [{'cell': cell, **defaultentry} for cell in clu_ids]
     allfits = pd.DataFrame(nulldict).set_index('cell')
     print('Loading fit data into pandas array and saving...')
     fits = loadmat(f'./fits/{subject_name}_{sessdate}_tmp_fit.mat')
     for cell in tqdm(fits['cellweights']):
-        allfits.loc[cell] = (#fits['cellweights'][cell]['stonL']['data'],
+        allfits.loc[cell] = (fits['cellweights'][cell]['stonL']['data'],
                              fits['cellweights'][cell]['stonR']['data'],
                              fits['cellweights'][cell]['fdbckCorr']['data'],
                              fits['cellweights'][cell]['fdbckInc']['data'],
+                             fits['cellweights'][cell]['decL']['data'],
+                             fits['cellweights'][cell]['decR']['data'],
                              fits['cellweights'][cell]['prvec']['data'],
                              fits['cellstats'][cell][:wts_per_kern],
                              fits['cellstats'][cell][wts_per_kern: 2 * wts_per_kern],
                              fits['cellstats'][cell][2 * wts_per_kern: 3 * wts_per_kern],
-                             #fits['cellstats'][cell][3 * wts_per_kern: 4 * wts_per_kern],
+                             fits['cellstats'][cell][3 * wts_per_kern: 4 * wts_per_kern],
+                             fits['cellstats'][cell][4 * wts_per_kern: 5 * wts_per_kern],
+                             fits['cellstats'][cell][5 * wts_per_kern: 6 * wts_per_kern],
                              fits['cellstats'][cell][-2],)
 
     if not os.path.exists(os.path.abspath(f'./fits/{subject_name}')):
