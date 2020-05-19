@@ -29,7 +29,7 @@ def remap_trialp(probs):
     return validvals[maps]
 
 
-def session_trialwise(session_id, probe_idx=0, t_before=0.2, t_after=0.6):
+def session_trialwise(session_id, probe_idx=0, t_before=0.2, t_after=0.6, wheel=False):
     '''
     Utility function for loading a session from Alyx in a trial-wise format. All times are relative
     to trial start time, as defined by stim on time. Returns a list of dicts in which each element
@@ -59,29 +59,42 @@ def session_trialwise(session_id, probe_idx=0, t_before=0.2, t_after=0.6):
     # Fix weird block probabilities in some sessions
     trialdata['probabilityLeft'] = remap_trialp(trialdata['probabilityLeft'])
 
+    # load in wheel position and timestamps if requested
+    if wheel:
+        whlpos, whlt = one.load(session_id, ['wheel.position', 'wheel.timestamps'])
+
     # Run a sliding window through the length of a trial, assigning spikes to the appropriate
-    # trial identity. endlast is the last spike time before the trial ended.
-    endlast = 0
+    # trial identity. st_endlast is the last spike time before the trial ended.
+    st_endlast = 0
+    wh_endlast = 0
     trials = []
     for i, (start, end) in enumerate(np.vstack((starttimes, endtimes)).T):
         if any(np.isnan((start, end))):
             continue
-        startind = np.searchsorted(spiket[endlast:], start) + endlast
-        endind = np.searchsorted(spiket[endlast:], end, side='right') + endlast
-        endlast = endind
+        st_startind = np.searchsorted(spiket[st_endlast:], start) + st_endlast
+        st_endind = np.searchsorted(spiket[st_endlast:], end, side='right') + st_endlast
+        st_endlast = st_endind
         # Find which clusters spiked during a trial, and set the i,j element of trialspiking to 1
         # for those clusters which fired a spike.
-        trial_clu = np.unique(clu[startind:endind])
+        trial_clu = np.unique(clu[st_startind:st_endind])
         trialspiking[trial_clu, i] = 1
         # Build a dict of relevant information for the given trial
         trialdict = {x: (trialdata[x][i] if x[-5:] != 'times' else trialdata[x][i] - start)
                      for x in trialdata}
         # Align spike times s.t. trial start = 0
-        trialdict['spikes'] = spiket[startind:endind] - start
+        trialdict['spikes'] = spiket[st_startind:st_endind] - start
         # Clusters for spikes
-        trialdict['clu'] = clu[startind:endind]
+        trialdict['clu'] = clu[st_startind:st_endind]
         # Actual trial number
         trialdict['trialnum'] = i
+        # If wheel data is requested, perform same processing as above on wheel data
+        if wheel:
+            wh_startind = np.searchsorted(whlt[wh_endlast:], start) + wh_endlast
+            wh_endind = np.searchsorted(whlt[wh_endlast:], end, side='right') + wh_endlast + 4
+            wh_endlast = wh_endind
+            trialdict['wheel_pos'] = whlpos[wh_startind - 1:wh_endind + 1]
+            trialdict['wheel_t'] = whlt[wh_startind - 1:wh_endind + 1] - start
+
         trials.append(trialdict)
     return trials, clu_ids
 

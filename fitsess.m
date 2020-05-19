@@ -14,6 +14,7 @@ function [cellweights, cellstats] = fitsess(trialfilename, wts_per_kern, binw, k
     expt = buildGLM.registerValue(expt, 'reward', 'Reward (1) or negative fdbck (-1) on the trial');
     expt = buildGLM.registerValue(expt, 'contr', 'Stimulus contrast');
     expt = buildGLM.registerContinuous(expt, 'prvec', 'Prior estimate until feedback');
+    expt = buildGLM.registerContinuous(expt, 'whlV', 'Wheel velocity');
     
     
     cell_ids = trialdata.clusters;
@@ -37,6 +38,7 @@ function [cellweights, cellstats] = fitsess(trialfilename, wts_per_kern, binw, k
             trialobj.decstart = currtrial.feedback_times - (0.5 * kernlen);
             trialobj.prior = currtrial.prior;
             trialobj.reward = currtrial.feedbackType;
+            trialobj.whlV = currtrial.velocity';
             tot_len = expt.binfun(trialobj.duration);
             prior_len = expt.binfun(trialobj.feedback_t);
             nextrial = trialdata.trials{j+1};
@@ -51,12 +53,8 @@ function [cellweights, cellstats] = fitsess(trialfilename, wts_per_kern, binw, k
                 trialobj.side = -1;
                 trialobj.contr = currtrial.contrastLeft;
             end
-            try
-                currfit = buildGLM.addTrial(currfit, trialobj, goodtrialnum);
-            catch
-                disp('Something broke.')
-                continue
-            end
+            currfit = buildGLM.addTrial(currfit, trialobj, goodtrialnum);
+
             goodtrialnum = goodtrialnum + 1;
         end
         if (goodtrialnum == 1) || (numel(currfit.trial) < mintrials)
@@ -65,10 +63,9 @@ function [cellweights, cellstats] = fitsess(trialfilename, wts_per_kern, binw, k
         end
         dspec = buildGLM.initDesignSpec(currfit);
         binfun = expt.binfun;
-        bs = basisFactory.makeSmoothTemporalBasis('raised cosine', kernlen, wts_per_kern, binfun);
-        decbs = basisFactory.makeSmoothTemporalBasis('raised cosine', kernlen * 0.5, wts_per_kern, binfun);
+        bs = basisFactory.makeSmoothTemporalBasis('full rcos', kernlen, wts_per_kern, binfun);
+        decbs = basisFactory.makeSmoothTemporalBasis('full rcos', kernlen * 0.5, wts_per_kern, binfun);
         stonHandle = @(trial, expt) (trial.contr * basisFactory.deltaStim(binfun(trial.stimOn), binfun(trial.duration)));
-    %     priorHandle = @(trial, expt) (trial.prior * basisFactory.deltaStim(binfun(0), binfun(trial.duration)));
         stonL = @(trial) (trial.side == -1);
         stonR = @(trial) (trial.side == 1);
         correct = @(trial) (trial.reward == 1);
@@ -79,11 +76,12 @@ function [cellweights, cellstats] = fitsess(trialfilename, wts_per_kern, binw, k
             bs, 0, correct);
         dspec = buildGLM.addCovariateTiming(dspec, 'fdbckInc', 'feedback_t', 'Response to incorr fdbck', ...
             bs, 0, incorr);
-        dspec = buildGLM.addCovariateTiming(dspec, 'decL', 'decstart', 'Response to incorr fdbck', ...
-            decbs, 0, stonL);
-        dspec = buildGLM.addCovariateTiming(dspec, 'decR', 'decstart', 'Response to incorr fdbck', ...
-            decbs, 0, stonR);
+        % dspec = buildGLM.addCovariateTiming(dspec, 'decL', 'decstart', 'Response to incorr fdbck', ...
+        %     decbs, 0, stonL);
+        % dspec = buildGLM.addCovariateTiming(dspec, 'decR', 'decstart', 'Response to incorr fdbck', ...
+        %     decbs, 0, stonR);
         dspec = buildGLM.addCovariateRaw(dspec, 'prvec', 'Vector of prior values until fdbck');
+        dspec = buildGLM.addCovariateRaw(dspec, 'whlV', 'Gain on wheel velocity');
         dm = buildGLM.compileSparseDesignMatrix(dspec, 1:goodtrialnum - 1);
         dm = buildGLM.removeConstantCols(dm);
         dm = buildGLM.addBiasColumn(dm);
@@ -98,8 +96,10 @@ function [cellweights, cellstats] = fitsess(trialfilename, wts_per_kern, binw, k
         opts = optimoptions(@fminunc, 'Algorithm', 'trust-region', 'GradObj', 'on', 'Hessian', 'on');
         [wml, ~, ~, ~, ~, hessian] = fminunc(lfunc, wInit, opts);
         wvar = diag(inv(hessian));
+        % [wml, ~, wstat] = glmfit(dm.X, y, 'poisson', 'link', 'log', 'constant', 'off');
+        % wvar = wstat.se.^2;
         weights{i} = buildGLM.combineWeights(dm, wml);
-        stats{i} = wvar;
+        stats{i} = buildGLM.combineWeights(dm, wvar);
         names{i} = cellname;
     end
     

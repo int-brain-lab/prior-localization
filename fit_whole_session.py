@@ -21,6 +21,8 @@ import pickle
 from tqdm import tqdm
 import os
 import subprocess as sbp
+from brainbox.processing import sync
+from brainbox.core import TimeSeries
 
 wts_per_kern = 10
 kern_length = 0.6
@@ -31,7 +33,7 @@ t_bef = 0.4
 def fit_session(session_id, subject_name, sessdate, prior_estimate='psytrack',
                 max_len=2., probe_idx=0, logging=False):
     trials, clu_ids = session_trialwise(session_id, t_before=t_bef, t_after=kern_length,
-                                        probe_idx=probe_idx)
+                                        probe_idx=probe_idx, wheel=True)
     trials, clu_ids = filter_trials(trials, clu_ids, max_len)
     if prior_estimate == 'psytrack':
         print('Fitting psytrack model...')
@@ -46,6 +48,20 @@ def fit_session(session_id, subject_name, sessdate, prior_estimate='psytrack',
             continue
         trial['prior'] = prior_est.loc[trial['trialnum']]
     trials = list(filter(lambda x: (x['trialnum'] != firsttrial), trials))
+    # We need to extract the wheel data and interpolate into even dt.
+    for tr in trials:
+        tr['wheel_t'][0] = 0.  # Manual previous-value interpolation
+        whlseries = TimeSeries(tr['wheel_t'], tr['wheel_pos'], columns=['whlpos'])
+        whlsync = sync(glm_binsize, timeseries=whlseries, interp='previous')
+        trialstartind = np.searchsorted(whlsync.times, 0)
+        trialendind = np.ceil((tr['feedback_times'] + kern_length) / glm_binsize).astype(int)
+        trpos = whlsync.values[trialstartind:trialendind + trialstartind]
+        whlvel = trpos[1:] - trpos[:-1]
+        whlvel = np.insert(whlvel, 0, 0)
+        if np.abs(trialendind - len(whlvel)) > 0:
+            raise IndexError('Mismatch between expected length of wheel data and actual.')
+        tr['velocity'] = whlvel
+
     datafile = os.path.abspath(f'./data/{subject_name}_{sessdate}_tmp.mat')
     logfile = datafile[:-4] + '.log'
     lf = open(logfile, 'w')
@@ -86,16 +102,18 @@ def fit_session(session_id, subject_name, sessdate, prior_estimate='psytrack',
                     'stim_R': nanarr,
                     'fdbck_corr': nanarr,
                     'fdbck_incorr': nanarr,
-                    'decision_L': nanarr,
-                    'decision_R': nanarr,
+                    # 'decision_L': nanarr,
+                    # 'decision_R': nanarr,
                     'prior': np.nan,
+                    'velocity': np.nan,
                     'varstim_L': nanarr,
                     'varstim_R': nanarr,
                     'varfdbck_corr': nanarr,
                     'varfdbck_incorr': nanarr,
-                    'vardecL': nanarr,
-                    'vardecR': nanarr,
-                    'varprior': nanarr}
+                    # 'vardecL': nanarr,
+                    # 'vardecR': nanarr,
+                    'varprior': np.nan,
+                    'varvel': np.nan}
     nulldict = [{'cell': cell, **defaultentry} for cell in clu_ids]
     allfits = pd.DataFrame(nulldict).set_index('cell')
     print('Loading fit data into pandas array and saving...')
@@ -105,16 +123,14 @@ def fit_session(session_id, subject_name, sessdate, prior_estimate='psytrack',
                              fits['cellweights'][cell]['stonR']['data'],
                              fits['cellweights'][cell]['fdbckCorr']['data'],
                              fits['cellweights'][cell]['fdbckInc']['data'],
-                             fits['cellweights'][cell]['decL']['data'],
-                             fits['cellweights'][cell]['decR']['data'],
                              fits['cellweights'][cell]['prvec']['data'],
-                             fits['cellstats'][cell][:wts_per_kern],
-                             fits['cellstats'][cell][wts_per_kern: 2 * wts_per_kern],
-                             fits['cellstats'][cell][2 * wts_per_kern: 3 * wts_per_kern],
-                             fits['cellstats'][cell][3 * wts_per_kern: 4 * wts_per_kern],
-                             fits['cellstats'][cell][4 * wts_per_kern: 5 * wts_per_kern],
-                             fits['cellstats'][cell][5 * wts_per_kern: 6 * wts_per_kern],
-                             fits['cellstats'][cell][-2],)
+                             fits['cellweights'][cell]['whlV']['data'],                       
+                             fits['cellstats'][cell]['stonL']['data'],
+                             fits['cellstats'][cell]['stonR']['data'],
+                             fits['cellstats'][cell]['fdbckCorr']['data'],
+                             fits['cellstats'][cell]['fdbckInc']['data'],
+                             fits['cellstats'][cell]['prvec']['data'],
+                             fits['cellstats'][cell]['whlV']['data'],)
 
     if not os.path.exists(os.path.abspath(f'./fits/{subject_name}')):
         os.mkdir(f'./fits/{subject_name}')
@@ -163,6 +179,7 @@ if __name__ == "__main__":
         probe = s['probe_idx']
         if not os.path.exists(f'./fits/{nickname}'):
             os.mkdir(f'./fits/{nickname}')
+
         subpaths = [n for n in
             glob(os.path.abspath(f'./fits/{nickname}/{sessdate}_session_{currdate}_probe0_fit.p'))
             if os.path.isfile(n)]
