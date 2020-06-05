@@ -2,7 +2,7 @@ function [cellweights, cellstats] = fitsess(trialfilename, wts_per_kern, binw, k
     %FITSESS Fits GLM to all neurons in a given session, using contrast, stimulus side, and prior
     %    estimate as inputs to the model.
     
-    mintrials = 5;
+    mintrials = 100;
     
     trialdata = load(trialfilename);
     expt = buildGLM.initExperiment('s', binw, trialdata.subject_name, 'brainwide_map');
@@ -30,7 +30,9 @@ function [cellweights, cellstats] = fitsess(trialfilename, wts_per_kern, binw, k
         for j = 1:length(trialdata.trials)-1
             currtrial = trialdata.trials{j};
             if isempty(currtrial.spikes(currtrial.clu == cell_ids(i)))
-                continue
+                nospikes = true;
+            else
+                nospikes = false;
             end
             trialobj = buildGLM.newTrial(currfit, kernlen + currtrial.feedback_times);
             trialobj.stimOn = currtrial.stimOn_times;
@@ -45,7 +47,11 @@ function [cellweights, cellstats] = fitsess(trialfilename, wts_per_kern, binw, k
             currvec = currtrial.prior * ones(prior_len, 1);
             nexvec = nextrial.prior * ones(tot_len - prior_len, 1);
             trialobj.prvec = [currvec; nexvec];
-            trialobj.(cellname) = currtrial.spikes(currtrial.clu == cell_ids(i));
+            if nospikes
+                trialobj.(cellname) = [0.00001, 0.0002];
+            else
+                trialobj.(cellname) = currtrial.spikes(currtrial.clu == cell_ids(i));
+            end
             if find(isfinite([currtrial.contrastLeft, currtrial.contrastRight])) == 2
                 trialobj.side = 1;
                 trialobj.contr = currtrial.contrastRight;
@@ -63,8 +69,8 @@ function [cellweights, cellstats] = fitsess(trialfilename, wts_per_kern, binw, k
         end
         dspec = buildGLM.initDesignSpec(currfit);
         binfun = expt.binfun;
-        bs = basisFactory.makeSmoothTemporalBasis('full rcos', kernlen, wts_per_kern, binfun);
-        decbs = basisFactory.makeSmoothTemporalBasis('full rcos', kernlen * 0.5, wts_per_kern, binfun);
+        bs = basisFactory.makeSmoothTemporalBasis('raised cosine', kernlen, wts_per_kern, binfun);
+        % decbs = basisFactory.makeSmoothTemporalBasis('raised cosine', kernlen * 0.5, wts_per_kern, binfun);
         stonHandle = @(trial, expt) (trial.contr * basisFactory.deltaStim(binfun(trial.stimOn), binfun(trial.duration)));
         stonL = @(trial) (trial.side == -1);
         stonR = @(trial) (trial.side == 1);
@@ -80,8 +86,8 @@ function [cellweights, cellstats] = fitsess(trialfilename, wts_per_kern, binw, k
         %     decbs, 0, stonL);
         % dspec = buildGLM.addCovariateTiming(dspec, 'decR', 'decstart', 'Response to incorr fdbck', ...
         %     decbs, 0, stonR);
-        dspec = buildGLM.addCovariateRaw(dspec, 'prvec', 'Vector of prior values until fdbck');
-        dspec = buildGLM.addCovariateRaw(dspec, 'whlV', 'Gain on wheel velocity');
+        % dspec = buildGLM.addCovariateRaw(dspec, 'prvec', 'Vector of prior values until fdbck');
+        % dspec = buildGLM.addCovariateRaw(dspec, 'whlV', 'Gain on wheel velocity');
         dm = buildGLM.compileSparseDesignMatrix(dspec, 1:goodtrialnum - 1);
         dm = buildGLM.removeConstantCols(dm);
         dm = buildGLM.addBiasColumn(dm);

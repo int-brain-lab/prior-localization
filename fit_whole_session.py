@@ -104,16 +104,17 @@ def fit_session(session_id, subject_name, sessdate, prior_estimate='psytrack',
                     'fdbck_incorr': nanarr,
                     # 'decision_L': nanarr,
                     # 'decision_R': nanarr,
-                    'prior': np.nan,
-                    'velocity': np.nan,
+                    # 'prior': np.nan,
+                    # 'velocity': np.nan,
                     'varstim_L': nanarr,
                     'varstim_R': nanarr,
                     'varfdbck_corr': nanarr,
                     'varfdbck_incorr': nanarr,
                     # 'vardecL': nanarr,
                     # 'vardecR': nanarr,
-                    'varprior': np.nan,
-                    'varvel': np.nan}
+                    # 'varprior': np.nan,
+                    # 'varvel': np.nan
+    }
     nulldict = [{'cell': cell, **defaultentry} for cell in clu_ids]
     allfits = pd.DataFrame(nulldict).set_index('cell')
     print('Loading fit data into pandas array and saving...')
@@ -123,14 +124,15 @@ def fit_session(session_id, subject_name, sessdate, prior_estimate='psytrack',
                              fits['cellweights'][cell]['stonR']['data'],
                              fits['cellweights'][cell]['fdbckCorr']['data'],
                              fits['cellweights'][cell]['fdbckInc']['data'],
-                             fits['cellweights'][cell]['prvec']['data'],
-                             fits['cellweights'][cell]['whlV']['data'],                       
+                            #  fits['cellweights'][cell]['prvec']['data'],
+                            #  fits['cellweights'][cell]['whlV']['data'],                       
                              fits['cellstats'][cell]['stonL']['data'],
                              fits['cellstats'][cell]['stonR']['data'],
                              fits['cellstats'][cell]['fdbckCorr']['data'],
                              fits['cellstats'][cell]['fdbckInc']['data'],
-                             fits['cellstats'][cell]['prvec']['data'],
-                             fits['cellstats'][cell]['whlV']['data'],)
+                            #  fits['cellstats'][cell]['prvec']['data'],
+                            #  fits['cellstats'][cell]['whlV']['data'],
+                             )
 
     if not os.path.exists(os.path.abspath(f'./fits/{subject_name}')):
         os.mkdir(f'./fits/{subject_name}')
