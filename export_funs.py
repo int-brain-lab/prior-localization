@@ -8,10 +8,11 @@ from oneibl import one
 import numpy as np
 import pandas as pd
 import itertools as it
+from brainbox.core import TimeSeries
+from brainbox.processing import sync
 one = one.ONE()
 
 trialstypes = ['trials.choice',
-               'trials.response_times',
                'trials.probabilityLeft',
                'trials.feedbackType',
                'trials.feedback_times',
@@ -99,14 +100,15 @@ def session_trialwise(session_id, probe_idx=0, t_before=0.2, t_after=0.6, wheel=
     return trials, clu_ids
 
 
-def trialinfo_to_df(session_id, maxlen=None):
+def trialinfo_to_df(session_id,
+                    maxlen=None, t_before=0.4, t_after=0.6, wheel=True, glm_binsize=0.02):
     '''
     Takes all trial-related data types out of Alyx and stores them in a pandas dataframe, with an
     optional limit on the length of trials. Will retain trial numbers from the experiment as
     indices for reference.
     '''
-    starttimes = one.load(session_id, 'trials.stimOn_times')[0]
-    endtimes = one.load(session_id, 'trials.feedback_times')[0]
+    starttimes = one.load(session_id, dataset_types=['trials.stimOn_times'])[0]
+    endtimes = one.load(session_id, dataset_types=['trials.feedback_times'])[0]
     if maxlen is not None:
         with np.errstate(invalid='ignore'):
             keeptrials = (endtimes - starttimes) <= maxlen
@@ -115,10 +117,38 @@ def trialinfo_to_df(session_id, maxlen=None):
     tmp = one.load(session_id, dataset_types=trialstypes)
     trialdata = {x.split('.')[1]: tmp[i][keeptrials] for i, x in enumerate(trialstypes)}
     trialdata['probabilityLeft'] = remap_trialp(trialdata['probabilityLeft'])
-    trialdf = pd.DataFrame(trialdata)
+    trialsdf = pd.DataFrame(trialdata)
     if maxlen is not None:
-        trialdf.set_index(np.nonzero(keeptrials)[0], inplace=True)
-    return trialdf
+        trialsdf.set_index(np.nonzero(keeptrials)[0], inplace=True)
+    trialsdf['trial_start'] = trialsdf['stimOn_times'] - t_before
+    trialsdf['trial_end'] = trialsdf['feedback_times'] + t_after
+    if not wheel:
+        return trialsdf
+
+    whlpos, whlt = one.load(session_id, dataset_types=['wheel.position', 'wheel.timestamps'])
+    starttimes = trialsdf['trial_start']
+    endtimes = trialsdf['trial_end']
+    wh_endlast = 0
+    trials = []
+    for i, (start, end) in enumerate(np.vstack((starttimes, endtimes)).T):
+        wh_startind = np.searchsorted(whlt[wh_endlast:], start) + wh_endlast
+        wh_endind = np.searchsorted(whlt[wh_endlast:], end, side='right') + wh_endlast + 4
+        wh_endlast = wh_endind
+        tr_whlpos = whlpos[wh_startind - 1:wh_endind + 1]
+        tr_whlt = whlt[wh_startind - 1:wh_endind + 1] - start
+        tr_whlt[0] = 0.  # Manual previous-value interpolation
+        whlseries = TimeSeries(tr_whlt, tr_whlpos, columns=['whlpos'])
+        whlsync = sync(glm_binsize, timeseries=whlseries, interp='previous')
+        trialstartind = np.searchsorted(whlsync.times, 0)
+        trialendind = np.ceil((end - start) / glm_binsize).astype(int)
+        trpos = whlsync.values[trialstartind:trialendind + trialstartind]
+        whlvel = trpos[1:] - trpos[:-1]
+        whlvel = np.insert(whlvel, 0, 0)
+        if np.abs((trialendind - len(whlvel))) > 0:
+            raise IndexError('Mismatch between expected length of wheel data and actual.')
+        trials.append(whlvel)
+    trialsdf['wheel_velocity'] = trials
+    return trialsdf
 
 
 def sep_trials_conds(trials):
@@ -161,3 +191,4 @@ def filter_trials(trials, clu_ids, max_len=2., recomp_clusters=True):
         return keeptrials, filtered_clu
     else:
         return keeptrials
+
