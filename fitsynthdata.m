@@ -36,4 +36,6 @@ wvar = diag(inv(hessian));
 weights = buildGLM.combineWeights(dm, wml);
 stats = buildGLM.combineWeights(dm, wvar);
 intercepts = wml(1);
-save('synthmatfit.mat', 'weights', 'stats');
+savedm = dm.X;
+save('synthmatfit.mat', 'weights', 'stats', 'savedm', 'y', 'intercepts');
+exit;
