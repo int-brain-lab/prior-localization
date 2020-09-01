@@ -11,7 +11,7 @@ rt_probs = np.array([0.15970962, 0.50635209, 0.18693285, 0.0707804, 0.02540835,
                      0.01633394, 0.00907441, 0.00725953, 0.00544465, 0.01270417])
 priorvals = np.linspace(-3, 3, 20)
 priorprobs = np.ones(20) * (1 / 20)
-wheelmotifs = np.load('wheelmotifs.p', allow_pickle=True)
+# wheelmotifs = np.load('wheelmotifs.p', allow_pickle=True)
 t_b = 0.4
 t_a = 0.6
 
@@ -175,6 +175,7 @@ def fit_sim(trialsdf, left_rate, fdbk_rate, wheelkern, ntrials, priorgain=0):
     nglm.fit(method='minimize', alpha=0)
     combined_weights = nglm.combine_weights()
     retlist = []
+    retlist.append(nglm.intercepts.iloc[0])
     if fitbool[0] is True:
         retlist.append(combined_weights['stim'].loc[1])
     if fitbool[1] is True:
@@ -213,7 +214,7 @@ if __name__ == "__main__":
 
     cell_ids = [0, 1, 2, 9, 15,
                 16, 20, 26, 29, 30,
-                32, 34, 52, 71,
+                # 32, 34, 52, 71,
                 ]
     kernelcombs = list(it.product(*[(False, True)] * 3))  # Boolean combination of kernels
     nvals = np.linspace(100, len(trialsdf) - 5, 3, dtype=int)
@@ -238,7 +239,7 @@ if __name__ == "__main__":
             wheelkern = wheelkern / np.max(wheelkern) * logpeak
             for N in tqdm(nvals, desc='N values', leave=False):
                 combfits[N] = []
-                for i in tqdm(range(20), desc='iter', leave=False):
+                for i in tqdm(range(5), desc='iter', leave=False):
                     stimk = left_rate if comb[0] else None
                     fdbkk = fdbk_rate if comb[1] else None
                     wheelk = wheelkern if comb[2] else None

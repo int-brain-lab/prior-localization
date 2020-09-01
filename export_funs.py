@@ -11,7 +11,7 @@ import itertools as it
 from brainbox.core import TimeSeries
 from brainbox.processing import sync
 one = one.ONE()
-offline = True
+offline = False
 
 trialstypes = ['trials.choice',
                'trials.probabilityLeft',
