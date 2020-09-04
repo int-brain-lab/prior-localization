@@ -11,7 +11,7 @@ import itertools as it
 from brainbox.core import TimeSeries
 from brainbox.processing import sync
 one = one.ONE()
-offline = False
+offline = True
 
 trialstypes = ['trials.choice',
                'trials.probabilityLeft',
@@ -115,7 +115,7 @@ def trialinfo_to_df(session_id,
             keeptrials = (endtimes - starttimes) <= maxlen
     else:
         keeptrials = range(len(starttimes))
-    tmp = one.load(session_id, dataset_types=trialstypes)
+    tmp = one.load(session_id, dataset_types=trialstypes, offline=offline)
     trialdata = {x.split('.')[1]: tmp[i][keeptrials] for i, x in enumerate(trialstypes)}
     trialdata['probabilityLeft'] = remap_trialp(trialdata['probabilityLeft'])
     trialsdf = pd.DataFrame(trialdata)
@@ -126,8 +126,8 @@ def trialinfo_to_df(session_id,
     if not wheel:
         return trialsdf
 
-    whlpos, whlt = one.load(session_id, dataset_types=['wheel.position', 'wheel.timestamps'],
-                            offline=offline)
+    wheel = one.load_object(session_id, 'wheel', offline=offline)
+    whlpos, whlt = wheel.position, wheel.timestamps
     starttimes = trialsdf['trial_start']
     endtimes = trialsdf['trial_end']
     wh_endlast = 0
