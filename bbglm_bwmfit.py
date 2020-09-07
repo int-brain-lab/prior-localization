@@ -76,8 +76,8 @@ def fit_session(session_id, subject_name, sessdate, kernlen, nbases,
     nglm.add_covariate_timing('incorrect', 'feedback_times', cosbases_long,
                               cond=lambda tr: tr.feedbackType == -1,
                               desc='Kernel conditioned on incorrect feedback')
-    nglm.add_covariate_raw('prior', stepfunc, desc='Step function on prior estimate')
-    # nglm.add_covariate('wheel', fitinfo['wheel_velocity'], cosbases_short, -0.4)
+    # nglm.add_covariate_raw('prior', stepfunc, desc='Step function on prior estimate')
+    nglm.add_covariate('wheel', fitinfo['wheel_velocity'], cosbases_short, -0.4)
     nglm.compile_design_matrix()
     nglm.bin_spike_trains()
     nglm.fit(method=method, alpha=alpha)
