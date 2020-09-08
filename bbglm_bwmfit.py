@@ -34,12 +34,15 @@ def fit_session(session_id, subject_name, sessdate, kernlen, nbases,
     bias_next = np.roll(fitinfo['bias'], -1)
     bias_next = pd.Series(bias_next, index=fitinfo['bias'].index)[:-1]
     fitinfo['bias_next'] = bias_next
+    fitinfo['pLeft_last'] = pd.Series(np.roll(fitinfo['probabilityLeft'], 1),
+                                      index=fitinfo.index)[:-1]
     fitinfo = fitinfo.iloc[1:-1]
     fitinfo['adj_contrastLeft'] = np.tanh(contnorm * fitinfo['contrastLeft']) / np.tanh(contnorm)
     fitinfo['adj_contrastRight'] = np.tanh(contnorm * fitinfo['contrastRight']) / np.tanh(contnorm)
     vartypes = {'choice': 'value',
                 'response_times': 'timing',
                 'probabilityLeft': 'value',
+                'pLeft_last': 'value',
                 'feedbackType': 'value',
                 'feedback_times': 'timing',
                 'contrastLeft': 'value',
@@ -56,8 +59,9 @@ def fit_session(session_id, subject_name, sessdate, kernlen, nbases,
     nglm = glm.NeuralGLM(fitinfo, spk_times, spk_clu, vartypes)
 
     def stepfunc(row):
-        currvec = np.ones(nglm.binf(row.stimOn_times)) * row.bias
-        nextvec = np.ones(nglm.binf(row.duration) - nglm.binf(row.stimOn_times)) * row.bias_next
+        currvec = np.ones(nglm.binf(row.stimOn_times)) * row.pLeft_last
+        nextvec = np.ones(nglm.binf(row.duration) - nglm.binf(row.stimOn_times)) *\
+            row.probabilityLeft
         return np.hstack((currvec, nextvec))
 
     cosbases_long = glm.full_rcos(kernlen, nbases, nglm.binf)
@@ -76,7 +80,7 @@ def fit_session(session_id, subject_name, sessdate, kernlen, nbases,
     nglm.add_covariate_timing('incorrect', 'feedback_times', cosbases_long,
                               cond=lambda tr: tr.feedbackType == -1,
                               desc='Kernel conditioned on incorrect feedback')
-    # nglm.add_covariate_raw('prior', stepfunc, desc='Step function on prior estimate')
+    nglm.add_covariate_raw('pLeft', stepfunc, desc='Step function on prior estimate')
     nglm.add_covariate('wheel', fitinfo['wheel_velocity'], cosbases_short, -0.4)
     nglm.compile_design_matrix()
     nglm.bin_spike_trains()
@@ -116,7 +120,8 @@ if __name__ == "__main__":
             print(f'Skipped {nickname}, {sessdate}, probe{probe}: already fit.')
         if len(subpaths) == 0:
             if offline:
-                _ = one.load(sessid, download_only=True)
+                # _ = one.load(sessid, download_only=True)
+                pass
             try:
                 nglm, sessweights = fit_session(sessid, nickname, sessdate, kernlen, nbases,
                                                 probe_idx=probe, method=method, alpha=alpha)
