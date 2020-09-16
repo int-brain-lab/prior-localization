@@ -27,7 +27,7 @@ def fit_sess_psytrack(session, maxlength=2.5, normfac=5., as_df=False):
     W_std : np.ndarray
         5 x N_trials array. Elementwise corresponds to stdev of each element of wMode.
     '''
-    trialdf = trialinfo_to_df(session, maxlen=maxlength)
+    trialdf = trialinfo_to_df(session, maxlen=maxlength, wheel=False)
     choices = trialdf.choice
     # Remap choice values from -1, 1 to 1, 2 (because psytrack demands it)
     newmap = {-1: 1, 1: 2}
@@ -52,7 +52,7 @@ def fit_sess_psytrack(session, maxlength=2.5, normfac=5., as_df=False):
     opt_list = ['sigma']
     hyp, evd, wMode, hess = hyperOpt(data, hyper_guess, weights, opt_list)
     if as_df:
-        wMode = pd.DataFrame(wMode.T, index=trialdf.index[1:], columns=['left', 'right', 'bias'])
+        wMode = pd.DataFrame(wMode.T, index=trialdf.index[1:], columns=['bias', 'left', 'right'])
     return wMode, hess['W_std']
 
 
