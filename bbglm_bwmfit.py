@@ -8,32 +8,58 @@ from oneibl import one
 import numpy as np
 import pandas as pd
 from brainbox.modeling import glm
+import brainbox.io.one as bbone
 from export_funs import trialinfo_to_df
 from prior_funcs import fit_sess_psytrack
-from datetime import date, timedelta
+from datetime import date
 import pickle
 import os
 
 offline = True
 one = one.ONE()
 
+ephys_cache = {}
 
-def fit_session(session_id, subject_name, sessdate, kernlen, nbases,
+
+def fit_session(session_id, kernlen, nbases,
                 t_before=0.4, t_after=0.6, prior_estimate='psytrack', max_len=2., probe_idx=0,
-                method='minimize', alpha=0, contnorm=5.):
-    trialsdf = trialinfo_to_df(session_id, maxlen=max_len, t_before=t_before, t_after=t_after)
+                method='minimize', alpha=0, contnorm=5., binwidth=0.02):
+    trialsdf = trialinfo_to_df(session_id, maxlen=max_len, t_before=t_before, t_after=t_after,
+                               glm_binsize=binwidth)
     if prior_estimate == 'psytrack':
         print('Fitting psytrack esimates...')
         wts, stds = fit_sess_psytrack(session_id, maxlength=max_len, as_df=True)
         wts['bias'] = wts['bias'] - np.mean(wts['bias'])
+        fitinfo = pd.concat((trialsdf, wts['bias']), axis=1)
+        bias_next = np.roll(fitinfo['bias'], -1)
+        bias_next = pd.Series(bias_next, index=fitinfo['bias'].index)[:-1]
+        fitinfo['bias_next'] = bias_next
+    elif prior_estimate is None:
+        fitinfo = trialsdf.copy()
     else:
         raise NotImplementedError('Only psytrack currently available')
-    spk_times = one.load(session_id, dataset_types=['spikes.times'], offline=offline)[probe_idx]
-    spk_clu = one.load(session_id, dataset_types=['spikes.clusters'], offline=offline)[probe_idx]
-    fitinfo = pd.concat((trialsdf, wts['bias']), axis=1)
-    bias_next = np.roll(fitinfo['bias'], -1)
-    bias_next = pd.Series(bias_next, index=fitinfo['bias'].index)[:-1]
-    fitinfo['bias_next'] = bias_next
+    # spk_times = one.load(session_id, dataset_types=['spikes.times'], offline=offline)[probe_idx]
+    # spk_clu = one.load(session_id, dataset_types=['spikes.clusters'], offline=offline)[probe_idx]
+
+    # A bit of messy loading to get spike times, clusters, and cluster brain regions.
+    # This is the way it is because loading with regions takes forever. The weird for loop
+    # ensures that we don't waste memory storing unnecessary and large arrays.
+    probestr = 'probe0' + str(probe_idx)
+    if session_id not in ephys_cache:
+        spikes, clusters, _ = bbone.load_spike_sorting_with_channel(session_id)
+        for probe in spikes:
+            for key in spikes[probe]:
+                if key not in ('times', 'clusters'):
+                    _ = spikes[probe].pop(key)
+            for key in clusters[probe]:
+                if key not in ('acronym', 'atlas_id'):
+                    _ = clusters[probe].pop(key)
+        ephys_cache[session_id] = (spikes, clusters)
+    else:
+        spikes, clusters = ephys_cache[session_id]
+    spk_times = spikes[probestr].times
+    spk_clu = spikes[probestr].clusters
+    clu_regions = clusters[probestr].acronym
     fitinfo['pLeft_last'] = pd.Series(np.roll(fitinfo['probabilityLeft'], 1),
                                       index=fitinfo.index)[:-1]
     fitinfo = fitinfo.iloc[1:-1]
@@ -56,12 +82,19 @@ def fit_session(session_id, subject_name, sessdate, kernlen, nbases,
                 'bias': 'value',
                 'bias_next': 'value',
                 'wheel_velocity': 'continuous'}
-    nglm = glm.NeuralGLM(fitinfo, spk_times, spk_clu, vartypes)
+    nglm = glm.NeuralGLM(fitinfo, spk_times, spk_clu, vartypes, binwidth=binwidth, subset=True)
+    nglm.clu_regions = clu_regions
 
     def stepfunc(row):
         currvec = np.ones(nglm.binf(row.stimOn_times)) * row.pLeft_last
         nextvec = np.ones(nglm.binf(row.duration) - nglm.binf(row.stimOn_times)) *\
             row.probabilityLeft
+        return np.hstack((currvec, nextvec))
+
+    def stepfunc_bias(row):
+        currvec = np.ones(nglm.binf(row.stimOn_times)) * row.bias
+        nextvec = np.ones(nglm.binf(row.duration) - nglm.binf(row.stimOn_times)) *\
+            row.bias_next
         return np.hstack((currvec, nextvec))
 
     cosbases_long = glm.full_rcos(kernlen, nbases, nglm.binf)
@@ -80,7 +113,10 @@ def fit_session(session_id, subject_name, sessdate, kernlen, nbases,
     nglm.add_covariate_timing('incorrect', 'feedback_times', cosbases_long,
                               cond=lambda tr: tr.feedbackType == -1,
                               desc='Kernel conditioned on incorrect feedback')
-    nglm.add_covariate_raw('pLeft', stepfunc, desc='Step function on prior estimate')
+    if prior_estimate is None:
+        nglm.add_covariate_raw('pLeft', stepfunc, desc='Step function on prior estimate')
+    elif prior_estimate == 'psytrack':
+        nglm.add_covariate_raw('pLeft', stepfunc_bias, desc='Step function on prior estimate')
     nglm.add_covariate('wheel', fitinfo['wheel_velocity'], cosbases_short, -0.4)
     nglm.compile_design_matrix()
     nglm.bin_spike_trains()
@@ -105,6 +141,8 @@ if __name__ == "__main__":
     nbases = 10
     alpha = 0
     method = 'sklearn'
+    prior_estimate = None
+    binwidth = 0.02
 
     for s in sessinfo:
         sessid = str(s['session_uuid'])
@@ -120,11 +158,12 @@ if __name__ == "__main__":
             print(f'Skipped {nickname}, {sessdate}, probe{probe}: already fit.')
         if len(subpaths) == 0:
             if offline:
-                # _ = one.load(sessid, download_only=True)
-                pass
+                _ = one.load(sessid, download_only=True)
             try:
-                nglm, sessweights = fit_session(sessid, nickname, sessdate, kernlen, nbases,
-                                                probe_idx=probe, method=method, alpha=alpha)
+                nglm, sessweights = fit_session(sessid, kernlen, nbases,
+                                                prior_estimate=prior_estimate,
+                                                probe_idx=probe, method=method, alpha=alpha,
+                                                binwidth=binwidth)
             except Exception as err:
                 print(f'Subject {nickname} on {sessdate} failed:\n', type(err), err)
                 continue

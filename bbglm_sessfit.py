@@ -19,15 +19,16 @@ one = one.ONE()
 
 def fit_session(session_id, subject_name, sessdate, kernlen, nbases,
                 t_before=0.4, t_after=0.6, prior_estimate='psytrack', max_len=2., probe_idx=0,
-                method='minimize', alpha=0):
-    trialsdf = trialinfo_to_df(session_id, maxlen=max_len, t_before=t_before, t_after=t_after)
+                binsize=0.02, method='minimize', alpha=0):
     if prior_estimate == 'psytrack':
         print('Fitting psytrack esimates...')
         wts, stds = fit_sess_psytrack(session_id, maxlength=max_len, as_df=True)
     else:
         raise NotImplementedError('Only psytrack currently available')
-    spk_times = one.load(session_id, dataset_types=['spikes.times'])[0]
-    spk_clu = one.load(session_id, dataset_types=['spikes.clusters'])[0]
+    spk_times = one.load(session_id, dataset_types=['spikes.times'])[probe_idx]
+    spk_clu = one.load(session_id, dataset_types=['spikes.clusters'])[probe_idx]
+    trialsdf = trialinfo_to_df(session_id, maxlen=max_len, t_before=t_before, t_after=t_after,
+                               glm_binsize=binsize)
     fitinfo = pd.concat((trialsdf, wts['bias']), axis=1)
     bias_next = np.roll(fitinfo['bias'], -1)
     bias_next = pd.Series(bias_next, index=fitinfo['bias'].index)[:-1]
@@ -47,15 +48,17 @@ def fit_session(session_id, subject_name, sessdate, kernlen, nbases,
                 'bias': 'value',
                 'bias_next': 'value',
                 'wheel_velocity': 'continuous'}
-    nglm = glm.NeuralGLM(fitinfo, spk_times, spk_clu, vartypes)
+    nglm = glm.NeuralGLM(fitinfo, spk_times, spk_clu, vartypes, binwidth=binsize, train=0.8,
+                         subset=True)
 
     def stepfunc(row):
         currvec = np.ones(nglm.binf(row.stimOn_times)) * row.bias
         nextvec = np.ones(nglm.binf(row.duration) - nglm.binf(row.stimOn_times)) * row.bias_next
         return np.hstack((currvec, nextvec))
 
+    wheellen = np.round(2 * kernlen / 3, decimals=1)
     cosbases_long = glm.full_rcos(kernlen, nbases, nglm.binf)
-    cosbases_short = glm.full_rcos(0.4, nbases, nglm.binf)
+    cosbases_short = glm.full_rcos(wheellen, nbases, nglm.binf)
     nglm.add_covariate_timing('stimonL', 'stimOn_times', cosbases_long,
                               cond=lambda tr: np.isfinite(tr.contrastLeft),
                               desc='Kernel conditioned on L stimulus onset')
@@ -69,10 +72,10 @@ def fit_session(session_id, subject_name, sessdate, kernlen, nbases,
                               cond=lambda tr: tr.feedbackType == -1,
                               desc='Kernel conditioned on incorrect feedback')
     nglm.add_covariate_raw('prior', stepfunc, desc='Step function on prior estimate')
-    nglm.add_covariate('wheel', fitinfo['wheel_velocity'], cosbases_short, -0.4)
+    nglm.add_covariate('wheel', fitinfo['wheel_velocity'], cosbases_short, -wheellen)
     nglm.compile_design_matrix()
     nglm.bin_spike_trains()
-    nglm.fit(method=method, alpha=1e-3)
+    nglm.fit(method=method, alpha=alpha)
     combined_weights = nglm.combine_weights()
     return nglm, combined_weights
 

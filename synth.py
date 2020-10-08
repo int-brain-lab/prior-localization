@@ -1,5 +1,6 @@
 import numpy as np
-from numpy.random import normal
+import pandas as pd
+from numpy.random import uniform, normal
 from scipy.interpolate import interp1d
 from brainbox.modeling.glm import convbasis
 
@@ -45,7 +46,7 @@ def simulate_cell(stimkern, fdbkkern, pgain, gain, num_trials=500, exp=False):
             ratevals = (kernsum + gain) * BINSIZE
         spikecounts = np.random.poisson(ratevals)
         spike_times = []
-        noisevals = normal(loc=BINSIZE / 2, scale=BINSIZE / 8, size=np.max(spikecounts))
+        noisevals = uniform(low=0, high=BINSIZE - 1e-8, size=np.max(spikecounts))
         for i in np.nonzero(spikecounts)[0]:
             if i == 0:
                 curr_t = BINSIZE / 4
@@ -62,8 +63,6 @@ def simulate_cell(stimkern, fdbkkern, pgain, gain, num_trials=500, exp=False):
 
 def simulate_cell_realdf(trialsdf, stimkern, fdbkkern, wheelkern, pgain, gain, numtrials=None):
     trialspikes = []
-    if 'bias' not in trialsdf.columns:
-        raise KeyError('Trialsdf must have bias columns of prior estimates')
     if numtrials is not None:
         if numtrials > len(trialsdf.index):
             raise ValueError('numtrials must be less than number of trialsdf rows')
@@ -74,8 +73,12 @@ def simulate_cell_realdf(trialsdf, stimkern, fdbkkern, wheelkern, pgain, gain, n
         tr = trialsdf.iloc[indx]
         start = t_b
         end = tr.feedback_times - tr.trial_start
-        prior = tr.bias
-        newpr = trialsdf.iloc[indx + 1].bias
+        if hasattr(tr, 'bias'):
+            prior = tr.bias
+            newpr = trialsdf.iloc[indx + 1].bias
+        else:
+            prior = 1
+            newpr = 1
         wheel = trialsdf.iloc[indx].wheel_velocity
         trial_len = np.ceil((end + t_a) / BINSIZE).astype(int)
         wheelinterp = interp1d(np.arange(len(wheel)) * 0.02, wheel, fill_value='extrapolate')
@@ -90,23 +93,20 @@ def simulate_cell_realdf(trialsdf, stimkern, fdbkkern, wheelkern, pgain, gain, n
         if not np.all(wheelkern == 0):
             wheelarr = convbasis(wheelnew.reshape(-1, 1),
                                  wheelkern.reshape(-1, 1),
-                                 offset=-np.ceil(0.4 / BINSIZE).astype(int))
-            wheelarr = np.exp(wheelarr).flatten()
+                                 offset=-np.ceil(0.4 / BINSIZE).astype(int)).flatten()
         else:
-            wheelarr = np.ones_like(stimarr) * 0.005
+            wheelarr = np.ones_like(stimarr) * 1e-8
         fdbkind = int(np.ceil(end / BINSIZE))
         priorarr = np.array([prior] * fdbkind + [newpr] * (trial_len - fdbkind))
-        priorarr = pgain * np.exp(priorarr)
+        priorarr = pgain * priorarr
         kernsum = priorarr + stimarr + fdbkarr + wheelarr
-        ratevals = (kernsum + gain) * BINSIZE
+        # ratevals = np.exp(kernsum + gain) * BINSIZE
+        ratevals = (np.exp(kernsum) + np.exp(gain)) * BINSIZE
         spikecounts = np.random.poisson(ratevals)
         spike_times = []
-        noisevals = normal(loc=BINSIZE / 2, scale=BINSIZE / 8, size=np.max(spikecounts))
+        noisevals = uniform(low=0, high=BINSIZE - 1e-8, size=np.max(spikecounts))
         for i in np.nonzero(spikecounts)[0]:
-            if i == 0:
-                curr_t = BINSIZE / 4
-            else:
-                curr_t = i * BINSIZE
+            curr_t = i * BINSIZE
             for j in range(spikecounts[i]):
                 jitterspike = curr_t + noisevals[j]
                 if jitterspike < 0:
@@ -117,34 +117,37 @@ def simulate_cell_realdf(trialsdf, stimkern, fdbkkern, wheelkern, pgain, gain, n
 
 
 def stepfunc(row):
-    currvec = np.ones(nglm.binf(row.stimOn_times)) * row.bias
-    nextvec = np.ones(nglm.binf(row.duration) - nglm.binf(row.stimOn_times)) * row.bias_next
+    def binf(t):
+        return np.ceil(t / 0.02).astype(int)
+    currvec = np.ones(binf(row.stimOn_times)) * row.bias
+    nextvec = np.ones(binf(row.duration) - binf(row.stimOn_times)) * row.bias_next
     return np.hstack((currvec, nextvec))
 
 
-def fit_sim(trialsdf, left_rate, fdbk_rate, wheelkern, ntrials, priorgain=0):
-    fitbool = [test is not None for test in (left_rate, fdbk_rate, wheelkern)]
+def fit_sim(trialsdf, stimkern, fdbkkern, wheelkern, ntrials, priorgain=0, gain=2.5, retglm=False):
+    fitbool = [test is not None for test in (stimkern, fdbkkern, wheelkern)]
     if all(np.invert(fitbool)):
         raise TypeError('All kernels cannot be None')
-    if left_rate is None:
-        left_rate = np.zeros(int(0.6 / BINSIZE))
-    if fdbk_rate is None:
-        fdbk_rate = np.zeros(int(0.6 / BINSIZE))
+    if stimkern is None:
+        stimkern = np.zeros(int(0.6 / BINSIZE))
+    if fdbkkern is None:
+        fdbkkern = np.zeros(int(0.6 / BINSIZE))
     if wheelkern is None:
         wheelkern = np.zeros(int(0.4 / BINSIZE))
     trialspikes, indices = simulate_cell_realdf(trialsdf,
-                                                left_rate,
-                                                fdbk_rate,
+                                                stimkern,
+                                                fdbkkern,
                                                 wheelkern,
-                                                pgain=priorgain, gain=0,
+                                                pgain=priorgain, gain=gain,
                                                 numtrials=ntrials)
     adj_spkt = np.hstack([trialsdf.iloc[i].trial_start + np.array(t)
                           for i, t in zip(indices, trialspikes)])
     sess_trialspikes = np.sort(adj_spkt)
     sess_clu = np.ones_like(adj_spkt, dtype=int)
+    biascols = ['bias', 'bias_next'] if hasattr(trialsdf, 'bias') else []
     fitdf = trialsdf.iloc[indices][['trial_start', 'trial_end',
                                     'stimOn_times', 'feedback_times',
-                                    'wheel_velocity', 'bias', 'bias_next']].sort_index()
+                                    'wheel_velocity', *biascols]].sort_index()
 
     nglm = glm.NeuralGLM(fitdf, sess_trialspikes, sess_clu,
                          {'trial_start': 'timing',
@@ -154,7 +157,7 @@ def fit_sim(trialsdf, left_rate, fdbk_rate, wheelkern, ntrials, priorgain=0):
                           'wheel_velocity': 'continuous',
                           'bias': 'value',
                           'bias_next': 'value'},
-                         mintrials=1, train=1.)
+                         mintrials=1, train=0.7)
     bases = glm.full_rcos(0.4, 10, nglm.binf)
     longbases = glm.full_rcos(0.6, 10, nglm.binf)
     if fitbool[0] is True:
@@ -182,18 +185,34 @@ def fit_sim(trialsdf, left_rate, fdbk_rate, wheelkern, ntrials, priorgain=0):
         retlist.append(combined_weights['fdbk'].loc[1])
     if fitbool[2] is True:
         retlist.append(combined_weights['wheel'].loc[1])
+    retlist.append(nglm.score().loc[1])
+    if retglm:
+        retlist.append(nglm)
     return retlist
+
+
+def kerngen(length, ngauss, sign=1):
+    tbins = np.ceil(length / BINSIZE).astype(int)
+    kernarr = np.zeros((tbins, ngauss))
+    for i in range(ngauss):
+        height = np.random.choice(np.linspace(1, 2.5, 5))
+        # sign = np.random.choice([-1, 1]) if i != 0 else 1
+        center = np.random.choice(np.arange(int(tbins / 6), int(5 * tbins / 6), 50))
+        spread = np.random.choice([tbins / 64, tbins / 32, tbins / 16])
+        shape = np.exp(-0.5 * ((np.arange(tbins) - center) / (spread ** 2))**2)
+        kernarr[:, i] = sign * height * shape
+    return np.sum(kernarr, axis=1)
 
 
 if __name__ == "__main__":
     import pickle
-    import pandas as pd
+    # import pandas as pd
     import itertools as it
     from tqdm import tqdm
-    from brainbox.singlecell import calculate_peths
+    # from brainbox.singlecell import calculate_peths
     from oneibl import one
     from export_funs import trialinfo_to_df
-    from prior_funcs import fit_sess_psytrack
+    # from prior_funcs import fit_sess_psytrack
     from brainbox.modeling import glm
 
     one = one.ONE()
@@ -202,52 +221,74 @@ if __name__ == "__main__":
     ids = one.search(subject=subject, date_range=[sessdate, sessdate],
                      dataset_types=['spikes.times'])
     trialsdf = trialinfo_to_df(ids[0], maxlen=2.)
-    wts, stds = fit_sess_psytrack(ids[0], maxlength=2., as_df=True)
-    trialsdf = pd.concat((trialsdf, wts['bias']), axis=1)
-    spk_times = one.load(ids[0], dataset_types=['spikes.times'], offline=True)[0]
-    spk_clu = one.load(ids[0], dataset_types=['spikes.clusters'], offline=True)[0]
+    # wts, stds = fit_sess_psytrack(ids[0], maxlength=2., as_df=True)
+    # trialsdf = pd.concat((trialsdf, wts['bias']), axis=1)
+    # trialsdf = trialsdf[np.isfinite(trialsdf.bias)]
+    # bias_next = np.roll(trialsdf['bias'], -1)
+    # bias_next = pd.Series(bias_next, index=trialsdf['bias'].index)[:-1]
+    # trialsdf['bias_next'] = bias_next
 
-    trialsdf = trialsdf[np.isfinite(trialsdf.bias)]
-    bias_next = np.roll(trialsdf['bias'], -1)
-    bias_next = pd.Series(bias_next, index=trialsdf['bias'].index)[:-1]
-    trialsdf['bias_next'] = bias_next
-
-    cell_ids = [0, 1, 2, 9, 15,
-                16, 20, 26, 29, 30,
-                # 32, 34, 52, 71,
-                ]
-    kernelcombs = list(it.product(*[(False, True)] * 3))  # Boolean combination of kernels
     nvals = np.linspace(100, len(trialsdf) - 5, 3, dtype=int)
-    _ = kernelcombs.pop(0)
-    fits = {}
-    for cell in tqdm(cell_ids, desc='Cell'):
-        cellfits = {}
-        for comb in tqdm(kernelcombs, desc='Kernel combination', leave=False):
-            combfits = {}
-            left_t = trialsdf[np.isfinite(trialsdf.contrastLeft)].stimOn_times
-            fdbk = trialsdf[np.isfinite(trialsdf.contrastLeft)].feedback_times
-            left_rate, _ = calculate_peths(spk_times, spk_clu, [cell], left_t, pre_time=0,
-                                           post_time=0.6, bin_size=BINSIZE)
-            left_rate.means = left_rate.means - left_rate.means.min()
-            left_rate = left_rate.means.flatten()
-            fdbk_rate, _ = calculate_peths(spk_times, spk_clu, [cell], fdbk, pre_time=0,
-                                           post_time=0.6, bin_size=BINSIZE)
-            fdbk_rate.means = fdbk_rate.means - fdbk_rate.means.min()
-            fdbk_rate = fdbk_rate.means.flatten()
-            wheelkern = np.exp(-0.5 * ((np.linspace(0, 0.4, int(0.4 / BINSIZE)) - 0.3) / 0.05)**2)
-            logpeak = np.log(np.max([np.max(left_rate), np.max(fdbk_rate)]))
-            wheelkern = wheelkern / np.max(wheelkern) * logpeak
-            for N in tqdm(nvals, desc='N values', leave=False):
-                combfits[N] = []
-                for i in tqdm(range(5), desc='iter', leave=False):
-                    stimk = left_rate if comb[0] else None
-                    fdbkk = fdbk_rate if comb[1] else None
-                    wheelk = wheelkern if comb[2] else None
-                    currfit = fit_sim(trialsdf, stimk, fdbkk, wheelk, N)
-                    combfits[N].append(currfit)
-            cellfits[comb] = combfits
-        fits[cell] = cellfits
+    gain = np.log(10)
 
-    fw = open('rcos_synthetic_data_multifits.p', 'wb')
+    cell_ids = list(range(10))
+    kernelcombs = list(it.product(*[(False, True)] * 3))  # Boolean combination of kernels
+    _ = kernelcombs.pop(0)
+    # fits = {}
+    # for cell in tqdm(cell_ids, desc='Cell'):
+    #     cellfits = {}
+    #     left_t = trialsdf[np.isfinite(trialsdf.contrastLeft)].stimOn_times
+    #     fdbk = trialsdf[np.isfinite(trialsdf.contrastLeft)].feedback_times
+    #     # Generate random kernels for stim and fdbk with random # of gaussians
+    #     while True:
+    #         stimkern = kerngen(0.6, np.random.choice([1, 2, 3]))
+    #         fdbkkern = kerngen(0.6, np.random.choice([1, 2, 3]), sign=-1)
+    #         wheelkern = np.exp(-0.5 * ((np.linspace(0, 0.4, int(0.4 / BINSIZE)) - 0.3) / 0.05)**2)
+    #         wheelkern = wheelkern / np.max(wheelkern) * np.random.choice(np.arange(1.5, 6))
+    #         keeparrs = [x for x in (stimkern, fdbkkern, wheelkern) if x is not None]
+    #         peaksum = np.sum([x.max() for x in keeparrs])
+    #         if (peaksum > 4) & (peaksum < 7):
+    #             break
+
+    #     cellfits['kernels'] = (stimkern, fdbkkern, wheelkern)
+    #     for comb in tqdm(kernelcombs, desc='Kernel combination', leave=False):
+    #         combfits = {}
+    #         for N in tqdm(nvals, desc='N values', leave=False):
+    #             combfits[N] = []
+    #             for i in tqdm(range(30), desc='iter', leave=False):
+    #                 stimk = stimkern if comb[0] else None
+    #                 fdbkk = fdbkkern if comb[1] else None
+    #                 wheelk = wheelkern if comb[2] else None
+    #                 currfit = fit_sim(trialsdf, stimk, fdbkk, wheelk, N, gain=gain)
+    #                 combfits[N].append(currfit)
+    #         cellfits[comb] = combfits
+    #     fits[cell] = cellfits
+
+    dimpoints = 50
+    fitkerns = pd.DataFrame(columns=['gain', 'kernel_height', 'fit_kernel', 'intercept'])
+    dsq = np.zeros((dimpoints, dimpoints))
+    stimkern = np.exp(-0.5 * ((np.linspace(0, 0.6, int(0.4 / BINSIZE)) - 0.15) / 0.05)**2)
+    stimkern = stimkern / stimkern.max()
+    fdbkk = None
+    wheelk = None
+    N = nvals[-1]
+
+    kernvals = np.linspace(np.log(2), np.log(150), 50)
+    gainvals = kernvals.copy()
+    K, G = np.meshgrid(kernvals, gainvals)
+
+    for i in tqdm(range(dimpoints), leave=True):
+        for j in tqdm(range(dimpoints), leave=False):
+            currstimkern = stimkern * K[i, j]
+            gain = G[i, j]
+            currfit = fit_sim(trialsdf, currstimkern, fdbkk, wheelk, N, gain=gain)
+            fitkerns = fitkerns.append({'gain': gain, 'kernel_height': K[i, j],
+                                       'fit_kernel': currfit[1], 'intercept': currfit[0]},
+                                       ignore_index=True)
+            dsq[i, j] = currfit[-1]
+
+    fits = {'dsquared': dsq, 'recovkerns': fitkerns}
+
+    fw = open('rcos_synthetic_data_gainkernsize_gridsearch_lineargain.p', 'wb')
     pickle.dump(fits, fw)
     fw.close()
