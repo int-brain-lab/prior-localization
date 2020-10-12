@@ -11,7 +11,7 @@ import itertools as it
 from brainbox.core import TimeSeries
 from brainbox.processing import sync
 one = one.ONE()
-offline = True
+offline = False
 
 trialstypes = ['trials.choice',
                'trials.probabilityLeft',
@@ -110,6 +110,10 @@ def trialinfo_to_df(session_id,
     '''
     starttimes = one.load(session_id, dataset_types=['trials.stimOn_times'], offline=offline)[0]
     endtimes = one.load(session_id, dataset_types=['trials.feedback_times'], offline=offline)[0]
+    if (starttimes is None) or (endtimes is None):
+        starttimes = one.load(session_id, dataset_types=['trials.stimOn_times'], offline=False)[0]
+        endtimes = one.load(session_id, dataset_types=['trials.feedback_times'], offline=False)[0]
+
     if maxlen is not None:
         with np.errstate(invalid='ignore'):
             keeptrials = (endtimes - starttimes) <= maxlen

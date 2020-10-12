@@ -48,12 +48,12 @@ def fit_session(session_id, subject_name, sessdate, kernlen, nbases,
                 'bias': 'value',
                 'bias_next': 'value',
                 'wheel_velocity': 'continuous'}
-    nglm = glm.NeuralGLM(fitinfo, spk_times, spk_clu, vartypes, binwidth=binsize, train=0.8,
-                         subset=True)
+    nglm = glm.NeuralGLM(fitinfo, spk_times, spk_clu, vartypes, binwidth=binsize, train=1.,
+                         subset=False)
 
     def stepfunc(row):
-        currvec = np.ones(nglm.binf(row.stimOn_times)) * row.bias
-        nextvec = np.ones(nglm.binf(row.duration) - nglm.binf(row.stimOn_times)) * row.bias_next
+        currvec = np.ones(nglm.binf(row.feedback_times)) * row.bias
+        nextvec = np.ones(nglm.binf(row.duration) - nglm.binf(row.feedback_times)) * row.bias_next
         return np.hstack((currvec, nextvec))
 
     wheellen = np.round(2 * kernlen / 3, decimals=1)

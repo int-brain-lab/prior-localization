@@ -86,14 +86,14 @@ def fit_session(session_id, kernlen, nbases,
     nglm.clu_regions = clu_regions
 
     def stepfunc(row):
-        currvec = np.ones(nglm.binf(row.stimOn_times)) * row.pLeft_last
-        nextvec = np.ones(nglm.binf(row.duration) - nglm.binf(row.stimOn_times)) *\
+        currvec = np.ones(nglm.binf(row.feedback_times)) * row.pLeft_last
+        nextvec = np.ones(nglm.binf(row.duration) - nglm.binf(row.feedback_times)) *\
             row.probabilityLeft
         return np.hstack((currvec, nextvec))
 
     def stepfunc_bias(row):
-        currvec = np.ones(nglm.binf(row.stimOn_times)) * row.bias
-        nextvec = np.ones(nglm.binf(row.duration) - nglm.binf(row.stimOn_times)) *\
+        currvec = np.ones(nglm.binf(row.feedback_times)) * row.bias
+        nextvec = np.ones(nglm.binf(row.duration) - nglm.binf(row.feedback_times)) *\
             row.bias_next
         return np.hstack((currvec, nextvec))
 
