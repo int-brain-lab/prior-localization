@@ -48,12 +48,18 @@ def fit_session(session_id, kernlen, nbases,
     if session_id not in ephys_cache:
         spikes, clusters, _ = bbone.load_spike_sorting_with_channel(session_id)
         for probe in spikes:
+            null_keys_spk = []
             for key in spikes[probe]:
                 if key not in ('times', 'clusters'):
-                    _ = spikes[probe].pop(key)
+                    null_keys_spk.append(key)
+            for key in null_keys_spk:
+                _ = spikes[probe].pop(key)
+            null_keys_clu = []
             for key in clusters[probe]:
                 if key not in ('acronym', 'atlas_id'):
-                    _ = clusters[probe].pop(key)
+                    null_keys_clu.append(key)
+            for key in null_keys_clu:
+                _ = clusters[probe].pop(key)
         ephys_cache[session_id] = (spikes, clusters)
     else:
         spikes, clusters = ephys_cache[session_id]

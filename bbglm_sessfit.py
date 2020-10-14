@@ -86,11 +86,28 @@ if __name__ == "__main__":
     probe_idx = 0
     kernlen = 0.6
     nbases = 10
-    method = 'sklearn'
+    method = 'minimize'
     ids = one.search(subject=nickname, date_range=[sessdate, sessdate],
                      dataset_types=['spikes.clusters'])
     nglm, sessweights = fit_session(ids[0], nickname, sessdate, kernlen, nbases,
                                     probe_idx=probe_idx, method=method)
+    sknglm, _ = fit_session(ids[0], nickname, sessdate, kernlen, nbases,
+                            probe_idx=probe_idx, method='sklearn')
+
+    def bias_nll(weights, intercept, dm, y): 
+        biasdm = np.pad(dm, ((0, 0), (1, 0)), mode='constant', constant_values=1) 
+        biaswts = np.hstack((intercept, weights)) 
+        return glm.neglog(biaswts, biasdm, y)[0] 
+
+    sklearn_nll = pd.Series([bias_nll(wt, sknglm.intercepts.loc[i],
+                                      sknglm.dm, sknglm.binnedspikes[:, nglm.clu_ids.flat == i])
+                             for i, wt in sknglm.coefs.iteritems()])
+
+    minimize_nll = pd.Series([bias_nll(wt, nglm.intercepts.loc[i],
+                                       nglm.dm, nglm.binnedspikes[:, nglm.clu_ids.flat == i])
+                              for i, wt in nglm.coefs.iteritems()])
+    ll_diffs = -sklearn_nll - (-minimize_nll)
+
     outdict = {'kernlen': kernlen, 'nbases': nbases, 'weights': sessweights, 'fitobj': nglm}
     today = str(date.today())
     subjfilepath = os.path.abspath(f'./fits/{nickname}/'
