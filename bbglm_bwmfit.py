@@ -25,7 +25,7 @@ def fit_session(session_id, kernlen, nbases,
                 t_before=0.4, t_after=0.6, prior_estimate='psytrack', max_len=2., probe_idx=0,
                 method='minimize', alpha=0, contnorm=5., binwidth=0.02):
     trialsdf = trialinfo_to_df(session_id, maxlen=max_len, t_before=t_before, t_after=t_after,
-                               glm_binsize=binwidth)
+                               glm_binsize=binwidth, wheel=False, abswheel=True)
     if prior_estimate == 'psytrack':
         print('Fitting psytrack esimates...')
         wts, stds = fit_sess_psytrack(session_id, maxlength=max_len, as_df=True)
@@ -135,7 +135,8 @@ if __name__ == "__main__":
     from ibl_pipeline import subject, ephys, histology
     from ibl_pipeline.analyses import behavior as behavior_ana
     from glob import glob
-    currdate = str(date.today())
+    # currdate = str(date.today())
+    currdate = '2020-10-26'
     regionlabeled = histology.ProbeTrajectory &\
         'insertion_data_source = "Ephys aligned histology track"'
     sessions = subject.Subject * subject.SubjectProject * ephys.acquisition.Session *\
@@ -146,7 +147,7 @@ if __name__ == "__main__":
     kernlen = 0.6
     nbases = 10
     alpha = 0
-    method = 'sklearn'
+    method = 'pytorch'
     prior_estimate = None
     binwidth = 0.02
 
@@ -163,7 +164,7 @@ if __name__ == "__main__":
         if len(subpaths) != 0:
             print(f'Skipped {nickname}, {sessdate}, probe{probe}: already fit.')
         if len(subpaths) == 0:
-            if offline:
+            if not offline:
                 _ = one.load(sessid, download_only=True)
             try:
                 nglm, sessweights = fit_session(sessid, kernlen, nbases,

@@ -102,12 +102,15 @@ def session_trialwise(session_id, probe_idx=0, t_before=0.2, t_after=0.6, wheel=
 
 
 def trialinfo_to_df(session_id,
-                    maxlen=None, t_before=0.4, t_after=0.6, wheel=True, glm_binsize=0.02):
+                    maxlen=None, t_before=0.4, t_after=0.6, wheel=True, abswheel=False,
+                    glm_binsize=0.02):
     '''
     Takes all trial-related data types out of Alyx and stores them in a pandas dataframe, with an
     optional limit on the length of trials. Will retain trial numbers from the experiment as
     indices for reference.
     '''
+    if wheel and abswheel:
+        raise ValueError('wheel and abswheel cannot both be true.')
     starttimes = one.load(session_id, dataset_types=['trials.stimOn_times'], offline=offline)[0]
     endtimes = one.load(session_id, dataset_types=['trials.feedback_times'], offline=offline)[0]
     if (starttimes is None) or (endtimes is None):
@@ -127,7 +130,7 @@ def trialinfo_to_df(session_id,
         trialsdf.set_index(np.nonzero(keeptrials)[0], inplace=True)
     trialsdf['trial_start'] = trialsdf['stimOn_times'] - t_before
     trialsdf['trial_end'] = trialsdf['feedback_times'] + t_after
-    if not wheel:
+    if not wheel and not abswheel:
         return trialsdf
 
     wheel = one.load_object(session_id, 'wheel', offline=offline)
@@ -152,7 +155,10 @@ def trialinfo_to_df(session_id,
         whlvel = np.insert(whlvel, 0, 0)
         if np.abs((trialendind - len(whlvel))) > 0:
             raise IndexError('Mismatch between expected length of wheel data and actual.')
-        trials.append(whlvel)
+        if wheel:
+            trials.append(whlvel)
+        elif abswheel:
+            trials.append(np.abs(whlvel))
     trialsdf['wheel_velocity'] = trials
     return trialsdf
 
