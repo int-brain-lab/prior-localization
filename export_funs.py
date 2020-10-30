@@ -10,8 +10,8 @@ import pandas as pd
 import itertools as it
 from brainbox.core import TimeSeries
 from brainbox.processing import sync
+
 one = one.ONE()
-offline = False
 
 trialstypes = ['trials.choice',
                'trials.probabilityLeft',
@@ -102,27 +102,24 @@ def session_trialwise(session_id, probe_idx=0, t_before=0.2, t_after=0.6, wheel=
 
 
 def trialinfo_to_df(session_id,
-                    maxlen=None, t_before=0.4, t_after=0.6, wheel=True, abswheel=False,
+                    maxlen=None, t_before=0.4, t_after=0.6, ret_wheel=False, ret_abswheel=False,
                     glm_binsize=0.02):
     '''
     Takes all trial-related data types out of Alyx and stores them in a pandas dataframe, with an
     optional limit on the length of trials. Will retain trial numbers from the experiment as
     indices for reference.
     '''
-    if wheel and abswheel:
+    if ret_wheel and ret_abswheel:
         raise ValueError('wheel and abswheel cannot both be true.')
-    starttimes = one.load(session_id, dataset_types=['trials.stimOn_times'], offline=offline)[0]
-    endtimes = one.load(session_id, dataset_types=['trials.feedback_times'], offline=offline)[0]
-    if (starttimes is None) or (endtimes is None):
-        starttimes = one.load(session_id, dataset_types=['trials.stimOn_times'], offline=False)[0]
-        endtimes = one.load(session_id, dataset_types=['trials.feedback_times'], offline=False)[0]
+    starttimes = one.load(session_id, dataset_types=['trials.stimOn_times'])[0]
+    endtimes = one.load(session_id, dataset_types=['trials.feedback_times'])[0]
 
     if maxlen is not None:
         with np.errstate(invalid='ignore'):
             keeptrials = (endtimes - starttimes) <= maxlen
     else:
         keeptrials = range(len(starttimes))
-    tmp = one.load(session_id, dataset_types=trialstypes, offline=offline)
+    tmp = one.load(session_id, dataset_types=trialstypes)
     trialdata = {x.split('.')[1]: tmp[i][keeptrials] for i, x in enumerate(trialstypes)}
     trialdata['probabilityLeft'] = remap_trialp(trialdata['probabilityLeft'])
     trialsdf = pd.DataFrame(trialdata)
@@ -130,10 +127,10 @@ def trialinfo_to_df(session_id,
         trialsdf.set_index(np.nonzero(keeptrials)[0], inplace=True)
     trialsdf['trial_start'] = trialsdf['stimOn_times'] - t_before
     trialsdf['trial_end'] = trialsdf['feedback_times'] + t_after
-    if not wheel and not abswheel:
+    if not ret_wheel and not ret_abswheel:
         return trialsdf
 
-    wheel = one.load_object(session_id, 'wheel', offline=offline)
+    wheel = one.load_object(session_id, 'wheel')
     whlpos, whlt = wheel.position, wheel.timestamps
     starttimes = trialsdf['trial_start']
     endtimes = trialsdf['trial_end']
@@ -155,9 +152,9 @@ def trialinfo_to_df(session_id,
         whlvel = np.insert(whlvel, 0, 0)
         if np.abs((trialendind - len(whlvel))) > 0:
             raise IndexError('Mismatch between expected length of wheel data and actual.')
-        if wheel:
+        if ret_wheel:
             trials.append(whlvel)
-        elif abswheel:
+        elif ret_abswheel:
             trials.append(np.abs(whlvel))
     trialsdf['wheel_velocity'] = trials
     return trialsdf

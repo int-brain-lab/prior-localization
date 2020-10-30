@@ -25,7 +25,7 @@ def fit_session(session_id, kernlen, nbases,
                 t_before=0.4, t_after=0.6, prior_estimate='psytrack', max_len=2., probe_idx=0,
                 method='minimize', alpha=0, contnorm=5., binwidth=0.02):
     trialsdf = trialinfo_to_df(session_id, maxlen=max_len, t_before=t_before, t_after=t_after,
-                               glm_binsize=binwidth, wheel=False, abswheel=True)
+                               glm_binsize=binwidth, ret_abswheel=True)
     if prior_estimate == 'psytrack':
         print('Fitting psytrack esimates...')
         wts, stds = fit_sess_psytrack(session_id, maxlength=max_len, as_df=True)
@@ -46,7 +46,8 @@ def fit_session(session_id, kernlen, nbases,
     # ensures that we don't waste memory storing unnecessary and large arrays.
     probestr = 'probe0' + str(probe_idx)
     if session_id not in ephys_cache:
-        spikes, clusters, _ = bbone.load_spike_sorting_with_channel(session_id)
+        spikes, clusters, _ = bbone.load_spike_sorting_with_channel(session_id, one=one,
+                                                                    aligned=True)
         for probe in spikes:
             null_keys_spk = []
             for key in spikes[probe]:
@@ -104,7 +105,7 @@ def fit_session(session_id, kernlen, nbases,
         return np.hstack((currvec, nextvec))
 
     cosbases_long = glm.full_rcos(kernlen, nbases, nglm.binf)
-    cosbases_short = glm.full_rcos(0.4, nbases, nglm.binf)
+    cosbases_short = glm.full_rcos(0.6, nbases, nglm.binf)
     nglm.add_covariate_timing('stimonL', 'stimOn_times', cosbases_long,
                               cond=lambda tr: np.isfinite(tr.contrastLeft),
                               deltaval='adj_contrastLeft',
@@ -125,7 +126,6 @@ def fit_session(session_id, kernlen, nbases,
         nglm.add_covariate_raw('pLeft', stepfunc_bias, desc='Step function on prior estimate')
     nglm.add_covariate('wheel', fitinfo['wheel_velocity'], cosbases_short, -0.4)
     nglm.compile_design_matrix()
-    nglm.bin_spike_trains()
     nglm.fit(method=method, alpha=alpha)
     combined_weights = nglm.combine_weights()
     return nglm, combined_weights
@@ -135,8 +135,8 @@ if __name__ == "__main__":
     from ibl_pipeline import subject, ephys, histology
     from ibl_pipeline.analyses import behavior as behavior_ana
     from glob import glob
-    # currdate = str(date.today())
-    currdate = '2020-10-26'
+    currdate = str(date.today())
+    # currdate = '2020-10-26'
     regionlabeled = histology.ProbeTrajectory &\
         'insertion_data_source = "Ephys aligned histology track"'
     sessions = subject.Subject * subject.SubjectProject * ephys.acquisition.Session *\
@@ -166,14 +166,14 @@ if __name__ == "__main__":
         if len(subpaths) == 0:
             if not offline:
                 _ = one.load(sessid, download_only=True)
-            try:
-                nglm, sessweights = fit_session(sessid, kernlen, nbases,
-                                                prior_estimate=prior_estimate,
-                                                probe_idx=probe, method=method, alpha=alpha,
-                                                binwidth=binwidth)
-            except Exception as err:
-                print(f'Subject {nickname} on {sessdate} failed:\n', type(err), err)
-                continue
+            # try:
+            nglm, sessweights = fit_session(sessid, kernlen, nbases,
+                                            prior_estimate=prior_estimate,
+                                            probe_idx=probe, method=method, alpha=alpha,
+                                            binwidth=binwidth)
+            # except Exception as err:
+            #     print(f'Subject {nickname} on {sessdate} failed:\n', type(err), err)
+            #     continue
 
             outdict = {'sessinfo': s, 'kernlen': kernlen, 'nbases': nbases, 'weights': sessweights,
                        'fitobj': nglm}
