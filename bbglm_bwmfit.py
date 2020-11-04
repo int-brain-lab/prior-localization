@@ -105,7 +105,7 @@ def fit_session(session_id, kernlen, nbases,
         return np.hstack((currvec, nextvec))
 
     cosbases_long = glm.full_rcos(kernlen, nbases, nglm.binf)
-    cosbases_short = glm.full_rcos(0.6, nbases, nglm.binf)
+    cosbases_short = glm.full_rcos(0.4, nbases, nglm.binf)
     nglm.add_covariate_timing('stimonL', 'stimOn_times', cosbases_long,
                               cond=lambda tr: np.isfinite(tr.contrastLeft),
                               deltaval='adj_contrastLeft',
@@ -136,7 +136,7 @@ if __name__ == "__main__":
     from ibl_pipeline.analyses import behavior as behavior_ana
     from glob import glob
     currdate = str(date.today())
-    # currdate = '2020-10-26'
+    # currdate = '2020-10-30'
     regionlabeled = histology.ProbeTrajectory &\
         'insertion_data_source = "Ephys aligned histology track"'
     sessions = subject.Subject * subject.SubjectProject * ephys.acquisition.Session *\
@@ -157,7 +157,8 @@ if __name__ == "__main__":
         sessdate = str(s['session_start_time'].date())
         probe = s['probe_idx']
         print(f'\nWorking on {nickname} from {sessdate}\n')
-        filename = f'./fits/{nickname}/{sessdate}_session_{currdate}_probe{probe}_fit.p'
+        filename = '/media/berk/Storage1/fits/' +\
+            f'{nickname}/{sessdate}_session_{currdate}_probe{probe}_fit.p'
         if not os.path.exists(f'./fits/{nickname}'):
             os.mkdir(f'./fits/{nickname}')
         subpaths = [n for n in glob(os.path.abspath(filename)) if os.path.isfile(n)]
@@ -166,14 +167,14 @@ if __name__ == "__main__":
         if len(subpaths) == 0:
             if not offline:
                 _ = one.load(sessid, download_only=True)
-            # try:
-            nglm, sessweights = fit_session(sessid, kernlen, nbases,
-                                            prior_estimate=prior_estimate,
-                                            probe_idx=probe, method=method, alpha=alpha,
-                                            binwidth=binwidth)
-            # except Exception as err:
-            #     print(f'Subject {nickname} on {sessdate} failed:\n', type(err), err)
-            #     continue
+            try:
+                nglm, sessweights = fit_session(sessid, kernlen, nbases,
+                                                prior_estimate=prior_estimate,
+                                                probe_idx=probe, method=method, alpha=alpha,
+                                                binwidth=binwidth)
+            except Exception as err:
+                print(f'Subject {nickname} on {sessdate} failed:\n', type(err), err)
+                continue
 
             outdict = {'sessinfo': s, 'kernlen': kernlen, 'nbases': nbases, 'weights': sessweights,
                        'fitobj': nglm}
