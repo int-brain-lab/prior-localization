@@ -200,4 +200,3 @@ def filter_trials(trials, clu_ids, max_len=2., recomp_clusters=True):
         return keeptrials, filtered_clu
     else:
         return keeptrials
-
