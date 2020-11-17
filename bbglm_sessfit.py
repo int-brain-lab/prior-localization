@@ -16,8 +16,8 @@ one = one.ONE()
 
 
 def fit_session(session_id, kernlen, nbases,
-                t_before=0.4, t_after=0.6, prior_estimate=None, max_len=2., probe_idx=0,
-                method='minimize', alpha=0, contnorm=5., binwidth=0.02):
+                t_before=1., t_after=0.6, prior_estimate='psytrack', max_len=2., probe_idx=0,
+                method='minimize', alpha=0, contnorm=5., binwidth=0.02, wholetrial_step=False,):
     trialsdf = trialinfo_to_df(session_id, maxlen=max_len, t_before=t_before, t_after=t_after,
                                glm_binsize=binwidth, ret_abswheel=True)
     if prior_estimate == 'psytrack':
@@ -38,8 +38,8 @@ def fit_session(session_id, kernlen, nbases,
     # A bit of messy loading to get spike times, clusters, and cluster brain regions.
     # This is the way it is because loading with regions takes forever. The weird for loop
     # ensures that we don't waste memory storing unnecessary and large arrays.
+    spikes, clusters, _ = bbone.load_spike_sorting_with_channel(session_id, one=one, aligned=True)
     probestr = 'probe0' + str(probe_idx)
-    spikes, clusters, _ = bbone.load_spike_sorting_with_channel(session_id)
     spk_times = spikes[probestr].times
     spk_clu = spikes[probestr].clusters
     clu_regions = clusters[probestr].acronym
@@ -65,14 +65,25 @@ def fit_session(session_id, kernlen, nbases,
                 'bias': 'value',
                 'bias_next': 'value',
                 'wheel_velocity': 'continuous'}
-    nglm = glm.NeuralGLM(fitinfo, spk_times, spk_clu, vartypes, binwidth=binwidth,)  # subset=True)
+    nglm = glm.NeuralGLM(fitinfo, spk_times, spk_clu, vartypes, binwidth=binwidth, subset=True)
     nglm.clu_regions = clu_regions
+
+    if t_before < 0.7:
+        raise ValueError('t_before needs to be 0.7 or greater in order to do -0.1 to -0.7 step'
+                         ' function on pLeft')
+
+    stepbounds = [nglm.binf(t_before - 0.7), nglm.binf(t_before - 0.1)]
 
     def stepfunc(row):
         currvec = np.ones(nglm.binf(row.feedback_times)) * row.pLeft_last
         nextvec = np.ones(nglm.binf(row.duration) - nglm.binf(row.feedback_times)) *\
             row.probabilityLeft
         return np.hstack((currvec, nextvec))
+
+    def stepfunc_prestim(row):
+        stepvec = np.zeros(nglm.binf(row.duration))
+        stepvec[stepbounds[0]:stepbounds[1]] = row.pLeft_last
+        return stepvec
 
     def stepfunc_bias(row):
         currvec = np.ones(nglm.binf(row.feedback_times)) * row.bias
@@ -96,8 +107,10 @@ def fit_session(session_id, kernlen, nbases,
     nglm.add_covariate_timing('incorrect', 'feedback_times', cosbases_long,
                               cond=lambda tr: tr.feedbackType == -1,
                               desc='Kernel conditioned on incorrect feedback')
-    if prior_estimate is None:
+    if prior_estimate is None and wholetrial_step:
         nglm.add_covariate_raw('pLeft', stepfunc, desc='Step function on prior estimate')
+    elif prior_estimate is None and not wholetrial_step:
+        nglm.add_covariate_raw('pLeft', stepfunc_prestim, desc='Step function on prior estimate')
     elif prior_estimate == 'psytrack':
         nglm.add_covariate_raw('pLeft', stepfunc_bias, desc='Step function on prior estimate')
     nglm.add_covariate('wheel', fitinfo['wheel_velocity'], cosbases_short, -0.4)
@@ -117,9 +130,9 @@ if __name__ == "__main__":
     ids = one.search(subject=nickname, date_range=[sessdate, sessdate],
                      dataset_types=['spikes.clusters'])
     nglm, sessweights = fit_session(ids[0], kernlen, nbases,
-                                    probe_idx=probe_idx, method=method)
+                                    probe_idx=probe_idx, method=method, prior_estimate=None)
     sknglm, _ = fit_session(ids[0], kernlen, nbases,
-                            probe_idx=probe_idx, method='sklearn')
+                            probe_idx=probe_idx, method='sklearn', prior_estimate=None)
 
     # def bias_nll(weights, intercept, dm, y):
     #     biasdm = np.pad(dm, ((0, 0), (1, 0)), mode='constant', constant_values=1)

@@ -21,13 +21,15 @@ one = one.ONE()
 
 ephys_cache = {}
 
+
 def remove_trials(num, indexes, pf):
     """
     Remove a specific number of trails from the given pandasFrame
     """
     length = indexes.size
     remove_indexes = indexes[random.sample(range(length), num)]
-    return pf.drop(index = remove_indexes)
+    return pf.drop(index=remove_indexes)
+
 
 def fit_session(session_id, kernlen, nbases,
                 t_before=0.4, t_after=0.6, prior_estimate='psytrack', max_len=2., probe_idx=0,
@@ -99,11 +101,12 @@ def fit_session(session_id, kernlen, nbases,
                 'wheel_velocity': 'continuous'}
 
     # Remain only right stimuli trials
-    fitinfo = fitinfo[fitinfo['contrastRight']<=1.0]
-    # If necessary, remove randomly to make sure the fit uses equal numbers of trials from Left and Right bias blocks
+    fitinfo = fitinfo[fitinfo['contrastRight'] <= 1.]
+    # If necessary, remove randomly to make sure the fit uses equal numbers of trials from Left
+    # and Right bias blocks
     bias = fitinfo['probabilityLeft']
-    left_bias = bias[bias>0.5]
-    right_bias = bias[bias<0.5]
+    left_bias = bias[bias > 0.5]
+    right_bias = bias[bias < 0.5]
     if left_bias.size > right_bias.size:
         num_extra = left_bias.size - right_bias.size
         fitinfo = remove_trials(num_extra, left_bias.index, fitinfo)
@@ -111,7 +114,8 @@ def fit_session(session_id, kernlen, nbases,
         num_extra = right_bias.size - left_bias.size
         fitinfo = remove_trials(num_extra, right_bias.index, fitinfo)
 
-    nglm = glm.NeuralGLM(fitinfo, spk_times, spk_clu, vartypes, binwidth=binwidth, subset=True)
+    nglm = glm.NeuralGLM(fitinfo, spk_times, spk_clu, vartypes, binwidth=binwidth,
+                         mintrials=50, subset=True)
     nglm.clu_regions = clu_regions
 
     def stepfunc(row):
@@ -128,10 +132,6 @@ def fit_session(session_id, kernlen, nbases,
 
     cosbases_long = glm.full_rcos(kernlen, nbases, nglm.binf)
     cosbases_short = glm.full_rcos(0.4, nbases, nglm.binf)
-    nglm.add_covariate_timing('stimonL', 'stimOn_times', cosbases_long,
-                              cond=lambda tr: np.isfinite(tr.contrastLeft),
-                              deltaval='adj_contrastLeft',
-                              desc='Kernel conditioned on L stimulus onset')
     nglm.add_covariate_timing('stimonR', 'stimOn_times', cosbases_long,
                               cond=lambda tr: np.isfinite(tr.contrastRight),
                               deltaval='adj_contrastRight',
@@ -181,8 +181,8 @@ if __name__ == "__main__":
         print(f'\nWorking on {nickname} from {sessdate}\n')
         filename = '/media/berk/Storage1/fits/' +\
             f'{nickname}/{sessdate}_session_{currdate}_probe{probe}_fit_right_trials.p'
-        if not os.path.exists(f'./fits/{nickname}'):
-            os.mkdir(f'./fits/{nickname}')
+        if not os.path.exists(f'/media/berk/Storage1/fits/{nickname}'):
+            os.mkdir(f'/media/berk/Storage1/fits/{nickname}')
         subpaths = [n for n in glob(os.path.abspath(filename)) if os.path.isfile(n)]
         if len(subpaths) != 0:
             print(f'Skipped {nickname}, {sessdate}, probe{probe}: already fit.')
