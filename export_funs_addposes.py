@@ -11,6 +11,8 @@ import itertools as it
 from brainbox.core import TimeSeries
 from brainbox.processing import sync
 from scipy import interpolate
+from pathlib import Path
+import alf.io
 
 one = one.ONE()
 
@@ -102,10 +104,12 @@ def session_trialwise(session_id, probe_idx=0, t_before=0.2, t_after=0.6, wheel=
     return trials, clu_ids
 
 
-def good_trial(nan_timesteps, threshold = 4):
+def good_trial(nan_timesteps, threshold = 3):
     """
-    Return false when data lost in the continuous 5(default) timesteps.
+    Return false when data lost in the continuous 4(default) timesteps.
     """
+    if len(nan_timesteps) - threshold <= 0:
+        return True
     for i in range(len(nan_timesteps) - threshold):
         if nan_timesteps[i] + threshold == nan_timesteps[i + threshold]:
             return False
@@ -113,8 +117,8 @@ def good_trial(nan_timesteps, threshold = 4):
 
 
 def trialinfo_to_df(session_id,
-                    maxlen=None, t_before=0.4, t_after=0.6, ret_wheel=False, ret_abswheel=False,
-                    glm_binsize=0.02):
+                    maxlen=None, t_before=0.4, t_after=0.6, ret_wheel=False, ret_abswheel=False, 
+                    abs_poses_vel = False, glm_binsize=0.02):
     '''
     Takes all trial-related data types out of Alyx and stores them in a pandas dataframe, with an
     optional limit on the length of trials. Will retain trial numbers from the experiment as
@@ -164,7 +168,7 @@ def trialinfo_to_df(session_id,
             startind = np.searchsorted(times[endlast:], start) + endlast
             endind = np.searchsorted(times[endlast:], end, side='right') + endlast + 4
             if endind >= len(values):
-                print(f'WARNING: data missing since trial {i}')
+                print(f'WARNING: data lost since trial {i}')
                 for _ in range(i, len(starttimes)):
                     trials.append(np.nan)
                 return trials
@@ -174,7 +178,7 @@ def trialinfo_to_df(session_id,
             if len(nan_index) != 0: # Check for NaN
                 if good_trial(nan_index): # Qualify trial data
                     # Avoid failing to interpolation when the first or last value in tr_values is NaN
-                    offset = 5
+                    offset = 10
                     if (startind - 1 - offset) < 0:
                         y = values[:endind + 1 + offset]
                         offset = startind - 1
@@ -198,7 +202,7 @@ def trialinfo_to_df(session_id,
             trials.append(tr)
         return trials
 
-    def get_velocity(position, abs=False):
+    def get_velocity(position, abs=True):
         velocity = []
         for item in position:
             if np.isnan(item).any():
@@ -218,56 +222,38 @@ def trialinfo_to_df(session_id,
     trials_whlpos = format_series(whlt, whlpos, interp='previous')
     trialsdf['wheel_velocity'] = get_velocity(trials_whlpos, ret_abswheel)
 
-    # Loading 3D poses data
-    pose_times = np.load(f'./poses/{session_id}/times_left.npy', allow_pickle=True)
-    poses = np.load(f'./poses/{session_id}/pts3d.npy', allow_pickle=True).item()
-    points = ['paw1', 'paw2', 'nose']
-    coordinates = ['x','y', 'z']
-    for i, p in enumerate(points):
-        for c in coordinates:
-            raw_data = poses[f'{c}_coords'][:,i]
-            position = format_series(pose_times, raw_data, interp='cubic')
-            trialsdf[f'{p}_{c}'] = position
-            trialsdf[f'{p}_{c}_velocity'] = get_velocity(position)
+    # Loading 3D poses data, required pre-computed 3D points via IBL_3d.py
+    # pose_times = np.load(f'./poses/{session_id}/times_left.npy', allow_pickle=True)
+    # poses = np.load(f'./poses/{session_id}/pts3d.npy', allow_pickle=True).item()
+    # points = ['paw1', 'paw2', 'nose']
+    # coordinates = ['x','y', 'z']
+    # for i, p in enumerate(points):
+    #     for c in coordinates:
+    #         raw_data = poses[f'{c}_coords'][:,i]
+    #         position = format_series(pose_times, raw_data, interp='cubic')
+    #         trialsdf[f'{p}_{c}'] = position
+    #         trialsdf[f'{p}_{c}_velocity'] = get_velocity(position, abs_poses_vel)
 
     # Loading 2D poses data
-    XYs_left = np.load(f'./poses/{session_id}/XYs_left.npy', allow_pickle=True).item()
-    XYs_right = np.load(f'./poses/{session_id}/XYs_right.npy', allow_pickle=True).item()
+    XYs_left, times_left = GetXYs(session_id, 'left')
+    XYs_right, times_right = GetXYs(session_id, 'right')
+    # Loading each paw from closest camera, which is called paw_r in dataset
+    for point, XYs, times in zip(['paw1', 'paw2'], 
+                                 [XYs_left, XYs_right], 
+                                 [times_left, times_right]):
+        for i, c in enumerate(['x','y']):
+            raw_data = XYs['paw_r'][i]
+            position = format_series(times, raw_data, interp='slinear')
+            trialsdf[f'{point}_{c}_velocity'] = get_velocity(position, abs_poses_vel)
 
-    # One-hot encodng lick timing
+    # One-hot encodng lick timing, using data from left camera with higher resolution
     tongue_pos = (XYs_left['tongue_end_r'] + XYs_left['tongue_end_l']).T
     nan_frames = np.where(np.isnan(tongue_pos)) # Where the tongue position is NaN as well as no tongue was detected
     nan_frames = np.unique(nan_frames[0])
-    lick_timing = np.ones_like(pose_times)
+    lick_timing = np.ones_like(times_left)
     lick_timing[nan_frames] = 0
-    lick_timing = format_series(pose_times, lick_timing, interp='zero')
+    lick_timing = format_series(times_left, lick_timing, interp='zero')
     trialsdf['lick_timing'] = lick_timing
-
-    # Loading pupil 2D position in pixels
-    # pupil_r = np.load
-    # assert len(pupil_r) == len(pose_times), 'The number of frames for pupil does no match.'
-    # pupil_top_r = np.stack((pupil_r['pupil_top_r_x'], pupil_r['pupil_top_r_y']), axis=-1)
-    # pupil_bottom_r = np.stack((pupil_r['pupil_bottom_r_x'], pupil_r['pupil_bottom_r_y']), axis=-1)
-    # diameter1 = np.linalg.norm(pupil_top_r-pupil_bottom_r)
-    # pupil_left_r = np.stack((pupil_r['pupil_left_r_x'], pupil_r['pupil_left_r_y']), axis=-1)
-    # pupil_right_r = np.stack((pupil_r['pupil_right_r_x'], pupil_r['pupil_right_r_y']), axis=-1)
-    # diameter2 = np.linalg.norm(pupil_left_r-pupil_right_r)
-    # diameter_r = (diameter1 + diameter2) / 2
-    # diameter_r = format_series(pupil_r_times, diameter_r)
-    # trialsdf['pupil_diameter_r'] = diameter_r
-    # trialsdf['pupil_diameter_r_velocity'] = get_velocity(diameter_r)
-
-    # pupil_l = np.load
-    # pupil_top_l = np.stack((pupil_l['pupil_top_l_x'], pupil_l['pupil_top_l_y']), axis=-1)
-    # pupil_bottom_l = np.stack((pupil_l['pupil_bottom_l_x'], pupil_l['pupil_bottom_l_y']), axis=-1)
-    # diameter1 = np.linalg.norm(pupil_top_l-pupil_bottom_l)
-    # pupil_left_l = np.stack((pupil_l['pupil_left_l_x'], pupil_l['pupil_left_l_y']), axis=-1)
-    # pupil_right_l = np.stack((pupil_l['pupil_right_l_x'], pupil_l['pupil_right_l_y']), axis=-1)
-    # diameter2 = np.linalg.norm(pupil_left_l-pupil_right_l)
-    # diameter_l = (diameter1 + diameter2) / 2
-    # diameter_l = format_series(pupil_l_times, diameter_l)
-    # trialsdf['pupil_diameter_l'] = diameter_l
-    # trialsdf['pupil_diameter_l_velocity'] = get_velocity(diameter_l)
 
     return trialsdf
 
@@ -312,3 +298,64 @@ def filter_trials(trials, clu_ids, max_len=2., recomp_clusters=True):
         return keeptrials, filtered_clu
     else:
         return keeptrials
+
+
+'''
+Get IBL 2D points for a given trial.
+Adapted from Michael Schartner's edit;
+first version from Sunand Raghupathi, Paninski Lab, 51N84D/3D-Animal-Pose.
+'''
+def GetXYs(eid, video_type):
+    '''
+    eid: session id, e.g. '3663d82b-f197-4e8b-b299-7b803a155b84'
+    video_type: one of 'left', 'right', 'body'
+    '''
+    def find_nearest(array, value):
+        # array = np.asarray(array)
+        idx = (np.abs(array - value)).argmin()
+        return idx
+
+    dataset_types = ['camera.times',
+                     'trials.intervals',
+                     'camera.dlc']
+    D = one.load(eid, dataset_types=dataset_types, dclass_output=True)
+    alf_path = Path(D.local_path[0]).parent.parent / 'alf'
+    # that gives cam time stamps and DLC output (change to alf_path eventually)
+    cam = alf.io.load_object(alf_path, '%sCamera' % video_type, namespace = 'ibl')
+    trials = alf.io.load_object(alf_path, 'trials', namespace = 'ibl')
+    # Pick frames during trials
+    session_endtime = trials['intervals'][-1][1]
+    if session_endtime > cam['times'][-1]:
+        print(f"For session {eid}, DLC outputs don't cover the whole session")
+    frame_start = find_nearest(cam['times'], trials['intervals'][0][0])
+    frame_stop = find_nearest(cam['times'], session_endtime)
+
+    '''
+    DLC related stuff
+    '''
+    # just to read in times for newer data (which has DLC results in pqt format
+    times = cam['times'][frame_start:frame_stop]     
+    dlc_name = '_ibl_%sCamera.dlc.pqt' % video_type
+    dlc_path = alf_path / dlc_name
+    cam = pd.read_parquet(dlc_path, engine = "fastparquet")    
+
+    points = np.unique(['_'.join(x.split('_')[:-1]) for x in cam.keys()])
+    
+    if video_type != 'body':
+        d = list(points) 
+        d.remove('tube_top')
+        d.remove('tube_bottom')   
+        points = np.array(d)
+
+    # Set values to nan if likelyhood is too low # for pqt: .to_numpy()
+    XYs = {}
+    for point in points:
+        x = np.ma.masked_where(
+            cam[point + '_likelihood'] < 0.9, cam[point + '_x'])
+        x = x.filled(np.nan)
+        y = np.ma.masked_where(
+            cam[point + '_likelihood'] < 0.9, cam[point + '_y'])
+        y = y.filled(np.nan)
+        XYs[point] = np.array(
+            [x[frame_start:frame_stop], y[frame_start:frame_stop]])
+    return XYs, times

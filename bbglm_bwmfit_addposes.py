@@ -24,13 +24,14 @@ ephys_cache = {}
 def fit_session(session_id, kernlen, nbases,
                 t_before=1., t_after=0.6, prior_estimate='psytrack', max_len=2., probe_idx=0,
                 method='minimize', alpha=0, contnorm=5., binwidth=0.02, wholetrial_step=False,
-                blocktrain=False, abswheel=False):
+                blocktrain=False, abswheel=False, abs_poses_vel=False):
     if not abswheel:
         signwheel = True
     else:
         signwheel = False
     trialsdf = trialinfo_to_df(session_id, maxlen=max_len, t_before=t_before, t_after=t_after,
-                               glm_binsize=binwidth, ret_abswheel=abswheel, ret_wheel=signwheel)
+                               glm_binsize=binwidth, ret_abswheel=abswheel, ret_wheel=signwheel, 
+                               abs_poses_vel=abs_poses_vel)
     if prior_estimate == 'psytrack':
         print('Fitting psytrack esimates...')
         wts, stds = fit_sess_psytrack(session_id, maxlength=max_len, as_df=True)
@@ -77,18 +78,25 @@ def fit_session(session_id, kernlen, nbases,
     fitinfo = fitinfo.iloc[1:-1]
     fitinfo['adj_contrastLeft'] = np.tanh(contnorm * fitinfo['contrastLeft']) / np.tanh(contnorm)
     fitinfo['adj_contrastRight'] = np.tanh(contnorm * fitinfo['contrastRight']) / np.tanh(contnorm)
-    pose_covars = ['paw1_x', 'paw1_x_velocity', 
-                   'paw1_y', 'paw1_y_velocity',
-                   'paw1_z', 'paw1_z_velocity',
-                   'paw2_x', 'paw2_x_velocity', 
-                   'paw2_y', 'paw2_y_velocity',
-                   'paw2_z', 'paw2_z_velocity',
-                   'nose_x', 'nose_x_velocity', 
-                   'nose_y', 'nose_y_velocity',
-                   'nose_z', 'nose_z_velocity',
-                   #'pupil_diameter_r', 'pupil_diameter_r_velocity',
-                   #'pupil_diameter_l', 'pupil_diameter_l_velocity',
-                   'lick_timing']
+    # For 3D points
+    # pose_covars = ['paw1_x', 'paw1_x_velocity', 
+    #                'paw1_y', 'paw1_y_velocity',
+    #                'paw1_z', 'paw1_z_velocity',
+    #                'paw2_x', 'paw2_x_velocity', 
+    #                'paw2_y', 'paw2_y_velocity',
+    #                'paw2_z', 'paw2_z_velocity',
+    #                'nose_x', 'nose_x_velocity', 
+    #                'nose_y', 'nose_y_velocity',
+    #                'nose_z', 'nose_z_velocity',
+    #                #'pupil_diameter_r', 'pupil_diameter_r_velocity',
+    #                #'pupil_diameter_l', 'pupil_diameter_l_velocity',
+    #                'lick_timing']
+    
+    # For 2D points
+    pose_covars = ['paw1_x_velocity', 'paw1_y_velocity', 
+                   'paw2_x_velocity','paw2_y_velocity', 'lick_timing']
+    # Drop NaN rows
+    fitinfo = fitinfo.loc[fitinfo[pose_covars].dropna().index]
     vartypes = {'choice': 'value',
                 'response_times': 'timing',
                 'probabilityLeft': 'value',
@@ -108,7 +116,11 @@ def fit_session(session_id, kernlen, nbases,
                 'wheel_velocity': 'continuous'}
     for pose_covar in pose_covars:
         vartypes[pose_covar] = 'continuous'
-    fitinfo = fitinfo.loc[fitinfo[pose_covars].dropna().index]
+        # Normalize velocity into range -1~1 (0~1 if absolut velocity applied)
+        if pose_covar != 'lick_timing':
+            max_value = np.max(np.hstack([np.max(np.abs(trial)) 
+                                          for trial in fitinfo[pose_covar].values]))
+            fitinfo[pose_covar] /= max_value
     nglm = glm.NeuralGLM(fitinfo, spk_times, spk_clu, vartypes, binwidth=binwidth, subset=True,
                          blocktrain=blocktrain)
     nglm.clu_regions = clu_regions
@@ -158,7 +170,7 @@ def fit_session(session_id, kernlen, nbases,
         nglm.add_covariate_raw('pLeft', stepfunc_prestim, desc='Step function on prior estimate')
     elif prior_estimate == 'psytrack':
         nglm.add_covariate_raw('pLeft', stepfunc_bias, desc='Step function on prior estimate')
-    nglm.add_covariate('wheel', fitinfo['wheel_velocity'], cosbases_short, -0.4)
+    # nglm.add_covariate('wheel', fitinfo['wheel_velocity'], cosbases_short, -0.4)
     for pose_covar in pose_covars:
         nglm.add_covariate(pose_covar, fitinfo[pose_covar], cosbases_short, -0.4)
     nglm.compile_design_matrix()
