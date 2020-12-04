@@ -17,7 +17,8 @@ one = one.ONE()
 
 def fit_session(session_id, kernlen, nbases,
                 t_before=1., t_after=0.6, prior_estimate='psytrack', max_len=2., probe_idx=0,
-                method='minimize', alpha=0, contnorm=5., binwidth=0.02, wholetrial_step=False,):
+                method='minimize', alpha=0, contnorm=5., binwidth=0.02, wholetrial_step=False,
+                blocktrain=False):
     trialsdf = trialinfo_to_df(session_id, maxlen=max_len, t_before=t_before, t_after=t_after,
                                glm_binsize=binwidth, ret_abswheel=True)
     if prior_estimate == 'psytrack':
@@ -65,7 +66,8 @@ def fit_session(session_id, kernlen, nbases,
                 'bias': 'value',
                 'bias_next': 'value',
                 'wheel_velocity': 'continuous'}
-    nglm = glm.NeuralGLM(fitinfo, spk_times, spk_clu, vartypes, binwidth=binwidth, subset=True)
+    nglm = glm.NeuralGLM(fitinfo, spk_times, spk_clu, vartypes, binwidth=binwidth,
+                         blocktrain=blocktrain, subset=True)
     nglm.clu_regions = clu_regions
 
     if t_before < 0.7:

@@ -8,12 +8,14 @@ from oneibl import one
 import numpy as np
 import pandas as pd
 from brainbox.modeling import glm
+from brainbox.population.population import _generate_pseudo_blocks
 import brainbox.io.one as bbone
 from export_funs import trialinfo_to_df
 from prior_funcs import fit_sess_psytrack
 from datetime import date
 import pickle
 import os
+from tqdm import tqdm
 
 offline = True
 one = one.ONE()
@@ -24,7 +26,7 @@ ephys_cache = {}
 def fit_session(session_id, kernlen, nbases,
                 t_before=1., t_after=0.6, prior_estimate='psytrack', max_len=2., probe_idx=0,
                 method='minimize', alpha=0, contnorm=5., binwidth=0.02, wholetrial_step=False,
-                blocktrain=False, abswheel=False, no_50perc=False, stepwise=True):
+                blocktrain=False, abswheel=False, no_50perc=False, num_pseudosess=100):
     if not abswheel:
         signwheel = True
     else:
@@ -98,16 +100,10 @@ def fit_session(session_id, kernlen, nbases,
                 'bias': 'value',
                 'bias_next': 'value',
                 'wheel_velocity': 'continuous'}
-    nglm = glm.NeuralGLM(fitinfo, spk_times, spk_clu, vartypes, binwidth=binwidth, subset=stepwise,
-                         blocktrain=blocktrain)
-    nglm.clu_regions = clu_regions
-
     if t_before < 0.7:
         raise ValueError('t_before needs to be 0.7 or greater in order to do -0.1 to -0.7 step'
                          ' function on pLeft')
-
-    stepbounds = [nglm.binf(t_before - 0.7), nglm.binf(t_before - 0.1)]
-
+ 
     def stepfunc(row):
         currvec = np.ones(nglm.binf(row.feedback_times)) * row.pLeft_last
         nextvec = np.ones(nglm.binf(row.duration) - nglm.binf(row.feedback_times)) *\
@@ -125,33 +121,47 @@ def fit_session(session_id, kernlen, nbases,
             row.bias_next
         return np.hstack((currvec, nextvec))
 
-    cosbases_long = glm.full_rcos(kernlen, nbases, nglm.binf)
-    cosbases_short = glm.full_rcos(0.4, nbases, nglm.binf)
-    nglm.add_covariate_timing('stimonL', 'stimOn_times', cosbases_long,
-                              cond=lambda tr: np.isfinite(tr.contrastLeft),
-                              deltaval='adj_contrastLeft',
-                              desc='Kernel conditioned on L stimulus onset')
-    nglm.add_covariate_timing('stimonR', 'stimOn_times', cosbases_long,
-                              cond=lambda tr: np.isfinite(tr.contrastRight),
-                              deltaval='adj_contrastRight',
-                              desc='Kernel conditioned on R stimulus onset')
-    nglm.add_covariate_timing('correct', 'feedback_times', cosbases_long,
-                              cond=lambda tr: tr.feedbackType == 1,
-                              desc='Kernel conditioned on correct feedback')
-    nglm.add_covariate_timing('incorrect', 'feedback_times', cosbases_long,
-                              cond=lambda tr: tr.feedbackType == -1,
-                              desc='Kernel conditioned on incorrect feedback')
-    if prior_estimate is None and wholetrial_step:
-        nglm.add_covariate_raw('pLeft', stepfunc, desc='Step function on prior estimate')
-    elif prior_estimate is None and not wholetrial_step:
-        nglm.add_covariate_raw('pLeft', stepfunc_prestim, desc='Step function on prior estimate')
-    elif prior_estimate == 'psytrack':
-        nglm.add_covariate_raw('pLeft', stepfunc_bias, desc='Step function on prior estimate')
-    nglm.add_covariate('wheel', fitinfo['wheel_velocity'], cosbases_short, -0.4)
-    nglm.compile_design_matrix()
-    nglm.fit(method=method, alpha=alpha)
-    combined_weights = nglm.combine_weights()
-    return nglm, combined_weights
+    scoreslist = []
+    for i in tqdm(range(num_pseudosess), desc='Pseudo block iteration num', leave=False):
+        newblocks = _generate_pseudo_blocks(len(fitinfo))
+        probmap = {1: 0.8, 0: 0.2}
+        newprobs = [probmap[i] for i in newblocks]
+        tmp_df = fitinfo.copy()
+        tmp_df['probabilityLeft'] = newprobs
+        nglm = glm.NeuralGLM(tmp_df, spk_times, spk_clu, vartypes, binwidth=binwidth,
+                             blocktrain=blocktrain)
+        nglm.clu_regions = clu_regions
+        stepbounds = [nglm.binf(t_before - 0.7), nglm.binf(t_before - 0.1)]
+
+        cosbases_long = glm.full_rcos(kernlen, nbases, nglm.binf)
+        cosbases_short = glm.full_rcos(0.4, nbases, nglm.binf)
+        nglm.add_covariate_timing('stimonL', 'stimOn_times', cosbases_long,
+                                  cond=lambda tr: np.isfinite(tr.contrastLeft),
+                                  deltaval='adj_contrastLeft',
+                                  desc='Kernel conditioned on L stimulus onset')
+        nglm.add_covariate_timing('stimonR', 'stimOn_times', cosbases_long,
+                                  cond=lambda tr: np.isfinite(tr.contrastRight),
+                                  deltaval='adj_contrastRight',
+                                  desc='Kernel conditioned on R stimulus onset')
+        nglm.add_covariate_timing('correct', 'feedback_times', cosbases_long,
+                                  cond=lambda tr: tr.feedbackType == 1,
+                                  desc='Kernel conditioned on correct feedback')
+        nglm.add_covariate_timing('incorrect', 'feedback_times', cosbases_long,
+                                  cond=lambda tr: tr.feedbackType == -1,
+                                  desc='Kernel conditioned on incorrect feedback')
+        if prior_estimate is None and wholetrial_step:
+            nglm.add_covariate_raw('pLeft', stepfunc, desc='Step function on prior estimate')
+        elif prior_estimate is None and not wholetrial_step:
+            nglm.add_covariate_raw('pLeft', stepfunc_prestim,
+                                   desc='Step function on prior estimate')
+        elif prior_estimate == 'psytrack':
+            nglm.add_covariate_raw('pLeft', stepfunc_bias, desc='Step function on prior estimate')
+        nglm.add_covariate('wheel', fitinfo['wheel_velocity'], cosbases_short, -0.4)
+        nglm.compile_design_matrix()
+        nglm.fit(method=method, alpha=alpha, printcond=False, epochs=5000)
+        with np.errstate(all='ignore'):
+            scoreslist.append(nglm.score())
+    return nglm, scoreslist
 
 
 if __name__ == "__main__":
@@ -160,7 +170,7 @@ if __name__ == "__main__":
     from glob import glob
     import traceback
     currdate = str(date.today())
-    # currdate = '2020-11-23'
+    currdate = '2020-11-30'
     regionlabeled = (histology.ProbeTrajectory &
                      'insertion_data_source = "Ephys aligned histology track"')
     ses = (subject.Subject * subject.SubjectProject * ephys.acquisition.Session *
@@ -170,7 +180,7 @@ if __name__ == "__main__":
     aligned_ses = one.alyx.rest('insertions', 'list',
                                 provenance='Ephys aligned histology track',
                                 django='json__extended_qc__alignment_resolved,True')
-    aligned_eids = [i['session'] for i in aligned_ses]
+    # aligned_eids = [i['session'] for i in aligned_ses]
     sessinfo = [info for info in bwm_sess]
                 # if str(info['session_uuid']) in aligned_eids]
 
@@ -178,7 +188,7 @@ if __name__ == "__main__":
     kernlen = 0.6
     nbases = 10
     alpha = 0
-    stepwise = False
+    stepwise = True
     wholetrial_step = False
     no_50perc = True
     method = 'pytorch'
@@ -205,20 +215,19 @@ if __name__ == "__main__":
             if not offline:
                 _ = one.load(sessid, download_only=True)
             try:
-                nglm, sessweights = fit_session(sessid, kernlen, nbases,
-                                                prior_estimate=prior_estimate,
-                                                probe_idx=probe, method=method, alpha=alpha,
-                                                binwidth=binwidth, blocktrain=blocking,
-                                                wholetrial_step=wholetrial_step,
-                                                abswheel=abswheel, stepwise=stepwise,
-                                                no_50perc=no_50perc)
+                nglm, scoreslist = fit_session(sessid, kernlen, nbases,
+                                               prior_estimate=prior_estimate,
+                                               probe_idx=probe, method=method, alpha=alpha,
+                                               binwidth=binwidth, blocktrain=blocking,
+                                               wholetrial_step=wholetrial_step,
+                                               abswheel=abswheel, no_50perc=no_50perc)
             except Exception as err:
                 tb = traceback.format_exc()
                 print(f'Subject {nickname} on {sessdate} failed:\n', type(err), err)
                 print(tb)
                 continue
 
-            outdict = {'sessinfo': s, 'kernlen': kernlen, 'nbases': nbases, 'weights': sessweights,
+            outdict = {'sessinfo': s, 'kernlen': kernlen, 'nbases': nbases, 'scores': scoreslist,
                        'fitobj': nglm}
             today = str(date.today())
             subjfilepath = os.path.abspath(filename)
