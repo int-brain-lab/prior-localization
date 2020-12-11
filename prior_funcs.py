@@ -4,7 +4,92 @@ import pandas as pd
 from oneibl import one
 from export_funs import trialinfo_to_df
 import os
+from scipy.special import logsumexp
+from itertools import accumulate
 
+def stable_softmax(x):
+    z = x - np.expand_dims(np.max(x, axis=1), -1)
+    numerator = np.exp(z)
+    denominator = np.sum(numerator, axis=1)
+    softmax = numerator/np.expand_dims(denominator, -1)
+    return softmax
+trunc_exp = lambda n : np.exp(-n/60) * (n >= 20) * (n <= 100)
+hazard_f  = lambda x=np.arange(20, 101): trunc_exp(x)/sum(trunc_exp(np.linspace(x,x+80,81)), axis=0)
+
+def perform_inference(session_id, maxlength=2.5, figures=False):
+    '''
+    Performs inference in the generative model of the task with the contrasts observed by the mouse clamped.    
+    The inference is realized with a likelihood recursion.
+    Input:
+    - session_id: the session of interest
+    - maxlength: not sure what this parameters does, I copy/pasted it from the original method `fit_sess_psytrack`
+    and it is used to load the data from the session_id
+    - figures: if you want to look at the results of the inference process. Matplotlib is required when figures=True
+    Output:
+    , marginal_currentlength, priors, h
+    - `marginal_blocktype` of size (nb_trials, 3) given at each trial, the prior probability that we are in block right-biased `0`,
+    unbiased `1`, or left-biased `2`.
+    - `marginal_currentlength` of size (nb_trials, 100) given at each trial, the prior probability of the current length of the
+    block that we are in.
+    - priors of size (nb_trials, 100, 3) given at each trial the joint likelihood p(b_t, l_t, s_{1:(t-1)} | theta) with b_t the block 
+    l_t the current length and s_t the stimuli (contrast) side
+    - h of size (nb_trials, 100, 3) given at each trial the joint likelihood p(b_t, l_t, s_{1:t} | theta) with b_t the block 
+    l_t the current length and s_t the stimuli (contrast) side
+    '''
+
+    trialdf = trialinfo_to_df(session_id, maxlen=maxlength, ret_wheel=False)
+    stimuli = np.array(np.isnan(trialdf['contrastRight'])==False) * -1 + np.array(np.isnan(trialdf['contrastLeft'])==False) * 1
+    nb_trials, nb_blocklengths, nb_typeblocks = len(stimuli), 100, 3
+    min_blocklengths, max_blocklengths = 1, 100
+    h      = np.zeros([nb_trials, nb_blocklengths, nb_typeblocks])
+    priors = np.zeros([nb_trials, nb_blocklengths, nb_typeblocks]) - np.inf
+    h[0, 0, 1], priors[0, 0, 1] = 0, 0 # at the beginning of the task (0), current length is 1 (0) and block type is unbiased (1)
+    hazard = hazard_f(np.arange(1, 101))
+    l = np.concatenate((np.expand_dims(hazard, -1),np.concatenate((np.diag(1 - hazard[:-1]), np.zeros(len(hazard)-1)[np.newaxis]), axis=0)), axis=-1)
+    b = np.zeros([len(hazard), 3, 3])
+    b[1:][:,0,0], b[1:][:,1,1], b[1:][:,2,2] = 1, 1, 1 # case when l_t > 0
+    b[0][0][-1], b[0][-1][0], b[0][1][np.array([0, 2])] = 1, 1, 1./2 # case when l_t = 1
+    t = np.log(np.swapaxes(l[:,:,np.newaxis,np.newaxis] * b[np.newaxis], 1, 2)).reshape(nb_typeblocks * max_blocklengths, -1) # transition matrix l_{t-1}, b_{t-1}, l_t, b_t
+    priors = priors.reshape(-1, nb_typeblocks * max_blocklengths)
+    h = h.reshape(-1, nb_typeblocks * max_blocklengths)
+
+    tau, gamma = 60, 0.8
+
+    for i_trial in range(nb_trials):
+        s = stimuli[i_trial]
+        loglks = np.log(np.array([gamma*(s==-1) + (1-gamma)*(s==1), 1./2, gamma*(s==1) + (1-gamma)*(s==-1)]))
+
+        # save priors
+        if i_trial > 0:
+            priors[i_trial] = logsumexp(h[i_trial - 1][:, np.newaxis] + t, axis=(0))
+        h[i_trial]          = priors[i_trial] + np.tile(loglks, 100)
+
+    priors = priors.reshape(-1, max_blocklengths, nb_typeblocks)
+    h = h.reshape(-1, max_blocklengths, nb_typeblocks)
+    marginal_blocktype = stable_softmax(logsumexp(priors, axis=1))
+    marginal_currentlength = stable_softmax(logsumexp(priors, axis=-1))
+
+    if figures:
+        import matplotlib.pyplot as plt
+        block_id = np.array((trialdf['probabilityLeft']==0.5) * 1 + (trialdf['probabilityLeft']==0.8) * 2)
+        plt.figure(figsize=(15,7))
+        plt.subplot(2, 1, 1)
+        plt.imshow(marginal_blocktype.T, aspect='auto', label='inferred', cmap='coolwarm')
+        plt.plot(block_id, '--', label='actual block', color='black')
+        plt.plot(stimuli + 1, 'x', label='stimuli', color='green')
+        plt.xlabel('trial')
+        plt.ylabel('block type')
+        plt.yticks([2, 1, 0], ['left', 'unbiased', 'right'])
+        plt.legend(loc='upper right')
+        currentlength = np.array(list(accumulate((np.concatenate((np.array([True]),block_id[:-1] == block_id[1:]))), lambda x, y: (x + 1) * (y==True) + 1 * (y==False))))
+        plt.subplot(2, 1, 2)
+        plt.imshow(marginal_currentlength.T, aspect='auto', label='inferred', cmap='coolwarm')
+        plt.plot(currentlength, '--', label='actual block', color='black')
+        plt.xlabel('trial')
+        plt.ylabel('block current length')
+        plt.legend(loc='upper right')
+
+    return marginal_blocktype, marginal_currentlength, priors, h
 
 def fit_sess_psytrack(session, maxlength=2.5, normfac=5., as_df=False):
     '''
@@ -57,6 +142,18 @@ def fit_sess_psytrack(session, maxlength=2.5, normfac=5., as_df=False):
 
 
 if __name__ == "__main__":
+    # for Charles' function
+    import matplotlib.pyplot as plt
+    from ibl_pipeline import subject, ephys
+    from oneibl.one import ONE
+
+    one = ONE()
+    subj_info = one.alyx.rest('subjects', 'list', lab='cortexlab')
+    subject_names = [subj['nickname'] for subj in subj_info]
+    sess_id, sess_info = one.search(subject='KS022', task_protocol='biased', details=True)
+    marginal_blocktype, marginal_currentlength, priors, h = perform_inference(sess_id[0], figures=True)
+    
+    # for Nick's functions
     import matplotlib.pyplot as plt
     from ibl_pipeline import subject, ephys
     one = one.ONE()
