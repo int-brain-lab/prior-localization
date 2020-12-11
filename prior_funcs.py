@@ -26,7 +26,6 @@ def perform_inference(session_id, maxlength=2.5, figures=False):
     and it is used to load the data from the session_id
     - figures: if you want to look at the results of the inference process. Matplotlib is required when figures=True
     Output:
-    , marginal_currentlength, priors, h
     - `marginal_blocktype` of size (nb_trials, 3) given at each trial, the prior probability that we are in block right-biased `0`,
     unbiased `1`, or left-biased `2`.
     - `marginal_currentlength` of size (nb_trials, 100) given at each trial, the prior probability of the current length of the
