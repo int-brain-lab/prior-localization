@@ -1,4 +1,3 @@
-from psytrack.hyperOpt import hyperOpt
 import numpy as np
 import pandas as pd
 from oneibl import one
@@ -14,11 +13,11 @@ def stable_softmax(x):
     softmax = numerator/np.expand_dims(denominator, -1)
     return softmax
 trunc_exp = lambda n : np.exp(-n/60) * (n >= 20) * (n <= 100)
-hazard_f  = lambda x=np.arange(20, 101): trunc_exp(x)/sum(trunc_exp(np.linspace(x,x+80,81)), axis=0)
+hazard_f  = lambda x=np.arange(20, 101): trunc_exp(x)/np.sum(trunc_exp(np.linspace(x,x+80,81)), axis=0)
 
 def perform_inference(session_id, maxlength=2.5, figures=False):
     '''
-    Performs inference in the generative model of the task with the contrasts observed by the mouse clamped.    
+    Performs inference in the generative model of the task with the contrasts observed by the mouse clamped.
     The inference is realized with a likelihood recursion.
     Input:
     - session_id: the session of interest
@@ -30,9 +29,9 @@ def perform_inference(session_id, maxlength=2.5, figures=False):
     unbiased `1`, or left-biased `2`.
     - `marginal_currentlength` of size (nb_trials, 100) gives at each trial, the prior probability of the current length of the
     block that we are in.
-    - priors of size (nb_trials, 100, 3) gives at each trial the joint likelihood p(b_t, l_t, s_{1:(t-1)} | theta) with b_t the block 
+    - priors of size (nb_trials, 100, 3) gives at each trial the joint likelihood p(b_t, l_t, s_{1:(t-1)} | theta) with b_t the block
     l_t the current length and s_t the stimuli (contrast) side
-    - h of size (nb_trials, 100, 3) gives at each trial the joint likelihood p(b_t, l_t, s_{1:t} | theta) with b_t the block 
+    - h of size (nb_trials, 100, 3) gives at each trial the joint likelihood p(b_t, l_t, s_{1:t} | theta) with b_t the block
     l_t the current length and s_t the stimuli (contrast) side
     '''
 
@@ -111,6 +110,7 @@ def fit_sess_psytrack(session, maxlength=2.5, normfac=5., as_df=False):
     W_std : np.ndarray
         5 x N_trials array. Elementwise corresponds to stdev of each element of wMode.
     '''
+    from psytrack.hyperOpt import hyperOpt
     trialdf = trialinfo_to_df(session, maxlen=maxlength, ret_wheel=False)
     choices = trialdf.choice
     # Remap choice values from -1, 1 to 1, 2 (because psytrack demands it)
@@ -151,7 +151,7 @@ if __name__ == "__main__":
     subject_names = [subj['nickname'] for subj in subj_info]
     sess_id, sess_info = one.search(subject='KS022', task_protocol='biased', details=True)
     marginal_blocktype, marginal_currentlength, priors, h = perform_inference(sess_id[0], figures=True)
-    
+
     # for Nick's functions
     import matplotlib.pyplot as plt
     from ibl_pipeline import subject, ephys
