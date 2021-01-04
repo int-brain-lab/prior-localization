@@ -79,15 +79,17 @@ def perform_inference(stim_side, figures=False, p_left=None):
     priors = priors.reshape(-1, nb_blocklengths, nb_typeblocks)
     h = h.reshape(-1, nb_blocklengths, nb_typeblocks)
     marginal_blocktype     =  np.exp(priors).sum(axis=1)
-    marginal_currentlength = np.exp(priors).sum(axis=2)
+    marginal_currentlength = np.exp(priors).sum(axis=2)    
 
     if figures:
         import matplotlib.pyplot as plt
+        pLeft_inferred = marginal_blocktype[:, 0] * 0.2 + marginal_blocktype[:, 1] * 0.5 + marginal_blocktype[:, 2] * 0.8
         block_id = np.array((p_left==0.5) * 1 + (p_left==0.8) * 2)
         plt.figure(figsize=(15,7))
         plt.subplot(2, 1, 1)
         plt.imshow(marginal_blocktype.T, aspect='auto', label='inferred', cmap='coolwarm')
         plt.plot(block_id, '--', label='actual block', color='black')
+        plt.plot(pLeft_inferred)
         plt.plot(stim_side + 1, 'x', label='stimuli', color='green')
         plt.xlabel('trial')
         plt.ylabel('block type')
