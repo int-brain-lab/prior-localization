@@ -11,9 +11,12 @@ def stable_softmax(x):
     denominator = np.sum(numerator, axis=1)
     softmax = numerator/np.expand_dims(denominator, -1)
     return softmax
-trunc_exp = lambda n : np.exp(-n/60) * (n >= 20) * (n <= 100)
-hazard_f  = lambda x=np.arange(20, 101): trunc_exp(x)/np.sum(trunc_exp(np.linspace(x,x+80,81)),
-                                                             axis=0)
+
+def trunc_exp(n, tau):
+    return np.exp(-n/tau) * (n >= 20) * (n <= 100)
+
+def hazard_f(x, tau):
+    return trunc_exp(x, tau)/np.sum(trunc_exp(np.linspace(x,x+100,101), tau), axis=0)
 
 def perform_inference(stim_side, figures=False, p_left=None):
     """
@@ -41,14 +44,15 @@ def perform_inference(stim_side, figures=False, p_left=None):
         p(b_t, l_t, s_{1:t} | theta) with b_t the block l_t the current length and
         s_t the stimuli (contrast) side
     """
+    if figures: assert(p_left is not None), 'if figures is True, you must specify the pLeft'
 
     nb_trials, nb_blocklengths, nb_typeblocks = len(stim_side), 100, 3
-    _, max_blocklengths = 1, 100
     h      = np.zeros([nb_trials, nb_blocklengths, nb_typeblocks])
     priors = np.zeros([nb_trials, nb_blocklengths, nb_typeblocks]) - np.inf
+    tau, gamma = 60, 0.8
     # at the beginning of the task (0), current length is 1 (0) and block type is unbiased (1)
     h[0, 0, 1], priors[0, 0, 1] = 0, 0
-    hazard = hazard_f(np.arange(1, 101))
+    hazard = hazard_f(np.arange(1, 101), tau=tau)
     l = np.concatenate((np.expand_dims(hazard, -1), np.concatenate(
                 (np.diag(1 - hazard[:-1]), np.zeros(len(hazard)-1)[np.newaxis]), axis=0)), axis=-1)
     b = np.zeros([len(hazard), 3, 3])
@@ -56,11 +60,9 @@ def perform_inference(stim_side, figures=False, p_left=None):
     b[0][0][-1], b[0][-1][0], b[0][1][np.array([0, 2])] = 1, 1, 1./2 # case when l_t = 1
     # transition matrix l_{t-1}, b_{t-1}, l_t, b_t
     t = np.log(np.swapaxes(l[:,:,np.newaxis,np.newaxis]
-                           * b[np.newaxis], 1, 2)).reshape(nb_typeblocks * max_blocklengths, -1)
-    priors = priors.reshape(-1, nb_typeblocks * max_blocklengths)
-    h = h.reshape(-1, nb_typeblocks * max_blocklengths)
-
-    _, gamma = 60, 0.8
+                           * b[np.newaxis], 1, 2)).reshape(nb_typeblocks * nb_blocklengths, -1)
+    priors = priors.reshape(-1, nb_typeblocks * nb_blocklengths)
+    h = h.reshape(-1, nb_typeblocks * nb_blocklengths)
 
     for i_trial in range(nb_trials):
         s = stim_side[i_trial]
@@ -72,14 +74,16 @@ def perform_inference(stim_side, figures=False, p_left=None):
             priors[i_trial] = logsumexp(h[i_trial - 1][:, np.newaxis] + t, axis=(0))
         h[i_trial]          = priors[i_trial] + np.tile(loglks, 100)
 
-    priors = priors.reshape(-1, max_blocklengths, nb_typeblocks)
-    h = h.reshape(-1, max_blocklengths, nb_typeblocks)
-    marginal_blocktype = stable_softmax(logsumexp(priors, axis=1))
-    marginal_currentlength = stable_softmax(logsumexp(priors, axis=-1))
+    priors = priors - np.expand_dims(logsumexp(priors, axis=1), -1)
+    h = h - np.expand_dims(logsumexp(h, axis=1), -1)
+    priors = priors.reshape(-1, nb_blocklengths, nb_typeblocks)
+    h = h.reshape(-1, nb_blocklengths, nb_typeblocks)
+    marginal_blocktype     =  np.exp(priors).sum(axis=1)
+    marginal_currentlength = np.exp(priors).sum(axis=2)
 
     if figures:
         import matplotlib.pyplot as plt
-        block_id = np.array((p_left==0.5) * 1 + (p_left==0.2) * 2)
+        block_id = np.array((p_left==0.5) * 1 + (p_left==0.8) * 2)
         plt.figure(figsize=(15,7))
         plt.subplot(2, 1, 1)
         plt.imshow(marginal_blocktype.T, aspect='auto', label='inferred', cmap='coolwarm')
