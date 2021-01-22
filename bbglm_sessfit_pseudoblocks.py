@@ -229,18 +229,24 @@ if __name__ == "__main__":
     binwidth = 0.02
     num_pseudosess = 100
 
-    nglm, realscores, scoreslist = fit_session(ids[0], kernlen, nbases,
-                                               prior_estimate=prior_estimate,
-                                               probe_idx=probe_idx, method=method, alpha=alpha,
-                                               binwidth=binwidth, blocktrain=blocking,
-                                               wholetrial_step=wholetrial_step,
-                                               abswheel=abswheel, no_50perc=no_50perc,
-                                               fit_intercept=fit_intercept,
-                                               num_pseudosess=num_pseudosess)
+    nglm, realscores, scoreslist, weightlist = fit_session(ids[0], kernlen, nbases,
+                                                           prior_estimate=prior_estimate,
+                                                           probe_idx=probe_idx, method=method,
+                                                           alpha=alpha,
+                                                           binwidth=binwidth, blocktrain=blocking,
+                                                           wholetrial_step=wholetrial_step,
+                                                           abswheel=abswheel, no_50perc=no_50perc,
+                                                           fit_intercept=fit_intercept,
+                                                           num_pseudosess=num_pseudosess) 
     
     nullscores = np.vstack(scoreslist)
+    nullweights = np.vstack([[w[0] for w in weights] for weights in weightlist])
+    msub_nullweights = nullweights - np.mean(nullweights, axis=0)
+    msub_wts = np.array([w[0] for w in nglm.coefs]) - np.mean(nullweights, axis=0)
     score_percentiles = [(100 - percentileofscore(nullscores[:, i], sc)) / 100
                          for i, sc in enumerate(realscores)]
+    wt_percentiles = [(100 - percentileofscore(np.abs(msub_nullweights)[:, i], np.abs(w))) / 100
+                      for i, w in enumerate(msub_wts)]
     plt.hist(score_percentiles)
 
     trdf = nglm.trialsdf
