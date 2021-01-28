@@ -80,6 +80,8 @@ def fit_session(session_id, kernlen, nbases,
     fitinfo = fitinfo.iloc[1:-1]
     fitinfo['adj_contrastLeft'] = np.tanh(contnorm * fitinfo['contrastLeft']) / np.tanh(contnorm)
     fitinfo['adj_contrastRight'] = np.tanh(contnorm * fitinfo['contrastRight']) / np.tanh(contnorm)
+    fitinfo['trial_start'] = fitinfo['stimOn_times'] - 0.7
+    fitinfo['trial_end'] = fitinfo['stimOn_times']
 
     if no_50perc:
         fitinfo = fitinfo[fitinfo.probabilityLeft != 0.5]
@@ -125,7 +127,7 @@ def fit_session(session_id, kernlen, nbases,
     nglm = glm.NeuralGLM(fitinfo, spk_times, spk_clu, vartypes, binwidth=binwidth,
                          blocktrain=blocktrain)
     nglm.clu_regions = clu_regions
-    stepbounds = [nglm.binf(t_before - 0.7), nglm.binf(t_before - 0.1)]
+    stepbounds = [nglm.binf(0.1), nglm.binf(0.6)]
 
     # cosbases_long = glm.full_rcos(kernlen, nbases, nglm.binf)
     # cosbases_short = glm.full_rcos(0.4, nbases, nglm.binf)
@@ -167,7 +169,7 @@ def fit_session(session_id, kernlen, nbases,
         tmpglm = glm.NeuralGLM(tmp_df, spk_times, spk_clu, vartypes, binwidth=binwidth,
                                blocktrain=blocktrain)
         tmpglm.clu_regions = clu_regions
-        stepbounds = [tmpglm.binf(t_before - 0.7), tmpglm.binf(t_before - 0.1)]
+        stepbounds = [tmpglm.binf(0.1), tmpglm.binf(0.6)]
 
         # cosbases_long = glm.full_rcos(kernlen, nbases, tmpglm.binf)
         # cosbases_short = glm.full_rcos(0.4, nbases, tmpglm.binf)
@@ -225,8 +227,8 @@ if __name__ == "__main__":
     method = 'sklearn'
     blocking = False
     prior_estimate = None
-    fit_intercept = False
-    binwidth = 0.02
+    fit_intercept = True
+    binwidth = 0.1
     num_pseudosess = 100
 
     nglm, realscores, scoreslist, weightlist = fit_session(ids[0], kernlen, nbases,
@@ -238,7 +240,7 @@ if __name__ == "__main__":
                                                            abswheel=abswheel, no_50perc=no_50perc,
                                                            fit_intercept=fit_intercept,
                                                            num_pseudosess=num_pseudosess) 
-    
+
     nullscores = np.vstack(scoreslist)
     nullweights = np.vstack([[w[0] for w in weights] for weights in weightlist])
     msub_nullweights = nullweights - np.mean(nullweights, axis=0)
@@ -247,6 +249,8 @@ if __name__ == "__main__":
                          for i, sc in enumerate(realscores)]
     wt_percentiles = [(100 - percentileofscore(np.abs(msub_nullweights)[:, i], np.abs(w))) / 100
                       for i, w in enumerate(msub_wts)]
+    wt_diffs = np.fromiter((np.exp(nglm.intercepts[idx] + 0.2 * nglm.coefs[idx][0]) / binwidth -
+                            np.exp(nglm.intercepts[idx] + 0.8 * nglm.coefs[idx][0]) / binwidth for idx in nglm.coefs.index), float)
     plt.hist(score_percentiles)
 
     trdf = nglm.trialsdf
@@ -254,7 +258,7 @@ if __name__ == "__main__":
     highblock_rates = []
     for i, idx in enumerate(trdf.index):
         blockprob = trdf.loc[idx].probabilityLeft
-        trialmask = np.isin(nglm.trlabels, idx).flatten()
+        trialmask = np.isin(nglm.trlabels, idx).flatten() & (nglm.dm.flatten() != 0)
         trialcounts = nglm.binnedspikes[trialmask]
         trialrates = np.sum(trialcounts, axis=0) / (trialcounts.shape[0] * binwidth)
         if blockprob == 0.5:
@@ -277,7 +281,7 @@ if __name__ == "__main__":
         null_highblock_rates = []
         for i, idx in enumerate(trdf.index):
             blockprob = trdf.loc[idx].pseudoblock
-            trialmask = np.isin(nglm.trlabels, idx).flatten()
+            trialmask = np.isin(nglm.trlabels, idx).flatten() & (nglm.dm.flatten() != 0)
             trialcounts = nglm.binnedspikes[trialmask]
             trialrates = np.sum(trialcounts, axis=0) / (trialcounts.shape[0] * binwidth)
             if blockprob == 0.5:
