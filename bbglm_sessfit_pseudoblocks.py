@@ -12,7 +12,6 @@ from brainbox.population.population import _generate_pseudo_blocks
 import brainbox.io.one as bbone
 from export_funs import trialinfo_to_df
 from prior_funcs import fit_sess_psytrack
-from datetime import date
 import pickle
 import os
 from tqdm import tqdm
@@ -53,25 +52,9 @@ def fit_session(session_id, kernlen, nbases,
     # This is the way it is because loading with regions takes forever. The weird for loop
     # ensures that we don't waste memory storing unnecessary and large arrays.
     probestr = 'probe0' + str(probe_idx)
-    if session_id not in ephys_cache:
-        spikes, clusters, _ = bbone.load_spike_sorting_with_channel(session_id, one=one,
-                                                                    aligned=True)
-        for probe in spikes:
-            null_keys_spk = []
-            for key in spikes[probe]:
-                if key not in ('times', 'clusters'):
-                    null_keys_spk.append(key)
-            for key in null_keys_spk:
-                _ = spikes[probe].pop(key)
-            null_keys_clu = []
-            for key in clusters[probe]:
-                if key not in ('acronym', 'atlas_id'):
-                    null_keys_clu.append(key)
-            for key in null_keys_clu:
-                _ = clusters[probe].pop(key)
-        ephys_cache[session_id] = (spikes, clusters)
-    else:
-        spikes, clusters = ephys_cache[session_id]
+    spikes, clusters, _ = bbone.load_spike_sorting_with_channel(session_id, one=one,
+                                                                aligned=True)
+
     spk_times = spikes[probestr].times
     spk_clu = spikes[probestr].clusters
     clu_regions = clusters[probestr].acronym
@@ -80,8 +63,8 @@ def fit_session(session_id, kernlen, nbases,
     fitinfo = fitinfo.iloc[1:-1]
     fitinfo['adj_contrastLeft'] = np.tanh(contnorm * fitinfo['contrastLeft']) / np.tanh(contnorm)
     fitinfo['adj_contrastRight'] = np.tanh(contnorm * fitinfo['contrastRight']) / np.tanh(contnorm)
-    fitinfo['trial_start'] = fitinfo['stimOn_times'] - 0.7
-    fitinfo['trial_end'] = fitinfo['stimOn_times']
+    fitinfo['trial_start'] = fitinfo['stimOn_times'] - 0.6
+    fitinfo['trial_end'] = fitinfo['stimOn_times'] - 0.1
 
     if no_50perc:
         fitinfo = fitinfo[fitinfo.probabilityLeft != 0.5]
@@ -108,10 +91,10 @@ def fit_session(session_id, kernlen, nbases,
                          ' function on pLeft')
  
     def stepfunc(row):
-        currvec = np.ones(nglm.binf(row.feedback_times)) * row.pLeft_last
-        nextvec = np.ones(nglm.binf(row.duration) - nglm.binf(row.feedback_times)) *\
-            row.probabilityLeft
-        return np.hstack((currvec, nextvec))
+        currvec = np.ones(nglm.binf(row.duration)) * row.pLeft_last
+        # nextvec = np.ones(nglm.binf(row.duration) - nglm.binf(row.feedback_times)) *\
+        #     row.probabilityLeft
+        return currvec
 
     def stepfunc_prestim(row):
         stepvec = np.zeros(nglm.binf(row.duration))
@@ -198,15 +181,14 @@ def fit_session(session_id, kernlen, nbases,
         tmpglm.compile_design_matrix()
         tmpglm.fit(method=method, alpha=alpha, printcond=False, epochs=5000,
                    fit_intercept=fit_intercept)
-        weightslist.append(tmpglm.coefs)
+        weightslist.append((tmpglm.coefs, tmpglm.intercepts))
         with np.errstate(all='ignore'):
             scoreslist.append(tmpglm.score())
     return nglm, realscores, scoreslist, weightslist
 
 
 if __name__ == "__main__":
-    from scipy.stats import percentileofscore
-    from brainbox.population.population import _generate_pseudo_blocks
+    from scipy.stats import percentileofscore, zmap
     import matplotlib.pyplot as plt
     nickname = 'CSH_ZAD_001'
     sessdate = '2020-01-15'
@@ -222,14 +204,14 @@ if __name__ == "__main__":
     nbases = 10
     alpha = 0
     stepwise = True
-    wholetrial_step = False
+    wholetrial_step = True
     no_50perc = True
     method = 'sklearn'
     blocking = False
     prior_estimate = None
     fit_intercept = True
-    binwidth = 0.1
-    num_pseudosess = 100
+    binwidth = 0.5 + 1e-16
+    num_pseudosess = 1000
 
     nglm, realscores, scoreslist, weightlist = fit_session(ids[0], kernlen, nbases,
                                                            prior_estimate=prior_estimate,
@@ -242,15 +224,23 @@ if __name__ == "__main__":
                                                            num_pseudosess=num_pseudosess) 
 
     nullscores = np.vstack(scoreslist)
-    nullweights = np.vstack([[w[0] for w in weights] for weights in weightlist])
+    nullweights = np.vstack([[w[0] for w in weights[0]] for weights in weightlist])
     msub_nullweights = nullweights - np.mean(nullweights, axis=0)
     msub_wts = np.array([w[0] for w in nglm.coefs]) - np.mean(nullweights, axis=0)
-    score_percentiles = [(100 - percentileofscore(nullscores[:, i], sc)) / 100
+    score_percentiles = [zmap(sc, nullscores[:, i])[0]
                          for i, sc in enumerate(realscores)]
-    wt_percentiles = [(100 - percentileofscore(np.abs(msub_nullweights)[:, i], np.abs(w))) / 100
+    wt_percentiles = [zmap(w, msub_nullweights[:, i])[0]
                       for i, w in enumerate(msub_wts)]
-    wt_diffs = np.fromiter((np.exp(nglm.intercepts[idx] + 0.2 * nglm.coefs[idx][0]) / binwidth -
-                            np.exp(nglm.intercepts[idx] + 0.8 * nglm.coefs[idx][0]) / binwidth for idx in nglm.coefs.index), float)
+
+    def predict_diff(coefs, intercepts):
+        wt_diffs = np.fromiter((np.exp(intercepts[idx] + 0.2 * coefs[idx][0]) / binwidth -
+                                np.exp(intercepts[idx] + 0.8 * coefs[idx][0]) / binwidth
+                                for idx in coefs.index), float)
+        return wt_diffs
+
+    wt_diffs = predict_diff(nglm.coefs, nglm.intercepts)
+    null_wt_diffs = np.vstack([predict_diff(w[0], w[1]) for w in weightlist])
+    wt_diff_percs = [zmap(w, null_wt_diffs[:, i])[0] for i, w in enumerate(wt_diffs)]
     plt.hist(score_percentiles)
 
     trdf = nglm.trialsdf
@@ -299,8 +289,8 @@ if __name__ == "__main__":
     null_meandiffsarr = np.vstack(null_meandiffs)
     null_mediandiffsarr = np.vstack(null_mediandiffs)
     
-    mean_percentiles = [(100 - percentileofscore(null_meandiffsarr[:, i], diff)) / 100
+    mean_percentiles = [zmap(diff, null_meandiffsarr[:, i])[0]
                         for i, diff in enumerate(meandiff)]
-    median_percentiles = [(100 - percentileofscore(null_mediandiffsarr[:, i], diff)) / 100
+    median_percentiles = [zmap(diff, null_mediandiffsarr[:, i])[0]
                           for i, diff in enumerate(mediandiff)]
     
