@@ -93,29 +93,29 @@ def fit_session(session_id, kernlen, nbases,
             row.bias_next
         return np.hstack((currvec, nextvec))
 
-    # cosbases_long = glm.full_rcos(kernlen, nbases, nglm.binf)
-    # cosbases_short = glm.full_rcos(0.4, nbases, nglm.binf)
-    # nglm.add_covariate_timing('stimonL', 'stimOn_times', cosbases_long,
-    #                           cond=lambda tr: np.isfinite(tr.contrastLeft),
-    #                           deltaval='adj_contrastLeft',
-    #                           desc='Kernel conditioned on L stimulus onset')
-    # nglm.add_covariate_timing('stimonR', 'stimOn_times', cosbases_long,
-    #                           cond=lambda tr: np.isfinite(tr.contrastRight),
-    #                           deltaval='adj_contrastRight',
-    #                           desc='Kernel conditioned on R stimulus onset')
-    # nglm.add_covariate_timing('correct', 'feedback_times', cosbases_long,
-    #                           cond=lambda tr: tr.feedbackType == 1,
-    #                           desc='Kernel conditioned on correct feedback')
-    # nglm.add_covariate_timing('incorrect', 'feedback_times', cosbases_long,
-    #                           cond=lambda tr: tr.feedbackType == -1,
-    #                           desc='Kernel conditioned on incorrect feedback')
+    cosbases_long = glm.full_rcos(kernlen, nbases, nglm.binf)
+    cosbases_short = glm.full_rcos(0.4, nbases, nglm.binf)
+    nglm.add_covariate_timing('stimonL', 'stimOn_times', cosbases_long,
+                              cond=lambda tr: np.isfinite(tr.contrastLeft),
+                              deltaval='adj_contrastLeft',
+                              desc='Kernel conditioned on L stimulus onset')
+    nglm.add_covariate_timing('stimonR', 'stimOn_times', cosbases_long,
+                              cond=lambda tr: np.isfinite(tr.contrastRight),
+                              deltaval='adj_contrastRight',
+                              desc='Kernel conditioned on R stimulus onset')
+    nglm.add_covariate_timing('correct', 'feedback_times', cosbases_long,
+                              cond=lambda tr: tr.feedbackType == 1,
+                              desc='Kernel conditioned on correct feedback')
+    nglm.add_covariate_timing('incorrect', 'feedback_times', cosbases_long,
+                              cond=lambda tr: tr.feedbackType == -1,
+                              desc='Kernel conditioned on incorrect feedback')
     if prior_estimate is None and wholetrial_step:
         nglm.add_covariate_raw('pLeft', stepfunc, desc='Step function on prior estimate')
     elif prior_estimate is None and not wholetrial_step:
         nglm.add_covariate_raw('pLeft', stepfunc_prestim, desc='Step function on prior estimate')
     elif prior_estimate == 'psytrack':
         nglm.add_covariate_raw('pLeft', stepfunc_bias, desc='Step function on prior estimate')
-    # nglm.add_covariate('wheel', fitinfo['wheel_velocity'], cosbases_short, -0.4)
+    nglm.add_covariate('wheel', fitinfo['wheel_velocity'], cosbases_short, -0.4)
     nglm.compile_design_matrix()
     nglm.fit(method=method, alpha=alpha)
     combined_weights = nglm.combine_weights()
