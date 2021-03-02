@@ -87,62 +87,69 @@ def fit_session(session_id, kernlen, nbases,
                          ' function on pLeft')
 
     def stepfunc(row):
-        currvec = np.ones(nglm.binf(row.duration)) * row.pLeft_last
-        # nextvec = np.ones(nglm.binf(row.duration) - nglm.binf(row.feedback_times)) *\
+        currvec = np.ones(linglm.binf(row.duration)) * row.pLeft_last
+        # nextvec = np.ones(linglm.binf(row.duration) - linglm.binf(row.feedback_times)) *\
         #     row.probabilityLeft
         return currvec
 
     def stepfunc_prestim(row):
-        stepvec = np.zeros(nglm.binf(row.duration))
+        stepvec = np.zeros(linglm.binf(row.duration))
         stepvec[stepbounds[0]:stepbounds[1]] = row.pLeft_last
         return stepvec
 
+    def stepfunc_poststim(row):
+        zerovec = np.ones(linglm.binf(row.duration))
+        currtr_start = linglm.binf(row.stimOn_times + 0.1)
+        currtr_end = linglm.binf(row.feedback_times)
+        zerovec[currtr_start:currtr_end] = row.pLeft_last
+        zerovec[currtr_end:] = row.probabilityLeft
+        return zerovec
+
     def stepfunc_bias(row):
-        currvec = np.ones(nglm.binf(row.feedback_times)) * row.bias
-        nextvec = np.ones(nglm.binf(row.duration) - nglm.binf(row.feedback_times)) *\
+        currvec = np.ones(linglm.binf(row.feedback_times)) * row.bias
+        nextvec = np.ones(linglm.binf(row.duration) - linglm.binf(row.feedback_times)) *\
             row.bias_next
         return np.hstack((currvec, nextvec))
 
-    poissglm = glm.NeuralGLM(fitinfo.copy(), spk_times, spk_clu, vartypes, binwidth=binwidth,
-                             blocktrain=blocktrain, subset=subset)
     linglm = glm_linear.LinearGLM(fitinfo.copy(), spk_times, spk_clu, vartypes.copy(),
                                   binwidth=binwidth, blocktrain=blocktrain, subset=subset)
 
-    for nglm in (poissglm, linglm):
-        nglm.clu_regions = clu_regions
-        stepbounds = [nglm.binf(0.1), nglm.binf(0.6)]
+    linglm.clu_regions = clu_regions
+    stepbounds = [linglm.binf(0.1), linglm.binf(0.6)]
 
-        cosbases_long = glm.full_rcos(kernlen, nbases, nglm.binf)
-        cosbases_short = glm.full_rcos(0.4, 3, nglm.binf)
-        nglm.add_covariate_timing('stimonL', 'stimOn_times', cosbases_long,
-                                  cond=lambda tr: np.isfinite(tr.contrastLeft),
-                                  deltaval='adj_contrastLeft',
-                                  desc='Kernel conditioned on L stimulus onset')
-        nglm.add_covariate_timing('stimonR', 'stimOn_times', cosbases_long,
-                                  cond=lambda tr: np.isfinite(tr.contrastRight),
-                                  deltaval='adj_contrastRight',
-                                  desc='Kernel conditioned on R stimulus onset')
-        nglm.add_covariate_timing('correct', 'feedback_times', cosbases_long,
-                                  cond=lambda tr: tr.feedbackType == 1,
-                                  desc='Kernel conditioned on correct feedback')
-        nglm.add_covariate_timing('incorrect', 'feedback_times', cosbases_long,
-                                  cond=lambda tr: tr.feedbackType == -1,
-                                  desc='Kernel conditioned on incorrect feedback')
-        if prior_estimate is None and wholetrial_step:
-            nglm.add_covariate_raw('pLeft', stepfunc, desc='Step function on prior estimate')
-        elif prior_estimate is None and not wholetrial_step:
-            nglm.add_covariate_raw('pLeft', stepfunc_prestim,
-                                   desc='Step function on prior estimate')
-        elif prior_estimate == 'psytrack':
-            nglm.add_covariate_raw('pLeft', stepfunc_bias, desc='Step function on prior estimate')
-        nglm.add_covariate('wheel', fitinfo['wheel_velocity'], cosbases_short, -0.4)
-        nglm.compile_design_matrix()
-        if type(nglm) is glm.NeuralGLM:
-            nglm.fit(method=method, alpha=0, rsq=True)
-        else:
-            nglm.fit(method='pure')
+    cosbases_long = glm.full_rcos(kernlen, nbases, linglm.binf)
+    cosbases_short = glm.full_rcos(0.4, 3, linglm.binf)
+    linglm.add_covariate_timing('stimonL', 'stimOn_times', cosbases_long,
+                                cond=lambda tr: np.isfinite(tr.contrastLeft),
+                                deltaval='adj_contrastLeft',
+                                desc='Kernel conditioned on L stimulus onset')
+    linglm.add_covariate_timing('stimonR', 'stimOn_times', cosbases_long,
+                                cond=lambda tr: np.isfinite(tr.contrastRight),
+                                deltaval='adj_contrastRight',
+                                desc='Kernel conditioned on R stimulus onset')
+    linglm.add_covariate_timing('correct', 'feedback_times', cosbases_long,
+                                cond=lambda tr: tr.feedbackType == 1,
+                                desc='Kernel conditioned on correct feedback')
+    linglm.add_covariate_timing('incorrect', 'feedback_times', cosbases_long,
+                                cond=lambda tr: tr.feedbackType == -1,
+                                desc='Kernel conditioned on incorrect feedback')
+    if prior_estimate is None and wholetrial_step:
+        linglm.add_covariate_raw('pLeft', stepfunc, desc='Step function on prior estimate')
+    elif prior_estimate is None and not wholetrial_step:
+        linglm.add_covariate_raw('pLeft', stepfunc_prestim,
+                                 desc='Step function on prior estimate')
+        # linglm.add_covariate_raw('pLeft_tr', stepfunc_poststim,
+        #                          desc='Step function on post-stimulus prior')
+    elif prior_estimate == 'psytrack':
+        linglm.add_covariate_raw('pLeft', stepfunc_bias, desc='Step function on prior estimate')
+    linglm.add_covariate('wheel', fitinfo['wheel_velocity'], cosbases_short, -0.4)
+    linglm.compile_design_matrix()
+    if type(linglm) is glm.NeuralGLM:
+        linglm.fit(method=method, alpha=0, rsq=True)
+    else:
+        linglm.fit(method='pure', multi_score=True)
 
-    return linglm, poissglm
+    return linglm
 
 
 def get_bwm_ins_alyx(one):
@@ -162,8 +169,7 @@ def get_bwm_ins_alyx(one):
                         django='session__project__name__icontains,ibl_neuropixel_brainwide_01,'
                                'session__qc__lt,50,'
                                'json__extended_qc__alignment_count__gt,0,'
-                               'session__extended_qc__behavior,1,'
-                               'json__extended_qc__alignment_resolved,True')
+                               'session__extended_qc__behavior,1')
     ins_id = [item['id'] for item in ins]
     sess_id = [item['session_info']['id'] for item in ins]
     sess_id = np.unique(sess_id)
@@ -172,7 +178,7 @@ def get_bwm_ins_alyx(one):
 
 if __name__ == "__main__":
     import pickle
-    from datetime import date
+    from datetime import date, timedelta
     ins, ins_ids, sess_ids = get_bwm_ins_alyx(one=one)
 
     abswheel = True
@@ -182,7 +188,7 @@ if __name__ == "__main__":
     stepwise = True
     wholetrial_step = False
     no_50perc = True
-    method = 'pytorch'
+    method = 'minimize'
     blocking = False
     prior_estimate = None
     fit_intercept = True
@@ -190,36 +196,29 @@ if __name__ == "__main__":
     probe_idx = 0
 
     rscores = {}
-    dscores = {}
+    msescores = {}
     meanrates = {}
+    regions = {}
     for eid in sess_ids[::2]:
         try:
-            linglm, poissglm = fit_session(eid, kernlen, nbases,
-                                           prior_estimate=prior_estimate,
-                                           probe_idx=probe_idx, method=method,
-                                           alpha=alpha,
-                                           binwidth=binwidth, blocktrain=blocking,
-                                           wholetrial_step=wholetrial_step,
-                                           abswheel=abswheel, no_50perc=no_50perc,
-                                           fit_intercept=fit_intercept, subset=stepwise)
+            linglm = fit_session(eid, kernlen, nbases,
+                                 prior_estimate=prior_estimate,
+                                 probe_idx=probe_idx, method=method,
+                                 alpha=alpha,
+                                 binwidth=binwidth, blocktrain=blocking,
+                                 wholetrial_step=wholetrial_step,
+                                 abswheel=abswheel, no_50perc=no_50perc,
+                                 fit_intercept=fit_intercept, subset=stepwise)
         except Exception as e:
             print(e)
             continue
-        if not stepwise:
-            rscores[eid] = (linglm.score(), poissglm.score(rsq=True))
-            dscores[eid] = (linglm.score(dsq=True), poissglm.score(dsq=True))
-        else:
-            rscores[eid] = (linglm.submodel_scores, poissglm.submodel_scores)
-        meanrates[eid] = poissglm.binnedspikes.mean(axis=0) / binwidth
+        rscores[eid] = linglm.submodel_scores
+        msescores[eid] = linglm.altsubmodel_scores
+        meanrates[eid] = linglm.binnedspikes.mean(axis=0) / binwidth
+        regions[eid] = linglm.clu_regions
     datestr = str(date.today())
 
-    if stepwise:
-        fw = open(f'/home/berk/Documents/lin_vs_poisson_modelcomp{datestr}.p', 'wb')
-        pickle.dump({'rscores': rscores, 'meanrates': meanrates, 'linglm': linglm}, fw)
-        fw.close()
-    
-    else:
-        fw = open(f'/home/berk/Documents/lin_vs_poisson_modelcomp{datestr}.p', 'wb')
-        pickle.dump({'rscores': rscores, 'dscores': dscores, 'meanrates': meanrates,
-                     'linglm': linglm}, fw)
-        fw.close()
+    fw = open(f'/home/berk/Documents/lin_vs_poisson_modelcomp{datestr}.p', 'wb')
+    pickle.dump({'rscores': rscores, 'msescores': msescores, 'meanrates': meanrates,
+                 'regions': regions, 'linglm': linglm}, fw)
+    fw.close()

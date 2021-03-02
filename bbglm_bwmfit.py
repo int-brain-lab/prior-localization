@@ -7,7 +7,7 @@ Berk, May 2020
 from oneibl import one
 import numpy as np
 import pandas as pd
-from brainbox.modeling import glm
+from brainbox.modeling import glm, glm_linear
 import brainbox.io.one as bbone
 from export_funs import trialinfo_to_df
 from prior_funcs import fit_sess_psytrack
@@ -98,8 +98,8 @@ def fit_session(session_id, kernlen, nbases,
                 'bias': 'value',
                 'bias_next': 'value',
                 'wheel_velocity': 'continuous'}
-    nglm = glm.NeuralGLM(fitinfo, spk_times, spk_clu, vartypes, binwidth=binwidth, subset=stepwise,
-                         blocktrain=blocktrain)
+    nglm = glm_linear.LinearGLM(fitinfo, spk_times, spk_clu, vartypes, binwidth=binwidth,
+                                subset=stepwise, blocktrain=blocktrain)
     nglm.clu_regions = clu_regions
 
     if t_before < 0.7:
@@ -149,7 +149,7 @@ def fit_session(session_id, kernlen, nbases,
         nglm.add_covariate_raw('pLeft', stepfunc_bias, desc='Step function on prior estimate')
     nglm.add_covariate('wheel', fitinfo['wheel_velocity'], cosbases_short, -0.4)
     nglm.compile_design_matrix()
-    nglm.fit(method=method, alpha=alpha)
+    nglm.fit(method=method, alpha=alpha, multi_score=True)
     combined_weights = nglm.combine_weights()
     return nglm, combined_weights
 
@@ -178,7 +178,7 @@ if __name__ == "__main__":
     kernlen = 0.6
     nbases = 10
     alpha = 0
-    stepwise = False
+    stepwise = True
     wholetrial_step = False
     no_50perc = True
     method = 'pytorch'
