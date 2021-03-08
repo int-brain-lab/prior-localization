@@ -1,5 +1,4 @@
 import numpy as np
-import itertools as it
 import matplotlib.pyplot as plt
 from brainbox.modeling.glm import NeuralGLM
 from brainbox.modeling.glm_linear import LinearGLM
