@@ -20,7 +20,8 @@ def predict(nglm, targ_regressors=None, trials=None, retlab=False, incl_bias=Tru
     if type(nglm) == NeuralGLM:
         link = np.exp
     elif type(nglm) == LinearGLM:
-        link = lambda x: x
+        def link(x):
+            return x
     else:
         raise TypeError('nglm must be an instance of NeuralGLM or LinearGLM')
     if incl_bias:
@@ -68,7 +69,7 @@ class GLMPredictor:
         self.full_psths = {}
         self.cov_psths = {}
         self.combweights = nglm.combine_weights()
-    
+
     def psth_summary(self, align_time, unit, t_before=0.1, t_after=0.6):
         fig, ax = plt.subplots(4, 1, figsize=(8, 12))
         times = self.trialsdf.loc[self.trials, align_time]
@@ -84,7 +85,7 @@ class GLMPredictor:
             for cov in self.covar:
                 tmp[cov] = pred_psth(self.nglm, align_time, t_before, t_after, [cov], self.trials,
                                      incl_bias=False)
-                ax[4].plot(self.combweights[cov].loc[unit])
+                ax[3].plot(self.combweights[cov].loc[unit])
         x = np.arange(-t_before, t_after, self.nglm.binwidth)
         ax[1].plot(x, self.full_psths[keytuple][unit][0])
         ax[1].set_title('Full model prediction PSTH')
