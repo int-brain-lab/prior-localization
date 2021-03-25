@@ -70,13 +70,15 @@ class GLMPredictor:
         self.cov_psths = {}
         self.combweights = nglm.combine_weights()
 
-    def psth_summary(self, align_time, unit, t_before=0.1, t_after=0.6):
-        fig, ax = plt.subplots(4, 1, figsize=(8, 12))
+    def psth_summary(self, align_time, unit, t_before=0.1, t_after=0.6, ax=None):
+        if ax is None:
+            fig, ax = plt.subplots(3, 1, figsize=(8, 12))
+        
         times = self.trialsdf.loc[self.trials, align_time]
         peri_event_time_histogram(self.spk_t, self.spk_clu,
                                   times,
                                   unit, t_before, t_after, bin_size=self.nglm.binwidth,
-                                  error_bars='sem', ax=ax[0])
+                                  error_bars='sem', ax=ax[0], smoothing=0.01)
         keytuple = (align_time, t_before, t_after)
         if keytuple not in self.full_psths:
             self.full_psths[keytuple] = pred_psth(self.nglm, align_time, t_before, t_after)
@@ -85,15 +87,18 @@ class GLMPredictor:
             for cov in self.covar:
                 tmp[cov] = pred_psth(self.nglm, align_time, t_before, t_after, [cov], self.trials,
                                      incl_bias=False)
-                ax[3].plot(self.combweights[cov].loc[unit])
+                ax[2].plot(self.combweights[cov].loc[unit])
         x = np.arange(-t_before, t_after, self.nglm.binwidth)
-        ax[1].plot(x, self.full_psths[keytuple][unit][0])
-        ax[1].set_title('Full model prediction PSTH')
+        ax[0].plot(x, self.full_psths[keytuple][unit][0], label='Model prediction')
+        ax[0].legend()
         for cov in self.covar:
-            ax[2].plot(x, self.cov_psths[keytuple][cov][unit][0], label=cov)
-        ax[2].set_title('Individual component contributions')
-        ax[2].legend()
-        unitregion = self.nglm.clu_regions[unit]
-        plt.suptitle(f'Unit {unit} from region {unitregion}')
+            ax[1].plot(x, self.cov_psths[keytuple][cov][unit][0], label=cov)
+        ax[1].set_title('Individual component contributions')
+        ax[1].legend()
+        if hasattr(self.nglm, 'clu_regions'):
+            unitregion = self.nglm.clu_regions[unit]
+            plt.suptitle(f'Unit {unit} from region {unitregion}')
+        else:
+            plt.suptitle(f'Unit {unit}')
         plt.tight_layout()
-        return fig, ax
+        return ax

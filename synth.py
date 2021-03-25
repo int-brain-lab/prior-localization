@@ -130,9 +130,10 @@ def simulate_cell_realdf(trialsdf, stimkern, fdbkkern, wheelkern, pgain, gain,
             spikecounts = np.random.poisson(ratevals)
         else:
             ratevals = (kernsum + gain) * BINSIZE
-            spikecounts = np.round(np.random.normal(ratevals, 0.5)).astype(int)
-            # ratevals[ratevals < 0] = 0
+            ratevals[ratevals < 0] = 0
+            spikecounts = np.round(np.random.normal(loc=ratevals, scale=gain)).astype(int)
             # spikecounts = np.random.poisson(ratevals)
+            # ratevals[ratevals < 0] = 0
 
         spike_times = []
         noisevals = uniform(low=0, high=BINSIZE - 1e-8, size=np.max(spikecounts))
@@ -156,7 +157,7 @@ def stepfunc(row):
 
 
 def fit_sim(trialsdf, stimkern, fdbkkern, wheelkern, ntrials, priorgain=0, gain=2.5, retglm=False,
-            linear=False):
+            linear=False, ret_spikes=False, method='pure'):
     fitbool = [test is not None for test in (stimkern, fdbkkern, wheelkern)]
     if all(np.invert(fitbool)):
         raise TypeError('All kernels cannot be None')
@@ -166,11 +167,12 @@ def fit_sim(trialsdf, stimkern, fdbkkern, wheelkern, ntrials, priorgain=0, gain=
         fdbkkern = np.zeros(int(0.6 / BINSIZE))
     if wheelkern is None:
         wheelkern = np.zeros(int(0.4 / BINSIZE))
-    trialspikes, indices = simulate_cell(stimkern,
-                                         fdbkkern,
-                                         wheelkern,
-                                         pgain=priorgain, gain=gain,
-                                         numtrials=ntrials, linear=linear)
+    trialspikes, indices = simulate_cell_realdf(trialsdf,
+                                                stimkern,
+                                                fdbkkern,
+                                                wheelkern,
+                                                pgain=priorgain, gain=gain,
+                                                numtrials=ntrials, linear=linear)
     adj_spkt = np.hstack([trialsdf.loc[i].trial_start + np.array(t)
                           for i, t in zip(indices, trialspikes)])
     sess_trialspikes = np.sort(adj_spkt)
@@ -189,8 +191,8 @@ def fit_sim(trialsdf, stimkern, fdbkkern, wheelkern, ntrials, priorgain=0, gain=
                              'bias': 'value',
                              'bias_next': 'value'},
                             mintrials=1, train=0.7)
-    bases = glm.full_rcos(0.4, 10, nglm.binf)
-    longbases = glm.full_rcos(0.6, 10, nglm.binf)
+    bases = glm.full_rcos(0.4, 15, nglm.binf)
+    longbases = glm.full_rcos(0.6, 15, nglm.binf)
     if fitbool[0] is True:
         nglm.add_covariate_timing('stim', 'stimOn_times', longbases, desc='synth stimon')
     if fitbool[1] is True:
@@ -205,7 +207,7 @@ def fit_sim(trialsdf, stimkern, fdbkkern, wheelkern, ntrials, priorgain=0, gain=
     if np.linalg.cond(nglm.dm) > 1e6:
         print('Bad COND!')
         return None
-    nglm.fit(method='pure', alpha=0)
+    nglm.fit(method=method, alpha=0)
     combined_weights = nglm.combine_weights()
     retlist = []
     retlist.append(nglm.intercepts.iloc[0])
@@ -218,6 +220,8 @@ def fit_sim(trialsdf, stimkern, fdbkkern, wheelkern, ntrials, priorgain=0, gain=
     retlist.append(nglm.score().loc[1])
     if retglm:
         retlist.append(nglm)
+    if ret_spikes:
+        retlist.append(adj_spkt)
     return retlist
 
 
@@ -245,7 +249,7 @@ if __name__ == "__main__":
     # from prior_funcs import fit_sess_psytrack
     from brainbox.modeling import glm
 
-    linear = False
+    linear = True
 
     one = one.ONE()
     subject = 'ZM_2240'
@@ -263,7 +267,7 @@ if __name__ == "__main__":
     nvals = np.linspace(100, len(trialsdf) - 5, 3, dtype=int)
     gain = np.log(10)
 
-    cell_ids = list(range(1))
+    cell_ids = list(range(5))
     kernelcombs = list(it.product(*[(False, True)] * 3))  # Boolean combination of kernels
     _ = kernelcombs.pop(0)
     fits = {}
@@ -283,7 +287,7 @@ if __name__ == "__main__":
                 break
 
         if linear:
-            stimkern, fdbkkern, wheelkern = stimkern * 4, fdbkkern * 4, wheelkern * 4
+            stimkern, fdbkkern, wheelkern = stimkern * 4, fdbkkern * 4, wheelkern * 10
 
         cellfits['kernels'] = (stimkern, fdbkkern, wheelkern)
         for comb in tqdm(kernelcombs, desc='Kernel combination', leave=False):
@@ -300,31 +304,3 @@ if __name__ == "__main__":
             cellfits[comb] = combfits
         fits[cell] = cellfits
 
-    dimpoints = 50
-    fitkerns = pd.DataFrame(columns=['gain', 'kernel_height', 'fit_kernel', 'intercept'])
-    dsq = np.zeros((dimpoints, dimpoints))
-    stimkern = np.exp(-0.5 * ((np.linspace(0, 0.6, int(0.4 / BINSIZE)) - 0.15) / 0.05)**2)
-    stimkern = stimkern / stimkern.max()
-    fdbkk = None
-    wheelk = None
-    N = nvals[-1]
-
-    kernvals = np.linspace(np.log(2), np.log(150), 50)
-    gainvals = kernvals.copy()
-    K, G = np.meshgrid(kernvals, gainvals)
-
-    for i in tqdm(range(dimpoints), leave=True):
-        for j in tqdm(range(dimpoints), leave=False):
-            currstimkern = stimkern * K[i, j]
-            gain = G[i, j]
-            currfit = fit_sim(trialsdf, currstimkern, fdbkk, wheelk, N, gain=gain)
-            fitkerns = fitkerns.append({'gain': gain, 'kernel_height': K[i, j],
-                                       'fit_kernel': currfit[1], 'intercept': currfit[0]},
-                                       ignore_index=True)
-            dsq[i, j] = currfit[-1]
-
-    fits = {'dsquared': dsq, 'recovkerns': fitkerns}
-
-    fw = open('rcos_synthetic_data_gainkernsize_gridsearch_lineargain.p', 'wb')
-    pickle.dump(fits, fw)
-    fw.close()

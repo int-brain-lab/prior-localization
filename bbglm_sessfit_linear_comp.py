@@ -9,7 +9,6 @@ import numpy as np
 import pandas as pd
 from brainbox.modeling import glm
 from brainbox.modeling import glm_linear
-from brainbox.population.population import _generate_pseudo_blocks
 import brainbox.io.one as bbone
 from export_funs import trialinfo_to_df
 from prior_funcs import fit_sess_psytrack
@@ -24,7 +23,7 @@ def fit_session(session_id, kernlen, nbases,
                 t_before=1., t_after=0.6, prior_estimate='psytrack', max_len=2., probe_idx=0,
                 method='minimize', alpha=0, contnorm=5., binwidth=0.02, wholetrial_step=False,
                 blocktrain=False, abswheel=False, no_50perc=False, num_pseudosess=100,
-                fit_intercept=True, subset=False):
+                fit_intercept=True, subset=False, var_thresh=0.9999):
     if not abswheel:
         signwheel = True
     else:
@@ -118,7 +117,7 @@ def fit_session(session_id, kernlen, nbases,
     stepbounds = [linglm.binf(0.1), linglm.binf(0.6)]
 
     cosbases_long = glm.full_rcos(kernlen, nbases, linglm.binf)
-    cosbases_short = glm.full_rcos(0.4, 3, linglm.binf)
+    cosbases_short = glm.full_rcos(0.4, 10, linglm.binf)
     linglm.add_covariate_timing('stimonL', 'stimOn_times', cosbases_long,
                                 cond=lambda tr: np.isfinite(tr.contrastLeft),
                                 deltaval='adj_contrastLeft',
@@ -144,11 +143,23 @@ def fit_session(session_id, kernlen, nbases,
         linglm.add_covariate_raw('pLeft', stepfunc_bias, desc='Step function on prior estimate')
     linglm.add_covariate('wheel', fitinfo['wheel_velocity'], cosbases_short, -0.4)
     linglm.compile_design_matrix()
+    # Reduce dimension of the wheel covariates, to reduce the condition of the design matrix
+    _, s, v = np.linalg.svd(linglm.dm[:, linglm.covar['wheel']['dmcol_idx']], full_matrices=False)
+    variances = s**2 / (s**2).sum()
+    n_keep = np.argwhere(np.cumsum(variances) >= var_thresh)[0, 0]
+    wheelcols = linglm.dm[:, linglm.covar['wheel']['dmcol_idx']]
+    reduced = wheelcols @ v[:n_keep].T
+    bases_reduced = cosbases_short @ v[:n_keep].T
+    keepcols = ~np.isin(np.arange(linglm.dm.shape[1]), linglm.covar['wheel']['dmcol_idx'])
+    basedm = linglm.dm[:, keepcols]
+    linglm.dm = np.hstack([basedm, reduced])
+    linglm.covar['wheel']['dmcol_idx'] = linglm.covar['wheel']['dmcol_idx'][:n_keep]
+    linglm.covar['wheel']['bases'] = bases_reduced
+
     if type(linglm) is glm.NeuralGLM:
         linglm.fit(method=method, alpha=0, rsq=True)
     else:
         linglm.fit(method='pure', multi_score=True)
-
     return linglm
 
 
@@ -178,12 +189,12 @@ def get_bwm_ins_alyx(one):
 
 if __name__ == "__main__":
     import pickle
-    from datetime import date, timedelta
+    from datetime import date
     ins, ins_ids, sess_ids = get_bwm_ins_alyx(one=one)
 
     abswheel = True
-    kernlen = 0.6
-    nbases = 5
+    kernlen = 0.5
+    nbases = 10
     alpha = 0
     stepwise = True
     wholetrial_step = False
@@ -192,13 +203,14 @@ if __name__ == "__main__":
     blocking = False
     prior_estimate = None
     fit_intercept = True
-    binwidth = 0.08
+    binwidth = 0.02
     probe_idx = 0
 
     rscores = {}
     msescores = {}
     meanrates = {}
     regions = {}
+    weights = {}
     for eid in sess_ids[::2]:
         try:
             linglm = fit_session(eid, kernlen, nbases,
@@ -216,9 +228,10 @@ if __name__ == "__main__":
         msescores[eid] = linglm.altsubmodel_scores
         meanrates[eid] = linglm.binnedspikes.mean(axis=0) / binwidth
         regions[eid] = linglm.clu_regions
+        weights[eid] = linglm.combine_weights()
     datestr = str(date.today())
 
-    fw = open(f'/home/berk/Documents/lin_vs_poisson_modelcomp{datestr}.p', 'wb')
+    fw = open(f'/home/berk/Documents/lin_modelfit{datestr}.p', 'wb')
     pickle.dump({'rscores': rscores, 'msescores': msescores, 'meanrates': meanrates,
-                 'regions': regions, 'linglm': linglm}, fw)
+                 'regions': regions, 'weights': weights, 'linglm': linglm}, fw)
     fw.close()
