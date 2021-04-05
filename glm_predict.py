@@ -16,7 +16,7 @@ def predict(nglm, targ_regressors=None, trials=None, retlab=False, incl_bias=Tru
     trfilter = np.isin(trlabels, trials).flatten()
     w = nglm.coefs
     b = nglm.intercepts
-    dm = nglm.dm[trfilter, :][:, dmcols]
+    dm = nglm.dm[np.ix_(trfilter, dmcols)]
     if type(nglm) == NeuralGLM:
         link = np.exp
     elif type(nglm) == LinearGLM:
@@ -28,10 +28,6 @@ def predict(nglm, targ_regressors=None, trials=None, retlab=False, incl_bias=Tru
         pred = {cell: link(dm @ w.loc[cell][dmcols] + b.loc[cell]) for cell in w.index}
     else:
         pred = {cell: link(dm @ w.loc[cell][dmcols]) for cell in w.index}
-    # if type(nglm) == LinearGLM:
-    #     for cell in pred:
-    #         cellind = np.argwhere(nglm.clu_ids == cell)[0][0]
-    #         pred[cell] += np.mean(nglm.binnedspikes[:, cellind])
     if not retlab:
         return pred
     else:
@@ -73,7 +69,7 @@ class GLMPredictor:
     def psth_summary(self, align_time, unit, t_before=0.1, t_after=0.6, ax=None):
         if ax is None:
             fig, ax = plt.subplots(3, 1, figsize=(8, 12))
-        
+
         times = self.trialsdf.loc[self.trials, align_time]
         peri_event_time_histogram(self.spk_t, self.spk_clu,
                                   times,
@@ -81,14 +77,16 @@ class GLMPredictor:
                                   error_bars='sem', ax=ax[0], smoothing=0.01)
         keytuple = (align_time, t_before, t_after)
         if keytuple not in self.full_psths:
-            self.full_psths[keytuple] = pred_psth(self.nglm, align_time, t_before, t_after)
+            self.full_psths[keytuple] = pred_psth(self.nglm, align_time, t_before, t_after,
+                                                  trials=self.trials)
             self.cov_psths[keytuple] = {}
             tmp = self.cov_psths[keytuple]
             for cov in self.covar:
-                tmp[cov] = pred_psth(self.nglm, align_time, t_before, t_after, [cov], self.trials,
+                tmp[cov] = pred_psth(self.nglm, align_time, t_before, t_after,
+                                     targ_regressors=[cov], trials=self.trials,
                                      incl_bias=False)
                 ax[2].plot(self.combweights[cov].loc[unit])
-        x = np.arange(-t_before, t_after, self.nglm.binwidth)
+        x = np.arange(-t_before, t_after, self.nglm.binwidth) + 0.01
         ax[0].plot(x, self.full_psths[keytuple][unit][0], label='Model prediction')
         ax[0].legend()
         for cov in self.covar:

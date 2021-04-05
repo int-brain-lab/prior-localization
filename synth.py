@@ -15,8 +15,10 @@ rt_vals = np.array([0.20748797, 0.39415191, 0.58081585, 0.76747979, 0.95414373,
 rt_probs = np.array([0.15970962, 0.50635209, 0.18693285, 0.0707804, 0.02540835,
                      0.01633394, 0.00907441, 0.00725953, 0.00544465, 0.01270417])
 contrastvals = [0, 0.0625, 0.125, 0.25, 1.] + [-0.0625, -0.125, -0.25, -1.]
-longbases = glm.full_rcos(KERNLEN, NBASES, lambda x: np.ceil(x / BINSIZE).astype(int))
-shortbases = glm.full_rcos(SHORT_KL, NBASES, lambda x: np.ceil(x / BINSIZE).astype(int))
+longbases = glm.full_rcos(
+    KERNLEN, NBASES, lambda x: np.ceil(x / BINSIZE).astype(int))
+shortbases = glm.full_rcos(
+    SHORT_KL, NBASES, lambda x: np.ceil(x / BINSIZE).astype(int))
 
 
 def _generate_pseudo_blocks(n_trials, factor=60, min_=20, max_=100):
@@ -167,7 +169,8 @@ def stepfunc(row):
 
 
 def fit_full_sim(trialsdf, stimkerns, fdbkkerns, wheelkern, wheeltraces, ntrials,
-                 priorgain=0, gain=2.5, retglm=False, linear=False, use_raw=False):
+                 priorgain=0, gain=2.5, retglm=False, linear=False, use_raw=False,
+                 ret_trialsdf=False, retspikes=False):
     if wheelkern is None:
         wheelkern = np.zeros(int(SHORT_KL / BINSIZE))
     out = simulate_cell(stimkerns, fdbkkerns, wheelkern, wheeltraces=wheeltraces,
@@ -243,6 +246,10 @@ def fit_full_sim(trialsdf, stimkerns, fdbkkerns, wheelkern, wheeltraces, ntrials
     retlist.append(nglm.score().loc[1])
     if retglm:
         retlist.append(nglm)
+    if ret_trialsdf:
+        retlist.append(trialsdf)
+    if retspikes:
+        retlist.append(adj_spkt)
     return retlist
 
 
@@ -253,6 +260,7 @@ if __name__ == "__main__":
     from export_funs import trialinfo_to_df
     import matplotlib.pyplot as plt
     from brainbox.modeling import glm
+    import glm_predict as gp
 
     linear = True
     rawobservations = True
@@ -296,72 +304,84 @@ if __name__ == "__main__":
             fdbkkern1 *= 4
             fdbkkern2 *= 4
             wheelkern *= 4
-        
+
         fits[cell] = {}
         fits[cell]['kernels'] = [
             (stimkernL, stimkernR), (fdbkkern1, fdbkkern2), wheelkern]
         for N in [400, 600, 10000]:
-            fits[cell][N] = fit_full_sim(trialsdf, (stimkernL, stimkernR),
-                                         (fdbkkern1, fdbkkern2),
-                                         wheelkern,
-                                         wheeltraces,
-                                         gain=15,
-                                         ntrials=N, linear=linear, retglm=False,
-                                         use_raw=rawobservations)
+            fits[cell][N] = {}
+            for raw in (True, False):
+                fits[cell][N][raw] = fit_full_sim(trialsdf, (stimkernL, stimkernR),
+                                                  (fdbkkern1, fdbkkern2),
+                                                  wheelkern,
+                                                  wheeltraces,
+                                                  gain=15,
+                                                  ntrials=N, linear=linear, ret_trialsdf=True,
+                                                  retspikes=True, retglm=True, use_raw=raw)
 
     for cell in fits:
-        fig, ax = plt.subplots(3, 2, figsize=(8, 8))
-        ax = ax.flatten()
-        ax[-1].set_visible(False)
-        bigN = fits[cell][10000]
-        middleN = fits[cell][600]
-        littleN = fits[cell][400]
-        kerns = fits[cell]['kernels']
-        # StimL
-        ax[0].plot(np.arange(0, 0.6, BINSIZE), kerns[0]
-                   [0], label='generative kernel')
-        ax[0].plot(littleN[1] / 0.02, label='400 trials')
-        ax[0].plot(middleN[1] / 0.02, label='600 trials')
-        ax[0].plot(bigN[1] / 0.02, label='10000 trials')
-        ax[0].legend()
-        ax[0].set_title('Left stim kernel')
-        # StimR
-        ax[1].plot(np.arange(0, 0.6, BINSIZE), kerns[0]
-                   [1], label='generative kernel')
-        ax[1].plot(littleN[2] / 0.02, label='400 trials')
-        ax[1].plot(middleN[2] / 0.02, label='600 trials')
-        ax[1].plot(bigN[2] / 0.02, label='10000 trials')
-        ax[1].legend()
-        ax[1].set_title('Right stim kernel')
-        # Correct
-        ax[2].plot(np.arange(0, 0.6, BINSIZE), kerns[1]
-                   [0], label='generative kernel')
-        ax[2].plot(littleN[3] / 0.02, label='400 trials')
-        ax[2].plot(middleN[3] / 0.02, label='600 trials')
-        ax[2].plot(bigN[3] / 0.02, label='10000 trials')
-        ax[2].legend()
-        ax[2].set_title('Correct kernel')
-        # Incorrect
-        ax[3].plot(np.arange(0, 0.6, BINSIZE), kerns[1]
-                   [1], label='generative kernel')
-        ax[3].plot(littleN[4] / 0.02, label='400 trials')
-        ax[3].plot(middleN[4] / 0.02, label='600 trials')
-        ax[3].plot(bigN[4] / 0.02, label='10000 trials')
-        ax[3].legend()
-        ax[3].set_title('Incorrect kernel')
-        # Wheel
-        ax[4].plot(np.arange(-0.4, 0, BINSIZE),
-                   kerns[2], label='generative kernel')
-        ax[4].plot(littleN[5] / 0.02, label='400 trials')
-        ax[4].plot(middleN[5] / 0.02, label='600 trials')
-        ax[4].plot(bigN[5] / 0.02, label='10000 trials')
-        ax[4].legend()
-        ax[4].set_title('Wheel kernel')
-        plt.suptitle(f'Synthetic unit {cell}')
+        fig, ax = plt.subplots(5, 3, figsize=(8, 15))
+        rawmapper = {False: 'discrete', True: 'continuous'}
+        for raw in (True, False):
+            i = int(raw)
+            bigN = fits[cell][10000][raw]
+            middleN = fits[cell][600][raw]
+            littleN = fits[cell][400][raw]
+            kerns = fits[cell]['kernels']
+            rawstr = rawmapper[raw]
+            # StimL
+            ax[0, i].plot(np.arange(0, 0.6, BINSIZE), kerns[0]
+                          [0], label='generative kernel')
+            ax[0, i].plot(littleN[1] / 0.02, label='400 trials')
+            ax[0, i].plot(middleN[1] / 0.02, label='600 trials')
+            ax[0, i].plot(bigN[1] / 0.02, label='10000 trials')
+            ax[0, i].legend()
+            ax[0, i].set_title(f'Kernels fit using {rawstr} observations\n'
+                               'Left stim kernel')
+            # StimR
+            ax[1, i].plot(np.arange(0, 0.6, BINSIZE), kerns[0]
+                          [1], label='generative kernel')
+            ax[1, i].plot(littleN[2] / 0.02, label='400 trials')
+            ax[1, i].plot(middleN[2] / 0.02, label='600 trials')
+            ax[1, i].plot(bigN[2] / 0.02, label='10000 trials')
+            ax[1, i].legend()
+            ax[1, i].set_title('Right stim kernel')
+            # Correct
+            ax[2, i].plot(np.arange(0, 0.6, BINSIZE), kerns[1]
+                          [0], label='generative kernel')
+            ax[2, i].plot(littleN[3] / 0.02, label='400 trials')
+            ax[2, i].plot(middleN[3] / 0.02, label='600 trials')
+            ax[2, i].plot(bigN[3] / 0.02, label='10000 trials')
+            ax[2, i].legend()
+            ax[2, i].set_title('Correct kernel')
+            # Incorrect
+            ax[3, i].plot(np.arange(0, 0.6, BINSIZE), kerns[1]
+                          [1], label='generative kernel')
+            ax[3, i].plot(littleN[4] / 0.02, label='400 trials')
+            ax[3, i].plot(middleN[4] / 0.02, label='600 trials')
+            ax[3, i].plot(bigN[4] / 0.02, label='10000 trials')
+            ax[3, i].legend()
+            ax[3, i].set_title('Incorrect kernel')
+            # Wheel
+            ax[4, i].plot(np.arange(-0.4, 0, BINSIZE),
+                          kerns[2], label='generative kernel')
+            ax[4, i].plot(littleN[5] / 0.02, label='400 trials')
+            ax[4, i].plot(middleN[5] / 0.02, label='600 trials')
+            ax[4, i].plot(bigN[5] / 0.02, label='10000 trials')
+            ax[4, i].legend()
+            ax[4, i].set_title('Wheel kernel')
+        trialsdf = littleN[8]
+        spiket = littleN[9]
+        nglm = littleN[7]
+        trials = trialsdf.index
+        pred = gp.GLMPredictor(nglm, trialsdf, trials, spiket, np.ones_like(spiket))
+        subax = ax[:3, -1].flatten()
+        pred.psth_summary('stimOn_times', 1, ax=subax)
+        subax[0].set_title('LM Predictions and components')
         plt.tight_layout()
         rawstr = '_raw' if rawobservations else ''
         plt.savefig(f'/home/berk/Documents/psth-plots/synth/kernels/cell{cell}_'
-                    f'fits_ridge{rawstr}.png',
+                    f'fits_ridge.png',
                     dpi=400)
+        plt.close()
 
-# %%
