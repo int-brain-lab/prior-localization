@@ -7,11 +7,10 @@ Berk, May 2020
 from oneibl import one
 import numpy as np
 import pandas as pd
-from brainbox.modeling import glm
-from brainbox.modeling import glm_linear
+import brainbox.modeling.design_matrix as dm
+import brainbox.modeling.linear as lm
+import brainbox.modeling.utils as gut
 import brainbox.io.one as bbone
-from export_funs import trialinfo_to_df
-from prior_funcs import fit_sess_psytrack
 
 offline = True
 one = one.ONE()
@@ -28,17 +27,11 @@ def fit_session(session_id, kernlen, nbases,
         signwheel = True
     else:
         signwheel = False
-    trialsdf = trialinfo_to_df(session_id, maxlen=max_len, t_before=t_before, t_after=t_after,
-                               glm_binsize=binwidth, ret_abswheel=abswheel, ret_wheel=signwheel)
-    if prior_estimate == 'psytrack':
-        print('Fitting psytrack esimates...')
-        wts, stds = fit_sess_psytrack(session_id, maxlength=max_len, as_df=True)
-        wts['bias'] = wts['bias'] - np.mean(wts['bias'])
-        fitinfo = pd.concat((trialsdf, wts['bias']), axis=1)
-        bias_next = np.roll(fitinfo['bias'], -1)
-        bias_next = pd.Series(bias_next, index=fitinfo['bias'].index)[:-1]
-        fitinfo['bias_next'] = bias_next
-    elif prior_estimate is None:
+    trialsdf = bbone.load_trials_df(session_id, one=one,
+                                    maxlen=max_len, t_before=t_before, t_after=t_after,
+                                    wheel_binsize=binwidth, ret_abswheel=abswheel,
+                                    ret_wheel=signwheel)
+    if prior_estimate is None:
         fitinfo = trialsdf.copy()
     else:
         raise NotImplementedError('Only psytrack currently available')
@@ -86,80 +79,71 @@ def fit_session(session_id, kernlen, nbases,
                          ' function on pLeft')
 
     def stepfunc(row):
-        currvec = np.ones(linglm.binf(row.duration)) * row.pLeft_last
-        # nextvec = np.ones(linglm.binf(row.duration) - linglm.binf(row.feedback_times)) *\
+        currvec = np.ones(design.binf(row.duration)) * row.pLeft_last
+        # nextvec = np.ones(design.binf(row.duration) - design.binf(row.feedback_times)) *\
         #     row.probabilityLeft
         return currvec
 
     def stepfunc_prestim(row):
-        stepvec = np.zeros(linglm.binf(row.duration))
+        stepvec = np.zeros(design.binf(row.duration))
         stepvec[stepbounds[0]:stepbounds[1]] = row.pLeft_last
         return stepvec
 
     def stepfunc_poststim(row):
-        zerovec = np.ones(linglm.binf(row.duration))
-        currtr_start = linglm.binf(row.stimOn_times + 0.1)
-        currtr_end = linglm.binf(row.feedback_times)
+        zerovec = np.ones(design.binf(row.duration))
+        currtr_start = design.binf(row.stimOn_times + 0.1)
+        currtr_end = design.binf(row.feedback_times)
         zerovec[currtr_start:currtr_end] = row.pLeft_last
         zerovec[currtr_end:] = row.probabilityLeft
         return zerovec
 
     def stepfunc_bias(row):
-        currvec = np.ones(linglm.binf(row.feedback_times)) * row.bias
-        nextvec = np.ones(linglm.binf(row.duration) - linglm.binf(row.feedback_times)) *\
+        currvec = np.ones(design.binf(row.feedback_times)) * row.bias
+        nextvec = np.ones(design.binf(row.duration) - design.binf(row.feedback_times)) *\
             row.bias_next
         return np.hstack((currvec, nextvec))
 
-    linglm = glm_linear.LinearGLM(fitinfo.copy(), spk_times, spk_clu, vartypes.copy(),
-                                  binwidth=binwidth, blocktrain=blocktrain, subset=subset)
+    design = dm.DesignMatrix(fitinfo, vartypes)
+    stepbounds = [design.binf(0.1), design.binf(0.6)]
 
-    linglm.clu_regions = clu_regions
-    stepbounds = [linglm.binf(0.1), linglm.binf(0.6)]
-
-    cosbases_long = glm.full_rcos(kernlen, nbases, linglm.binf)
-    cosbases_short = glm.full_rcos(0.4, 10, linglm.binf)
-    linglm.add_covariate_timing('stimonL', 'stimOn_times', cosbases_long,
+    cosbases_long = gut.full_rcos(kernlen, nbases, design.binf)
+    cosbases_short = gut.full_rcos(0.4, 10, design.binf)
+    design.add_covariate_timing('stimonL', 'stimOn_times', cosbases_long,
                                 cond=lambda tr: np.isfinite(tr.contrastLeft),
                                 deltaval='adj_contrastLeft',
                                 desc='Kernel conditioned on L stimulus onset')
-    linglm.add_covariate_timing('stimonR', 'stimOn_times', cosbases_long,
+    design.add_covariate_timing('stimonR', 'stimOn_times', cosbases_long,
                                 cond=lambda tr: np.isfinite(tr.contrastRight),
                                 deltaval='adj_contrastRight',
                                 desc='Kernel conditioned on R stimulus onset')
-    linglm.add_covariate_timing('correct', 'feedback_times', cosbases_long,
+    design.add_covariate_timing('correct', 'feedback_times', cosbases_long,
                                 cond=lambda tr: tr.feedbackType == 1,
                                 desc='Kernel conditioned on correct feedback')
-    linglm.add_covariate_timing('incorrect', 'feedback_times', cosbases_long,
+    design.add_covariate_timing('incorrect', 'feedback_times', cosbases_long,
                                 cond=lambda tr: tr.feedbackType == -1,
                                 desc='Kernel conditioned on incorrect feedback')
-    if prior_estimate is None and wholetrial_step:
-        linglm.add_covariate_raw('pLeft', stepfunc, desc='Step function on prior estimate')
-    elif prior_estimate is None and not wholetrial_step:
-        linglm.add_covariate_raw('pLeft', stepfunc_prestim,
-                                 desc='Step function on prior estimate')
-        # linglm.add_covariate_raw('pLeft_tr', stepfunc_poststim,
-        #                          desc='Step function on post-stimulus prior')
-    elif prior_estimate == 'psytrack':
-        linglm.add_covariate_raw('pLeft', stepfunc_bias, desc='Step function on prior estimate')
-    linglm.add_covariate('wheel', fitinfo['wheel_velocity'], cosbases_short, -0.4)
-    linglm.compile_design_matrix()
+    design.add_covariate_raw('pLeft', stepfunc_prestim,
+                             desc='Step function on prior estimate')
+    design.add_covariate_raw('pLeft_tr', stepfunc_poststim,
+                             desc='Step function on post-stimulus prior')
+    design.add_covariate('wheel', fitinfo['wheel_velocity'], cosbases_short, -0.4)
+    design.compile_design_matrix()
     # Reduce dimension of the wheel covariates, to reduce the condition of the design matrix
-    _, s, v = np.linalg.svd(linglm.dm[:, linglm.covar['wheel']['dmcol_idx']], full_matrices=False)
+    _, s, v = np.linalg.svd(design.dm[:, design.covar['wheel']['dmcol_idx']], full_matrices=False)
     variances = s**2 / (s**2).sum()
     n_keep = np.argwhere(np.cumsum(variances) >= var_thresh)[0, 0]
-    wheelcols = linglm.dm[:, linglm.covar['wheel']['dmcol_idx']]
+    wheelcols = design.dm[:, design.covar['wheel']['dmcol_idx']]
     reduced = wheelcols @ v[:n_keep].T
     bases_reduced = cosbases_short @ v[:n_keep].T
-    keepcols = ~np.isin(np.arange(linglm.dm.shape[1]), linglm.covar['wheel']['dmcol_idx'])
-    basedm = linglm.dm[:, keepcols]
-    linglm.dm = np.hstack([basedm, reduced])
-    linglm.covar['wheel']['dmcol_idx'] = linglm.covar['wheel']['dmcol_idx'][:n_keep]
-    linglm.covar['wheel']['bases'] = bases_reduced
+    keepcols = ~np.isin(np.arange(design.dm.shape[1]), design.covar['wheel']['dmcol_idx'])
+    basedm = design.dm[:, keepcols]
+    design.dm = np.hstack([basedm, reduced])
+    design.covar['wheel']['dmcol_idx'] = design.covar['wheel']['dmcol_idx'][:n_keep]
+    design.covar['wheel']['bases'] = bases_reduced
 
-    if type(linglm) is glm.NeuralGLM:
-        linglm.fit(method=method, alpha=0, rsq=True)
-    else:
-        linglm.fit(method='pure', multi_score=True)
+    linglm = lm.LinearGLM(design, spk_times, spk_clu, stepwise=False)
+    linglm.fit()
+    linglm.clu_regions = clu_regions
     return linglm
 
 
@@ -179,18 +163,22 @@ def get_bwm_ins_alyx(one):
                         provenance='Ephys aligned histology track',
                         django='session__project__name__icontains,ibl_neuropixel_brainwide_01,'
                                'session__qc__lt,50,'
+                               '~json__qc,CRITICAL,'
                                'json__extended_qc__alignment_count__gt,0,'
                                'session__extended_qc__behavior,1')
-    ins_id = [item['id'] for item in ins]
-    sess_id = [item['session_info']['id'] for item in ins]
-    sess_id = np.unique(sess_id)
-    return ins, ins_id, sess_id
+    sessions = {}
+    for item in ins:
+        s_eid = item['session_info']['id']
+        if s_eid not in sessions:
+            sessions[s_eid] = []
+        sessions[s_eid].append(item['id'])
+    return sessions
 
 
 if __name__ == "__main__":
     import pickle
     from datetime import date
-    ins, ins_ids, sess_ids = get_bwm_ins_alyx(one=one)
+    sessions = get_bwm_ins_alyx(one=one)
 
     abswheel = True
     kernlen = 0.5
@@ -204,31 +192,32 @@ if __name__ == "__main__":
     prior_estimate = None
     fit_intercept = True
     binwidth = 0.02
-    probe_idx = 0
 
     rscores = {}
     msescores = {}
     meanrates = {}
     regions = {}
     weights = {}
-    for eid in sess_ids[::2]:
-        try:
-            linglm = fit_session(eid, kernlen, nbases,
-                                 prior_estimate=prior_estimate,
-                                 probe_idx=probe_idx, method=method,
-                                 alpha=alpha,
-                                 binwidth=binwidth, blocktrain=blocking,
-                                 wholetrial_step=wholetrial_step,
-                                 abswheel=abswheel, no_50perc=no_50perc,
-                                 fit_intercept=fit_intercept, subset=stepwise)
-        except Exception as e:
-            print(e)
-            continue
-        rscores[eid] = linglm.submodel_scores
-        msescores[eid] = linglm.altsubmodel_scores
-        meanrates[eid] = linglm.binnedspikes.mean(axis=0) / binwidth
-        regions[eid] = linglm.clu_regions
-        weights[eid] = linglm.combine_weights()
+    for eid in sessions.keys():
+        for i in range(len(sessions[eid])):
+            dkey = (eid, i)
+            try:
+                linglm = fit_session(eid, kernlen, nbases,
+                                     prior_estimate=prior_estimate,
+                                     probe_idx=i, method=method,
+                                     alpha=alpha,
+                                     binwidth=binwidth, blocktrain=blocking,
+                                     wholetrial_step=wholetrial_step,
+                                     abswheel=abswheel, no_50perc=no_50perc,
+                                     fit_intercept=fit_intercept, subset=stepwise)
+            except Exception as e:
+                print(e)
+                continue
+            rscores[dkey] = linglm.submodel_scores
+            msescores[dkey] = linglm.altsubmodel_scores
+            meanrates[dkey] = linglm.binnedspikes.mean(axis=0) / binwidth
+            regions[dkey] = linglm.clu_regions
+            weights[dkey] = linglm.combine_weights()
     datestr = str(date.today())
 
     fw = open(f'/home/berk/Documents/lin_modelfit{datestr}.p', 'wb')

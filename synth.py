@@ -3,8 +3,11 @@ import pandas as pd
 from numpy.random import uniform, normal
 from scipy.interpolate import interp1d
 from brainbox.modeling.glm import convbasis
-import brainbox.modeling.glm_linear as linglm
-import brainbox.modeling.glm as glm
+import brainbox.modeling.linear as lm
+import brainbox.modeling.poisson as pm
+import brainbox.modeling.utils as mut
+
+rng = np.random.default_rng(seed=0b01101001 + 0b01100010 + 0b01101100)
 
 BINSIZE = 0.02
 KERNLEN = 0.6
@@ -15,19 +18,17 @@ rt_vals = np.array([0.20748797, 0.39415191, 0.58081585, 0.76747979, 0.95414373,
 rt_probs = np.array([0.15970962, 0.50635209, 0.18693285, 0.0707804, 0.02540835,
                      0.01633394, 0.00907441, 0.00725953, 0.00544465, 0.01270417])
 contrastvals = [0, 0.0625, 0.125, 0.25, 1.] + [-0.0625, -0.125, -0.25, -1.]
-longbases = glm.full_rcos(
-    KERNLEN, NBASES, lambda x: np.ceil(x / BINSIZE).astype(int))
-shortbases = glm.full_rcos(
-    SHORT_KL, NBASES, lambda x: np.ceil(x / BINSIZE).astype(int))
+longbases = mut.full_rcos(KERNLEN, NBASES, lambda x: np.ceil(x / BINSIZE).astype(int))
+shortbases = mut.full_rcos(SHORT_KL, NBASES, lambda x: np.ceil(x / BINSIZE).astype(int))
 
 
 def _generate_pseudo_blocks(n_trials, factor=60, min_=20, max_=100):
     block_ids = []
     while len(block_ids) < n_trials:
-        x = np.random.exponential(factor)
+        x = rng.exponential(factor)
         while (x <= min_) | (x >= max_):
-            x = np.random.exponential(factor)
-        if (len(block_ids) == 0) & (np.random.randint(2) == 0):
+            x = rng.exponential(factor)
+        if (len(block_ids) == 0) & (rng.integers(2) == 0):
             block_ids += [0] * int(x)
         elif (len(block_ids) == 0):
             block_ids += [1] * int(x)
@@ -41,7 +42,6 @@ def _generate_pseudo_blocks(n_trials, factor=60, min_=20, max_=100):
 def kerngen(length):
     if length not in (KERNLEN, SHORT_KL):
         raise ValueError(f'length must be {KERNLEN} or {SHORT_KL}')
-    rng = np.random.default_rng()
     weights = rng.uniform(low=-2, high=2, size=NBASES)
     bases = longbases if length == KERNLEN else shortbases
     return bases @ weights
@@ -50,13 +50,13 @@ def kerngen(length):
 def simulate_cell(stimkerns, fdbkkerns, wheelkern, pgain, gain, wheeltraces,
                   num_trials=500, linear=False, ret_raw=False):
     stimtimes = np.ones(num_trials) * 0.4
-    fdbktimes = np.random.choice(rt_vals, size=num_trials, p=rt_probs) \
+    fdbktimes = rng.choice(rt_vals, size=num_trials, p=rt_probs) \
         + stimtimes + normal(size=num_trials) * 0.05
     priorbool = _generate_pseudo_blocks(num_trials)
     priors = np.array([{1: 0.2, 0: 0.8}[x] for x in priorbool])
-    contrasts = np.random.choice(contrastvals, replace=True, size=num_trials)
-    feedbacktypes = np.random.choice([-1, 1], size=num_trials, p=[0.1, 0.9])
-    wheelmoves = np.random.choice(np.arange(len(wheeltraces)), size=num_trials)
+    contrasts = rng.choice(contrastvals, replace=True, size=num_trials)
+    feedbacktypes = rng.choice([-1, 1], size=num_trials, p=[0.1, 0.9])
+    wheelmoves = rng.choice(np.arange(len(wheeltraces)), size=num_trials)
     trialspikes = []
     trialrates = []
     trialwheel = []

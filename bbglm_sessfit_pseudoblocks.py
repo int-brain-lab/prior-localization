@@ -7,13 +7,12 @@ Berk, May 2020
 from oneibl import one
 import numpy as np
 import pandas as pd
-from brainbox.modeling import glm
+from brainbox.modeling import glm, glm_linear
 from brainbox.population.population import _generate_pseudo_blocks
 import brainbox.io.one as bbone
 from export_funs import trialinfo_to_df
 from prior_funcs import fit_sess_psytrack
-import pickle
-import os
+from copy import deepcopy
 from tqdm import tqdm
 
 offline = True
@@ -63,8 +62,6 @@ def fit_session(session_id, kernlen, nbases,
     fitinfo = fitinfo.iloc[1:-1]
     fitinfo['adj_contrastLeft'] = np.tanh(contnorm * fitinfo['contrastLeft']) / np.tanh(contnorm)
     fitinfo['adj_contrastRight'] = np.tanh(contnorm * fitinfo['contrastRight']) / np.tanh(contnorm)
-    fitinfo['trial_start'] = fitinfo['stimOn_times'] - 0.6
-    fitinfo['trial_end'] = fitinfo['stimOn_times'] - 0.1
 
     if no_50perc:
         fitinfo = fitinfo[fitinfo.probabilityLeft != 0.5]
@@ -107,27 +104,27 @@ def fit_session(session_id, kernlen, nbases,
             row.bias_next
         return np.hstack((currvec, nextvec))
 
-    nglm = glm.NeuralGLM(fitinfo, spk_times, spk_clu, vartypes, binwidth=binwidth,
-                         blocktrain=blocktrain)
+    nglm = glm_linear.LinearGLM(fitinfo, spk_times, spk_clu, vartypes, binwidth=binwidth,
+                                blocktrain=blocktrain)
     nglm.clu_regions = clu_regions
     stepbounds = [nglm.binf(0.1), nglm.binf(0.6)]
 
-    # cosbases_long = glm.full_rcos(kernlen, nbases, nglm.binf)
-    # cosbases_short = glm.full_rcos(0.4, nbases, nglm.binf)
-    # nglm.add_covariate_timing('stimonL', 'stimOn_times', cosbases_long,
-    #                           cond=lambda tr: np.isfinite(tr.contrastLeft),
-    #                           deltaval='adj_contrastLeft',
-    #                           desc='Kernel conditioned on L stimulus onset')
-    # nglm.add_covariate_timing('stimonR', 'stimOn_times', cosbases_long,
-    #                           cond=lambda tr: np.isfinite(tr.contrastRight),
-    #                           deltaval='adj_contrastRight',
-    #                           desc='Kernel conditioned on R stimulus onset')
-    # nglm.add_covariate_timing('correct', 'feedback_times', cosbases_long,
-    #                           cond=lambda tr: tr.feedbackType == 1,
-    #                           desc='Kernel conditioned on correct feedback')
-    # nglm.add_covariate_timing('incorrect', 'feedback_times', cosbases_long,
-    #                           cond=lambda tr: tr.feedbackType == -1,
-    #                           desc='Kernel conditioned on incorrect feedback')
+    cosbases_long = glm.full_rcos(kernlen, nbases, nglm.binf)
+    cosbases_short = glm.full_rcos(0.4, nbases, nglm.binf)
+    nglm.add_covariate_timing('stimonL', 'stimOn_times', cosbases_long,
+                              cond=lambda tr: np.isfinite(tr.contrastLeft),
+                              deltaval='adj_contrastLeft',
+                              desc='Kernel conditioned on L stimulus onset')
+    nglm.add_covariate_timing('stimonR', 'stimOn_times', cosbases_long,
+                              cond=lambda tr: np.isfinite(tr.contrastRight),
+                              deltaval='adj_contrastRight',
+                              desc='Kernel conditioned on R stimulus onset')
+    nglm.add_covariate_timing('correct', 'feedback_times', cosbases_long,
+                              cond=lambda tr: tr.feedbackType == 1,
+                              desc='Kernel conditioned on correct feedback')
+    nglm.add_covariate_timing('incorrect', 'feedback_times', cosbases_long,
+                              cond=lambda tr: tr.feedbackType == -1,
+                              desc='Kernel conditioned on incorrect feedback')
     if prior_estimate is None and wholetrial_step:
         nglm.add_covariate_raw('pLeft', stepfunc, desc='Step function on prior estimate')
     elif prior_estimate is None and not wholetrial_step:
@@ -135,10 +132,10 @@ def fit_session(session_id, kernlen, nbases,
                                desc='Step function on prior estimate')
     elif prior_estimate == 'psytrack':
         nglm.add_covariate_raw('pLeft', stepfunc_bias, desc='Step function on prior estimate')
-    # nglm.add_covariate('wheel', fitinfo['wheel_velocity'], cosbases_short, -0.4)
+    nglm.add_covariate('wheel', fitinfo['wheel_velocity'], cosbases_short, -0.4)
     nglm.compile_design_matrix()
-    nglm.fit(method=method, alpha=alpha, printcond=False, epochs=5000,
-             fit_intercept=fit_intercept)
+    glm_template = deepcopy(nglm)
+    nglm.fit(method=method, printcond=False)
     realscores = nglm.score()
 
     scoreslist = []
@@ -149,38 +146,9 @@ def fit_session(session_id, kernlen, nbases,
         newprobs = [probmap[i] for i in newblocks]
         tmp_df = fitinfo.copy()
         tmp_df['probabilityLeft'] = newprobs
-        tmpglm = glm.NeuralGLM(tmp_df, spk_times, spk_clu, vartypes, binwidth=binwidth,
-                               blocktrain=blocktrain)
-        tmpglm.clu_regions = clu_regions
-        stepbounds = [tmpglm.binf(0.1), tmpglm.binf(0.6)]
+        tmpglm = deepcopy(glm_template)
 
-        # cosbases_long = glm.full_rcos(kernlen, nbases, tmpglm.binf)
-        # cosbases_short = glm.full_rcos(0.4, nbases, tmpglm.binf)
-        # tmpglm.add_covariate_timing('stimonL', 'stimOn_times', cosbases_long,
-        #                           cond=lambda tr: np.isfinite(tr.contrastLeft),
-        #                           deltaval='adj_contrastLeft',
-        #                           desc='Kernel conditioned on L stimulus onset')
-        # tmpglm.add_covariate_timing('stimonR', 'stimOn_times', cosbases_long,
-        #                           cond=lambda tr: np.isfinite(tr.contrastRight),
-        #                           deltaval='adj_contrastRight',
-        #                           desc='Kernel conditioned on R stimulus onset')
-        # tmpglm.add_covariate_timing('correct', 'feedback_times', cosbases_long,
-        #                           cond=lambda tr: tr.feedbackType == 1,
-        #                           desc='Kernel conditioned on correct feedback')
-        # tmpglm.add_covariate_timing('incorrect', 'feedback_times', cosbases_long,
-        #                           cond=lambda tr: tr.feedbackType == -1,
-        #                           desc='Kernel conditioned on incorrect feedback')
-        if prior_estimate is None and wholetrial_step:
-            tmpglm.add_covariate_raw('pLeft', stepfunc, desc='Step function on prior estimate')
-        elif prior_estimate is None and not wholetrial_step:
-            tmpglm.add_covariate_raw('pLeft', stepfunc_prestim,
-                                     desc='Step function on prior estimate')
-        elif prior_estimate == 'psytrack':
-            tmpglm.add_covariate_raw('pLeft', stepfunc_bias, desc='Step function on prior estimate')
-        # tmpglm.add_covariate('wheel', fitinfo['wheel_velocity'], cosbases_short, -0.4)
-        tmpglm.compile_design_matrix()
-        tmpglm.fit(method=method, alpha=alpha, printcond=False, epochs=5000,
-                   fit_intercept=fit_intercept)
+        tmpglm.fit(method=method, printcond=False)
         weightslist.append((tmpglm.coefs, tmpglm.intercepts))
         with np.errstate(all='ignore'):
             scoreslist.append(tmpglm.score())
@@ -188,14 +156,12 @@ def fit_session(session_id, kernlen, nbases,
 
 
 if __name__ == "__main__":
-    from scipy.stats import percentileofscore, zmap
+    from scipy.stats import zmap
     import matplotlib.pyplot as plt
     nickname = 'CSH_ZAD_001'
     sessdate = '2020-01-15'
     probe_idx = 0
-    kernlen = 0.6
-    nbases = 10
-    method = 'pytorch'
+    method = 'ridge'
     ids = one.search(subject=nickname, date_range=[sessdate, sessdate],
                      dataset_types=['spikes.clusters'])
 
@@ -206,12 +172,12 @@ if __name__ == "__main__":
     stepwise = True
     wholetrial_step = True
     no_50perc = True
-    method = 'sklearn'
+    method = 'ridge'
     blocking = False
     prior_estimate = None
     fit_intercept = True
-    binwidth = 0.5 + 1e-16
-    num_pseudosess = 1000
+    binwidth = 0.02
+    num_pseudosess = 100
 
     nglm, realscores, scoreslist, weightlist = fit_session(ids[0], kernlen, nbases,
                                                            prior_estimate=prior_estimate,
