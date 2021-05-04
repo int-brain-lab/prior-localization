@@ -213,6 +213,8 @@ if __name__ == "__main__":
     blocking = False
     prior_estimate = None
     binwidth = 0.02
+    n_pseudo = 100
+    target = 'pLeft'
 
     print(f'Fitting {len(sessions)} sessions...')
 
@@ -238,12 +240,9 @@ if __name__ == "__main__":
                 if not offline:
                     _ = one.load(sessid, download_only=True)
                 try:
-                    outtup = fit_session(sessid, kernlen, nbases,
-                                         prior_estimate=prior_estimate, stepwise=stepwise,
-                                         probe_idx=probe, method=method,
-                                         binwidth=binwidth, blocktrain=blocking,
-                                         wholetrial_step=wholetrial_step,
-                                         abswheel=abswheel, no_50perc=no_50perc)
+                    outtup = fit_session(sessid, kernlen, nbases, t_before=0.7, probe_idx=probe,
+                                         abswheel=abswheel, no_50perc=no_50perc,
+                                         num_pseudosess=n_pseudo, target_regressor=target)
                     nglm, realscores, scoreslist, weightslist = outtup
                 except Exception as err:
                     tb = traceback.format_exc()
