@@ -8,7 +8,7 @@ from oneibl import one
 import numpy as np
 import pandas as pd
 from brainbox.modeling import glm, glm_linear
-from .synth import _generate_pseudo_blocks
+from synth import _generate_pseudo_blocks
 import brainbox.io.one as bbone
 from prior_funcs import fit_sess_psytrack
 from datetime import date

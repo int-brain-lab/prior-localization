@@ -5,6 +5,7 @@ import os
 from scipy.special import logsumexp
 from itertools import accumulate
 
+
 def stable_softmax(x):
     z = x - np.expand_dims(np.max(x, axis=1), -1)
     numerator = np.exp(z)
@@ -12,11 +13,14 @@ def stable_softmax(x):
     softmax = numerator/np.expand_dims(denominator, -1)
     return softmax
 
+
 def trunc_exp(n, tau):
     return np.exp(-n/tau) * (n >= 20) * (n <= 100)
 
+
 def hazard_f(x, tau):
-    return trunc_exp(x, tau)/np.sum(trunc_exp(np.linspace(x,x+100,101), tau), axis=0)
+    return trunc_exp(x, tau)/np.sum(trunc_exp(np.linspace(x, x+100, 101), tau), axis=0)
+
 
 def perform_inference(stim_side, figures=False, p_left=None):
     """
@@ -44,50 +48,55 @@ def perform_inference(stim_side, figures=False, p_left=None):
         p(b_t, l_t, s_{1:t} | theta) with b_t the block l_t the current length and
         s_t the stimuli (contrast) side
     """
-    if figures: assert(p_left is not None), 'if figures is True, you must specify the pLeft'
+    if figures:
+        assert(p_left is not None), 'if figures is True, you must specify the pLeft'
 
     nb_trials, nb_blocklengths, nb_typeblocks = len(stim_side), 100, 3
-    h      = np.zeros([nb_trials, nb_blocklengths, nb_typeblocks])
+    h = np.zeros([nb_trials, nb_blocklengths, nb_typeblocks])
     priors = np.zeros([nb_trials, nb_blocklengths, nb_typeblocks]) - np.inf
     tau, gamma = 60, 0.8
     # at the beginning of the task (0), current length is 1 (0) and block type is unbiased (1)
     h[0, 0, 1], priors[0, 0, 1] = 0, 0
     hazard = hazard_f(np.arange(1, 101), tau=tau)
     l = np.concatenate((np.expand_dims(hazard, -1), np.concatenate(
-                (np.diag(1 - hazard[:-1]), np.zeros(len(hazard)-1)[np.newaxis]), axis=0)), axis=-1)
+        (np.diag(1 - hazard[:-1]), np.zeros(len(hazard)-1)[np.newaxis]), axis=0)), axis=-1)
     b = np.zeros([len(hazard), 3, 3])
-    b[1:][:,0,0], b[1:][:,1,1], b[1:][:,2,2] = 1, 1, 1 # case when l_t > 0
-    b[0][0][-1], b[0][-1][0], b[0][1][np.array([0, 2])] = 1, 1, 1./2 # case when l_t = 1
+    b[1:][:, 0, 0], b[1:][:, 1, 1], b[1:][:, 2, 2] = 1, 1, 1  # case when l_t > 0
+    # case when l_t = 1
+    b[0][0][-1], b[0][-1][0], b[0][1][np.array([0, 2])] = 1, 1, 1./2
     # transition matrix l_{t-1}, b_{t-1}, l_t, b_t
-    t = np.log(np.swapaxes(l[:,:,np.newaxis,np.newaxis]
+    t = np.log(np.swapaxes(l[:, :, np.newaxis, np.newaxis]
                            * b[np.newaxis], 1, 2)).reshape(nb_typeblocks * nb_blocklengths, -1)
     priors = priors.reshape(-1, nb_typeblocks * nb_blocklengths)
     h = h.reshape(-1, nb_typeblocks * nb_blocklengths)
 
     for i_trial in range(nb_trials):
         s = stim_side[i_trial]
-        loglks = np.log(np.array([gamma*(s==-1) + (1-gamma)
-                                  * (s==1), 1./2, gamma*(s==1) + (1-gamma)*(s==-1)]))
+        loglks = np.log(np.array([gamma*(s == -1) + (1-gamma)
+                                  * (s == 1), 1./2, gamma*(s == 1) + (1-gamma)*(s == -1)]))
 
         # save priors
         if i_trial > 0:
-            priors[i_trial] = logsumexp(h[i_trial - 1][:, np.newaxis] + t, axis=(0))
-        h[i_trial]          = priors[i_trial] + np.tile(loglks, 100)
+            priors[i_trial] = logsumexp(
+                h[i_trial - 1][:, np.newaxis] + t, axis=(0))
+        h[i_trial] = priors[i_trial] + np.tile(loglks, 100)
 
     priors = priors - np.expand_dims(logsumexp(priors, axis=1), -1)
     h = h - np.expand_dims(logsumexp(h, axis=1), -1)
     priors = priors.reshape(-1, nb_blocklengths, nb_typeblocks)
     h = h.reshape(-1, nb_blocklengths, nb_typeblocks)
-    marginal_blocktype     =  np.exp(priors).sum(axis=1)
-    marginal_currentlength = np.exp(priors).sum(axis=2)    
+    marginal_blocktype = np.exp(priors).sum(axis=1)
+    marginal_currentlength = np.exp(priors).sum(axis=2)
 
     if figures:
         import matplotlib.pyplot as plt
-        pLeft_inferred = marginal_blocktype[:, 0] * 0.2 + marginal_blocktype[:, 1] * 0.5 + marginal_blocktype[:, 2] * 0.8
-        block_id = np.array((p_left==0.5) * 1 + (p_left==0.8) * 2)
-        plt.figure(figsize=(15,7))
+        pLeft_inferred = marginal_blocktype[:, 0] * 0.2 + \
+            marginal_blocktype[:, 1] * 0.5 + marginal_blocktype[:, 2] * 0.8
+        block_id = np.array((p_left == 0.5) * 1 + (p_left == 0.8) * 2)
+        plt.figure(figsize=(15, 7))
         plt.subplot(2, 1, 1)
-        plt.imshow(marginal_blocktype.T, aspect='auto', label='inferred', cmap='coolwarm')
+        plt.imshow(marginal_blocktype.T, aspect='auto',
+                   label='inferred', cmap='coolwarm')
         plt.plot(block_id, '--', label='actual block', color='black')
         plt.plot(pLeft_inferred)
         plt.plot(stim_side + 1, 'x', label='stimuli', color='green')
@@ -96,16 +105,18 @@ def perform_inference(stim_side, figures=False, p_left=None):
         plt.yticks([2, 1, 0], ['left', 'unbiased', 'right'])
         plt.legend(loc='upper right')
         currentlength = np.array(list(accumulate((
-                    np.concatenate((np.array([True]), block_id[:-1] == block_id[1:]))),
-                            lambda x, y: (x + 1) * (y==True) + 1 * (y==False))))
+            np.concatenate((np.array([True]), block_id[:-1] == block_id[1:]))),
+            lambda x, y: (x + 1) * (y == True) + 1 * (y == False))))
         plt.subplot(2, 1, 2)
-        plt.imshow(marginal_currentlength.T, aspect='auto', label='inferred', cmap='coolwarm')
+        plt.imshow(marginal_currentlength.T, aspect='auto',
+                   label='inferred', cmap='coolwarm')
         plt.plot(currentlength, '--', label='actual block', color='black')
         plt.xlabel('trial')
         plt.ylabel('block current length')
         plt.legend(loc='upper right')
 
     return marginal_blocktype, marginal_currentlength, priors, h
+
 
 def fit_sess_psytrack(session, maxlength=2.5, normfac=5., as_df=False):
     '''
@@ -154,7 +165,8 @@ def fit_sess_psytrack(session, maxlength=2.5, normfac=5., as_df=False):
     opt_list = ['sigma']
     hyp, evd, wMode, hess = hyperOpt(data, hyper_guess, weights, opt_list)
     if as_df:
-        wMode = pd.DataFrame(wMode.T, index=trialdf.index[1:], columns=['bias', 'left', 'right'])
+        wMode = pd.DataFrame(wMode.T, index=trialdf.index[1:], columns=[
+                             'bias', 'left', 'right'])
     return wMode, hess['W_std']
 
 
@@ -167,10 +179,11 @@ if __name__ == "__main__":
     one = ONE()
     subj_info = one.alyx.rest('subjects', 'list', lab='cortexlab')
     subject_names = [subj['nickname'] for subj in subj_info]
-    sess_id, sess_info = one.search(subject='KS022', task_protocol='biased', details=True)
+    sess_id, sess_info = one.search(
+        subject='KS022', task_protocol='biased', details=True)
     trialdf = trialinfo_to_df(sess_id[0], maxlen=2.5, ret_wheel=False)
-    stim_side = (np.array(np.isnan(trialdf['contrastLeft'])==False) * -1
-                 + np.array(np.isnan(trialdf['contrastRight'])==False)) * 1
+    stim_side = (np.array(np.isnan(trialdf['contrastLeft']) == False) * -1
+                 + np.array(np.isnan(trialdf['contrastRight']) == False)) * 1
     marginal_blocktype, marginal_currentlength, priors, h = perform_inference(stim_side,
                                                                               figures=True)
 
@@ -194,7 +207,8 @@ if __name__ == "__main__":
         trialdf = trialinfo_to_df(sess_id, maxlen=2.5)
         plt.figure(figsize=(9, 9))
         plt.plot(trialnumbers, wMode[0], label='Bias', c='b')
-        plt.plot(range(len(trialdf)), 3 * (trialdf.probabilityLeft - 0.5), color='k')
+        plt.plot(range(len(trialdf)), 3 *
+                 (trialdf.probabilityLeft - 0.5), color='k')
         plt.fill_between(trialnumbers, wMode[0] - std[0], wMode[0] + std[0],
                          color='b', alpha=0.5)
         plt.plot(trialnumbers, wMode[1], label='Weight contrast Left',

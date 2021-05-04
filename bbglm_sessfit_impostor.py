@@ -8,9 +8,8 @@ from oneibl import one
 import numpy as np
 import pandas as pd
 from brainbox.modeling import glm, glm_linear
-from brainbox.population.population import _generate_pseudo_blocks
+from synth import _generate_pseudo_blocks
 import brainbox.io.one as bbone
-from export_funs import trialinfo_to_df
 from prior_funcs import fit_sess_psytrack
 from copy import deepcopy
 from tqdm import tqdm
@@ -18,20 +17,18 @@ from tqdm import tqdm
 offline = True
 one = one.ONE()
 
-ephys_cache = {}
-
 
 def fit_session(session_id, kernlen, nbases,
                 t_before=1., t_after=0.6, prior_estimate='psytrack', max_len=2., probe_idx=0,
                 method='minimize', alpha=0, contnorm=5., binwidth=0.02, wholetrial_step=False,
-                blocktrain=False, abswheel=False, no_50perc=False, num_pseudosess=100,
-                fit_intercept=True):
+                blocktrain=False, abswheel=False, no_50perc=False, num_pseudosess=100,):
     if not abswheel:
         signwheel = True
     else:
         signwheel = False
-    trialsdf = trialinfo_to_df(session_id, maxlen=max_len, t_before=t_before, t_after=t_after,
-                               glm_binsize=binwidth, ret_abswheel=abswheel, ret_wheel=signwheel)
+    trialsdf = bbone.load_trials_df(session_id, maxlen=max_len, t_before=t_before, t_after=t_after,
+                                    wheel_binsize=binwidth, ret_abswheel=abswheel,
+                                    ret_wheel=signwheel)
     if prior_estimate == 'psytrack':
         print('Fitting psytrack esimates...')
         wts, stds = fit_sess_psytrack(session_id, maxlength=max_len, as_df=True)
@@ -86,7 +83,7 @@ def fit_session(session_id, kernlen, nbases,
     if t_before < 0.7:
         raise ValueError('t_before needs to be 0.7 or greater in order to do -0.1 to -0.7 step'
                          ' function on pLeft')
-
+ 
     def stepfunc(row):
         currvec = np.ones(nglm.binf(row.duration)) * row.pLeft_last
         # nextvec = np.ones(nglm.binf(row.duration) - nglm.binf(row.feedback_times)) *\
@@ -187,7 +184,7 @@ if __name__ == "__main__":
                                                            wholetrial_step=wholetrial_step,
                                                            abswheel=abswheel, no_50perc=no_50perc,
                                                            fit_intercept=fit_intercept,
-                                                           num_pseudosess=num_pseudosess)
+                                                           num_pseudosess=num_pseudosess) 
 
     nullscores = np.vstack(scoreslist)
     nullweights = np.vstack([[w[0] for w in weights[0]] for weights in weightlist])
@@ -254,8 +251,9 @@ if __name__ == "__main__":
         null_mediandiffs.append(null_mediandiff)
     null_meandiffsarr = np.vstack(null_meandiffs)
     null_mediandiffsarr = np.vstack(null_mediandiffs)
-
+    
     mean_percentiles = [zmap(diff, null_meandiffsarr[:, i])[0]
                         for i, diff in enumerate(meandiff)]
     median_percentiles = [zmap(diff, null_mediandiffsarr[:, i])[0]
                           for i, diff in enumerate(mediandiff)]
+    
