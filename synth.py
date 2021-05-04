@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from numpy.random import uniform, normal
 from scipy.interpolate import interp1d
-from brainbox.modeling.glm import convbasis
+from brainbox.modeling.design_matrix import convbasis
 import brainbox.modeling.linear as lm
 import brainbox.modeling.poisson as pm
 import brainbox.modeling.utils as mut
