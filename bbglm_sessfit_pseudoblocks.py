@@ -15,9 +15,11 @@ from prior_funcs import fit_sess_psytrack
 from copy import deepcopy
 from tqdm import tqdm
 
-offline = True
-one = one.ONE()
-
+if name != "__main__":
+    offline = True
+else:
+    offline = False
+one = one.ONE(offline=offline)
 ephys_cache = {}
 
 
@@ -25,7 +27,7 @@ def fit_session(session_id, kernlen, nbases,
                 t_before=1., t_after=0.6, prior_estimate='psytrack', max_len=2., probe_idx=0,
                 method='minimize', alpha=0, contnorm=5., binwidth=0.02, wholetrial_step=False,
                 blocktrain=False, abswheel=False, no_50perc=False, num_pseudosess=100,
-                fit_intercept=True):
+                fit_intercept=True, one=one):
     if not abswheel:
         signwheel = True
     else:
