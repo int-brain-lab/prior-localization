@@ -5,7 +5,7 @@ Berk, May 2020
 """
 
 import pickle
-import date
+from datetime import date
 import traceback
 import dask
 import os
