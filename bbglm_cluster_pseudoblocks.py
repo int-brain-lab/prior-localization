@@ -11,7 +11,7 @@ import os
 from oneibl import one
 from bbglm_bwmfit_pseudoblocks import fit_session, get_bwm_ins_alyx
 
-if name != "__main__":
+if __name__ != "__main__":
     offline = True
 else:
     offline = False
@@ -25,7 +25,7 @@ def fit_and_save(session_id, kernlen, nbases, nickname, sessdate, filename, prob
     try:
         outtuple = fit_session(session_id, kernlen, nbases, t_before, t_after, max_len, probe_idx,
                                contnorm, binwidth, abswheel, no_50perc, num_pseudosess,
-                               target_regressor, progress=False)
+                               target_regressor, progress=False, one=one)
         nglm, realscores, scoreslist, weightslist = outtuple
         outdict = {'sessinfo': {'eid': sessid, 'nickname': nickname, 'sessdate': sessdate},
                    'kernlen': kernlen, 'nbases': nbases, 'method': method,

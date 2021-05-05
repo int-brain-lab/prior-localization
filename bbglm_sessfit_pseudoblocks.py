@@ -10,12 +10,12 @@ import pandas as pd
 from brainbox.modeling import glm, glm_linear
 from brainbox.population.decode import _generate_pseudo_blocks
 import brainbox.io.one as bbone
-from export_funs import trialinfo_to_df
+from brainbox.io.one import load_trials_df
 from prior_funcs import fit_sess_psytrack
 from copy import deepcopy
 from tqdm import tqdm
 
-if name != "__main__":
+if __name__ != "__main__":
     offline = True
 else:
     offline = False
@@ -32,8 +32,9 @@ def fit_session(session_id, kernlen, nbases,
         signwheel = True
     else:
         signwheel = False
-    trialsdf = trialinfo_to_df(session_id, maxlen=max_len, t_before=t_before, t_after=t_after,
-                               glm_binsize=binwidth, ret_abswheel=abswheel, ret_wheel=signwheel)
+    trialsdf = bbone.load_trials_df(session_id, maxlen=max_len, t_before=t_before, t_after=t_after,
+                                    binsize=binwidth, ret_abswheel=abswheel, ret_wheel=signwheel,
+                                    one=one)
     if prior_estimate == 'psytrack':
         print('Fitting psytrack esimates...')
         wts, stds = fit_sess_psytrack(session_id, maxlength=max_len, as_df=True)
