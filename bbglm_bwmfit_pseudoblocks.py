@@ -26,7 +26,7 @@ one = one.ONE()
 def fit_session(session_id, kernlen, nbases,
                 t_before=1., t_after=0.6, max_len=2., probe_idx=0,
                 contnorm=5., binwidth=0.02, abswheel=False, no_50perc=False, num_pseudosess=100,
-                target_regressor='pLeft'):
+                target_regressor='pLeft', progress=True):
     if not abswheel:
         signwheel = True
     else:
@@ -136,7 +136,8 @@ def fit_session(session_id, kernlen, nbases,
 
     scoreslist = []
     weightslist = []
-    for _ in tqdm(range(num_pseudosess), desc='Pseudo block iteration num', leave=False):
+    for _ in tqdm(range(num_pseudosess), desc='Pseudo block iteration num', leave=False,
+                  disable=not progress):
         newblocks = _generate_pseudo_blocks(len(design.trialsdf))
         probmap = {1: 0.8, 0: 0.2}
         newprobs = [probmap[i] for i in newblocks]

@@ -7,20 +7,20 @@ Berk, May 2020
 import pickle
 from datetime import date
 import traceback
-import dask
 import os
 from oneibl import one
 from bbglm_bwmfit_pseudoblocks import fit_session, get_bwm_ins_alyx
 
+one = one.ONE()
 
-@dask.delayed
+
 def fit_and_save(session_id, kernlen, nbases, nickname, sessdate, filename, probe_idx,
                  t_before=1., t_after=0.6, max_len=2., contnorm=5., binwidth=0.02,
                  abswheel=False, no_50perc=False, num_pseudosess=100, target_regressor='pLeft'):
     try:
         outtuple = fit_session(session_id, kernlen, nbases, t_before, t_after, max_len, probe_idx,
                                contnorm, binwidth, abswheel, no_50perc, num_pseudosess,
-                               target_regressor)
+                               target_regressor, progress=False)
         nglm, realscores, scoreslist, weightslist = outtuple
         outdict = {'sessinfo': {'eid': sessid, 'nickname': nickname, 'sessdate': sessdate},
                    'kernlen': kernlen, 'nbases': nbases, 'method': method,
@@ -52,7 +52,7 @@ if __name__ == "__main__":
     currdate = '2021-05-04'
     sessions = get_bwm_ins_alyx(one)
 
-    savepath = '/home/berk/scratch/fits/'
+    savepath = '/home/gercek/scratch/fits/'
 
     abswheel = True
     kernlen = 0.6
@@ -79,7 +79,8 @@ if __name__ == "__main__":
         sessdate = info['start_time'][:10]
         for i in range(len(sessions[sessid])):
             probe = i
-            filename = savepath + f'{nickname}/{sessdate}_session_{currdate}_probe{probe}_fit.p'
+            filename = savepath +\
+                f'{nickname}/{sessdate}_session_{currdate}_probe{probe}_{target}_fit.p'
             if not check_fit_exists(filename):
                 argtuples.append(
                     (sessid, kernlen, nbases, nickname, sessdate,
