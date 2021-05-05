@@ -8,7 +8,7 @@ from oneibl import one
 import numpy as np
 import pandas as pd
 from brainbox.modeling import glm, glm_linear
-from brainbox.population.population import _generate_pseudo_blocks
+from brainbox.population.decode import _generate_pseudo_blocks
 import brainbox.io.one as bbone
 from export_funs import trialinfo_to_df
 from prior_funcs import fit_sess_psytrack
