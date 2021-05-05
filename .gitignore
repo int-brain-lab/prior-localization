@@ -9,3 +9,4 @@
 /.ipynb_checkpoints/
 *.pyc
 .one_params
+/dask-worker-space/
