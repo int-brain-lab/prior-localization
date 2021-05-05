@@ -12,20 +12,20 @@ import os
 from oneibl import one
 from bbglm_bwmfit_pseudoblocks import fit_session, get_bwm_ins_alyx
 
+
 @dask.delayed
-def fit_and_save(session_id, kernlen, nbases, nickname, sessdate, filename,
-                 t_before=1., t_after=0.6, max_len=2., probe_idx=0,
-                 contnorm=5., binwidth=0.02, abswheel=False, no_50perc=False, num_pseudosess=100,
-                 target_regressor='pLeft'):
+def fit_and_save(session_id, kernlen, nbases, nickname, sessdate, filename, probe_idx,
+                 t_before=1., t_after=0.6, max_len=2., contnorm=5., binwidth=0.02,
+                 abswheel=False, no_50perc=False, num_pseudosess=100, target_regressor='pLeft'):
     try:
         outtuple = fit_session(session_id, kernlen, nbases, t_before, t_after, max_len, probe_idx,
                                contnorm, binwidth, abswheel, no_50perc, num_pseudosess,
                                target_regressor)
         nglm, realscores, scoreslist, weightslist = outtuple
         outdict = {'sessinfo': {'eid': sessid, 'nickname': nickname, 'sessdate': sessdate},
-                    'kernlen': kernlen, 'nbases': nbases, 'method': method,
-                    'binwidth': binwidth, 'realscores': realscores, 'scores': scoreslist,
-                    'weightslist': weightslist, 'fitobj': nglm}
+                   'kernlen': kernlen, 'nbases': nbases, 'method': method,
+                   'binwidth': binwidth, 'realscores': realscores, 'scores': scoreslist,
+                   'weightslist': weightslist, 'fitobj': nglm}
         subjfilepath = os.path.abspath(filename)
         fw = open(subjfilepath, 'wb')
         pickle.dump(outdict, fw)
@@ -48,7 +48,7 @@ def check_fit_exists(filename):
 if __name__ == "__main__":
     from glob import glob
 
-    # currdate = str(date.today())
+    currdate = str(date.today())
     currdate = '2021-05-04'
     sessions = get_bwm_ins_alyx(one)
 
@@ -67,9 +67,11 @@ if __name__ == "__main__":
     n_pseudo = 100
     target = 'pLeft'
 
-    print(f'Fitting {len(sessions)} sessions...')
+    fit_kwargs = {'binwidth': binwidth, 'abswheel': abswheel,
+                  'no_50perc': no_50perc, 'num_pseudosess': n_pseudo,
+                  'target_regressor': target}
 
-    fitout = []
+    argtuples = []
     for sessid in sessions:
         info = one.get_details(sessid)
 
@@ -79,9 +81,7 @@ if __name__ == "__main__":
             probe = i
             filename = savepath + f'{nickname}/{sessdate}_session_{currdate}_probe{probe}_fit.p'
             if not check_fit_exists(filename):
-                fitout.append(
-                    fit_and_save(sessid, kernlen, nbases, nickname, sessdate,
-                                 filename, probe_idx=probe, binwidth=binwidth, abswheel=abswheel,
-                                 no_50perc=no_50perc, num_pseudosess=n_pseudo,
-                                 target_regressor=target)
+                argtuples.append(
+                    (sessid, kernlen, nbases, nickname, sessdate,
+                     filename, probe)
                 )
