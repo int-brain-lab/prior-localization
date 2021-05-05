@@ -19,21 +19,18 @@ import os
 from tqdm import tqdm
 from copy import deepcopy
 
-offline = True
-one = one.ONE()
-
 
 def fit_session(session_id, kernlen, nbases,
                 t_before=1., t_after=0.6, max_len=2., probe_idx=0,
                 contnorm=5., binwidth=0.02, abswheel=False, no_50perc=False, num_pseudosess=100,
-                target_regressor='pLeft', progress=True):
+                target_regressor='pLeft', progress=True, one=one):
     if not abswheel:
         signwheel = True
     else:
         signwheel = False
     trdf = bbone.load_trials_df(session_id, maxlen=max_len, t_before=t_before, t_after=t_after,
                                 wheel_binsize=binwidth, ret_abswheel=abswheel,
-                                ret_wheel=signwheel)
+                                ret_wheel=signwheel, one=one)
     probestr = 'probe0' + str(probe_idx)
     spikes, clusters, _ = bbone.load_spike_sorting_with_channel(session_id, one=one,
                                                                 aligned=True)
@@ -197,6 +194,9 @@ def get_bwm_ins_alyx(one):
 if __name__ == "__main__":
     from glob import glob
     import traceback
+
+    offline = True
+    one = one.ONE()
 
     # currdate = str(date.today())
     currdate = '2021-05-04'

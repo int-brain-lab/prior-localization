@@ -74,7 +74,7 @@ if __name__ == "__main__":
 
     fit_kwargs = {'binwidth': binwidth, 'abswheel': abswheel,
                   'no_50perc': no_50perc, 'num_pseudosess': n_pseudo,
-                  'target_regressor': target}
+                  'target_regressor': target, 'one': one}
 
     argtuples = []
     for sessid in sessions:
