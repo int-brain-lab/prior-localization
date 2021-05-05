@@ -27,7 +27,7 @@ def fit_and_save(session_id, kernlen, nbases, nickname, sessdate, filename, prob
                                contnorm, binwidth, abswheel, no_50perc, num_pseudosess,
                                target_regressor, progress=False, one=one)
         nglm, realscores, scoreslist, weightslist = outtuple
-        outdict = {'sessinfo': {'eid': sessid, 'nickname': nickname, 'sessdate': sessdate},
+        outdict = {'sessinfo': {'eid': session_id, 'nickname': nickname, 'sessdate': sessdate},
                    'kernlen': kernlen, 'nbases': nbases, 'method': method,
                    'binwidth': binwidth, 'realscores': realscores, 'scores': scoreslist,
                    'weightslist': weightslist, 'fitobj': nglm}
