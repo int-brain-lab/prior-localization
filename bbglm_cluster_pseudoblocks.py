@@ -6,7 +6,6 @@ Berk, May 2020
 
 import pickle
 from datetime import date
-import traceback
 import os
 from oneibl import one
 from bbglm_bwmfit_pseudoblocks import fit_session, get_bwm_ins_alyx
@@ -22,21 +21,18 @@ def fit_and_save(session_id, kernlen, nbases, nickname, sessdate, filename, prob
                  t_before=1., t_after=0.6, max_len=2., contnorm=5., binwidth=0.02,
                  abswheel=False, no_50perc=False, num_pseudosess=100, target_regressor='pLeft',
                  one=one):
-    try:
-        outtuple = fit_session(session_id, kernlen, nbases, t_before, t_after, max_len, probe_idx,
-                               contnorm, binwidth, abswheel, no_50perc, num_pseudosess,
-                               target_regressor, progress=False, one=one)
-        nglm, realscores, scoreslist, weightslist = outtuple
-        outdict = {'sessinfo': {'eid': session_id, 'nickname': nickname, 'sessdate': sessdate},
-                   'kernlen': kernlen, 'nbases': nbases, 'method': method,
-                   'binwidth': binwidth, 'realscores': realscores, 'scores': scoreslist,
-                   'weightslist': weightslist, 'fitobj': nglm}
-        subjfilepath = os.path.abspath(filename)
-        fw = open(subjfilepath, 'wb')
-        pickle.dump(outdict, fw)
-        fw.close()
-    except Exception as err:
-        return err, traceback.format_exc()
+    outtuple = fit_session(session_id, kernlen, nbases, t_before, t_after, max_len, probe_idx,
+                           contnorm, binwidth, abswheel, no_50perc, num_pseudosess,
+                           target_regressor, progress=False, one=one)
+    nglm, realscores, scoreslist, weightslist = outtuple
+    outdict = {'sessinfo': {'eid': session_id, 'nickname': nickname, 'sessdate': sessdate},
+               'kernlen': kernlen, 'nbases': nbases, 'method': method,
+               'binwidth': binwidth, 'realscores': realscores, 'scores': scoreslist,
+               'weightslist': weightslist, 'fitobj': nglm}
+    subjfilepath = os.path.abspath(filename)
+    fw = open(subjfilepath, 'wb')
+    pickle.dump(outdict, fw)
+    fw.close()
     return True
 
 
@@ -70,7 +66,7 @@ if __name__ == "__main__":
     prior_estimate = None
     binwidth = 0.02
     n_pseudo = 100
-    target = 'pLeft'
+    target = 'pLeft_tr'
 
     fit_kwargs = {'binwidth': binwidth, 'abswheel': abswheel,
                   'no_50perc': no_50perc, 'num_pseudosess': n_pseudo,
