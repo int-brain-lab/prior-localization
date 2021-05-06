@@ -128,6 +128,7 @@ def fit_session(session_id, kernlen, nbases,
 
     nglm = lm.LinearGLM(design, spk_times, spk_clu, estimator=RidgeCV(cv=3))
     nglm.clu_regions = clu_regions
+    nglm.clu_ids = nglm.clu_ids.flatten()
     sfs = mut.SequentialSelector(nglm)
     sfs.fit(progress=True)
     return nglm, sfs.sequences_, sfs.scores_
