@@ -9,7 +9,8 @@ from datetime import date
 import traceback
 import os
 from oneibl import one
-from bbglm_bwmfit import fit_session, get_bwm_ins_alyx
+from bbglm_bwmfit import fit_session
+from utils import get_bwm_ins_alyx
 
 one = one.ONE()
 

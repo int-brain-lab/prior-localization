@@ -13,7 +13,6 @@ import brainbox.modeling.linear as lm
 import brainbox.modeling.utils as mut
 import brainbox.io.one as bbone
 from datetime import date
-from .utils import get_bwm_ins_alyx
 import pickle
 import os
 
