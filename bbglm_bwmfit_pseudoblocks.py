@@ -18,6 +18,7 @@ import pickle
 import os
 from tqdm import tqdm
 from copy import deepcopy
+from .utils import get_bwm_ins_alyx
 
 
 def fit_session(session_id, kernlen, nbases,
@@ -161,34 +162,6 @@ def fit_session(session_id, kernlen, nbases,
         with np.errstate(all='ignore'):
             scoreslist.append(tmpglm.score())
     return nglm, realscores, scoreslist, weightslist
-
-
-def get_bwm_ins_alyx(one):
-    """
-    Return insertions that match criteria :
-    - project code
-    - session QC not critical (TODO may need to add probe insertion QC)
-    - at least 1 alignment
-    - behavior pass
-    :return:
-    ins: dict containing the full details on insertion as per the alyx rest query
-    ins_id: list of insertions eids
-    sess_id: list of (unique) sessions eids
-    """
-    ins = one.alyx.rest('insertions', 'list',
-                        provenance='Ephys aligned histology track',
-                        django='session__project__name__icontains,ibl_neuropixel_brainwide_01,'
-                               'session__qc__lt,50,'
-                               '~json__qc,CRITICAL,'
-                               'json__extended_qc__alignment_count__gt,0,'
-                               'session__extended_qc__behavior,1')
-    sessions = {}
-    for item in ins:
-        s_eid = item['session_info']['id']
-        if s_eid not in sessions:
-            sessions[s_eid] = []
-        sessions[s_eid].append(item['id'])
-    return sessions
 
 
 if __name__ == "__main__":

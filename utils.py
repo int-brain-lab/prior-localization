@@ -5,6 +5,35 @@ import pandas as pd
 from brainbox.io.one import load_trials_df
 
 
+
+def get_bwm_ins_alyx(one):
+    """
+    Return insertions that match criteria :
+    - project code
+    - session QC not critical (TODO may need to add probe insertion QC)
+    - at least 1 alignment
+    - behavior pass
+    :return:
+    ins: dict containing the full details on insertion as per the alyx rest query
+    ins_id: list of insertions eids
+    sess_id: list of (unique) sessions eids
+    """
+    ins = one.alyx.rest('insertions', 'list',
+                        provenance='Ephys aligned histology track',
+                        django='session__project__name__icontains,ibl_neuropixel_brainwide_01,'
+                               'session__qc__lt,50,'
+                               '~json__qc,CRITICAL,'
+                               'json__extended_qc__alignment_count__gt,0,'
+                               'session__extended_qc__behavior,1')
+    sessions = {}
+    for item in ins:
+        s_eid = item['session_info']['id']
+        if s_eid not in sessions:
+            sessions[s_eid] = []
+        sessions[s_eid].append(item['id'])
+    return sessions
+
+
 def get_impostor_df(subject, one, ephys_only=False, tdf_kwargs={}):
     """
     Produce an impostor DF for a given subject, i.e. a dataframe which joins all trials from
