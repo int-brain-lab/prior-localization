@@ -23,7 +23,7 @@ ephys_cache = {}
 
 
 def fit_session(session_id, kernlen, nbases,
-                t_before=1., t_after=0.6, max_len=2., probe_idx=0, contnorm=5., binwidth=0.02, 
+                t_before=0.6, t_after=0.6, max_len=2., probe_idx=0, contnorm=5., binwidth=0.02, 
                 abswheel=False, no_50perc=False, one=one):
     if not abswheel:
         signwheel = True
@@ -135,5 +135,5 @@ def fit_session(session_id, kernlen, nbases,
 
 
 if __name__ == "__main__":
-    # coming soon. probably.
-    pass
+    eid = '15f742e1-1043-45c9-9504-f1e8a53c1744'
+    test = fit_session(eid, 0.6, 10, no_50perc=True)

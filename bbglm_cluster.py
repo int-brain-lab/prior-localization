@@ -18,12 +18,12 @@ def fit_and_save(session_id, kernlen, nbases, nickname, sessdate, filename, prob
                  t_before=1., t_after=0.6, max_len=2., contnorm=5., binwidth=0.02,
                  abswheel=False, no_50perc=False, one=one):
     outtuple = fit_session(session_id, kernlen, nbases, t_before, t_after, max_len, probe_idx,
-                            contnorm, binwidth, abswheel, no_50perc, one=one)
+                           contnorm, binwidth, abswheel, no_50perc, one=one)
     nglm, sequences, scores = outtuple
     outdict = {'sessinfo': {'eid': session_id, 'nickname': nickname, 'sessdate': sessdate},
-                'kernlen': kernlen, 'nbases': nbases,
-                'binwidth': binwidth, 'sequences': sequences, 'scores': scores,
-                'fitobj': nglm}
+               'kernlen': kernlen, 'nbases': nbases,
+               'binwidth': binwidth, 'sequences': sequences, 'scores': scores,
+               'fitobj': nglm}
     subjfilepath = os.path.abspath(filename)
     fw = open(subjfilepath, 'wb')
     pickle.dump(outdict, fw)
