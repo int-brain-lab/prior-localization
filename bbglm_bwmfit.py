@@ -12,9 +12,6 @@ import brainbox.modeling.design_matrix as dm
 import brainbox.modeling.linear as lm
 import brainbox.modeling.utils as mut
 import brainbox.io.one as bbone
-from datetime import date
-import pickle
-import os
 
 offline = True
 one = one.ONE()
@@ -23,7 +20,7 @@ ephys_cache = {}
 
 
 def fit_session(session_id, kernlen, nbases,
-                t_before=0.6, t_after=0.6, max_len=2., probe_idx=0, contnorm=5., binwidth=0.02, 
+                t_before=0.6, t_after=0.6, max_len=2., probe_idx=0, contnorm=5., binwidth=0.02,
                 abswheel=False, no_50perc=False, one=one):
     if not abswheel:
         signwheel = True
@@ -38,6 +35,7 @@ def fit_session(session_id, kernlen, nbases,
     spk_times = spikes[probestr].times
     spk_clu = spikes[probestr].clusters
     clu_regions = clusters[probestr].acronym
+    clu_qc = clusters[probestr]['metrics'].loc[:, 'label':'ks2_label']
 
     trdf['pLeft_last'] = pd.Series(np.roll(trdf['probabilityLeft'], 1),
                                    index=trdf.index)[:-1]
@@ -104,6 +102,7 @@ def fit_session(session_id, kernlen, nbases,
                              desc='Step function on prior estimate')
     design.add_covariate_raw('pLeft_tr', stepfunc_poststim,
                              desc='Step function on post-stimulus prior')
+
     design.add_covariate('wheel', trdf['wheel_velocity'], cosbases_short, -0.4)
     design.compile_design_matrix()
 
@@ -128,6 +127,7 @@ def fit_session(session_id, kernlen, nbases,
 
     nglm = lm.LinearGLM(design, spk_times, spk_clu, estimator=RidgeCV(cv=3))
     nglm.clu_regions = clu_regions
+    nglm.clu_qc = clu_qc
     nglm.clu_ids = nglm.clu_ids.flatten()
     sfs = mut.SequentialSelector(nglm)
     sfs.fit(progress=True)
