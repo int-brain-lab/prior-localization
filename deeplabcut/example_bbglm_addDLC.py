@@ -1,5 +1,9 @@
-
-
+"""
+Created on Mon June 28 2021
+@author: Nate Miska
+example script showing usage of DLC data for brainbox GLM fitting
+"""
+#need to cd to 'prior-localization' directory before running
 from oneibl import one
 import numpy as np
 import pandas as pd
@@ -8,40 +12,19 @@ from brainbox.modeling import utils
 from brainbox.modeling import linear
 from brainbox.modeling import poisson
 from brainbox.modeling.design_matrix import DesignMatrix
-# from brainbox.population.population import _generate_pseudo_blocks
+from glm_predict import predict, pred_psth, GLMPredictor
 import brainbox.io.one as bbone
-# from export_funs import trialinfo_to_df #same as load_trials_df in bb
-# from prior_funcs import fit_sess_psytrack
 from brainbox.plot import peri_event_time_histogram
 import matplotlib.pyplot as plt
-
 
 offline = False
 one = one.ONE()
 
 ephys_cache = {}
 
-eid = '15f742e1-1043-45c9-9504-f1e8a53c1744'#'03cf52f6-fba6-4743-a42e-dd1ac3072343'
-probe_id = 'probe01'
-if probe_id == 'probe00':
-    probe_idx = 0
-else:
-    probe_idx = 1
-
-#load functions first
-
-fit_object = fit_session(session_id = eid, kernlen = 0.4, nbases = 10, glm_type = 'poisson')
-#this object contains fit data, use fit_object. + tab to see all properties
-#then, create predictor object (import glm_predict as gp)
-spikes, clusters, _ = bbone.load_spike_sorting_with_channel(eid, one=one, aligned=True)
-spk_times = spikes[probe_id].times #these should be output by fit_session to remove redundancy
-spk_clu = spikes[probe_id].clusters
-pred = GLMPredictor(fit_object, spk_times, spk_clu)
-pred.psth_summary('stimOn_times', 12)
-plt.show()
-
+#load function first
 def fit_session(session_id, kernlen, nbases, glm_type,
-                t_before=1., t_after=0.6, prior_estimate=None, max_len=2., probe_idx=probe_idx,
+                t_before=1., t_after=0.6, prior_estimate=None, max_len=2., probe_idx=0,
                 method='minimize', alpha=0, contnorm=5., wholetrial_step=False,
                 abswheel=False, no_50perc=False, num_pseudosess=100,
                 fit_intercept=True):
@@ -55,7 +38,7 @@ def fit_session(session_id, kernlen, nbases, glm_type,
     else:
         signwheel = False
     trialsdf = bbone.load_trials_df(session_id, maxlen=max_len, t_before=t_before, t_after=t_after,
-                                ret_abswheel=abswheel, ret_wheel=signwheel)#glm_binsize=binwidth had to remove
+                                ret_abswheel=abswheel, ret_wheel=signwheel, ext_DLC=True)
 
     contrasts_left = list(trialsdf['contrastLeft'])
     contrasts_right = list(trialsdf['contrastRight'])
@@ -117,14 +100,14 @@ def fit_session(session_id, kernlen, nbases, glm_type,
                 'bias': 'value',
                 'bias_next': 'value',
                 'wheel_velocity': 'continuous',
-                'DLC_Lpaw_x_leftcam': 'continuous'}
-                # 'DLC_Lpaw_y_leftcam': 'continuous', ##unclear to add
-                # 'DLC_Rpaw_x_leftcam': 'continuous', ##unclear to add
-                # 'DLC_Rpaw_y_leftcam': 'continuous', ##unclear to add
-                # 'DLC_Lpaw_x_rightcam': 'continuous', ##unclear to add
-                # 'DLC_Lpaw_y_rightcam': 'continuous', ##unclear to add
-                # 'DLC_Rpaw_x_rightcam': 'continuous', ##unclear to add
-                # 'DLC_Rpaw_y_rightcam': 'continuous'} ##unclear to add
+                'DLC_Lpaw_xvel_leftcam': 'continuous',
+                # 'DLC_Lpaw_y_leftcam': 'continuous', 
+                'DLC_Rpaw_xvel_leftcam': 'continuous',}
+                # 'DLC_Rpaw_y_leftcam': 'continuous',
+                # 'DLC_Lpaw_x_rightcam': 'continuous',
+                # 'DLC_Lpaw_y_rightcam': 'continuous',
+                # 'DLC_Rpaw_x_rightcam': 'continuous',
+                # 'DLC_Rpaw_y_rightcam': 'continuous'}
     if t_before < 0.7:
         raise ValueError('t_before needs to be 0.7 or greater in order to do -0.1 to -0.7 step'
                             ' function on pLeft')
@@ -187,17 +170,12 @@ def fit_session(session_id, kernlen, nbases, glm_type,
     # elif prior_estimate == 'psytrack':
     #     design.add_covariate_raw('pLeft', stepfunc_bias, desc='Step function on prior estimate')
 
-    design.add_covariate('wheel', fitinfo['wheel_velocity'], shortbases, offset=-SHORT_KL,
-                     desc='Anti-causal regressor for wheel velocity')
-    # design.add_covariate('DLC_L_x_leftcam', fitinfo['DLC_Lpaw_x_leftcam'], shortbases, offset=-SHORT_KL,
+    # design.add_covariate('wheel', fitinfo['wheel_velocity'], shortbases, offset=-SHORT_KL,
+    #                  desc='Anti-causal regressor for wheel velocity')
+    design.add_covariate('DLC_L_xvel_leftcam', fitinfo['DLC_Lpaw_xvel_leftcam'], shortbases, offset=-SHORT_KL,
+                     desc='Regressor for paw velocity calculated from DLC')
+    # design.add_covariate('DLC_R_xvel_leftcam', fitinfo['DLC_Rpaw_xvel_leftcam'], shortbases, offset=-SHORT_KL,
     #                  desc='Regressor for paw velocity calculated from DLC')
-    # linglm.add_covariate('DLC_L_y_leftcam', fitinfo['DLC_Lpaw_y_leftcam'], cosbases_short, -0.4) ##unclear to add
-    # linglm.add_covariate('DLC_R_x_leftcam', fitinfo['DLC_Rpaw_x_leftcam'], cosbases_short, -0.4) ##unclear to add
-    # linglm.add_covariate('DLC_R_y_leftcam', fitinfo['DLC_Rpaw_y_leftcam'], cosbases_short, -0.4) ##unclear to add
-    # linglm.add_covariate('DLC_L_x_rightcam', fitinfo['DLC_Lpaw_x_rightcam'], cosbases_short, -0.4) ##unclear to add
-    # linglm.add_covariate('DLC_L_y_rightcam', fitinfo['DLC_Lpaw_y_rightcam'], cosbases_short, -0.4) ##unclear to add
-    # linglm.add_covariate('DLC_R_x_rightcam', fitinfo['DLC_Rpaw_x_rightcam'], cosbases_short, -0.4) ##unclear to add
-    # linglm.add_covariate('DLC_R_y_rightcam', fitinfo['DLC_Rpaw_y_rightcam'], cosbases_short, -0.4) ##unclear to add
     
     design.compile_design_matrix()
 
@@ -215,6 +193,22 @@ def fit_session(session_id, kernlen, nbases, glm_type,
         linglm.fit()#method='pure', multi_score=True)
 
     return linglm
+
+###example below for fitting a single session and visualizing GLM kernels for a specific unit
+eid = '15f742e1-1043-45c9-9504-f1e8a53c1744'#'03cf52f6-fba6-4743-a42e-dd1ac3072343'
+probe_id = 'probe01'
+if probe_id == 'probe00':
+    probe_idx = 0
+else:
+    probe_idx = 1
+fit_object = fit_session(session_id = eid, kernlen = 0.4, nbases = 10, glm_type = 'poisson', probe_idx=probe_idx)
+#this object contains fit data, use fit_object. + tab to see all properties
+spikes, clusters, _ = bbone.load_spike_sorting_with_channel(eid, one=one, aligned=True)
+spk_times = spikes[probe_id].times #these should be output by fit_session to remove redundancy
+spk_clu = spikes[probe_id].clusters
+pred = GLMPredictor(fit_object, spk_times, spk_clu)
+pred.psth_summary('stimOn_times', 12)
+plt.show()
 
 def filter_trials(stim_choice, stim_contrast, stim_side):
     if (stim_choice == 'all') & (stim_contrast == 'all') & (stim_side == 'both'):

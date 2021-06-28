@@ -1,44 +1,52 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from brainbox.modeling.glm import NeuralGLM
-from brainbox.modeling.glm_linear import LinearGLM
+from brainbox.modeling import linear
+from brainbox.modeling import poisson
 from brainbox.plot import peri_event_time_histogram
 
 
-def predict(nglm, targ_regressors=None, trials=None, retlab=False, incl_bias=True):
+def predict(nglm, targ_regressors=None, trials=None, retlab=False, incl_bias=True, glm_type='poisson'): #wasn't sure the best way to specify glm_type here...
     if trials is None:
-        trials = nglm.trialsdf.index
+        trials = nglm.design.trialsdf.index
     if targ_regressors is None:
-        targ_regressors = nglm.covar.keys()
-    dmcols = np.hstack([nglm.covar[r]['dmcol_idx'] for r in targ_regressors])
+        targ_regressors = nglm.design.covar.keys()
+    dmcols = np.hstack([nglm.design.covar[r]['dmcol_idx'] for r in targ_regressors])
     dmcols = np.sort(dmcols)
-    trlabels = nglm.trlabels
+    trlabels = nglm.design.trlabels
     trfilter = np.isin(trlabels, trials).flatten()
     w = nglm.coefs
     b = nglm.intercepts
-    dm = nglm.dm[np.ix_(trfilter, dmcols)]
-    if type(nglm) == NeuralGLM:
+    dm = nglm.design.dm[trfilter, :][:, dmcols]
+    # if type(nglm) == NeuralGLM:
+    #     link = np.exp
+    # elif type(nglm) == LinearGLM:
+    #     def link(x):
+    #         return x
+    if glm_type == 'poisson':
         link = np.exp
-    elif type(nglm) == LinearGLM:
+    elif glm_type == 'linear':
         def link(x):
             return x
     else:
-        raise TypeError('nglm must be an instance of NeuralGLM or LinearGLM')
+        raise TypeError('nglm must be poisson or linear')
     if incl_bias:
         pred = {cell: link(dm @ w.loc[cell][dmcols] + b.loc[cell]) for cell in w.index}
     else:
         pred = {cell: link(dm @ w.loc[cell][dmcols]) for cell in w.index}
+    # if type(nglm) == LinearGLM:
+    #     for cell in pred:
+    #         cellind = np.argwhere(nglm.clu_ids == cell)[0][0]
+    #         pred[cell] += np.mean(nglm.binnedspikes[:, cellind])
     if not retlab:
         return pred
     else:
         return pred, trlabels[trfilter].flatten()
 
-
 def pred_psth(nglm, align_time, t_before, t_after, targ_regressors=None, trials=None,
               incl_bias=True):
     if trials is None:
-        trials = nglm.trialsdf.index
-    times = nglm.trialsdf[align_time].apply(nglm.binf)
+        trials = nglm.design.trialsdf.index
+    times = nglm.design.trialsdf[align_time].apply(nglm.binf)
     tbef_bin = nglm.binf(t_before)
     taft_bin = nglm.binf(t_after)
     pred, labels = predict(nglm, targ_regressors, trials, retlab=True, incl_bias=incl_bias)
@@ -52,16 +60,16 @@ def pred_psth(nglm, align_time, t_before, t_after, targ_regressors=None, trials=
                        np.std(windarr, axis=0) / nglm.binwidth)
     return psths
 
-
 class GLMPredictor:
-    def __init__(self, nglm, trialsdf, trials, spk_t, spk_clu):
-        self.covar = list(nglm.covar.keys())
+    def __init__(self, nglm, spk_t, spk_clu):
+        self.covar = list(nglm.design.covar.keys())
         self.nglm = nglm
         self.binnedspikes = nglm.binnedspikes
-        self.trialsdf = trialsdf
+        self.design = nglm.design
         self.spk_t = spk_t
         self.spk_clu = spk_clu
-        self.trials = trials
+        self.trials = nglm.design.trialsdf.index
+        self.trialsdf = nglm.design.trialsdf #maybe not best way to do this
         self.full_psths = {}
         self.cov_psths = {}
         self.combweights = nglm.combine_weights()
@@ -70,7 +78,7 @@ class GLMPredictor:
         if ax is None:
             fig, ax = plt.subplots(3, 1, figsize=(8, 12))
 
-        times = self.trialsdf.loc[self.trials, align_time]
+        times = self.trialsdf.loc[self.trials, align_time] #
         peri_event_time_histogram(self.spk_t, self.spk_clu,
                                   times,
                                   unit, t_before, t_after, bin_size=self.nglm.binwidth,
