@@ -45,7 +45,7 @@ if __name__ == "__main__":
     from glob import glob
 
     currdate = str(date.today())
-    currdate = '2021-05-04'
+    # currdate = '2021-05-04'
     sessions = get_bwm_ins_alyx(one)
 
     savepath = '/home/gercek/scratch/fits/'

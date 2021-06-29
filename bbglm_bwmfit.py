@@ -35,7 +35,10 @@ def fit_session(session_id, kernlen, nbases,
     spk_times = spikes[probestr].times
     spk_clu = spikes[probestr].clusters
     clu_regions = clusters[probestr].acronym
-    clu_qc = clusters[probestr]['metrics'].loc[:, 'label':'ks2_label']
+    try:
+        clu_qc = clusters[probestr]['metrics'].loc[:, 'label':'ks2_label']
+    except Exception:
+        clu_qc = None
 
     trdf['pLeft_last'] = pd.Series(np.roll(trdf['probabilityLeft'], 1),
                                    index=trdf.index)[:-1]
