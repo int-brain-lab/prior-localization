@@ -7,21 +7,13 @@ Berk, May 2020
 from oneibl import one
 import numpy as np
 import pandas as pd
-from oneibl import one
-import numpy as np
-import pandas as pd
 from sklearn.linear_model import RidgeCV
 import brainbox.modeling.design_matrix as dm
 import brainbox.modeling.linear as lm
 import brainbox.modeling.utils as mut
-from synth import _generate_pseudo_blocks
 import brainbox.io.one as bbone
 from tqdm import tqdm
 from copy import deepcopy
-from brainbox.population.decode import _generate_pseudo_blocks
-import brainbox.io.one as bbone
-from copy import deepcopy
-from tqdm import tqdm
 from models.expSmoothing_prevAction import expSmoothing_prevAction as exp_prevAct
 from models import utils
 from brainbox.task.closed_loop import generate_pseudo_session
@@ -45,8 +37,8 @@ def fit_session(session_id, kernlen, nbases,
     else:
         signwheel = False
     trialsdf = bbone.load_trials_df(session_id, maxlen=max_len, t_before=t_before, t_after=t_after,
-                                    binsize=binwidth, ret_abswheel=abswheel, ret_wheel=signwheel,
-                                    one=one)
+                                    wheel_binsize=binwidth, ret_abswheel=abswheel,
+                                    ret_wheel=signwheel, one=one)
     if prior_estimate == 'charles':
         print('Fitting behavioral esimates...')
         mouse_name = one.get_details(session_id)['subject']
@@ -60,7 +52,7 @@ def fit_session(session_id, kernlen, nbases,
                     actions_arr.append(actions)
                     stim_sides_arr.append(stim_side)
                     session_uuids.append(sess_ids[i])
-                    
+
         # format data
         stimuli, actions, stim_side = utils.format_input(
             stimuli_arr, actions_arr, stim_sides_arr)
@@ -109,10 +101,10 @@ def fit_session(session_id, kernlen, nbases,
                 'stimOn_times': 'timing',
                 'trial_start': 'timing',
                 'trial_end': 'timing',
-                'bias': 'value',
-                'bias_next': 'value',
+                'prior': 'value',
+                'prior_last': 'value',
                 'wheel_velocity': 'continuous'}
-    if t_before < 0.7:
+    if t_before < 0.6:
         raise ValueError('t_before needs to be 0.7 or greater in order to do -0.1 to -0.7 step'
                          ' function on pLeft')
 
@@ -129,8 +121,7 @@ def fit_session(session_id, kernlen, nbases,
         vec[currtr_end:] = row.prior
         return vec
 
-
-    design = dm.DesignMatrix(trdf, vartypes, binwidth=binwidth)
+    design = dm.DesignMatrix(fitinfo, vartypes, binwidth=binwidth)
     stepbounds = [design.binf(t_before - 0.6), design.binf(t_before - 0.1)]
 
     cosbases_long = mut.full_rcos(kernlen, nbases, design.binf)
@@ -153,7 +144,7 @@ def fit_session(session_id, kernlen, nbases,
                              desc='Step function on prior estimate')
     design.add_covariate_raw('prior_tr', stepfunc_poststim,
                              desc='Step function on post-stimulus prior')
-    design.add_covariate('wheel', trdf['wheel_velocity'], cosbases_short, -0.4)
+    design.add_covariate('wheel', fitinfo['wheel_velocity'], cosbases_short, -0.4)
     design.compile_design_matrix()
 
     _, s, v = np.linalg.svd(design[:, design.covar['wheel']['dmcol_idx']], full_matrices=False)
@@ -185,28 +176,30 @@ def fit_session(session_id, kernlen, nbases,
     weightslist = []
     for _ in tqdm(range(num_pseudosess), desc='Pseudo block iteration num', leave=False,
                   disable=not progress):
-        newsess = generate_pseudo_session(trdf)
-        signals = model.compute_signal(signal=['prior', 'prediction_error'])
-        probmap = {1: 0.8, 0: 0.2}
-        newprobs = [probmap[i] for i in newblocks]
+        newsess = generate_pseudo_session(fitinfo)
+        stim_side, stimuli, actions, _ = utils.format_data(newsess)
+        signals = model.compute_signal(signal=['prior', 'prediction_error'],
+                                       act=actions.values, stim=stimuli,
+                                       side=stim_side.values)
+
         tmp_df = design.trialsdf.copy()
-        tmp_df['probabilityLeft'] = newprobs
-        tmp_df['pLeft_last'] = pd.Series(np.roll(tmp_df['probabilityLeft'], 1),
+        tmp_df['prior'] = signals['prior']
+        tmp_df['prior_last'] = pd.Series(np.roll(tmp_df['prior'], 1),
                                          index=tmp_df.index)
         tmpglm = deepcopy(glm_template)
-        pl_idx = design.covar['pLeft']['dmcol_idx']
-        plt_idx = design.covar['pLeft_tr']['dmcol_idx']
+        pl_idx = design.covar['prior']['dmcol_idx']
+        plt_idx = design.covar['prior_tr']['dmcol_idx']
         for tr, start, end in trialinds:
-            if target_regressor == 'pLeft':
+            if target_regressor == 'prior':
                 tmpglm.design.dm[start:end, pl_idx][tmpglm.design.dm[start:end, pl_idx]
-                                                    > 0] = tmp_df.pLeft_last[tr]
+                                                    > 0] = tmp_df.prior_last[tr]
             else:
-                pl_old = trdf.probabilityLeft[tr]
-                pll_old = trdf.pLeft_last[tr]
+                p_old = fitinfo.prior[tr]
+                pl_old = fitinfo.prior_last[tr]
                 tmpglm.design.dm[start:end, plt_idx][tmpglm.design.dm[start:end,
-                                                     plt_idx] == pl_old] = tmp_df.probabilityLeft[tr]
+                                                     plt_idx] == p_old] = tmp_df.prior[tr]
                 tmpglm.design.dm[start:end, plt_idx][tmpglm.design.dm[start:end,
-                                                     plt_idx] == pll_old] = tmp_df.pLeft_last[tr]
+                                                     plt_idx] == pl_old] = tmp_df.prior_last[tr]
         tmpglm.fit(printcond=False)
         weightslist.append((tmpglm.coefs, tmpglm.intercepts))
         with np.errstate(all='ignore'):
@@ -214,10 +207,7 @@ def fit_session(session_id, kernlen, nbases,
     return nglm, realscores, scoreslist, weightslist
 
 
-
 if __name__ == "__main__":
-    from scipy.stats import zmap
-    import matplotlib.pyplot as plt
     nickname = 'CSH_ZAD_001'
     sessdate = '2020-01-15'
     probe_idx = 0
@@ -247,76 +237,4 @@ if __name__ == "__main__":
                                                            wholetrial_step=wholetrial_step,
                                                            abswheel=abswheel, no_50perc=no_50perc,
                                                            fit_intercept=fit_intercept,
-                                                           num_pseudosess=num_pseudosess) 
-
-    nullscores = np.vstack(scoreslist)
-    nullweights = np.vstack([[w[0] for w in weights[0]] for weights in weightlist])
-    msub_nullweights = nullweights - np.mean(nullweights, axis=0)
-    msub_wts = np.array([w[0] for w in nglm.coefs]) - np.mean(nullweights, axis=0)
-    score_percentiles = [zmap(sc, nullscores[:, i])[0]
-                         for i, sc in enumerate(realscores)]
-    wt_percentiles = [zmap(w, msub_nullweights[:, i])[0]
-                      for i, w in enumerate(msub_wts)]
-
-    def predict_diff(coefs, intercepts):
-        wt_diffs = np.fromiter((np.exp(intercepts[idx] + 0.2 * coefs[idx][0]) / binwidth -
-                                np.exp(intercepts[idx] + 0.8 * coefs[idx][0]) / binwidth
-                                for idx in coefs.index), float)
-        return wt_diffs
-
-    wt_diffs = predict_diff(nglm.coefs, nglm.intercepts)
-    null_wt_diffs = np.vstack([predict_diff(w[0], w[1]) for w in weightlist])
-    wt_diff_percs = [zmap(w, null_wt_diffs[:, i])[0] for i, w in enumerate(wt_diffs)]
-    plt.hist(score_percentiles)
-
-    trdf = nglm.trialsdf
-    lowblock_rates = []
-    highblock_rates = []
-    for i, idx in enumerate(trdf.index):
-        blockprob = trdf.loc[idx].probabilityLeft
-        trialmask = np.isin(nglm.trlabels, idx).flatten() & (nglm.dm.flatten() != 0)
-        trialcounts = nglm.binnedspikes[trialmask]
-        trialrates = np.sum(trialcounts, axis=0) / (trialcounts.shape[0] * binwidth)
-        if blockprob == 0.5:
-            continue
-        if blockprob == 0.2:
-            lowblock_rates.append(trialrates)
-        elif blockprob == 0.8:
-            highblock_rates.append(trialrates)
-    meandiff = np.mean(np.vstack(lowblock_rates), axis=0) -\
-        np.mean(np.vstack(highblock_rates), axis=0)
-    mediandiff = np.median(np.vstack(lowblock_rates), axis=0) -\
-        np.median(np.vstack(highblock_rates), axis=0)
-
-    null_meandiffs = []
-    null_mediandiffs = []
-    pblock_mapper = {0: 0.2, 1: 0.8}
-    for i in tqdm(range(1000)):
-        trdf['pseudoblock'] = [pblock_mapper[i] for i in _generate_pseudo_blocks(len(trdf))]
-        null_lowblock_rates = []
-        null_highblock_rates = []
-        for i, idx in enumerate(trdf.index):
-            blockprob = trdf.loc[idx].pseudoblock
-            trialmask = np.isin(nglm.trlabels, idx).flatten() & (nglm.dm.flatten() != 0)
-            trialcounts = nglm.binnedspikes[trialmask]
-            trialrates = np.sum(trialcounts, axis=0) / (trialcounts.shape[0] * binwidth)
-            if blockprob == 0.5:
-                continue
-            if blockprob == 0.2:
-                null_lowblock_rates.append(trialrates)
-            elif blockprob == 0.8:
-                null_highblock_rates.append(trialrates)
-        null_meandiff = np.mean(np.vstack(null_lowblock_rates), axis=0) -\
-            np.mean(np.vstack(null_highblock_rates), axis=0)
-        null_mediandiff = np.median(np.vstack(null_lowblock_rates), axis=0) -\
-            np.median(np.vstack(null_highblock_rates), axis=0)
-        null_meandiffs.append(null_meandiff)
-        null_mediandiffs.append(null_mediandiff)
-    null_meandiffsarr = np.vstack(null_meandiffs)
-    null_mediandiffsarr = np.vstack(null_mediandiffs)
-    
-    mean_percentiles = [zmap(diff, null_meandiffsarr[:, i])[0]
-                        for i, diff in enumerate(meandiff)]
-    median_percentiles = [zmap(diff, null_mediandiffsarr[:, i])[0]
-                          for i, diff in enumerate(mediandiff)]
-    
+                                                           num_pseudosess=num_pseudosess)
