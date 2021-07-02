@@ -39,6 +39,7 @@ def fit_session(session_id, kernlen, nbases,
         print('Fitting behavioral esimates...')
         mouse_name = one.get_details(session_id)['subject']
         stimuli_arr, actions_arr, stim_sides_arr, session_uuids = [], [], [], []
+        mcounter = 0
         for i in range(len(sess_ids)):
             if subjects[i] == mouse_name:
                 data = utils.load_session(sess_ids[i])
@@ -50,6 +51,7 @@ def fit_session(session_id, kernlen, nbases,
                     session_uuids.append(sess_ids[i])
                 if sess_ids[i] == session_id:
                     j = i
+                mcounter += 1
         # format data
         stimuli, actions, stim_side = utils.format_input(
             stimuli_arr, actions_arr, stim_sides_arr)
