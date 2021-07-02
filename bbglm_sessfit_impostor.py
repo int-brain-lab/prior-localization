@@ -50,7 +50,7 @@ def fit_session(session_id, kernlen, nbases,
                     stim_sides_arr.append(stim_side)
                     session_uuids.append(sess_ids[i])
                 if sess_ids[i] == session_id:
-                    j = i
+                    j = mcounter
                 mcounter += 1
         # format data
         stimuli, actions, stim_side = utils.format_input(
