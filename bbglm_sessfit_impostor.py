@@ -4,7 +4,7 @@ Script to use new neuralGLM object from brainbox rather than complicated matlab 
 Berk, May 2020
 """
 
-from oneibl import one
+from one.api import ONE
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import RidgeCV
@@ -18,18 +18,14 @@ from models.expSmoothing_prevAction import expSmoothing_prevAction as exp_prevAc
 from models import utils
 from brainbox.task.closed_loop import generate_pseudo_session
 
-if __name__ != "__main__":
-    offline = True
-else:
-    offline = False
-one = one.ONE(offline=offline)
+one = ONE()
 subjects, ins, ins_id, sess_ids, _ = utils.get_bwm_ins_alyx(one)
 
-ephys_cache = {}
+trials_cache = {}
 
 
 def fit_session(session_id, kernlen, nbases,
-                t_before=1., t_after=0.6, prior_estimate='charles', max_len=2., probe_idx=0,
+                t_before=1., t_after=0.6, prior_estimate='charles', max_len=2., probe='probe00',
                 contnorm=5., binwidth=0.02, abswheel=False, num_pseudosess=100, progress=True,
                 target_regressor='prior', one=one):
     if not abswheel:
@@ -70,19 +66,13 @@ def fit_session(session_id, kernlen, nbases,
         fitinfo = trialsdf.copy()
     else:
         raise NotImplementedError('Only psytrack currently available')
-    # spk_times = one.load(session_id, dataset_types=['spikes.times'], offline=offline)[probe_idx]
-    # spk_clu = one.load(session_id, dataset_types=['spikes.clusters'], offline=offline)[probe_idx]
 
-    # A bit of messy loading to get spike times, clusters, and cluster brain regions.
-    # This is the way it is because loading with regions takes forever. The weird for loop
-    # ensures that we don't waste memory storing unnecessary and large arrays.
-    probestr = 'probe0' + str(probe_idx)
     spikes, clusters, _ = bbone.load_spike_sorting_with_channel(session_id, one=one,
                                                                 aligned=True)
 
-    spk_times = spikes[probestr].times
-    spk_clu = spikes[probestr].clusters
-    clu_regions = clusters[probestr].acronym
+    spk_times = spikes[probe].times
+    spk_clu = spikes[probe].clusters
+    clu_regions = clusters[probe].acronym
     fitinfo = fitinfo.iloc[1:-1]
     fitinfo['adj_contrastLeft'] = np.tanh(contnorm * fitinfo['contrastLeft']) / np.tanh(contnorm)
     fitinfo['adj_contrastRight'] = np.tanh(contnorm * fitinfo['contrastRight']) / np.tanh(contnorm)

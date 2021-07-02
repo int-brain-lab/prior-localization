@@ -7,28 +7,28 @@ Berk, May 2020
 import pickle
 from datetime import date
 import os
-from oneibl import one
-from bbglm_bwmfit_impostor import fit_session
+from one.api import ONE
+from bbglm_sessfit_impostor import fit_session
 
 if __name__ != "__main__":
     offline = True
 else:
     offline = False
-one = one.ONE(offline=offline)
+one = ONE(offline=offline)
 
 
-def fit_and_save(session_id, kernlen, nbases, nickname, sessdate, filename, probe_idx,
+def fit_and_save(session_id, kernlen, nbases, nickname, sessdate, filename, probe,
                  t_before=1., t_after=0.6, max_len=2., contnorm=5., binwidth=0.02,
-                 abswheel=False, no_50perc=False, num_pseudosess=100, target_regressor='pLeft',
-                 one=one):
-    outtuple = fit_session(session_id, kernlen, nbases, t_before, t_after, max_len, probe_idx,
-                           contnorm, binwidth, abswheel, no_50perc, num_pseudosess,
-                           target_regressor, progress=False, one=one)
+                 abswheel=False, num_pseudosess=100, target_regressor='prior',
+                 prior_estimate='charles', one=one):
+    outtuple = fit_session(session_id, kernlen, nbases, t_before, t_after, prior_estimate, max_len,
+                           probe, contnorm, binwidth, abswheel, num_pseudosess,
+                           target_regressor, one=one, progress=False)
     nglm, realscores, scoreslist, weightslist = outtuple
     outdict = {'sessinfo': {'eid': session_id, 'nickname': nickname, 'sessdate': sessdate},
-               'kernlen': kernlen, 'nbases': nbases, 'method': method,
+               'kernlen': kernlen, 'nbases': nbases,
                'binwidth': binwidth, 'realscores': realscores, 'scores': scoreslist,
-               'weightslist': weightslist, 'fitobj': nglm}
+               'weightslist': weightslist, 'fitobj': nglm, 'probe': probe}
     subjfilepath = os.path.abspath(filename)
     fw = open(subjfilepath, 'wb')
     pickle.dump(outdict, fw)
@@ -36,16 +36,19 @@ def fit_and_save(session_id, kernlen, nbases, nickname, sessdate, filename, prob
     return True
 
 
-def sessions_with_region(acronym):
-    from oneibl.one import ONE
-    one = ONE()
-
-    # Query sessions with at least one channel in the specified region
-    sessions = one.alyx.rest('sessions', 'list', atlas_acronym=acronym,
-                        task_protocol='_iblrig_tasks_ephysChoiceWorld',
-                        dataset_types = ['spikes.times', 'trials.probabilityLeft'],
-                        project='ibl_neuropixel_brainwide')
-    return sessions
+def sessions_with_region(acronym, one=None):
+    if one is None:
+        one = ONE()
+    query_str = (f'channels__brain_region__acronym__icontains,{acronym},'
+                 'probe_insertion__session__project__name__icontains,ibl_neuropixel_brainwide_01,'
+                 'probe_insertion__session__qc__lt,50,'
+                 '~probe_insertion__json__qc,CRITICAL')
+    traj = one.alyx.rest('trajectories', 'list', provenance='Ephys aligned histology track',
+                         django=query_str)
+    eids = np.array([i['session']['id'] for i in traj])
+    sessinfo = [i['session'] for i in traj]
+    probes = np.array([i['probe_name'] for i in traj])
+    return eids, sessinfo, probes
 
 
 def check_fit_exists(filename):
@@ -66,51 +69,48 @@ if __name__ == "__main__":
 
     allsess = []
     for region in ['ACA', 'VISa', 'VISrl', 'ORB', 'RSP']:
-        rsess = sessions_with_region(region)
-        for s in rsess:
-            s['eid'] = s['url'].split('/')[-1]
-        allsess.extend(rsess)
+        reid, rsess, rprobe = sessions_with_region(region)
+        for rs, rp in zip(rsess, rprobe):
+            rs['probe'] = [rp]
+        allsess.extend(zip(reid, rsess))
 
     sessdict = {}
     for sess in allsess:
-        if sess['eid'] not in sessdict.keys():
-            sessdict[sess['eid']] = sess
-
+        if sess[0] not in sessdict.keys():
+            sessdict[sess[0]] = sess[1]
+        elif sessdict[sess[0]]['probe'] != sess[1]['probe']:
+            sessdict[sess[0]]['probe'].extend(sess[1]['probe'])
 
     currdate = str(date.today())
     # currdate = '2021-05-04'
 
     savepath = '/home/gercek/scratch/fits/'
 
-    abswheel = True
     kernlen = 0.6
     nbases = 10
-    stepwise = True
-    wholetrial_step = False
-    no_50perc = True
-    method = 'pure'
-    blocking = False
-    prior_estimate = None
+    t_before = 0.6
+    t_after = 0.6
+    prior_estimate = 'charles'
+    max_len = 2.
+    abswheel = False
     binwidth = 0.02
-    n_pseudo = 100
-    target = 'pLeft_tr'
+    num_pseudosess = 200
+    target = 'prior'
 
-    fit_kwargs = {'binwidth': binwidth, 'abswheel': abswheel,
-                  'no_50perc': no_50perc, 'num_pseudosess': n_pseudo,
-                  'target_regressor': target, 'one': one}
+    fit_kwargs = {'t_before': t_before, 't_after': t_after, 'prior_estimate': prior_estimate,
+                  'max_len': max_len, 'binwidth': binwidth, 'abswheel': abswheel,
+                  'num_pseudosess': num_pseudosess, 'target_regressor': target, 'one': one}
 
     argtuples = []
-    for sessid in sessions:
-        info = one.get_details(sessid)
-
-        nickname = info['subject']
-        sessdate = info['start_time'][:10]
-        for i in range(len(sessions[sessid])):
+    for eid in sessdict:
+        nickname = sessdict[eid]['subject']
+        sessdate = sessdict[eid]['start_time'][:10]
+        for i in range(len(sessdict[eid]['probe'])):
             probe = i
             filename = savepath +\
-                f'{nickname}/{sessdate}_session_{currdate}_probe{probe}_{target}_fit.p'
+                f'{nickname}/{sessdate}_session_{currdate}_{probe}_{target}_fit.p'
             if not check_fit_exists(filename):
                 argtuples.append(
-                    (sessid, kernlen, nbases, nickname, sessdate,
+                    (eid, kernlen, nbases, nickname, sessdate,
                      filename, probe)
                 )
