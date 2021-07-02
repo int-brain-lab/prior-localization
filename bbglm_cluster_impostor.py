@@ -20,10 +20,10 @@ one = ONE(offline=offline)
 def fit_and_save(session_id, kernlen, nbases, nickname, sessdate, filename, probe,
                  t_before=1., t_after=0.6, max_len=2., contnorm=5., binwidth=0.02,
                  abswheel=False, num_pseudosess=100, target_regressor='prior',
-                 prior_estimate='charles', one=one):
+                 prior_estimate='charles'):
     outtuple = fit_session(session_id, kernlen, nbases, t_before, t_after, prior_estimate, max_len,
-                           probe, contnorm, binwidth, abswheel, num_pseudosess,
-                           target_regressor, one=one, progress=False)
+                           probe, contnorm, binwidth, abswheel, num_pseudosess, False,
+                           target_regressor)
     nglm, realscores, scoreslist, weightslist = outtuple
     outdict = {'sessinfo': {'eid': session_id, 'nickname': nickname, 'sessdate': sessdate},
                'kernlen': kernlen, 'nbases': nbases,
@@ -64,6 +64,8 @@ def check_fit_exists(filename):
 if __name__ == "__main__":
     from glob import glob
     import numpy as np
+    from dask.distributed import Client
+    from dask_jobqueue import SLURMCluster
 
     target_regions = ['ACA', 'VISa', 'VISrl', 'ORB', 'RSP']
 
@@ -99,7 +101,7 @@ if __name__ == "__main__":
 
     fit_kwargs = {'t_before': t_before, 't_after': t_after, 'prior_estimate': prior_estimate,
                   'max_len': max_len, 'binwidth': binwidth, 'abswheel': abswheel,
-                  'num_pseudosess': num_pseudosess, 'target_regressor': target, 'one': one}
+                  'num_pseudosess': num_pseudosess, 'target_regressor': target}
 
     argtuples = []
     for eid in sessdict:
@@ -114,3 +116,20 @@ if __name__ == "__main__":
                     (eid, kernlen, nbases, nickname, sessdate,
                      filename, probe)
                 )
+
+    # !!! NB: This is highly specific to institutional cluster configuration. You WILL need to
+    # change this if you want to run on something other than UNIGE-Yggdrasil.
+
+    cluster = SLURMCluster(cores=1, memory='32GB', processes=1, queue="shared-cpu",
+                           walltime="01:00:00", log_directory='/home/gercek/dask-worker-logs',
+                           interface='eno1',
+                           extra=["--lifetime", "1h", "--lifetime-stagger", "4m"],
+                           job_cpu=4, env_extra=['export OMP_NUM_THREADS=4',
+                                                 'export MKL_NUM_THREADS=4',
+                                                 'export OPENBLAS_NUM_THREADS=4'])
+    cluster.adapt(0, len(argtuples) / 2)
+    client = Client(cluster)
+    outputs = []
+    for argtuple in argtuples:
+        outputs.append(client.submit(fit_and_save, *argtuple, **fit_kwargs,
+                                     pure=False))

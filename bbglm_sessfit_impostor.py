@@ -40,7 +40,7 @@ def fit_session(session_id, kernlen, nbases,
         mouse_name = one.get_details(session_id)['subject']
         stimuli_arr, actions_arr, stim_sides_arr, session_uuids = [], [], [], []
         for i in range(len(sess_ids)):
-            if subjects[i] == mouse_name:  # take only sessions of first mice
+            if subjects[i] == mouse_name:
                 data = utils.load_session(sess_ids[i])
                 if data['choice'] is not None and data['probabilityLeft'][0] == 0.5:
                     stim_side, stimuli, actions, pLeft_oracle = utils.format_data(data)
@@ -48,7 +48,8 @@ def fit_session(session_id, kernlen, nbases,
                     actions_arr.append(actions)
                     stim_sides_arr.append(stim_side)
                     session_uuids.append(sess_ids[i])
-
+                if sess_ids[i] == session_id:
+                    j = i
         # format data
         stimuli, actions, stim_side = utils.format_input(
             stimuli_arr, actions_arr, stim_sides_arr)
@@ -59,7 +60,7 @@ def fit_session(session_id, kernlen, nbases,
         # compute signals of interest
         signals = model.compute_signal(signal=['prior', 'prediction_error', 'score'],
                                        verbose=False)
-        trialsdf['prior'] = signals['prior'][trialsdf.index]
+        trialsdf['prior'] = signals['prior'][j, trialsdf.index]
         trialsdf['prior_last'] = pd.Series(np.roll(trialsdf['prior'], 1), index=trialsdf.index)
         fitinfo = trialsdf.copy()
     elif prior_estimate is None:
