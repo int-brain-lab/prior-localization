@@ -107,8 +107,7 @@ if __name__ == "__main__":
     for eid in sessdict:
         nickname = sessdict[eid]['subject']
         sessdate = sessdict[eid]['start_time'][:10]
-        for i in range(len(sessdict[eid]['probe'])):
-            probe = i
+        for probe in sessdict[eid]['probe']:
             filename = savepath +\
                 f'{nickname}/{sessdate}_session_{currdate}_{probe}_{target}_fit.p'
             if not check_fit_exists(filename):
