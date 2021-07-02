@@ -62,7 +62,10 @@ def fit_session(session_id, kernlen, nbases,
         # compute signals of interest
         signals = model.compute_signal(signal=['prior', 'prediction_error', 'score'],
                                        verbose=False)
-        trialsdf['prior'] = signals['prior'][j, trialsdf.index]
+        if len(signals['prior'].shape) == 1:
+            trialsdf['prior'] = signals['prior'][trialsdf.index]
+        else:
+            trialsdf['prior'] = signals['prior'][j, trialsdf.index]
         trialsdf['prior_last'] = pd.Series(np.roll(trialsdf['prior'], 1), index=trialsdf.index)
         fitinfo = trialsdf.copy()
     elif prior_estimate is None:

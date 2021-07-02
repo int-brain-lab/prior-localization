@@ -10,3 +10,4 @@
 *.pyc
 .one_params
 /dask-worker-space/
+/results/
