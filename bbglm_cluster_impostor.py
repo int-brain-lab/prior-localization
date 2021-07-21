@@ -8,13 +8,9 @@ import pickle
 from datetime import date
 import os
 from one.api import ONE
-from bbglm_sessfit_impostor import fit_session
+from bbglm_sessfit_stimonly import fit_session
 
-if __name__ != "__main__":
-    offline = True
-else:
-    offline = False
-one = ONE(offline=offline)
+one = ONE()
 
 
 def fit_and_save(session_id, kernlen, nbases, nickname, sessdate, filename, probe,
@@ -67,10 +63,10 @@ if __name__ == "__main__":
     from dask.distributed import Client
     from dask_jobqueue import SLURMCluster
 
-    target_regions = ['ACA', 'VISa', 'VISrl', 'ORB', 'RSP']
+    target_regions = ['ACA', 'VISa', 'VISrl', 'ORB', 'RSP', 'VISp', 'MRN', 'SCm']
 
     allsess = []
-    for region in ['ACA', 'VISa', 'VISrl', 'ORB', 'RSP']:
+    for region in target_regions:
         reid, rsess, rprobe = sessions_with_region(region)
         for rs, rp in zip(rsess, rprobe):
             rs['probe'] = [rp]
@@ -88,10 +84,10 @@ if __name__ == "__main__":
 
     savepath = '/home/gercek/scratch/fits/'
 
-    kernlen = 0.6
-    nbases = 10
-    t_before = 0.6
-    t_after = 0.6
+    kernlen = 0.1
+    nbases = 3
+    t_before = 0.
+    t_after = 0.1
     prior_estimate = 'charles'
     max_len = 2.
     abswheel = False
