@@ -20,7 +20,7 @@ ephys_cache = {}
 
 
 def fit_session(session_id, kernlen, nbases,
-                t_before=0.6, t_after=0.6, max_len=2., probe_idx=0, contnorm=5., binwidth=0.02,
+                t_before=0.6, t_after=0.6, max_len=2., probe='probe00', contnorm=5., binwidth=0.02,
                 abswheel=False, no_50perc=False, one=one):
     if not abswheel:
         signwheel = True
@@ -29,14 +29,13 @@ def fit_session(session_id, kernlen, nbases,
     trdf = bbone.load_trials_df(session_id, maxlen=max_len, t_before=t_before, t_after=t_after,
                                 wheel_binsize=binwidth, ret_abswheel=abswheel,
                                 ret_wheel=signwheel, one=one)
-    probestr = 'probe0' + str(probe_idx)
     spikes, clusters, _ = bbone.load_spike_sorting_with_channel(session_id, one=one,
                                                                 aligned=True)
-    spk_times = spikes[probestr].times
-    spk_clu = spikes[probestr].clusters
-    clu_regions = clusters[probestr].acronym
+    spk_times = spikes[probe].times
+    spk_clu = spikes[probe].clusters
+    clu_regions = clusters[probe].acronym
     try:
-        clu_qc = clusters[probestr]['metrics'].loc[:, 'label':'ks2_label']
+        clu_qc = clusters[probe]['metrics'].loc[:, 'label':'ks2_label']
     except Exception:
         clu_qc = None
 

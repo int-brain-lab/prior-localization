@@ -43,6 +43,8 @@ def check_fit_exists(filename):
 
 if __name__ == "__main__":
     from glob import glob
+    from dask.distributed import Client
+    from dask_jobqueue import SLURMCluster
 
     currdate = str(date.today())
     # currdate = '2021-05-04'
