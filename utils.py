@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import brainbox.io.one as bbone
 from brainbox.singlecell import calculate_peths
 from brainbox.plot import peri_event_time_histogram
+from one.api import ONE
 
 
 def get_bwm_ins_alyx(one):
@@ -128,6 +129,21 @@ def peth_from_eid_blocks(eid, probe_idx, unit, one=None):
     ax[1].set_xticklabels([-0.6, 0, 0.6])
     ax[1].set_xlim([0, 60])
     return fig, ax
+
+
+def sessions_with_region(acronym, one=None):
+    if one is None:
+        one = ONE()
+    query_str = (f'channels__brain_region__acronym__icontains,{acronym},'
+                 'probe_insertion__session__project__name__icontains,ibl_neuropixel_brainwide_01,'
+                 'probe_insertion__session__qc__lt,50,'
+                 '~probe_insertion__json__qc,CRITICAL')
+    traj = one.alyx.rest('trajectories', 'list', provenance='Ephys aligned histology track',
+                         django=query_str)
+    eids = np.array([i['session']['id'] for i in traj])
+    sessinfo = [i['session'] for i in traj]
+    probes = np.array([i['probe_name'] for i in traj])
+    return eids, sessinfo, probes
 
 
 def load_trials_df(eid, one=None, maxlen=None, t_before=0., t_after=0., ret_wheel=False,

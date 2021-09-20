@@ -9,6 +9,7 @@ from datetime import date
 import os
 from one.api import ONE
 from bbglm_sessfit_poststim_only import fit_session
+from utils import sessions_with_region
 
 one = ONE()
 
@@ -30,21 +31,6 @@ def fit_and_save(session_id, kernlen, nbases, nickname, sessdate, filename, prob
     return True
 
 
-def sessions_with_region(acronym, one=None):
-    if one is None:
-        one = ONE()
-    query_str = (f'channels__brain_region__acronym__icontains,{acronym},'
-                 'probe_insertion__session__project__name__icontains,ibl_neuropixel_brainwide_01,'
-                 'probe_insertion__session__qc__lt,50,'
-                 '~probe_insertion__json__qc,CRITICAL')
-    traj = one.alyx.rest('trajectories', 'list', provenance='Ephys aligned histology track',
-                         django=query_str)
-    eids = np.array([i['session']['id'] for i in traj])
-    sessinfo = [i['session'] for i in traj]
-    probes = np.array([i['probe_name'] for i in traj])
-    return eids, sessinfo, probes
-
-
 def check_fit_exists(filename):
     if not os.path.exists(savepath + nickname):
         os.mkdir(savepath + nickname)
@@ -57,7 +43,6 @@ def check_fit_exists(filename):
 
 if __name__ == "__main__":
     from glob import glob
-    import numpy as np
     from dask.distributed import Client
     from dask_jobqueue import SLURMCluster
 

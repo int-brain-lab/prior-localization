@@ -9,7 +9,7 @@ from datetime import date
 import os
 from oneibl import one
 from bbglm_bwmfit import fit_session
-from utils import get_bwm_ins_alyx
+from utils import sessions_with_region
 
 one = one.ONE()
 
@@ -46,9 +46,24 @@ if __name__ == "__main__":
 
     currdate = str(date.today())
     # currdate = '2021-05-04'
-    sessions = get_bwm_ins_alyx(one)
 
     savepath = '/home/gercek/scratch/fits/'
+
+    target_regions = ['']
+
+    allsess = []
+    for region in target_regions:
+        reid, rsess, rprobe = sessions_with_region(region)
+        for rs, rp in zip(rsess, rprobe):
+            rs['probe'] = [rp]
+        allsess.extend(zip(reid, rsess))
+
+    sessdict = {}
+    for sess in allsess:
+        if sess[0] not in sessdict.keys():
+            sessdict[sess[0]] = sess[1]
+        elif sessdict[sess[0]]['probe'] != sess[1]['probe']:
+            sessdict[sess[0]]['probe'].extend(sess[1]['probe'])
 
     abswheel = True
     kernlen = 0.6
@@ -61,17 +76,14 @@ if __name__ == "__main__":
                   'no_50perc': no_50perc, 'one': one}
 
     argtuples = []
-    for sessid in sessions:
-        info = one.get_details(sessid)
-
-        nickname = info['subject']
-        sessdate = info['start_time'][:10]
-        for i in range(len(sessions[sessid])):
-            probe = i
+    for eid in sessdict:
+        nickname = sessdict[eid]['subject']
+        sessdate = sessdict[eid]['start_time'][:10]
+        for probe in sessdict[eid]['probe']:
             filename = savepath +\
-                f'{nickname}/{sessdate}_session_{currdate}_probe{probe}_stepwise_fit.p'
+                f'{nickname}/{sessdate}_session_{currdate}_{probe}_stepwise_fit.p'
             if not check_fit_exists(filename):
                 argtuples.append(
-                    (sessid, kernlen, nbases, nickname, sessdate,
+                    (eid, kernlen, nbases, nickname, sessdate,
                      filename, probe)
                 )
