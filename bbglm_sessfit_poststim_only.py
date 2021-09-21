@@ -26,8 +26,7 @@ trials_cache = {}
 
 def fit_session(session_id, kernlen, nbases,
                 t_before=0., t_after=0., prior_estimate='charles', max_len=2., probe='probe00',
-                contnorm=5., binwidth=0.02, abswheel=False, num_pseudosess=100, progress=True,
-                one=one):
+                contnorm=5., binwidth=0.02, abswheel=False, one=one):
     if not abswheel:
         signwheel = True
     else:
@@ -108,7 +107,7 @@ def fit_session(session_id, kernlen, nbases,
     design = dm.DesignMatrix(fitinfo, vartypes, binwidth=binwidth)
 
     cosbases = mut.full_rcos(kernlen, nbases, design.binf)
-    cosbases_whl = mut.full_rcos(kernlen, nbases, design.binf)
+    # cosbases_whl = mut.full_rcos(kernlen, nbases, design.binf)
     design.add_covariate_timing('stimonL', 'stimOn_times', cosbases,
                                 cond=lambda tr: np.isfinite(tr.contrastLeft),
                                 deltaval='adj_contrastLeft',

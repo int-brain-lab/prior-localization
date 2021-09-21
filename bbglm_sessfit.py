@@ -4,51 +4,88 @@ Script to use new neuralGLM object from brainbox rather than complicated matlab 
 Berk, May 2020
 """
 
-from oneibl import one
+from one.api import ONE
 import numpy as np
 import pandas as pd
-from brainbox.modeling import glm
+from sklearn.linear_model import RidgeCV
+import brainbox.modeling.design_matrix as dm
+import brainbox.modeling.linear as lm
+import brainbox.modeling.utils as mut
 import brainbox.io.one as bbone
-from export_funs import trialinfo_to_df
-from prior_funcs import fit_sess_psytrack
+import utils
+from models.expSmoothing_prevAction import expSmoothing_prevAction as exp_prevAct
 
-one = one.ONE()
+
+one = ONE()
+subjects, ins, ins_id, sess_ids, _ = utils.get_bwm_ins_alyx(one)
 
 
 def fit_session(session_id, kernlen, nbases,
-                t_before=1., t_after=0.6, prior_estimate='psytrack', max_len=2., probe_idx=0,
-                method='minimize', alpha=0, contnorm=5., binwidth=0.02, wholetrial_step=False,
-                blocktrain=False):
-    trialsdf = trialinfo_to_df(session_id, maxlen=max_len, t_before=t_before, t_after=t_after,
-                               glm_binsize=binwidth, ret_abswheel=True)
-    if prior_estimate == 'psytrack':
-        print('Fitting psytrack esimates...')
-        wts, stds = fit_sess_psytrack(session_id, maxlength=max_len, as_df=True)
-        wts['bias'] = wts['bias'] - np.mean(wts['bias'])
-        fitinfo = pd.concat((trialsdf, wts['bias']), axis=1)
-        bias_next = np.roll(fitinfo['bias'], -1)
-        bias_next = pd.Series(bias_next, index=fitinfo['bias'].index)[:-1]
-        fitinfo['bias_next'] = bias_next
+                t_before=0., t_after=0., prior_estimate='charles', max_len=2., probe='probe00',
+                contnorm=5., binwidth=0.02, abswheel=False, one=one):
+    if not abswheel:
+        signwheel = True
+    else:
+        signwheel = False
+
+    trialsdf = bbone.load_trials_df(session_id, maxlen=max_len, t_before=t_before, t_after=t_after,
+                                    wheel_binsize=binwidth, ret_abswheel=abswheel,
+                                    ret_wheel=signwheel, one=one)
+
+    if prior_estimate == 'charles':
+        print('Fitting behavioral esimates...')
+        mouse_name = one.get_details(session_id)['subject']
+        stimuli_arr, actions_arr, stim_sides_arr, session_uuids = [], [], [], []
+        mcounter = 0
+        for i in range(len(sess_ids)):
+            if subjects[i] == mouse_name:
+                data = utils.load_session(sess_ids[i])
+                if data['choice'] is not None and data['probabilityLeft'][0] == 0.5:
+                    stim_side, stimuli, actions, pLeft_oracle = utils.format_data(data)
+                    stimuli_arr.append(stimuli)
+                    actions_arr.append(actions)
+                    stim_sides_arr.append(stim_side)
+                    session_uuids.append(sess_ids[i])
+                if sess_ids[i] == session_id:
+                    j = mcounter
+                mcounter += 1
+        # format data
+        stimuli, actions, stim_side = utils.format_input(
+            stimuli_arr, actions_arr, stim_sides_arr)
+        session_uuids = np.array(session_uuids)
+        model = exp_prevAct('./results/inference/', session_uuids,
+                            mouse_name, actions, stimuli, stim_side)
+        model.load_or_train(remove_old=False)
+        # compute signals of interest
+        signals = model.compute_signal(signal=['prior', 'prediction_error', 'score'],
+                                       verbose=False)
+        if len(signals['prior'].shape) == 1:
+            trialsdf['prior'] = signals['prior'][trialsdf.index]
+        else:
+            trialsdf['prior'] = signals['prior'][j, trialsdf.index]
+        trialsdf['prior_last'] = pd.Series(np.roll(trialsdf['prior'], 1), index=trialsdf.index)
+        fitinfo = trialsdf.copy()
     elif prior_estimate is None:
         fitinfo = trialsdf.copy()
     else:
-        raise NotImplementedError('Only psytrack currently available')
-    # spk_times = one.load(session_id, dataset_types=['spikes.times'], offline=offline)[probe_idx]
-    # spk_clu = one.load(session_id, dataset_types=['spikes.clusters'], offline=offline)[probe_idx]
+        raise NotImplementedError('Only exp. prev act currently available')
 
-    # A bit of messy loading to get spike times, clusters, and cluster brain regions.
-    # This is the way it is because loading with regions takes forever. The weird for loop
-    # ensures that we don't waste memory storing unnecessary and large arrays.
-    spikes, clusters, _ = bbone.load_spike_sorting_with_channel(session_id, one=one, aligned=True)
-    probestr = 'probe0' + str(probe_idx)
-    spk_times = spikes[probestr].times
-    spk_clu = spikes[probestr].clusters
-    clu_regions = clusters[probestr].acronym
-    fitinfo['pLeft_last'] = pd.Series(np.roll(fitinfo['probabilityLeft'], 1),
-                                      index=fitinfo.index)[:-1]
+    spikes, clusters, _ = bbone.load_spike_sorting_with_channel(session_id, one=one,
+                                                                aligned=True)
+
+    try:
+        clu_qc = clusters[probe]['metrics'].loc[:, 'label':'ks2_label']
+    except Exception:
+        clu_qc = None
+
+    spk_times = spikes[probe].times
+    spk_clu = spikes[probe].clusters
+    clu_regions = clusters[probe].acronym
     fitinfo = fitinfo.iloc[1:-1]
+    fitinfo['trial_end'] = fitinfo['trial_start'] + 0.1
     fitinfo['adj_contrastLeft'] = np.tanh(contnorm * fitinfo['contrastLeft']) / np.tanh(contnorm)
     fitinfo['adj_contrastRight'] = np.tanh(contnorm * fitinfo['contrastRight']) / np.tanh(contnorm)
+
     vartypes = {'choice': 'value',
                 'response_times': 'timing',
                 'probabilityLeft': 'value',
@@ -63,63 +100,76 @@ def fit_session(session_id, kernlen, nbases,
                 'stimOn_times': 'timing',
                 'trial_start': 'timing',
                 'trial_end': 'timing',
-                'bias': 'value',
-                'bias_next': 'value',
+                'prior': 'value',
+                'prior_last': 'value',
                 'wheel_velocity': 'continuous'}
-    nglm = glm.NeuralGLM(fitinfo, spk_times, spk_clu, vartypes, binwidth=binwidth,
-                         blocktrain=blocktrain)
-    nglm.clu_regions = clu_regions
-
-    if t_before < 0.7:
-        raise ValueError('t_before needs to be 0.7 or greater in order to do -0.1 to -0.7 step'
-                         ' function on pLeft')
-
-    stepbounds = [nglm.binf(t_before - 0.7), nglm.binf(t_before - 0.1)]
-
-    def stepfunc(row):
-        currvec = np.ones(nglm.binf(row.feedback_times)) * row.pLeft_last
-        nextvec = np.ones(nglm.binf(row.duration) - nglm.binf(row.feedback_times)) *\
-            row.probabilityLeft
-        return np.hstack((currvec, nextvec))
 
     def stepfunc_prestim(row):
-        stepvec = np.zeros(nglm.binf(row.duration))
+        stepvec = np.zeros(design.binf(row.duration))
         stepvec[stepbounds[0]:stepbounds[1]] = row.pLeft_last
         return stepvec
 
-    def stepfunc_bias(row):
-        currvec = np.ones(nglm.binf(row.feedback_times)) * row.bias
-        nextvec = np.ones(nglm.binf(row.duration) - nglm.binf(row.feedback_times)) *\
-            row.bias_next
-        return np.hstack((currvec, nextvec))
+    def stepfunc_poststim(row):
+        zerovec = np.zeros(design.binf(row.duration))
+        currtr_start = design.binf(row.stimOn_times + 0.1)
+        currtr_end = design.binf(row.feedback_times)
+        zerovec[currtr_start:currtr_end] = row.pLeft_last
+        zerovec[currtr_end:] = row.probabilityLeft
+        return zerovec
 
-    cosbases_long = glm.full_rcos(kernlen, nbases, nglm.binf)
-    cosbases_short = glm.full_rcos(0.4, nbases, nglm.binf)
-    nglm.add_covariate_timing('stimonL', 'stimOn_times', cosbases_long,
-                              cond=lambda tr: np.isfinite(tr.contrastLeft),
-                              deltaval='adj_contrastLeft',
-                              desc='Kernel conditioned on L stimulus onset')
-    nglm.add_covariate_timing('stimonR', 'stimOn_times', cosbases_long,
-                              cond=lambda tr: np.isfinite(tr.contrastRight),
-                              deltaval='adj_contrastRight',
-                              desc='Kernel conditioned on R stimulus onset')
-    nglm.add_covariate_timing('correct', 'feedback_times', cosbases_long,
-                              cond=lambda tr: tr.feedbackType == 1,
-                              desc='Kernel conditioned on correct feedback')
-    nglm.add_covariate_timing('incorrect', 'feedback_times', cosbases_long,
-                              cond=lambda tr: tr.feedbackType == -1,
-                              desc='Kernel conditioned on incorrect feedback')
-    if prior_estimate is None and wholetrial_step:
-        nglm.add_covariate_raw('pLeft', stepfunc, desc='Step function on prior estimate')
-    elif prior_estimate is None and not wholetrial_step:
-        nglm.add_covariate_raw('pLeft', stepfunc_prestim, desc='Step function on prior estimate')
-    elif prior_estimate == 'psytrack':
-        nglm.add_covariate_raw('pLeft', stepfunc_bias, desc='Step function on prior estimate')
-    nglm.add_covariate('wheel', fitinfo['wheel_velocity'], cosbases_short, -0.4)
-    nglm.compile_design_matrix()
-    nglm.fit(method=method, alpha=alpha)
-    combined_weights = nglm.combine_weights()
-    return nglm, combined_weights
+    design = dm.DesignMatrix(trialsdf, vartypes, binwidth=binwidth)
+    stepbounds = [design.binf(t_before - 0.6), design.binf(t_before - 0.1)]
+
+    cosbases_long = mut.full_rcos(kernlen, nbases, design.binf)
+    cosbases_short = mut.full_rcos(0.4, nbases, design.binf)
+    design.add_covariate_timing('stimonL', 'stimOn_times', cosbases_long,
+                                cond=lambda tr: np.isfinite(tr.contrastLeft),
+                                deltaval='adj_contrastLeft',
+                                desc='Kernel conditioned on L stimulus onset')
+    design.add_covariate_timing('stimonR', 'stimOn_times', cosbases_long,
+                                cond=lambda tr: np.isfinite(tr.contrastRight),
+                                deltaval='adj_contrastRight',
+                                desc='Kernel conditioned on R stimulus onset')
+    design.add_covariate_timing('correct', 'feedback_times', cosbases_long,
+                                cond=lambda tr: tr.feedbackType == 1,
+                                desc='Kernel conditioned on correct feedback')
+    design.add_covariate_timing('incorrect', 'feedback_times', cosbases_long,
+                                cond=lambda tr: tr.feedbackType == -1,
+                                desc='Kernel conditioned on incorrect feedback')
+    design.add_covariate_raw('pLeft', stepfunc_prestim,
+                             desc='Step function on prior estimate')
+    design.add_covariate_raw('pLeft_tr', stepfunc_poststim,
+                             desc='Step function on post-stimulus prior')
+
+    design.add_covariate('wheel', trialsdf['wheel_velocity'], cosbases_short, -0.4)
+    design.compile_design_matrix()
+
+    _, s, v = np.linalg.svd(design[:, design.covar['wheel']['dmcol_idx']], full_matrices=False)
+    variances = s**2 / (s**2).sum()
+    n_keep = np.argwhere(np.cumsum(variances) >= 0.9999)[0, 0]
+    wheelcols = design[:, design.covar['wheel']['dmcol_idx']]
+    reduced = wheelcols @ v[:n_keep].T
+    bases_reduced = cosbases_short @ v[:n_keep].T
+    keepcols = ~np.isin(np.arange(design.dm.shape[1]), design.covar['wheel']['dmcol_idx'])
+    basedm = design[:, keepcols]
+    design.dm = np.hstack([basedm, reduced])
+    design.covar['wheel']['dmcol_idx'] = design.covar['wheel']['dmcol_idx'][:n_keep]
+    design.covar['wheel']['bases'] = bases_reduced
+
+    print(np.linalg.cond(design.dm))
+    trialinds = np.array([(tr, np.searchsorted(design.trlabels.flat, tr))
+                          for tr in design.trialsdf.index])
+    tmparr = np.roll(trialinds[:, 1], -1)
+    tmparr[-1] = design.dm.shape[0]
+    trialinds = np.hstack((trialinds, tmparr.reshape(-1, 1)))
+
+    nglm = lm.LinearGLM(design, spk_times, spk_clu, estimator=RidgeCV(cv=3))
+    nglm.clu_regions = clu_regions
+    nglm.clu_qc = clu_qc
+    nglm.clu_ids = nglm.clu_ids.flatten()
+    sfs = mut.SequentialSelector(nglm)
+    sfs.fit(progress=True)
+    return nglm, sfs.sequences_, sfs.scores_
 
 
 if __name__ == "__main__":
