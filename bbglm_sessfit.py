@@ -12,7 +12,7 @@ import brainbox.modeling.design_matrix as dm
 import brainbox.modeling.linear as lm
 import brainbox.modeling.utils as mut
 import brainbox.io.one as bbone
-import utils
+from models import utils
 from models.expSmoothing_prevAction import expSmoothing_prevAction as exp_prevAct
 
 
@@ -82,14 +82,12 @@ def fit_session(session_id, kernlen, nbases,
     spk_clu = spikes[probe].clusters
     clu_regions = clusters[probe].acronym
     fitinfo = fitinfo.iloc[1:-1]
-    fitinfo['trial_end'] = fitinfo['trial_start'] + 0.1
     fitinfo['adj_contrastLeft'] = np.tanh(contnorm * fitinfo['contrastLeft']) / np.tanh(contnorm)
     fitinfo['adj_contrastRight'] = np.tanh(contnorm * fitinfo['contrastRight']) / np.tanh(contnorm)
 
     vartypes = {'choice': 'value',
                 'response_times': 'timing',
                 'probabilityLeft': 'value',
-                'pLeft_last': 'value',
                 'feedbackType': 'value',
                 'feedback_times': 'timing',
                 'contrastLeft': 'value',
@@ -106,18 +104,18 @@ def fit_session(session_id, kernlen, nbases,
 
     def stepfunc_prestim(row):
         stepvec = np.zeros(design.binf(row.duration))
-        stepvec[stepbounds[0]:stepbounds[1]] = row.pLeft_last
+        stepvec[stepbounds[0]:stepbounds[1]] = row.prior_last
         return stepvec
 
     def stepfunc_poststim(row):
         zerovec = np.zeros(design.binf(row.duration))
         currtr_start = design.binf(row.stimOn_times + 0.1)
         currtr_end = design.binf(row.feedback_times)
-        zerovec[currtr_start:currtr_end] = row.pLeft_last
-        zerovec[currtr_end:] = row.probabilityLeft
+        zerovec[currtr_start:currtr_end] = row.prior_last
+        zerovec[currtr_end:] = row.prior
         return zerovec
 
-    design = dm.DesignMatrix(trialsdf, vartypes, binwidth=binwidth)
+    design = dm.DesignMatrix(fitinfo, vartypes, binwidth=binwidth)
     stepbounds = [design.binf(t_before - 0.6), design.binf(t_before - 0.1)]
 
     cosbases_long = mut.full_rcos(kernlen, nbases, design.binf)
@@ -141,7 +139,7 @@ def fit_session(session_id, kernlen, nbases,
     design.add_covariate_raw('pLeft_tr', stepfunc_poststim,
                              desc='Step function on post-stimulus prior')
 
-    design.add_covariate('wheel', trialsdf['wheel_velocity'], cosbases_short, -0.4)
+    design.add_covariate('wheel', fitinfo['wheel_velocity'], cosbases_short, -0.4)
     design.compile_design_matrix()
 
     _, s, v = np.linalg.svd(design[:, design.covar['wheel']['dmcol_idx']], full_matrices=False)
