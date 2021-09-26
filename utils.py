@@ -7,6 +7,9 @@ import matplotlib.pyplot as plt
 import brainbox.io.one as bbone
 from brainbox.singlecell import calculate_peths
 from brainbox.plot import peri_event_time_histogram
+import models.utils as mut
+from models.expSmoothing_prevAction import expSmoothing_prevAction as exp_prevAct
+
 from one.api import ONE
 
 
@@ -85,6 +88,43 @@ def get_impostor_df(subject, one, ephys_only=False, tdf_kwargs={}):
     return pd.concat(dfs).reset_index()
 
 
+def fit_exp_prev_act(session_id, one=None):
+    if not one:
+        one = ONE()
+
+    subjects, _, _, sess_ids, _ = mut.get_bwm_ins_alyx(one)
+
+    mouse_name = one.get_details(session_id)['subject']
+    stimuli_arr, actions_arr, stim_sides_arr, session_uuids = [], [], [], []
+    mcounter = 0
+    for i in range(len(sess_ids)):
+        if subjects[i] == mouse_name:
+            data = mut.load_session(sess_ids[i])
+            if data['choice'] is not None and data['probabilityLeft'][0] == 0.5:
+                stim_side, stimuli, actions, pLeft_oracle = mut.format_data(data)
+                stimuli_arr.append(stimuli)
+                actions_arr.append(actions)
+                stim_sides_arr.append(stim_side)
+                session_uuids.append(sess_ids[i])
+            if sess_ids[i] == session_id:
+                j = mcounter
+            mcounter += 1
+    # format data
+    stimuli, actions, stim_side = mut.format_input(
+        stimuli_arr, actions_arr, stim_sides_arr)
+    session_uuids = np.array(session_uuids)
+    model = exp_prevAct('./results/inference/', session_uuids,
+                        mouse_name, actions, stimuli, stim_side)
+    model.load_or_train(remove_old=False)
+    # compute signals of interest
+    signals = model.compute_signal(signal=['prior', 'prediction_error', 'score'],
+                                    verbose=False)
+    if len(signals['prior'].shape) == 1:
+        return signals['prior']
+    else:
+        return signals['prior'][j, :]
+
+
 def peth_from_eid_blocks(eid, probe_idx, unit, one=None):
     if not one:
         one = bbone.ONE()
@@ -129,6 +169,23 @@ def peth_from_eid_blocks(eid, probe_idx, unit, one=None):
     ax[1].set_xticklabels([-0.6, 0, 0.6])
     ax[1].set_xlim([0, 60])
     return fig, ax
+
+
+def plot_rate_prior(eid, probe, clu_id, one=None, t_before=0., t_after=0.1, binwidth=0.1, ax=None):
+    if not one:
+        one = ONE()
+    trialsdf = bbone.load_trials_df(eid, one=one, t_before=t_before, t_after=t_after)
+    prior = fit_exp_prev_act(eid, one=one)
+    spikes, clusters, _ = bbone.load_spike_sorting_with_channel(eid, one=one, probe=probe)
+    _, binned = calculate_peths(spikes[probe].times, spikes[probe].clusters, [clu_id],
+                                trialsdf.stimOn_times, pre_time=t_before, post_time=t_after,
+                                bin_size=binwidth, smoothing=0.)
+    if not ax:
+        fig, ax = plt.subplots(1, 1)
+    ax.plot(binned.flat / binned.max(), label='Unit firing rate')
+    ax.plot(prior[trialsdf.index], color='orange', label='Prev act prior est')
+    ax.legend()
+    return ax
 
 
 def sessions_with_region(acronym, one=None):
