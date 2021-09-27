@@ -4,6 +4,7 @@ Utility functions for the prior-localization repository
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.stats import norm
 import brainbox.io.one as bbone
 from brainbox.singlecell import calculate_peths
 from brainbox.plot import peri_event_time_histogram
@@ -171,7 +172,9 @@ def peth_from_eid_blocks(eid, probe_idx, unit, one=None):
     return fig, ax
 
 
-def plot_rate_prior(eid, probe, clu_id, one=None, t_before=0., t_after=0.1, binwidth=0.1, ax=None):
+def plot_rate_prior(eid, probe, clu_id,
+                    one=None, t_before=0., t_after=0.1, binwidth=0.1, smoothing=0, 
+                    ax=None):
     if not one:
         one = ONE()
     trialsdf = bbone.load_trials_df(eid, one=one, t_before=t_before, t_after=t_after)
@@ -182,7 +185,13 @@ def plot_rate_prior(eid, probe, clu_id, one=None, t_before=0., t_after=0.1, binw
                                 bin_size=binwidth, smoothing=0.)
     if not ax:
         fig, ax = plt.subplots(1, 1)
-    ax.plot(binned.flat / binned.max(), label='Unit firing rate')
+    if smoothing > 0:
+        filt = norm().pdf(np.linspace(0, 5, smoothing))
+        smoothed = np.convolve(binned.flat, filt)
+        smoothed /= smoothed.max()
+    else:
+        smoothed = binned.flat / binned.max()
+    ax.plot(smoothed, label='Unit firing rate')
     ax.plot(prior[trialsdf.index], color='orange', label='Prev act prior est')
     ax.legend()
     return ax
