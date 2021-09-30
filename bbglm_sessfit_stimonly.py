@@ -7,7 +7,7 @@ Berk, May 2020
 from one.api import ONE
 import numpy as np
 import pandas as pd
-from sklearn.linear_model import RidgeCV
+from sklearn.linear_model import LinearRegression
 import brainbox.modeling.design_matrix as dm
 import brainbox.modeling.linear as lm
 import brainbox.modeling.utils as mut
@@ -151,7 +151,7 @@ def fit_session(session_id, kernlen, nbases,
     tmparr[-1] = design.dm.shape[0]
     trialinds = np.hstack((trialinds, tmparr.reshape(-1, 1)))
 
-    nglm = lm.LinearGLM(design, spk_times, spk_clu, estimator=RidgeCV(cv=3))
+    nglm = lm.LinearGLM(design, spk_times, spk_clu, estimator=LinearRegression())
     glm_template = deepcopy(nglm)
     nglm.fit(printcond=False)
     realscores = nglm.score()
