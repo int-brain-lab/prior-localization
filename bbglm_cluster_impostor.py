@@ -64,8 +64,8 @@ if __name__ == "__main__":
         elif sessdict[sess[0]]['probe'] != sess[1]['probe']:
             sessdict[sess[0]]['probe'].extend(sess[1]['probe'])
 
-    currdate = str(date.today())
-    # currdate = '2021-05-04'
+    # currdate = str(date.today())
+    currdate = '2021-09-31'
 
     savepath = '/home/gercek/scratch/fits/'
 
