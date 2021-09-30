@@ -142,7 +142,7 @@ def fit_session(session_id, kernlen, nbases,
     tmparr[-1] = design.dm.shape[0]
     trialinds = np.hstack((trialinds, tmparr.reshape(-1, 1)))
 
-    nglm = lm.LinearGLM(design, spk_times, spk_clu, estimator=LinearRegression(cv=3))
+    nglm = lm.LinearGLM(design, spk_times, spk_clu, estimator=LinearRegression())
     nglm.clu_regions = clu_regions
 
     glm_template = deepcopy(nglm)
