@@ -13,7 +13,6 @@ import brainbox.modeling.linear as lm
 import brainbox.modeling.utils as mut
 import brainbox.io.one as bbone
 from tqdm import tqdm
-from copy import deepcopy
 from models.expSmoothing_prevAction import expSmoothing_prevAction as exp_prevAct
 from models import utils
 from brainbox.task.closed_loop import generate_pseudo_session
@@ -145,7 +144,6 @@ def fit_session(session_id, kernlen, nbases,
     nglm = lm.LinearGLM(design, spk_times, spk_clu, estimator=LinearRegression())
     nglm.clu_regions = clu_regions
 
-    glm_template = deepcopy(nglm)
     nglm.fit(printcond=False)
     realscores = nglm.score()
 
@@ -159,11 +157,10 @@ def fit_session(session_id, kernlen, nbases,
                                        act=actions.values, stim=stimuli,
                                        side=stim_side.values)
 
-
         tmpdf = design.trialsdf.copy()
         tmpdf['prior'] = signals['prior']
         tmpdf['prior_last'] = pd.Series(np.roll(tmpdf['prior'], 1),
-                                         index=tmpdf.index)
+                                        index=tmpdf.index)
 
         tmpdm = dm.DesignMatrix(tmpdf, vartypes, binwidth=binwidth)
         tmpdm.add_covariate_timing('stimonL', 'stimOn_times', cosbases,
@@ -175,11 +172,11 @@ def fit_session(session_id, kernlen, nbases,
                                    deltaval='adj_contrastRight',
                                    desc='Kernel conditioned on R stimulus onset')
         tmpdm.add_covariate_raw('prior_tr',
-                                 lambda row: np.ones(design.binf(row.duration)) * row.prior_last,
-                                 desc='Step function on post-stimulus prior')
+                                lambda row: np.ones(design.binf(row.duration)) * row.prior_last,
+                                desc='Step function on post-stimulus prior')
         tmpdm.compile_design_matrix()
 
-        tmpglm = lm.LinearGLM(design, spk_times, spk_clu, estimator=LinearRegression(cv=3))
+        tmpglm = lm.LinearGLM(design, spk_times, spk_clu, estimator=LinearRegression())
         tmpglm.clu_regions = clu_regions
 
         tmpglm.fit(printcond=False)
@@ -187,4 +184,3 @@ def fit_session(session_id, kernlen, nbases,
         with np.errstate(all='ignore'):
             scoreslist.append(tmpglm.score())
     return nglm, realscores, scoreslist, weightslist
-
