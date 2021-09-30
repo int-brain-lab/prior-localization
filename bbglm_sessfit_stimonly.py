@@ -179,15 +179,15 @@ def fit_session(session_id, kernlen, nbases,
                                    cond=lambda tr: np.isfinite(tr.contrastRight),
                                    deltaval='adj_contrastRight',
                                    desc='Kernel conditioned on R stimulus onset')
-        tmpdm.add_covariate_timing('correct', 'feedback_times', cosbases,
-                                   cond=lambda tr: tr.feedbackType == 1,
-                                   desc='Kernel conditioned on correct feedback')
-        tmpdm.add_covariate_timing('incorrect', 'feedback_times', cosbases,
-                                   cond=lambda tr: tr.feedbackType == -1,
-                                   desc='Kernel conditioned on incorrect feedback')
-        tmpdm.add_covariate_raw('prior_tr', stepfunc_poststim,
-                                desc='Step function on post-stimulus prior')
-        tmpdm.add_covariate('wheel', fitinfo['wheel_velocity'], cosbases_whl, -0.4)
+        # tmpdm.add_covariate_timing('correct', 'feedback_times', cosbases,
+        #                            cond=lambda tr: tr.feedbackType == 1,
+        #                            desc='Kernel conditioned on correct feedback')
+        # tmpdm.add_covariate_timing('incorrect', 'feedback_times', cosbases,
+        #                            cond=lambda tr: tr.feedbackType == -1,
+        #                            desc='Kernel conditioned on incorrect feedback')
+        # tmpdm.add_covariate_raw('prior_tr', stepfunc_poststim,
+        #                         desc='Step function on post-stimulus prior')
+        # tmpdm.add_covariate('wheel', fitinfo['wheel_velocity'], cosbases_whl, -0.4)
         tmpdm.compile_design_matrix()
 
         tmpglm = deepcopy(glm_template)
