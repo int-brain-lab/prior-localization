@@ -7,16 +7,13 @@ Berk, May 2020
 from one.api import ONE
 import numpy as np
 import pandas as pd
-from sklearn.linear_model import RidgeCV
+from sklearn.linear_model import LinearRegression
 import brainbox.modeling.design_matrix as dm
 import brainbox.modeling.linear as lm
 import brainbox.modeling.utils as mut
 import brainbox.io.one as bbone
-from tqdm import tqdm
-from copy import deepcopy
 from models.expSmoothing_prevAction import expSmoothing_prevAction as exp_prevAct
 from models import utils
-from brainbox.task.closed_loop import generate_pseudo_session
 
 one = ONE()
 subjects, ins, ins_id, sess_ids, _ = utils.get_bwm_ins_alyx(one)
@@ -141,51 +138,9 @@ def fit_session(session_id, kernlen, nbases,
     tmparr[-1] = design.dm.shape[0]
     trialinds = np.hstack((trialinds, tmparr.reshape(-1, 1)))
 
-    nglm = lm.LinearGLM(design, spk_times, spk_clu, estimator=RidgeCV(cv=3))
+    nglm = lm.LinearGLM(design, spk_times, spk_clu, estimator=LinearRegression())
     sfs = mut.SequentialSelector(nglm)
     sfs.fit()
     sequences, scores = sfs.sequences_, sfs.scores_
     nglm.clu_regions = clu_regions
     return nglm, sequences, scores
-    # glm_template = deepcopy(nglm)
-    # nglm.fit(printcond=False)
-    # realscores = nglm.score()
-    # nglm.clu_regions = clu_regions
-
-    # scoreslist = []
-    # weightslist = []
-    # for _ in tqdm(range(num_pseudosess), desc='Pseudo block iteration num', leave=False,
-    #               disable=not progress):
-    #     newsess = generate_pseudo_session(fitinfo)
-    #     stim_side, stimuli, actions, _ = utils.format_data(newsess)
-
-    #     tmpdf = design.trialsdf.copy()
-    #     tmpdf['contrastRight'] = newsess['contrastRight']
-    #     tmpdf['contrastLeft'] = newsess['contrastLeft']
-    #     tmpdf['adj_contrastLeft'] = np.tanh(contnorm * tmpdf['contrastLeft']) / np.tanh(contnorm)
-    #     tmpdf['adj_contrastRight'] = np.tanh(contnorm * tmpdf['contrastRight']) / np.tanh(contnorm)
-
-    #     tmpdm = dm.DesignMatrix(tmpdf, vartypes, binwidth=binwidth)
-    #     tmpdm.add_covariate_timing('stimonL', 'stimOn_times', cosbases,
-    #                                cond=lambda tr: np.isfinite(tr.contrastLeft),
-    #                                deltaval='adj_contrastLeft',
-    #                                desc='Kernel conditioned on L stimulus onset')
-    #     tmpdm.add_covariate_timing('stimonR', 'stimOn_times', cosbases,
-    #                                cond=lambda tr: np.isfinite(tr.contrastRight),
-    #                                deltaval='adj_contrastRight',
-    #                                desc='Kernel conditioned on R stimulus onset')
-    #     tmpdm.compile_design_matrix()
-
-    #     tmpglm = deepcopy(glm_template)
-    #     stimlind = tmpglm.design.covar['stimonL']['dmcol_idx']
-    #     stimrind = tmpglm.design.covar['stimonR']['dmcol_idx']
-
-    #     tmpglm.design.dm[:, stimlind] = tmpdm.dm[:, :nbases]
-    #     tmpglm.design.dm[:, stimrind] = tmpdm.dm[:, nbases:]
-
-    #     tmpglm.fit(printcond=False)
-    #     weightslist.append((tmpglm.coefs, tmpglm.intercepts))
-    #     with np.errstate(all='ignore'):
-    #         scoreslist.append(tmpglm.score())
-    # return nglm, realscores, scoreslist, weightslist
-
