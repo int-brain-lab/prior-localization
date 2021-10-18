@@ -9,9 +9,14 @@ import brainbox.io.one as bbone
 from brainbox.singlecell import calculate_peths
 from brainbox.plot import peri_event_time_histogram
 import models.utils as mut
+from iblutil.numerical import ismember
+from ibllib.atlas import BrainRegions
 from models.expSmoothing_prevAction import expSmoothing_prevAction as exp_prevAct
+from sklearn.decomposition import PCA
 
 from one.api import ONE
+
+brainregions = BrainRegions()
 
 
 def get_bwm_ins_alyx(one):
@@ -172,6 +177,20 @@ def peth_from_eid_blocks(eid, probe_idx, unit, one=None):
     return fig, ax
 
 
+def remap(ids, source='Allen', dest='Beryl', output='acronym'):
+    br = brainregions
+    _, inds = ismember(ids, br.id[br.mappings[source]])
+    ids = br.id[br.mappings[dest][inds]]
+    if output == 'id':
+        return br.id[br.mappings[dest][inds]]
+    elif output == 'acronym':
+        return br.get(br.id[br.mappings[dest][inds]])['acronym']
+
+
+def get_id(acronym):
+    return brainregions.id[np.argwhere(brainregions.acronym == acronym)[0, 0]]
+
+
 def plot_rate_prior(eid, probe, clu_id,
                     one=None, t_before=0., t_after=0.1, binwidth=0.1, smoothing=0, 
                     ax=None):
@@ -195,6 +214,23 @@ def plot_rate_prior(eid, probe, clu_id,
     ax.plot(prior[trialsdf.index], color='orange', label='Prev act prior est')
     ax.legend()
     return ax
+
+
+def get_pca_prior(eid, probe, units, one=None, t_start=0., t_end=0.1):
+    if not one:
+        one = ONE()
+    trialsdf = bbone.load_trials_df(eid, one=one, t_before=-t_start, t_after=0.)
+    prior = fit_exp_prev_act(eid, one=one)
+    spikes, clusters, _ = bbone.load_spike_sorting_with_channel(eid, one=one, probe=probe)
+    targmask = np.isin(spikes[probe].clusters, units)
+    subset_spikes = spikes[probe].times[targmask]
+    subset_clu = spikes[probe].clusters[targmask]
+    _, binned = calculate_peths(subset_spikes, subset_clu, units,
+                                trialsdf.stimOn_times + t_start if t_start > 0 else trialsdf.stimOn_times,
+                                pre_time=-t_start if t_start <0 else 0, post_time=t_end,
+                                bin_size=t_end-t_start, smoothing=0., return_fr=False)
+    embeddings = PCA().fit_transform(np.squeeze(binned))
+    return binned, embeddings, prior
 
 
 def sessions_with_region(acronym, one=None):
