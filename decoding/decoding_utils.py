@@ -106,7 +106,7 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
     one = one or ONE()
 
     # check if is trained
-    istrained, fullpath = check_bhv_fit_exists(subject, modeldispatcher[modeltype], eids_train, savepath)
+    istrained, fullpath = check_bhv_fit_exists(subject, modeltype, eids_train, savepath)
 
     if not istrained:
         datadict = {'stim_side': [], 'actions': [], 'stimuli': []}
@@ -129,12 +129,10 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
     else:
         model = modeltype(savepath, eids_train, subject, actions=None, stimuli=None,
                           stim_side=None)
-        model.load_or_train()
+        model.load_or_train(sessions_id=np.arange(len(eids_train)))
 
     # load test session
     data = mut.load_session(eid_test, one=one)
-    if not data['choice']:
-        raise ValueError('Session choices produced are None. Debug models.utils.load_session.')
     stim_side, stimuli, actions, _ = mut.format_data(data)
     stimuli, actions, stim_side = mut.format_input([stimuli], [actions], [stim_side])
 
@@ -284,5 +282,5 @@ if __name__ == '__main__':
     # debug
     subject = mouse_name
 
-    compute_target('prior', subject, session_uuids, session_uuids[0], 'results/inference/',
+    target = compute_target('prior', subject, session_uuids, session_uuids[0], 'results/inference/',
                    modeltype=expSmoothing_prevAction)
