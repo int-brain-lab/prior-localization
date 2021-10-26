@@ -150,3 +150,69 @@ def remap_beryl_acr(allen_ids):
   
 def remap_beryl_id(allen_ids):
     return br.get(ids=allen_ids)['id']
+
+
+def compute_target(target, subject, eid):
+    """
+    Computes regression target for use with regress_target, using subject, eid, and a string
+    identifying the target parameter to output a vector of N_trials length containing the target
+
+    Parameters
+    ----------
+    target : str
+        String in ['prior', 'prederr', 'signcont'], indication model-based prior, prediction error,
+        or simple signed contrast per trial
+    subject : str
+        Subject identity in the IBL database, e.g. KS022
+    eid : str
+        UUID identifying session for which the target will be produced.
+
+    Returns
+    -------
+    pandas.Series
+        Pandas series in which index is trial number, and value is the target
+    """
+    ## Do some stuff
+    return tvec
+
+
+def regress_target(tvec, binned, estimator,
+                   hyperparam_grid=None, test_prop=0.2, interleave_test=True, grid_cv=None):
+    """
+    Regresses binned neural activity against a target, using a provided sklearn estimator
+
+    Parameters
+    ----------
+    tvec : pandas.Series
+        Series in which trial number is the index and the value is the regression target
+    binned : numpy.ndarray
+        N_trials X N_neurons array, in which a single element is a spike count on a trial for a
+        given neuron
+    estimator : sklearn.linear_model estimator
+        Estimator from sklearn which provides .fit, .score, and .predict methods. CV estimators
+        are NOT SUPPORTED. Must be a normal estimator, which is internally wrapped with
+        GridSearchCV
+    hyperparam_grid : dict
+        Dictionary with key indicating hyperparameter to grid search over, and value being a the
+        nodes on the grid. See sklearn.model_selection.GridSearchCV : param_grid for more specs.
+        Defaults to None, which means no hyperparameter estimation or GridSearchCV use.
+    test_prop : float in (0, 1)
+        Proportion of data to hold out for testing after fitting (with or without grid search)
+    interleave_test : bool
+        Whether or not test trials should be randomly selected from among the experiment. False
+        means last 20% of the experiment will be used.
+    grid_cv : See sklearn.model_selection.GridSearchCV, cv argument
+        passed through to determine how hyperparameter estimation is done.
+
+    Returns
+    -------
+    dict
+        Dictionary of fitting outputs including:
+            - Regression score (from estimator)
+            - Decoding coefficients
+            - Per-trial target values (copy of tvec)
+            - Per-trial predictions from model
+    """
+    ## Do some stuff
+    outdict = dict()
+    return outdict
