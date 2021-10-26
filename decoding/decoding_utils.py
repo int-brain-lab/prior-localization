@@ -95,8 +95,8 @@ def check_bhv_fit_exists(subject, model, eids, resultpath):
     return os.path.exists(fullpath), fullpath
 
 
-def singlesess_fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=False,
-                              modeltype=expSmoothing_prevAction, one=None):
+def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=False,
+                    modeltype=expSmoothing_prevAction, one=None):
     '''
     load/fit a behavioral model to compute target on a single session
     Params:
@@ -113,7 +113,8 @@ def singlesess_fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, 
         for eid in eids_train:
             data = mut.load_session(eid, one=one)
             if not data['choice']:
-                raise ValueError('Session choices produced are None. Debug models.utils.load_session,'
+                raise ValueError('Session choices produced are None.'
+                                 'Debug models.utils.load_session,'
                                  f' or remove the eid {eid} from your input list.')
             stim_side, stimuli, actions, _ = mut.format_data(data)
             datadict['stim_side'].append(stim_side)
@@ -126,7 +127,8 @@ def singlesess_fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, 
                           actions, stimuli, stim_side)
         model.load_or_train(remove_old=remove_old)
     else:
-        model = modeltype(savepath, eids_train, subject, actions=None, stimuli=None, stim_side=None)
+        model = modeltype(savepath, eids_train, subject, actions=None, stimuli=None,
+                          stim_side=None)
         model.load_or_train()
 
     # load test session
@@ -137,7 +139,7 @@ def singlesess_fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, 
     stimuli, actions, stim_side = mut.format_input([stimuli], [actions], [stim_side])
 
     # compute signal
-    signal = model.compute_signal(signal=target, act=actions, stim=stimuli,side=stim_side)[target]
+    signal = model.compute_signal(signal=target, act=actions, stim=stimuli, side=stim_side)[target]
 
     return signal.squeeze()
 
@@ -155,8 +157,8 @@ def remap_region(ids, source='Allen-lr', dest='Beryl-lr', output='acronym'):
         return br.get(br.id[br.mappings[dest][inds]])
 
 
-def compute_target(target, subject, eids_train, eid_test, savepath, modeltype=expSmoothing_prevAction,
-                   pseudo=False, one=None):
+def compute_target(target, subject, eids_train, eid_test, savepath,
+                   modeltype=expSmoothing_prevAction, pseudo=False, one=None):
     """
     Computes regression target for use with regress_target, using subject, eid, and a string
     identifying the target parameter to output a vector of N_trials length containing the target
@@ -168,7 +170,7 @@ def compute_target(target, subject, eids_train, eid_test, savepath, modeltype=ex
         or simple signed contrast per trial
     subject : str
         Subject identity in the IBL database, e.g. KS022
-    eids_train : str
+    eids_train : list of str
         list of UUID identifying sessions on which the model is trained.
     eids_test : str
         UUID identifying sessions on which the target signal is computed
@@ -191,8 +193,8 @@ def compute_target(target, subject, eids_train, eid_test, savepath, modeltype=ex
     if target not in possible_targets:
         raise ValueError('target should be in {}'.format(possible_targets))
 
-    target = singlesess_fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=False,
-                               modeltype=modeltype, one=one)
+    target = fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=False,
+                             modeltype=modeltype, one=one)
     return target
 
 
@@ -249,7 +251,7 @@ def regress_target(tvec, binned, estimator,
     return outdict
 
 
-if __name__=='__main__':
+if __name__ == '__main__':
 
     one = ONE()
     mice_names, ins, ins_id, sess_id, _ = mut.get_bwm_ins_alyx(one)
@@ -272,7 +274,8 @@ if __name__=='__main__':
     session_uuids = np.array(session_uuids)
 
     # launch inference
-    # model = exp_prevAction('./results/inference/', session_uuids, mouse_name, actions, stimuli, stim_side)
+    # model = exp_prevAction('./results/inference/', session_uuids, mouse_name, actions, stimuli,
+    #                        stim_side)
     # model.load_or_train(remove_old=False)
     # param = model.get_parameters()  # if you want the parameters
     # signals = model.compute_signal(signal=['prior', 'prediction_error', 'score'],
@@ -281,4 +284,5 @@ if __name__=='__main__':
     # debug
     subject = mouse_name
 
-    compute_target('prior', subject, session_uuids, session_uuids[0], 'results/inference/', modeltype=expSmoothing_prevAction)
+    compute_target('prior', subject, session_uuids, session_uuids[0], 'results/inference/',
+                   modeltype=expSmoothing_prevAction)
