@@ -96,17 +96,24 @@ def check_bhv_fit_exists(subject, model, eids, resultpath):
 
 
 def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=False,
-                    modeltype=expSmoothing_prevAction, one=None):
+                    modeltype=expSmoothing_prevAction, one=None, actions=None, stimuli=None, stim_side=None):
     '''
     load/fit a behavioral model to compute target on a single session
     Params:
         eids_train: list of eids on which we train the network
         eid_test: eid on which we want to compute the target signals, only one string
     '''
+
     one = one or ONE()
 
     # check if is trained
     istrained, fullpath = check_bhv_fit_exists(subject, modeltype, eids_train, savepath)
+
+    if (actions is not None) or (stimuli is not None) or (stim_side is not None):
+        if (actions is None) or (stimuli is None) or (stim_side is None):
+            raise ValueError('actions, stimuli and stim_side must all be defined or all be None')
+        if not istrained:
+            raise ValueError('when actions, stimuli and stim_side are all defined, the model must have been trained')
 
     if (not istrained) and target != 'signcont':
         datadict = {'stim_side': [], 'actions': [], 'stimuli': []}
@@ -159,7 +166,8 @@ def remap_region(ids, source='Allen-lr', dest='Beryl-lr', output='acronym'):
 
 
 def compute_target(target, subject, eids_train, eid_test, savepath,
-                   modeltype=expSmoothing_prevAction, pseudo=False, one=None):
+                   modeltype=expSmoothing_prevAction, pseudo=False, one=None,
+                   actions=None, stimuli=None, stim_side=None):
     """
     Computes regression target for use with regress_target, using subject, eid, and a string
     identifying the target parameter to output a vector of N_trials length containing the target
@@ -195,11 +203,13 @@ def compute_target(target, subject, eids_train, eid_test, savepath,
         raise ValueError('target should be in {}'.format(possible_targets))
 
     target = fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=False,
-                             modeltype=modeltype, one=one)
+                             modeltype=modeltype, one=one, actions=actions, stimuli=stimuli, stim_side=stim_side)
 
     # todo make pd.Series
     return target
 
+from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GridSearchCV
 
 def regress_target(tvec, binned, estimator,
                    hyperparam_grid=None, test_prop=0.2, interleave_test=True, grid_cv=None):
@@ -239,6 +249,10 @@ def regress_target(tvec, binned, estimator,
             - Per-trial target values (copy of tvec)
             - Per-trial predictions from model
     """
+    ## train / test split
+    # Split the dataset in two equal parts
+    X_train, X_test, y_train, y_test = train_test_split(binned, tvec, test_prop=0.5, random_state=0)
+
     ## Do some stuff
     outdict = dict()
 
@@ -290,7 +304,8 @@ if __name__ == '__main__':
     tvec = compute_target('signcont', subject, session_uuids[:2], session_uuids[0], 'results/inference/',
                    modeltype=expSmoothing_prevAction)
 
-    binned = np.random.rand(len(target), 10)
+    binned = np.random.rand(len(tvec), 10)
 
-    from sklearn.linear_model import LinearRegression
-    estimator = LinearRegression()
+    from sklearn.linear_model import LinearRegression, Ridge
+    estimator = Ridge()
+    test_prop = 0.2
