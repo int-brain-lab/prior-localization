@@ -1,8 +1,10 @@
 import os
 import numpy as np
+import pandas as pd
 import models.utils as mut
 from pathlib import Path
 from ibllib.atlas import BrainRegions
+from iblutil.numerical import ismember
 from one.api import ONE
 from models.expSmoothing_prevAction import expSmoothing_prevAction
 from models.expSmoothing_stimside import expSmoothing_stimside
@@ -10,7 +12,7 @@ from models.biasedApproxBayesian import biased_ApproxBayesian
 from models.biasedBayesian import biased_Bayesian
 from models.optimalBayesian import optimal_Bayesian
 
-br = BrainRegions
+br = BrainRegions()
 
 modeldispatcher = {expSmoothing_prevAction: 'expSmoothingPrevActions',
                    expSmoothing_stimside: 'expSmoothingStimSides',
@@ -22,7 +24,7 @@ modeldispatcher = {expSmoothing_prevAction: 'expSmoothingPrevActions',
 # Loading data and input utilities
 
 
-def query_sessions(selection='all', return_subjects=False):
+def query_sessions(selection='all'):
     '''
     Filters sessions on some canonical filters
     returns subjects: nicknames <- array of size nbSubjects x nbSessions
@@ -70,15 +72,9 @@ def query_sessions(selection='all', return_subjects=False):
     all_eids = np.array([i['session'] for i in ins])
     all_probes = np.array([i['name'] for i in ins])
     all_subjects = np.array([i['session_info']['subject'] for i in ins])
-    eids, ind_unique = np.unique(all_eids, return_index=True)
-    subjects = all_subjects[ind_unique]
-    probes = []
-    for i, eid in enumerate(eids):
-        probes.append(all_probes[[s == eid for s in all_eids]])
-    if return_subjects:
-        return eids, probes, subjects
-    else:
-        return eids, probes
+    retdf = pd.DataFrame({'subject': all_subjects, 'eid': all_eids, 'probe': all_probes})
+    retdf.sort_values('subject', inplace=True)
+    return retdf
 
 
 def check_bhv_fit_exists(subject, model, eids, resultpath):
@@ -144,12 +140,17 @@ def multisess_fit_load_bhvmod(target, subject, savepath, eids, remove_old=False,
     return model.compute_signal(signal=target)[target].squeeze()
 
 
-def remap_beryl_acr(allen_ids):
-    return br.get(ids=allen_ids)['acronym']
-
-  
-def remap_beryl_id(allen_ids):
-    return br.get(ids=allen_ids)['id']
+def remap_region(ids, source='Allen-lr', dest='Beryl-lr', output='acronym'):
+    _, inds = ismember(ids, br.id[br.mappings[source]])
+    ids = br.id[br.mappings[dest][inds]]
+    if output == 'id':
+        return br.id[br.mappings[dest][inds]]
+    elif output == 'acronym':
+        return br.get(br.id[br.mappings[dest][inds]])['acronym']
+    elif output == 'name':
+        return br.get(br.id[br.mappings[dest][inds]])['name']
+    else:
+        return br.get(br.id[br.mappings[dest][inds]])
 
 
 def compute_target(target, subject, eid):
