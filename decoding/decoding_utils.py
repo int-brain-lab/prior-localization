@@ -156,7 +156,8 @@ def remap_region(ids, source='Allen-lr', dest='Beryl-lr', output='acronym'):
         return br.get(br.id[br.mappings[dest][inds]])
 
 
-def compute_target(target, subject, eid, pseudo=False, fitmodel=None):
+def compute_target(target, subject, eids_train, eid_test, savepath, behmodel='expSmoothingPrevActions',
+                   pseudo=False, fitmodel=None, one=None):
     """
     Computes regression target for use with regress_target, using subject, eid, and a string
     identifying the target parameter to output a vector of N_trials length containing the target
@@ -184,8 +185,13 @@ def compute_target(target, subject, eid, pseudo=False, fitmodel=None):
     possible_targets = ['prior', 'prederr', 'signcont']
     if target not in possible_targets:
         raise ValueError('target should be in {}'.format(possible_targets))
+    possible_behmodels = ['expSmoothingPrevActions', 'expSmoothingStimSides', 'optimal_bayesian']
+    if behmodel not in possible_behmodels:
+        raise ValueError('behmodel should be in {}'.format(possible_behmodels))
 
-    return tvec
+    target = singlesess_fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=False,
+                               modeltype=expSmoothing_prevAction, one=one)
+    return target
 
 
 def regress_target(tvec, binned, estimator,
