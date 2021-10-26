@@ -196,6 +196,8 @@ def compute_target(target, subject, eids_train, eid_test, savepath,
 
     target = fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=False,
                              modeltype=modeltype, one=one)
+
+    # todo make pd.Series
     return target
 
 
@@ -285,5 +287,10 @@ if __name__ == '__main__':
     # debug
     subject = mouse_name
 
-    target = compute_target('prior', subject, session_uuids[:2], session_uuids[0], 'results/inference/',
+    tvec = compute_target('signcont', subject, session_uuids[:2], session_uuids[0], 'results/inference/',
                    modeltype=expSmoothing_prevAction)
+
+    binned = np.random.rand(len(target), 10)
+
+    from sklearn.linear_model import LinearRegression
+    estimator = LinearRegression()
