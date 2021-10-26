@@ -18,7 +18,7 @@ import alf
 from os.path import join
 from brainbox.numerical import ismember
 from ibllib.atlas import BrainRegions
-from oneibl.one import ONE
+from one.api import ONE
 
 
 def paths():

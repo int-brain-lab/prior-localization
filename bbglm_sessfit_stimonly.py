@@ -27,7 +27,7 @@ trials_cache = {}
 def fit_session(session_id, kernlen, nbases,
                 t_before=0., t_after=0.1, prior_estimate='charles', max_len=2., probe='probe00',
                 contnorm=5., binwidth=0.02, abswheel=False, num_pseudosess=100, progress=True,
-                target_regressor='prior', one=one):
+                one=one):
     if not abswheel:
         signwheel = True
     else:

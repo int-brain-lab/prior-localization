@@ -151,7 +151,7 @@ def get_target_from_model(TARGET, SAVE_PATH, subject,
 
     # define function to retrieve targets and model parameters, params
 #     if 'stimside' in TARGET:
-    model = exp_stimside(join(SAVE_PATH, 'Behavior', 'exp_smoothing_model_fits/'),
+    model = exp_prev_action('/home/berk/Documents/Projects/prior-localization/results',
                              session_uuids, subject, actions, stimuli, stim_side)
 #     elif 'prevaction' in TARGET: 
 #         model = exp_prev_action(join(SAVE_PATH, 'Behavior', 'exp_smoothing_model_fits/'),
