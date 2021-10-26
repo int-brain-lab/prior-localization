@@ -190,6 +190,7 @@ def compute_target(target, subject, eids_train, eid_test, savepath,
     modeltype : behavior_models model object
         Instantiated object of behavior models. Needs to be instantiated for pseudosession target
         generation in the case of a 'prior' or 'prederr' target.
+    beh_data : behavioral data feed to the model when using pseudo-sessions
 
     Returns
     -------
@@ -208,6 +209,7 @@ def compute_target(target, subject, eids_train, eid_test, savepath,
 
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import GridSearchCV
+from sklearn.metrics import r2_score
 
 def regress_target(tvec, binned, estimator,
                    hyperparam_grid=None, test_prop=0.2, interleave_test=True, nFolds=5, verbose=False):
@@ -257,6 +259,10 @@ def regress_target(tvec, binned, estimator,
     clf = GridSearchCV(estimator, tuned_parameters, cv=nFolds)
     clf.fit(X_train, y_train)
 
+    # compute R2 on held-out data
+    y_true, y_pred = y_test, clf.predict(X_test)
+    Rsquared = r2_score(y_true, y_pred)
+
     # logging
     if verbose:
         print("Tested parameters set found on development set:")
@@ -279,17 +285,21 @@ def regress_target(tvec, binned, estimator,
             tscore_fold = list(np.round(clf.cv_results_['split{}_test_score'.format(int(i_fold))], 3))
             print("perf on fold {}: {}".format(int(i_fold), tscore_fold))
 
-    ## Do some stuff
+        print("Detailed classification report:")
+        print()
+        print("The model is trained on the full development set.")
+        print("The scores are computed on the full evaluation set.")
+        print()
+        print('Rsquare on held-out test data: {}'.format(np.round(Rsquared, 3)))
+        print()
+
+    ## generate output
     outdict = dict()
-
-    # fit estimator to output
-    estimator.fit(binned, tvec)
-
-    outdict['score'] = estimator.score(binned, tvec)
-    outdict['weights'] = estimator.coef_
-    outdict['intercept'] = estimator.intercept_
+    outdict['score'] = Rsquared
+    outdict['weights'] = clf.best_estimator_.coef_
+    outdict['intercept'] = clf.best_estimator_.intercept_
     outdict['target'] = tvec
-    outdict['prediction'] = estimator.predict(binned)
+    outdict['prediction'] = clf.best_estimator_(binned)
 
     return outdict
 
@@ -333,6 +343,6 @@ if __name__ == '__main__':
     binned = np.random.rand(len(tvec), 10)
 
     from sklearn.linear_model import LinearRegression, Ridge
-    estimator = Ridge()
+    estimator = Ridge(alpha=1000) from sklearn.linear_model import Ridge
     test_prop = 0.2
     hyperparam_grid = [1, 10, 100, 1000]
