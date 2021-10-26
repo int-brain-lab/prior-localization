@@ -210,7 +210,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.model_selection import GridSearchCV
 
 def regress_target(tvec, binned, estimator,
-                   hyperparam_grid=None, test_prop=0.2, interleave_test=True, grid_cv=None):
+                   hyperparam_grid=None, test_prop=0.2, interleave_test=True, nFolds=5, verbose=False):
     """
     Regresses binned neural activity against a target, using a provided sklearn estimator
 
@@ -249,7 +249,35 @@ def regress_target(tvec, binned, estimator,
     """
     ## train / test split
     # Split the dataset in two equal parts
-    X_train, X_test, y_train, y_test = train_test_split(binned, tvec, test_prop=0.5, random_state=0)
+    # when shuffle=False, the method will take the end of the dataset to create the test set
+    X_train, X_test, y_train, y_test = train_test_split(binned, tvec, test_size=test_prop, shuffle=True)
+
+    # performance cross validation on train
+    tuned_parameters = {list(estimator.get_params().keys())[0]: hyperparam_grid}
+    clf = GridSearchCV(estimator, tuned_parameters, cv=nFolds)
+    clf.fit(X_train, y_train)
+
+    # logging
+    if verbose:
+        print("Tested parameters set found on development set:")
+        print()
+        print('{}: {}'.format(list(tuned_parameters.keys())[0],hyperparam_grid))
+        print()
+        print("Best parameters set found on development set:")
+        print()
+        print(clf.best_params_)
+        print()
+        print("Grid scores on development set:")
+        print()
+        means = clf.cv_results_["mean_test_score"]
+        stds = clf.cv_results_["std_test_score"]
+        for mean, std, params in zip(means, stds, clf.cv_results_["params"]):
+            print("%0.3f (+/-%0.03f) for %r" % (mean, std * 2, params))
+        print()
+        print("Test scores on {} folds set:".format(nFolds))
+        for i_fold in range(nFolds):
+            tscore_fold = list(np.round(clf.cv_results_['split{}_test_score'.format(int(i_fold))], 3))
+            print("perf on fold {}: {}".format(int(i_fold), tscore_fold))
 
     ## Do some stuff
     outdict = dict()
@@ -300,10 +328,11 @@ if __name__ == '__main__':
     subject = mouse_name
 
     tvec = compute_target('prior', subject, session_uuids[:2], session_uuids[0], 'results/inference/',
-                   modeltype=expSmoothing_prevAction, beh_data=data)
+                   modeltype=expSmoothing_prevAction)
 
     binned = np.random.rand(len(tvec), 10)
 
     from sklearn.linear_model import LinearRegression, Ridge
     estimator = Ridge()
     test_prop = 0.2
+    hyperparam_grid = [1, 10, 100, 1000]
