@@ -108,7 +108,7 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
     # check if is trained
     istrained, fullpath = check_bhv_fit_exists(subject, modeltype, eids_train, savepath)
 
-    if not istrained:
+    if (not istrained) and target != 'signcont':
         datadict = {'stim_side': [], 'actions': [], 'stimuli': []}
         for eid in eids_train:
             data = mut.load_session(eid, one=one)
@@ -126,15 +126,18 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
         model = modeltype(savepath, eids, subject,
                           actions, stimuli, stim_side)
         model.load_or_train(remove_old=remove_old)
-    else:
+    elif target != 'signcont':
         model = modeltype(savepath, eids_train, subject, actions=None, stimuli=None,
                           stim_side=None)
-        model.load_or_train(loadpath=fullpath)
+        model.load_or_train(loadpath=str(fullpath))
 
     # load test session
     data = mut.load_session(eid_test, one=one)
     stim_side, stimuli, actions, _ = mut.format_data(data)
     stimuli, actions, stim_side = mut.format_input([stimuli], [actions], [stim_side])
+
+    if target == 'signcont':
+        return np.nan_to_num(data['contrastLeft']) - np.nan_to_num(data['contrastRight'])
 
     # compute signal
     signal = model.compute_signal(signal=target, act=actions, stim=stimuli, side=stim_side)[target]
@@ -282,5 +285,5 @@ if __name__ == '__main__':
     # debug
     subject = mouse_name
 
-    target = compute_target('prior', subject, session_uuids[:1], session_uuids[0], 'results/inference/',
+    target = compute_target('prior', subject, session_uuids[:2], session_uuids[0], 'results/inference/',
                    modeltype=expSmoothing_prevAction)
