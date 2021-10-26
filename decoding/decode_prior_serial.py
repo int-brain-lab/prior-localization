@@ -31,7 +31,7 @@ HPARAM_GRID = {'alpha': np.array([0.001, 0.01, 0.1])}
 
 # %% Define helper functions to make main loop readable
 def save_region_results(fit_result, pseudo_results, subject, eid, probe, region):
-    subjectfolder = OUTPUT_PATH.joinpath(subject)
+    subjectfolder = Path(OUTPUT_PATH).joinpath(subject)
     eidfolder = subjectfolder.joinpath(eid)
     probefolder = eidfolder.joinpath(probe)
     for folder in [subjectfolder, eidfolder, probefolder]:
