@@ -25,6 +25,12 @@ modeldispatcher = {expSmoothing_prevAction: 'expSmoothingPrevActions',
 
 
 def query_sessions(selection='all', return_subjects=False):
+  '''
+  Filters sessions on some canonical filters
+  returns subjects: nicknames <- array of size nbSubjects x nbSessions
+          eid: eid <- array of size nbSubjects x nbSessions
+          probes: indvividual prob identity per eid: probes00 or probes01 <- array of size nbSubjects x nbSessions
+  '''
     one = ONE()
     if selection == 'all':
         # Query all ephysChoiceWorld sessions
@@ -78,6 +84,12 @@ def query_sessions(selection='all', return_subjects=False):
 
 
 def check_bhv_fit_exists(subject, model, eids, resultpath):
+  '''
+  subject: subject_name
+  eids: sessions on which the model was fitted
+  check if the behavioral fits exists
+  return Bool and filename
+  '''
     trainmeth = 'MCMC'  # This needs to be un-hard-coded if charles changes to diff. methods
     trunc_eids = [eid.split('-')[0] for eid in eids]
     str_sessionuuids = '_'.join(f'sess{k+1}_{eid}' for k, eid in enumerate(trunc_eids))
@@ -87,11 +99,14 @@ def check_bhv_fit_exists(subject, model, eids, resultpath):
     modstr = modeldispatcher[model]
     filen = f'model_{modstr}_train_{trainmeth}_train_' + str_sessionuuids + '.pkl'
     fullpath = subjmodpath.joinpath(filen)
-    return os.path.exists(fullpath)
+    return os.path.exists(fullpath), fullpath
 
 
 def singlesess_fit_load_bhvmod(target, subject, savepath, eid, remove_old=False,
                                modeltype=expSmoothing_prevAction, one=None):
+    '''
+    load/fit a behavioral model on a single session
+    '''
     one = one or ONE()  # Instant. one if not passed
 
     data = mut.load_session(eid, one=one)
@@ -107,6 +122,9 @@ def singlesess_fit_load_bhvmod(target, subject, savepath, eid, remove_old=False,
 
 def multisess_fit_load_bhvmod(target, subject, savepath, eids, remove_old=False,
                               modeltype=expSmoothing_prevAction, one=None):
+    '''
+    load/fit a behavioral model on a multiple sessions
+    '''  
     one = one or ONE()
 
     datadict = {'stim_side': [], 'actions': [], 'stimuli': []}
