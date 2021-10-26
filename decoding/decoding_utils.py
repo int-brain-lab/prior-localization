@@ -145,46 +145,6 @@ def multisess_fit_load_bhvmod(target, subject, savepath, eids, remove_old=False,
     model.load_or_train(remove_old=remove_old)
     return model.compute_signal(signal=target)[target].squeeze()
 
-
-def get_target_from_model(target, savepath, subject,
-                          stimuli_arr, actions_arr, stim_sides_arr, session_uuids,
-                          REMOVE_OLD_FIT):
-    '''
-    For a given set of stimuli, actions, and stim sides (plus eids) fits an exp. smoothing of
-    actions model to the data and returns the target, which is either 'prior' or 'prederr', i.e.
-    the prior or prediction error.
-    '''
-    # Get maximum number of trials across sessions
-    max_len = np.array([len(stimuli_arr[k]) for k in range(len(stimuli_arr))]).max()
-
-    # Pad with 0 such that we obtain nd arrays of size nb_sessions x nb_trials
-    stimuli = np.array([np.concatenate((stimuli_arr[k], np.zeros(max_len-len(stimuli_arr[k]))))
-                        for k in range(len(stimuli_arr))])
-    actions = np.array([np.concatenate((actions_arr[k], np.zeros(max_len-len(actions_arr[k]))))
-                        for k in range(len(actions_arr))])
-    stim_side = np.array([np.concatenate((stim_sides_arr[k],
-                                          np.zeros(max_len-len(stim_sides_arr[k]))))
-                          for k in range(len(stim_sides_arr))])
-
-    # define function to retrieve targets and model parameters, params
-    model = expSmoothing_prevAction(savepath, session_uuids, subject, actions, stimuli, stim_side)
-    model.load_or_train(nb_steps=2000, remove_old=REMOVE_OLD_FIT)
-    params = model.get_parameters(parameter_type='posterior_mean')
-
-    if 'prior' in target:
-        target = model.compute_signal(signal='prior', act=actions, stim=stimuli, side=stim_side,
-                                      parameter_type='posterior_mean', verbose=False)['prior']
-
-    elif 'prederr' in target:
-        target = model.compute_signal(signal='prediction_error', act=actions, stim=stimuli,
-                                      side=stim_side, verbose=False,
-                                      parameter_type='posterior_mean')['prediction_error']
-
-    target = np.squeeze(np.array(target))
-
-    return target, params
-
-
 def remap_beryl_acr(allen_ids):
     return br.get(ids=allen_ids)['acronym']
 
