@@ -96,10 +96,13 @@ def check_bhv_fit_exists(subject, model, eids, resultpath):
     return os.path.exists(fullpath), fullpath
 
 
-def singlesess_fit_load_bhvmod(target, subject, savepath, eid, remove_old=False,
+def sess_fit_load_bhvmod(target, subject, savepath, eid_test, eids_train, remove_old=False,
                                modeltype=expSmoothing_prevAction, one=None):
     '''
     load/fit a behavioral model on a single session
+    Params:
+        eid_test: eid on which we want to compute the target signals
+        eids_train: eids on which we
     '''
     one = one or ONE()  # Instant. one if not passed
 
@@ -222,3 +225,29 @@ def regress_target(tvec, binned, estimator,
     ## Do some stuff
     outdict = dict()
     return outdict
+
+
+if __name__=='__main__':
+
+    one = ONE()
+    mice_names, ins, ins_id, sess_id, _ = mut.get_bwm_ins_alyx(one)
+    stimuli_arr, actions_arr, stim_sides_arr, session_uuids = [], [], [], []
+
+    # select particular mice
+    mouse_name = 'KS016'
+    for i in range(len(sess_id)):
+        if mice_names[i] == mouse_name:  # take only sessions of first mice
+            data = mut.load_session(sess_id[i])
+            if data['choice'] is not None and data['probabilityLeft'][0] == 0.5:
+                stim_side, stimuli, actions, pLeft_oracle = mut.format_data(data)
+                stimuli_arr.append(stimuli)
+                actions_arr.append(actions)
+                stim_sides_arr.append(stim_side)
+                session_uuids.append(sess_id[i])
+
+    # format data
+    stimuli, actions, stim_side = mut.format_input(stimuli_arr, actions_arr, stim_sides_arr)
+    session_uuids = np.array(session_uuids)
+
+    # debug
+    subject = mouse_name
