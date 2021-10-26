@@ -148,19 +148,6 @@ def multisess_fit_load_bhvmod(target, subject, savepath, eids, remove_old=False,
 def remap_beryl_acr(allen_ids):
     return br.get(ids=allen_ids)['acronym']
 
-
+  
 def remap_beryl_id(allen_ids):
     return br.get(ids=allen_ids)['id']
-
-
-def combine_layers_cortex(regions):
-    """
-    Combine all layers of cortex
-    """
-    remove = ['1', '2', '3', '4', '5', '6a', '6b', '/']
-    for i, region in enumerate(regions):
-        if region[:2] == 'CA':
-            continue
-        for j, char in enumerate(remove):
-            regions[i] = regions[i].replace(char, '')
-    return regions
