@@ -45,12 +45,16 @@ def save_region_results(fit_result, pseudo_results, subject, eid, probe, region)
 
 
 # %% Check if fits have been run on a per-subject basis
-sessdf = dut.query_sessions(selection=SESS_CRITERION).sort_values('eid').set_index('eid')
+sessdf = dut.query_sessions(selection=SESS_CRITERION)
+sessdf = sessdf.sort_values('subject').set_index(['subject', 'eid'])
 
 filenames = []
-for eid in np.unique(sessdf.index):
-    subject = sessdf.loc[eid].iloc[0].subject
-    tvec = dut.compute_target(TARGET, subject, eid)
+for eid in sessdf.index.unique(level='eid'):
+    subject = sessdf.xs(eid, level='eid').index[0]
+    subjeids = sessdf.xs(subject, level='subject').index.unique()
+    
+    tvec = dut.compute_target(TARGET, subject, subjeids, eid, str(MODELFIT_PATH),
+                              modeltype=MODEL, one=one)
     msub_tvec = tvec - np.mean(tvec)
     trialsdf = bbone.load_trials_df(eid, one=one)
     for subject, probe in sessdf.loc[eid]:
@@ -82,7 +86,7 @@ for eid in np.unique(sessdf.index):
                 pseudo_results.append(pseudo_result)
             filenames.append(save_region_results(fit_result, pseudo_results, subject,
                                                  eid, probe, region))
-
+            break
 # %% Collate results into master dataframe and save
 indexers = ['subject', 'eid', 'probe', 'region']
 resultsdf = pd.DataFrame(index=indexers)
