@@ -96,17 +96,21 @@ def check_bhv_fit_exists(subject, model, eids, resultpath):
 
 
 def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=False,
-                    modeltype=expSmoothing_prevAction, one=None):
+                    modeltype=expSmoothing_prevAction, one=None, data=None):
     '''
     load/fit a behavioral model to compute target on a single session
     Params:
         eids_train: list of eids on which we train the network
         eid_test: eid on which we want to compute the target signals, only one string
     '''
+
     one = one or ONE()
 
     # check if is trained
     istrained, fullpath = check_bhv_fit_exists(subject, modeltype, eids_train, savepath)
+
+    if (data is not None) and (not istrained):
+        raise ValueError('when actions, stimuli and stim_side are all defined, the model must have been trained')
 
     if (not istrained) and target != 'signcont':
         datadict = {'stim_side': [], 'actions': [], 'stimuli': []}
@@ -132,14 +136,15 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
         model.load_or_train(loadpath=str(fullpath))
 
     # load test session
-    data = mut.load_session(eid_test, one=one)
-    stim_side, stimuli, actions, _ = mut.format_data(data)
-    stimuli, actions, stim_side = mut.format_input([stimuli], [actions], [stim_side])
+    if data is None:
+        data = mut.load_session(eid_test, one=one)
 
     if target == 'signcont':
         return np.nan_to_num(data['contrastLeft']) - np.nan_to_num(data['contrastRight'])
 
     # compute signal
+    stim_side, stimuli, actions, _ = mut.format_data(data)
+    stimuli, actions, stim_side = mut.format_input([stimuli], [actions], [stim_side])
     signal = model.compute_signal(signal=target, act=actions, stim=stimuli, side=stim_side)[target]
 
     return signal.squeeze()
@@ -159,7 +164,8 @@ def remap_region(ids, source='Allen-lr', dest='Beryl-lr', output='acronym'):
 
 
 def compute_target(target, subject, eids_train, eid_test, savepath,
-                   modeltype=expSmoothing_prevAction, pseudo=False, one=None):
+                   modeltype=expSmoothing_prevAction, pseudo=False, one=None,
+                   beh_data=None):
     """
     Computes regression target for use with regress_target, using subject, eid, and a string
     identifying the target parameter to output a vector of N_trials length containing the target
@@ -195,14 +201,16 @@ def compute_target(target, subject, eids_train, eid_test, savepath,
         raise ValueError('target should be in {}'.format(possible_targets))
 
     target = fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=False,
-                             modeltype=modeltype, one=one)
+                             modeltype=modeltype, one=one, data=beh_data)
 
     # todo make pd.Series
     return target
 
+from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GridSearchCV
 
 def regress_target(tvec, binned, estimator,
-                   hyperparam_grid=None, test_prop=0.2, interleave_test=True, grid_cv=None):
+                   hyperparam_grid=None, test_prop=0.2, interleave_test=True, nFolds=5, verbose=False):
     """
     Regresses binned neural activity against a target, using a provided sklearn estimator
 
@@ -239,6 +247,38 @@ def regress_target(tvec, binned, estimator,
             - Per-trial target values (copy of tvec)
             - Per-trial predictions from model
     """
+    ## train / test split
+    # Split the dataset in two equal parts
+    # when shuffle=False, the method will take the end of the dataset to create the test set
+    X_train, X_test, y_train, y_test = train_test_split(binned, tvec, test_size=test_prop, shuffle=True)
+
+    # performance cross validation on train
+    tuned_parameters = {list(estimator.get_params().keys())[0]: hyperparam_grid}
+    clf = GridSearchCV(estimator, tuned_parameters, cv=nFolds)
+    clf.fit(X_train, y_train)
+
+    # logging
+    if verbose:
+        print("Tested parameters set found on development set:")
+        print()
+        print('{}: {}'.format(list(tuned_parameters.keys())[0],hyperparam_grid))
+        print()
+        print("Best parameters set found on development set:")
+        print()
+        print(clf.best_params_)
+        print()
+        print("Grid scores on development set:")
+        print()
+        means = clf.cv_results_["mean_test_score"]
+        stds = clf.cv_results_["std_test_score"]
+        for mean, std, params in zip(means, stds, clf.cv_results_["params"]):
+            print("%0.3f (+/-%0.03f) for %r" % (mean, std * 2, params))
+        print()
+        print("Test scores on {} folds set:".format(nFolds))
+        for i_fold in range(nFolds):
+            tscore_fold = list(np.round(clf.cv_results_['split{}_test_score'.format(int(i_fold))], 3))
+            print("perf on fold {}: {}".format(int(i_fold), tscore_fold))
+
     ## Do some stuff
     outdict = dict()
 
@@ -287,10 +327,12 @@ if __name__ == '__main__':
     # debug
     subject = mouse_name
 
-    tvec = compute_target('signcont', subject, session_uuids[:2], session_uuids[0], 'results/inference/',
+    tvec = compute_target('prior', subject, session_uuids[:2], session_uuids[0], 'results/inference/',
                    modeltype=expSmoothing_prevAction)
 
-    binned = np.random.rand(len(target), 10)
+    binned = np.random.rand(len(tvec), 10)
 
-    from sklearn.linear_model import LinearRegression
-    estimator = LinearRegression()
+    from sklearn.linear_model import LinearRegression, Ridge
+    estimator = Ridge()
+    test_prop = 0.2
+    hyperparam_grid = [1, 10, 100, 1000]
