@@ -15,7 +15,7 @@ import pandas as pd
 from scipy.stats import pearsonr
 from sklearn.model_selection import KFold
 from sklearn.linear_model import LinearRegression, Lasso, LassoCV, Ridge
-from my_functions_Guido import query_sessions, check_trials, combine_layers_cortex, load_trials
+from my_functions_Guido import query_sessions, combine_layers_cortex, load_trials
 from my_functions_Brandon import check_probe
 # from models.expSmoothing_prevAction import expSmoothing_prevAction as exp_prev_action
 # from models.expSmoothing_stimside import expSmoothing_stimside as exp_stimside
@@ -91,20 +91,23 @@ for i, subject in enumerate(np.unique(subjects)):
     for j, eid in enumerate(eids[subjects == subject]):
         # Load in trials vectors
         count = 0
-        while count <= 0 and count > -5:  # WTF?
+        while count <= 0 and count > -5:  # WTF? Try 5 times before giving up?
             try:
                 spikes, clusters, channels = bbone.load_spike_sorting_with_channel(
                     eid, aligned=True, one=one)
                 print('loaded spiking sorting with count', count)
                 count = 1
 
-            except:
+            except:  # TODO: This is shit
                 logging.info((eid, '_', subject, '_withcount', count))
                 count -= 1
 
         skip_subject = (count < 0)
-        trials = load_trials(eid, invert_stimside=True, one=one)
-        if skip_subject or (len(trials.keys()) == 0):
+        trials = bbone.load_trials_df(eid, one=one, addtl_types=['firstMovement_times'])
+        trials['reaction_times'] = trials['firstMovement_times'] - trials['goCue_times']
+        trials['signed_contrast'] = trials['contrastRight']
+        trials.loc[trials.signed_contrast.isnull(), 'signed_contrast'] = -trials.contrastLeft
+        if skip_subject or (len(trials.keys()) == 0):  # Why the hell use a DF keys v cols?
             indices_to_skip.append(j)
             continue
 
@@ -121,7 +124,7 @@ for i, subject in enumerate(np.unique(subjects)):
         stimuli_arr.append(trials['signed_contrast'])
         actions_arr.append(trials['choice'])
         stim_probs_arr.append(trials['probabilityLeft'])
-        stim_sides_arr.append(trials['stim_side'])
+        stim_sides_arr.append(np.sign(trials['signed_contrast']))
         session_uuids.append(eid)
 
     session_uuids = np.array(session_uuids)
