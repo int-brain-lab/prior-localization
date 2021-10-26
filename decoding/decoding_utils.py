@@ -11,13 +11,6 @@ from models.expSmoothing_stimside import expSmoothing_stimside
 from models.biasedApproxBayesian import biased_ApproxBayesian
 from models.biasedBayesian import biased_Bayesian
 from models.optimalBayesian import optimal_Bayesian
-from brainbox.task.closed_loop import generate_pseudo_session
-from sklearn import datasets
-from sklearn.model_selection import train_test_split
-from sklearn.model_selection import GridSearchCV
-from sklearn.metrics import classification_report
-from sklearn.svm import SVC
-
 
 br = BrainRegions()
 
@@ -287,3 +280,5 @@ if __name__=='__main__':
 
     # debug
     subject = mouse_name
+
+    compute_target('prior', subject, session_uuids, session_uuids[0], 'results/inference/', modeltype=expSmoothing_prevAction)
