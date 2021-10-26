@@ -11,6 +11,9 @@ from models.expSmoothing_stimside import expSmoothing_stimside
 from models.biasedApproxBayesian import biased_ApproxBayesian
 from models.biasedBayesian import biased_Bayesian
 from models.optimalBayesian import optimal_Bayesian
+from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GridSearchCV
+from sklearn.metrics import r2_score
 
 br = BrainRegions()
 
@@ -207,12 +210,8 @@ def compute_target(target, subject, eids_train, eid_test, savepath,
     # todo make pd.Series
     return target
 
-from sklearn.model_selection import train_test_split
-from sklearn.model_selection import GridSearchCV
-from sklearn.metrics import r2_score
-
 def regress_target(tvec, binned, estimator,
-                   hyperparam_grid=None, test_prop=0.2, interleave_test=True, nFolds=5, verbose=False):
+                   hyperparam_grid=None, test_prop=0.2, nFolds=5, verbose=False):
     """
     Regresses binned neural activity against a target, using a provided sklearn estimator
 
@@ -299,7 +298,7 @@ def regress_target(tvec, binned, estimator,
     outdict['weights'] = clf.best_estimator_.coef_
     outdict['intercept'] = clf.best_estimator_.intercept_
     outdict['target'] = tvec
-    outdict['prediction'] = clf.best_estimator_(binned)
+    outdict['prediction'] = clf.best_estimator_.predict(binned)
 
     return outdict
 
@@ -343,6 +342,9 @@ if __name__ == '__main__':
     binned = np.random.rand(len(tvec), 10)
 
     from sklearn.linear_model import LinearRegression, Ridge
-    estimator = Ridge(alpha=1000) from sklearn.linear_model import Ridge
+    estimator = Ridge() #from sklearn.linear_model import Ridge
     test_prop = 0.2
     hyperparam_grid = [1, 10, 100, 1000]
+
+    regress_target(tvec, binned, estimator,
+                   hyperparam_grid=hyperparam_grid, test_prop=0.2, nFolds=5, verbose=False)
