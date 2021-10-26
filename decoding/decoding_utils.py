@@ -96,51 +96,51 @@ def check_bhv_fit_exists(subject, model, eids, resultpath):
     return os.path.exists(fullpath), fullpath
 
 
-def sess_fit_load_bhvmod(target, subject, savepath, eid_test, eids_train, remove_old=False,
-                               modeltype=expSmoothing_prevAction, one=None):
+def singlesess_fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=False,
+                              modeltype=expSmoothing_prevAction, one=None):
     '''
-    load/fit a behavioral model on a single session
+    load/fit a behavioral model to compute target on a single session
     Params:
-        eid_test: eid on which we want to compute the target signals
-        eids_train: eids on which we
+        eids_train: list of eids on which we train the network
+        eid_test: eid on which we want to compute the target signals, only one string
     '''
-    one = one or ONE()  # Instant. one if not passed
+    one = one or ONE()
 
-    data = mut.load_session(eid, one=one)
+    # check if is trained
+    istrained, fullpath = check_bhv_fit_exists(subject, modeltype.name, eids_train, savepath)
+
+    if not istrained:
+        datadict = {'stim_side': [], 'actions': [], 'stimuli': []}
+        for eid in eids_train:
+            data = mut.load_session(eid, one=one)
+            if not data['choice']:
+                raise ValueError('Session choices produced are None. Debug models.utils.load_session,'
+                                 f' or remove the eid {eid} from your input list.')
+            stim_side, stimuli, actions, _ = mut.format_data(data)
+            datadict['stim_side'].append(stim_side)
+            datadict['stimuli'].append(stimuli)
+            datadict['actions'].append(actions)
+        stimuli, actions, stim_side = mut.format_input(datadict['stimuli'], datadict['actions'],
+                                                       datadict['stim_sides'])
+        eids = np.array(eids_train)
+        model = modeltype(savepath, eids, subject,
+                          actions, stimuli, stim_side)
+        model.load_or_train(remove_old=remove_old)
+    else:
+        model = modeltype(savepath, eids_train, subject, actions=None, stimuli=None, stim_side=None)
+        model.load_or_train()
+
+    # load test session
+    data = mut.load_session(eid_test, one=one)
     if not data['choice']:
         raise ValueError('Session choices produced are None. Debug models.utils.load_session.')
     stim_side, stimuli, actions, _ = mut.format_data(data)
     stimuli, actions, stim_side = mut.format_input([stimuli], [actions], [stim_side])
-    model = modeltype(savepath, np.array([eid]), subject,
-                      actions, stimuli, stim_side)
-    model.load_or_train(remove_old=remove_old)
-    return model.compute_signal(signal=target)[target].squeeze()
 
+    # compute signal
+    signal = model.compute_signal(signal=target, act=actions, stim=stimuli,side=stim_side)[target]
 
-def multisess_fit_load_bhvmod(target, subject, savepath, eids, remove_old=False,
-                              modeltype=expSmoothing_prevAction, one=None):
-    '''
-    load/fit a behavioral model on a multiple sessions
-    '''  
-    one = one or ONE()
-
-    datadict = {'stim_side': [], 'actions': [], 'stimuli': []}
-    for eid in eids:
-        data = mut.load_session(eid, one=one)
-        if not data['choice']:
-            raise ValueError('Session choices produced are None. Debug models.utils.load_session,'
-                             f' or remove the eid {eid} from your input list.')
-        stim_side, stimuli, actions, _ = mut.format_data(data)
-        datadict['stim_side'].append(stim_side)
-        datadict['stimuli'].append(stimuli)
-        datadict['actions'].append(actions)
-    stimuli, actions, stim_side = mut.format_input(datadict['stimuli'], datadict['actions'],
-                                                   datadict['stim_sides'])
-    eids = np.array(eids)
-    model = modeltype(savepath, eids, subject,
-                      actions, stimuli, stim_side)
-    model.load_or_train(remove_old=remove_old)
-    return model.compute_signal(signal=target)[target].squeeze()
+    return signal.squeeze()
 
 
 def remap_region(ids, source='Allen-lr', dest='Beryl-lr', output='acronym'):
@@ -181,6 +181,9 @@ def compute_target(target, subject, eid, pseudo=False, fitmodel=None):
     pandas.Series
         Pandas series in which index is trial number, and value is the target
     """
+    possible_targets = ['prior', 'prederr', 'signcont']
+    if target not in possible_targets:
+        raise ValueError('target should be in {}'.format(possible_targets))
 
     return tvec
 
@@ -248,6 +251,13 @@ if __name__=='__main__':
     # format data
     stimuli, actions, stim_side = mut.format_input(stimuli_arr, actions_arr, stim_sides_arr)
     session_uuids = np.array(session_uuids)
+
+    # launch inference
+    # model = exp_prevAction('./results/inference/', session_uuids, mouse_name, actions, stimuli, stim_side)
+    # model.load_or_train(remove_old=False)
+    # param = model.get_parameters()  # if you want the parameters
+    # signals = model.compute_signal(signal=['prior', 'prediction_error', 'score'],
+    #                               verbose=False)  # compute signals of interest
 
     # debug
     subject = mouse_name
