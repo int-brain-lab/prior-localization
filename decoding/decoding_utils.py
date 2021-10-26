@@ -12,6 +12,12 @@ from models.biasedApproxBayesian import biased_ApproxBayesian
 from models.biasedBayesian import biased_Bayesian
 from models.optimalBayesian import optimal_Bayesian
 from brainbox.task.closed_loop import generate_pseudo_session
+from sklearn import datasets
+from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GridSearchCV
+from sklearn.metrics import classification_report
+from sklearn.svm import SVC
+
 
 br = BrainRegions()
 
@@ -228,11 +234,22 @@ def regress_target(tvec, binned, estimator,
         Dictionary of fitting outputs including:
             - Regression score (from estimator)
             - Decoding coefficients
+            - Decoding intercept
             - Per-trial target values (copy of tvec)
             - Per-trial predictions from model
     """
     ## Do some stuff
     outdict = dict()
+
+    # fit estimator to output
+    estimator.fit(binned, tvec)
+
+    outdict['score'] = estimator.score(binned, tvec)
+    outdict['weights'] = estimator.coef_
+    outdict['intercept'] = estimator.intercept_
+    outdict['target'] = tvec
+    outdict['prediction'] = estimator.predict(binned)
+
     return outdict
 
 
