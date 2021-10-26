@@ -81,7 +81,8 @@ for eid in sessdf.index.unique(level='eid'):
             pseudo_results = []
             for _ in range(N_PSEUDO):
                 pseudo_tvec = dut.compute_target(TARGET, subject, subjeids, eid,
-                                                 pseudo=True, one=one)
+                                                 str(MODELFIT_PATH),
+                                                 modeltype=MODEL, pseudo=True, one=one)
                 msub_pseudo_tvec = pseudo_tvec - np.mean(pseudo_tvec)
                 pseudo_result = dut.regress_target(msub_pseudo_tvec, msub_binned, ESTIMATOR())
                 pseudo_results.append(pseudo_result)
