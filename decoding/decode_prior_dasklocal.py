@@ -10,6 +10,7 @@ from datetime import date
 from one.api import ONE
 from models.expSmoothing_prevAction import expSmoothing_prevAction
 from brainbox.singlecell import calculate_peths
+from dask.delayed import delayed
 from dask.distributed import Client
 
 one = ONE()
@@ -44,6 +45,20 @@ def save_region_results(fit_result, pseudo_results, subject, eid, probe, region)
     fw.close()
     return probefolder.joinpath(fn)
 
+
+@delayed
+def comp_targ_delayed(subject, subjeids, eid):
+    return dut.compute_target(TARGET, subject, subjeids, eid, str(MODELFIT_PATH),
+                              modeltype=MODEL, one=one)
+
+
+@delayed
+def trdf_delayed(eid):
+    return bbone.load_trials_df(eid, one=one)
+
+
+@delayed
+def 
 # %% Check if fits have been run on a per-subject basis
 sessdf = dut.query_sessions(selection=SESS_CRITERION)
 sessdf = sessdf.sort_values('subject').set_index(['subject', 'eid'])
@@ -59,11 +74,11 @@ for eid in sessdf.index.unique(level='eid'):
                          modeltype=MODEL, one=one)
     trialsdf = client.submit(bbone.load_trials_df, eid, one=one)
     for probe in sessdf.loc[subject, eid, :].probe:
-        spikestup = client.submit(bbone.load_spike_sorting_with_channel, eid,
+        spikes, clusters, _ = client.submit(bbone.load_spike_sorting_with_channel, eid,
                                             one=one,
                                             probe=probe,
                                             aligned=True)
-        beryl_reg = client.submit(dut.remap_region, spikestup[1][probe].atlas_id)
+        beryl_reg = client.submit(dut.remap_region, clusters[probe].atlas_id)
         regions = client.submit(np.unique, beryl_reg)
         for region in regions:
             reg_clu = np.argwhere(beryl_reg == region).flatten()

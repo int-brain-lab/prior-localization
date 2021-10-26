@@ -3,6 +3,7 @@ import pickle
 import numpy as np
 import pandas as pd
 import decoding_utils as dut
+import models.utils as mut
 import brainbox.io.one as bbone
 import sklearn.linear_model as sklm
 from pathlib import Path
@@ -18,8 +19,8 @@ one = ONE()
 SESS_CRITERION = 'aligned-behavior'
 TARGET = 'prior'
 MODEL = expSmoothing_prevAction
-MODELFIT_PATH = Path('/home/berk/Documents/Projects/prior-localization/results/inference/')
-OUTPUT_PATH = Path('/home/berk/Documents/Projects/prior_localization/results/decoding/')
+MODELFIT_PATH = '/home/berk/Documents/Projects/prior-localization/results/inference/'
+OUTPUT_PATH = '/home/berk/Documents/Projects/prior_localization/results/decoding/'
 ALIGN_TIME = 'stimOn_times'
 TIME_WINDOW = (0, 0.1)
 ESTIMATOR = sklm.Lasso
@@ -52,9 +53,16 @@ filenames = []
 for eid in sessdf.index.unique(level='eid'):
     subject = sessdf.xs(eid, level='eid').index[0]
     subjeids = sessdf.xs(subject, level='subject').index.unique()
-    
-    tvec = dut.compute_target(TARGET, subject, subjeids, eid, str(MODELFIT_PATH),
-                              modeltype=MODEL, one=one)
+
+    behavior_data = mut.load_session(eid, one=one)
+    try:
+        tvec = dut.compute_target(TARGET, subject, subjeids, eid, MODELFIT_PATH,
+                                  modeltype=MODEL, beh_data=behavior_data, one=one)
+    except ValueError:
+        print('Model not fit.')
+        tvec = dut.compute_target(TARGET, subject, subjeids, eid, MODELFIT_PATH,
+                                  modeltype=MODEL, one=one)
+
     msub_tvec = tvec - np.mean(tvec)
     trialsdf = bbone.load_trials_df(eid, one=one)
     for probe in sessdf.loc[subject, eid, :].probe:
@@ -81,8 +89,8 @@ for eid in sessdf.index.unique(level='eid'):
             pseudo_results = []
             for _ in range(N_PSEUDO):
                 pseudo_tvec = dut.compute_target(TARGET, subject, subjeids, eid,
-                                                 str(MODELFIT_PATH),
-                                                 modeltype=MODEL, pseudo=True, one=one)
+                                                 MODELFIT_PATH,
+                                                 modeltype=MODEL, beh_data=behavior_data, one=one)
                 msub_pseudo_tvec = pseudo_tvec - np.mean(pseudo_tvec)
                 pseudo_result = dut.regress_target(msub_pseudo_tvec, msub_binned, ESTIMATOR())
                 pseudo_results.append(pseudo_result)
