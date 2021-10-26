@@ -27,9 +27,8 @@ modeldispatcher = {expSmoothing_prevAction: 'expSmoothingPrevActions',
 def query_sessions(selection='all'):
     '''
     Filters sessions on some canonical filters
-    returns subjects: nicknames <- array of size nbSubjects x nbSessions
-          eid: eid <- array of size nbSubjects x nbSessions
-          probes: indvividual prob identity per eid: probes00 or probes01 <- array of size nbSubjects x nbSessions
+    returns dataframe with index being EID, so indexing results in subject name and probe
+    identities in that EID.
     '''
     one = ONE()
     if selection == 'all':
