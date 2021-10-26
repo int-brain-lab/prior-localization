@@ -112,7 +112,7 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
         datadict = {'stim_side': [], 'actions': [], 'stimuli': []}
         for eid in eids_train:
             data = mut.load_session(eid, one=one)
-            if not data['choice']:
+            if data['choice'] is None:
                 raise ValueError('Session choices produced are None.'
                                  'Debug models.utils.load_session,'
                                  f' or remove the eid {eid} from your input list.')
@@ -121,7 +121,7 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
             datadict['stimuli'].append(stimuli)
             datadict['actions'].append(actions)
         stimuli, actions, stim_side = mut.format_input(datadict['stimuli'], datadict['actions'],
-                                                       datadict['stim_sides'])
+                                                       datadict['stim_side'])
         eids = np.array(eids_train)
         model = modeltype(savepath, eids, subject,
                           actions, stimuli, stim_side)
@@ -129,7 +129,7 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
     else:
         model = modeltype(savepath, eids_train, subject, actions=None, stimuli=None,
                           stim_side=None)
-        model.load_or_train(sessions_id=np.arange(len(eids_train)))
+        model.load_or_train(loadpath=fullpath)
 
     # load test session
     data = mut.load_session(eid_test, one=one)
@@ -282,5 +282,5 @@ if __name__ == '__main__':
     # debug
     subject = mouse_name
 
-    target = compute_target('prior', subject, session_uuids, session_uuids[0], 'results/inference/',
+    target = compute_target('prior', subject, session_uuids[:1], session_uuids[0], 'results/inference/',
                    modeltype=expSmoothing_prevAction)
