@@ -25,12 +25,12 @@ modeldispatcher = {expSmoothing_prevAction: 'expSmoothingPrevActions',
 
 
 def query_sessions(selection='all', return_subjects=False):
-  '''
-  Filters sessions on some canonical filters
-  returns subjects: nicknames <- array of size nbSubjects x nbSessions
+    '''
+    Filters sessions on some canonical filters
+    returns subjects: nicknames <- array of size nbSubjects x nbSessions
           eid: eid <- array of size nbSubjects x nbSessions
           probes: indvividual prob identity per eid: probes00 or probes01 <- array of size nbSubjects x nbSessions
-  '''
+    '''
     one = ONE()
     if selection == 'all':
         # Query all ephysChoiceWorld sessions
@@ -84,12 +84,12 @@ def query_sessions(selection='all', return_subjects=False):
 
 
 def check_bhv_fit_exists(subject, model, eids, resultpath):
-  '''
-  subject: subject_name
-  eids: sessions on which the model was fitted
-  check if the behavioral fits exists
-  return Bool and filename
-  '''
+    '''
+    subject: subject_name
+    eids: sessions on which the model was fitted
+    check if the behavioral fits exists
+    return Bool and filename
+    '''
     trainmeth = 'MCMC'  # This needs to be un-hard-coded if charles changes to diff. methods
     trunc_eids = [eid.split('-')[0] for eid in eids]
     str_sessionuuids = '_'.join(f'sess{k+1}_{eid}' for k, eid in enumerate(trunc_eids))
