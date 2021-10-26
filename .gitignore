@@ -11,3 +11,4 @@
 .one_params
 /dask-worker-space/
 /results/
+/decoding/models/
