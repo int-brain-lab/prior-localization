@@ -106,7 +106,7 @@ def singlesess_fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, 
     one = one or ONE()
 
     # check if is trained
-    istrained, fullpath = check_bhv_fit_exists(subject, modeltype.name, eids_train, savepath)
+    istrained, fullpath = check_bhv_fit_exists(subject, modeldispatcher[modeltype], eids_train, savepath)
 
     if not istrained:
         datadict = {'stim_side': [], 'actions': [], 'stimuli': []}
