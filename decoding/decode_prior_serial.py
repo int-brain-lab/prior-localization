@@ -16,7 +16,7 @@ one = ONE()
 # %% Run param definitions
 
 SESS_CRITERION = 'aligned-behavior'
-TARGET = 'signcont'
+TARGET = 'prior'
 MODEL = expSmoothing_prevAction
 MODELFIT_PATH = Path('/home/berk/Documents/Projects/prior-localization/results/inference/')
 OUTPUT_PATH = Path('/home/berk/Documents/Projects/prior_localization/results/decoding/')
@@ -57,7 +57,7 @@ for eid in sessdf.index.unique(level='eid'):
                               modeltype=MODEL, one=one)
     msub_tvec = tvec - np.mean(tvec)
     trialsdf = bbone.load_trials_df(eid, one=one)
-    for subject, probe in sessdf.loc[eid]:
+    for probe in sessdf.loc[subject, eid, :].probe:
         spikes, clusters, _ = bbone.load_spike_sorting_with_channel(eid,
                                                                     one=one,
                                                                     probe=probe,
@@ -77,12 +77,14 @@ for eid in sessdf.index.unique(level='eid'):
                                  'may be due to floating point representation error.'
                                  'Check window.')
             msub_binned = binned - np.mean(binned, axis=0)
-            fit_result = dut.regress_target(msub_tvec, msub_binned, ESTIMATOR)
+            fit_result = dut.regress_target(msub_tvec, msub_binned, ESTIMATOR())
             pseudo_results = []
             for _ in range(N_PSEUDO):
-                pseudo_tvec = dut.compute_target(TARGET, subject, eid, pseudo=True)
+                pseudo_tvec = dut.compute_target(TARGET, subject, subjeids, eid,
+                                                 str(MODELFIT_PATH),
+                                                 modeltype=MODEL, pseudo=True, one=one)
                 msub_pseudo_tvec = pseudo_tvec - np.mean(pseudo_tvec)
-                pseudo_result = dut.regress_target(msub_pseudo_tvec, msub_binned, ESTIMATOR)
+                pseudo_result = dut.regress_target(msub_pseudo_tvec, msub_binned, ESTIMATOR())
                 pseudo_results.append(pseudo_result)
             filenames.append(save_region_results(fit_result, pseudo_results, subject,
                                                  eid, probe, region))
