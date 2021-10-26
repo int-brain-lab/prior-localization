@@ -145,6 +145,7 @@ def multisess_fit_load_bhvmod(target, subject, savepath, eids, remove_old=False,
     model.load_or_train(remove_old=remove_old)
     return model.compute_signal(signal=target)[target].squeeze()
 
+
 def remap_beryl_acr(allen_ids):
     return br.get(ids=allen_ids)['acronym']
 
