@@ -99,7 +99,7 @@ def check_bhv_fit_exists(subject, model, eids, resultpath):
 
 
 def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=False,
-                    modeltype=expSmoothing_prevAction, one=None, data=None):
+                    modeltype=expSmoothing_prevAction, one=None, beh_data_test=None):
     '''
     load/fit a behavioral model to compute target on a single session
     Params:
@@ -112,7 +112,7 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
     # check if is trained
     istrained, fullpath = check_bhv_fit_exists(subject, modeltype, eids_train, savepath)
 
-    if (data is not None) and (not istrained):
+    if (beh_data_test is not None) and (not istrained):
         raise ValueError('when actions, stimuli and stim_side are all defined, the model must have been trained')
 
     if (not istrained) and target != 'signcont':
@@ -139,14 +139,14 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
         model.load_or_train(loadpath=str(fullpath))
 
     # load test session
-    if data is None:
-        data = mut.load_session(eid_test, one=one)
+    if beh_data_test is None:
+        beh_data_test = mut.load_session(eid_test, one=one)
 
     if target == 'signcont':
-        return np.nan_to_num(data['contrastLeft']) - np.nan_to_num(data['contrastRight'])
+        return np.nan_to_num(beh_data_test['contrastLeft']) - np.nan_to_num(beh_data_test['contrastRight'])
 
     # compute signal
-    stim_side, stimuli, actions, _ = mut.format_data(data)
+    stim_side, stimuli, actions, _ = mut.format_data(beh_data_test)
     stimuli, actions, stim_side = mut.format_input([stimuli], [actions], [stim_side])
     signal = model.compute_signal(signal=target, act=actions, stim=stimuli, side=stim_side)[target]
 
@@ -310,7 +310,7 @@ if __name__ == '__main__':
     stimuli_arr, actions_arr, stim_sides_arr, session_uuids = [], [], [], []
 
     # select particular mice
-    mouse_name = 'KS016'
+    mouse_name = 'CSHL045'
     for i in range(len(sess_id)):
         if mice_names[i] == mouse_name:  # take only sessions of first mice
             data = mut.load_session(sess_id[i])
@@ -336,7 +336,7 @@ if __name__ == '__main__':
     # debug
     subject = mouse_name
 
-    tvec = compute_target('prior', subject, session_uuids[:2], session_uuids[0], 'results/inference/',
+    tvec = compute_target('prior', subject, session_uuids[:1], session_uuids[-1], 'results/inference/',
                    modeltype=expSmoothing_prevAction)
 
     binned = np.random.rand(len(tvec), 10)
