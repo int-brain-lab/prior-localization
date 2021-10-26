@@ -96,7 +96,7 @@ def check_bhv_fit_exists(subject, model, eids, resultpath):
 
 
 def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=False,
-                    modeltype=expSmoothing_prevAction, one=None, actions=None, stimuli=None, stim_side=None):
+                    modeltype=expSmoothing_prevAction, one=None, data=None):
     '''
     load/fit a behavioral model to compute target on a single session
     Params:
@@ -109,11 +109,8 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
     # check if is trained
     istrained, fullpath = check_bhv_fit_exists(subject, modeltype, eids_train, savepath)
 
-    if (actions is not None) or (stimuli is not None) or (stim_side is not None):
-        if (actions is None) or (stimuli is None) or (stim_side is None):
-            raise ValueError('actions, stimuli and stim_side must all be defined or all be None')
-        if not istrained:
-            raise ValueError('when actions, stimuli and stim_side are all defined, the model must have been trained')
+    if (data is not None) and (not istrained):
+        raise ValueError('when actions, stimuli and stim_side are all defined, the model must have been trained')
 
     if (not istrained) and target != 'signcont':
         datadict = {'stim_side': [], 'actions': [], 'stimuli': []}
@@ -139,14 +136,15 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
         model.load_or_train(loadpath=str(fullpath))
 
     # load test session
-    data = mut.load_session(eid_test, one=one)
-    stim_side, stimuli, actions, _ = mut.format_data(data)
-    stimuli, actions, stim_side = mut.format_input([stimuli], [actions], [stim_side])
+    if data is None:
+        data = mut.load_session(eid_test, one=one)
 
     if target == 'signcont':
         return np.nan_to_num(data['contrastLeft']) - np.nan_to_num(data['contrastRight'])
 
     # compute signal
+    stim_side, stimuli, actions, _ = mut.format_data(data)
+    stimuli, actions, stim_side = mut.format_input([stimuli], [actions], [stim_side])
     signal = model.compute_signal(signal=target, act=actions, stim=stimuli, side=stim_side)[target]
 
     return signal.squeeze()
@@ -167,7 +165,7 @@ def remap_region(ids, source='Allen-lr', dest='Beryl-lr', output='acronym'):
 
 def compute_target(target, subject, eids_train, eid_test, savepath,
                    modeltype=expSmoothing_prevAction, pseudo=False, one=None,
-                   actions=None, stimuli=None, stim_side=None):
+                   beh_data=None):
     """
     Computes regression target for use with regress_target, using subject, eid, and a string
     identifying the target parameter to output a vector of N_trials length containing the target
@@ -203,7 +201,7 @@ def compute_target(target, subject, eids_train, eid_test, savepath,
         raise ValueError('target should be in {}'.format(possible_targets))
 
     target = fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=False,
-                             modeltype=modeltype, one=one, actions=actions, stimuli=stimuli, stim_side=stim_side)
+                             modeltype=modeltype, one=one, data=beh_data)
 
     # todo make pd.Series
     return target
@@ -301,8 +299,8 @@ if __name__ == '__main__':
     # debug
     subject = mouse_name
 
-    tvec = compute_target('signcont', subject, session_uuids[:2], session_uuids[0], 'results/inference/',
-                   modeltype=expSmoothing_prevAction)
+    tvec = compute_target('prior', subject, session_uuids[:2], session_uuids[0], 'results/inference/',
+                   modeltype=expSmoothing_prevAction, beh_data=data)
 
     binned = np.random.rand(len(tvec), 10)
 
