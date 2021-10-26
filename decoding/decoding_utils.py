@@ -153,7 +153,7 @@ def remap_region(ids, source='Allen-lr', dest='Beryl-lr', output='acronym'):
         return br.get(br.id[br.mappings[dest][inds]])
 
 
-def compute_target(target, subject, eid):
+def compute_target(target, subject, eid, pseudo=False):
     """
     Computes regression target for use with regress_target, using subject, eid, and a string
     identifying the target parameter to output a vector of N_trials length containing the target

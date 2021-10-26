@@ -1,11 +1,15 @@
+import os
+import pickle
 import numpy as np
 import pandas as pd
 import decoding_utils as dut
 import brainbox.io.one as bbone
+import sklearn.linear_model as sklm
+from pathlib import Path
+from datetime import date
 from one.api import ONE
 from models.expSmoothing_prevAction import expSmoothing_prevAction
 from brainbox.singlecell import calculate_peths
-from sklearn.linear_model import Lasso
 
 one = ONE()
 
@@ -14,17 +18,40 @@ one = ONE()
 SESS_CRITERION = 'aligned-behavior'
 TARGET = 'signcont'
 MODEL = expSmoothing_prevAction
-MODELFIT_PATH = '/home/berk/Documents/Projects/prior-localization/results/inference/'
+MODELFIT_PATH = Path('/home/berk/Documents/Projects/prior-localization/results/inference/')
+OUTPUT_PATH = Path('/home/berk/Documents/Projects/prior_localization/results/decoding/')
 ALIGN_TIME = 'stimOn_times'
 TIME_WINDOW = (0, 0.1)
-ESTIMATOR = Lasso
+ESTIMATOR = sklm.Lasso
+N_PSEUDO = 200
+DATE = str(date.today())
+
+
+# %% Define helper functions to make main loop readable
+def save_region_results(fit_result, pseudo_results, subject, eid, probe, region):
+    subjectfolder = OUTPUT_PATH.joinpath(subject)
+    eidfolder = subjectfolder.joinpath(eid)
+    probefolder = eidfolder.joinpath(probe)
+    for folder in [subjectfolder, eidfolder, probefolder]:
+        if not os.path.exists(folder):
+            os.mkdir(folder)
+    fn = '_'.join(DATE, region) + '.pkl'
+    fw = open(fn, 'wb')
+    outdict = {'fit': fit_result, 'pseudosessions': pseudo_results,
+               'subject': subject, 'eid': eid, 'probe': probe, 'region': region}
+    pickle.dump(outdict, fw)
+    fw.close()
+    return probefolder.joinpath(fn)
+
 
 # %% Check if fits have been run on a per-subject basis
 sessdf = dut.query_sessions(selection=SESS_CRITERION).sort_values('eid').set_index('eid')
 
+filenames = []
 for eid in np.unique(sessdf.index):
     subject = sessdf.loc[eid].iloc[0].subject
     tvec = dut.compute_target(TARGET, subject, eid)
+    msub_tvec = tvec - np.mean(tvec)
     trialsdf = bbone.load_trials_df(eid, one=one)
     for subject, probe in sessdf.loc[eid]:
         spikes, clusters, _ = bbone.load_spike_sorting_with_channel(eid,
@@ -40,12 +67,41 @@ for eid in np.unique(sessdf.index):
                                         post_time=TIME_WINDOW[1],
                                         bin_size=TIME_WINDOW[1] - TIME_WINDOW[0], smoothing=0,
                                         return_fr=False)
-            binned = binned.squeeze().T
+            binned = binned.squeeze()
             if len(binned.shape) > 2:
                 raise ValueError('Multiple bins are being calculated per trial,'
                                  'may be due to floating point representation error.'
                                  'Check window.')
-            msub_binned = binned - np.mean(binned, axis=1)
-        
+            msub_binned = binned - np.mean(binned, axis=0)
+            fit_result = dut.regress_target(msub_tvec, msub_binned, ESTIMATOR)
+            pseudo_results = []
+            for _ in range(N_PSEUDO):
+                pseudo_tvec = dut.compute_target(TARGET, subject, eid, pseudo=True)
+                msub_pseudo_tvec = pseudo_tvec - np.mean(pseudo_tvec)
+                pseudo_result = dut.regress_target(msub_pseudo_tvec, msub_binned, ESTIMATOR)
+                pseudo_results.append(pseudo_result)
+            filenames.append(save_region_results(fit_result, pseudo_results, subject,
+                                                 eid, probe, region))
 
-# %%
+# %% Collate results into master dataframe and save
+indexers = ['subject', 'eid', 'probe', 'region']
+resultsdf = pd.DataFrame(index=indexers)
+for fn in filenames:
+    fo = open(fn, 'rb')
+    result = pickle.load(fo)
+    fo.close()
+    tmpdict = {**result.fromkeys(['subject', 'eid', 'probe', 'region']),
+               'baseline': result['fit']['score'],
+               **{f'run{i}': result['pseudosessions'][i]['score'] for i in range(N_PSEUDO)}}
+    tmpdf = pd.DataFrame(tmpdict, index=indexers)
+    resultsdf = resultsdf.append(tmpdf)
+
+strlut = {sklm.Lasso: 'Lasso',
+          sklm.Ridge: 'Ridge',
+          sklm.LinearRegression: 'PureLinear',
+          sklm.LogisticRegression: 'Logistic'}
+estimatorstr = strlut[ESTIMATOR]
+fn = '_'.join([DATE, 'decode', TARGET,
+              dut.modeldispatcher[MODEL] if TARGET in ['prior', 'prederr'] else 'task',
+              estimatorstr, 'align', ALIGN_TIME, N_PSEUDO, 'pseudosessions']) + '.parquet'
+resultsdf.to_parquet(fn)
