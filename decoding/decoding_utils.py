@@ -3,14 +3,12 @@ import numpy as np
 import models.utils as mut
 from pathlib import Path
 from ibllib.atlas import BrainRegions
-from numpy.lib.npyio import save
 from one.api import ONE
 from models.expSmoothing_prevAction import expSmoothing_prevAction
 from models.expSmoothing_stimside import expSmoothing_stimside
 from models.biasedApproxBayesian import biased_ApproxBayesian
 from models.biasedBayesian import biased_Bayesian
 from models.optimalBayesian import optimal_Bayesian
-from torch._C import Value
 
 br = BrainRegions
 
