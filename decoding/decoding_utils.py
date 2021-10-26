@@ -11,6 +11,7 @@ from models.expSmoothing_stimside import expSmoothing_stimside
 from models.biasedApproxBayesian import biased_ApproxBayesian
 from models.biasedBayesian import biased_Bayesian
 from models.optimalBayesian import optimal_Bayesian
+from brainbox.task.closed_loop import generate_pseudo_session
 
 br = BrainRegions()
 
@@ -152,7 +153,7 @@ def remap_region(ids, source='Allen-lr', dest='Beryl-lr', output='acronym'):
         return br.get(br.id[br.mappings[dest][inds]])
 
 
-def compute_target(target, subject, eid, pseudo=False):
+def compute_target(target, subject, eid, pseudo=False, fitmodel=None):
     """
     Computes regression target for use with regress_target, using subject, eid, and a string
     identifying the target parameter to output a vector of N_trials length containing the target
@@ -166,13 +167,18 @@ def compute_target(target, subject, eid, pseudo=False):
         Subject identity in the IBL database, e.g. KS022
     eid : str
         UUID identifying session for which the target will be produced.
+    pseudo : bool
+        Whether or not to compute a pseudosession result, rather than a real result.
+    fitmodel : behavior_models model object
+        Instantiated object of behavior models. Needs to be instantiated for pseudosession target
+        generation in the case of a 'prior' or 'prederr' target.
 
     Returns
     -------
     pandas.Series
         Pandas series in which index is trial number, and value is the target
     """
-    ## Do some stuff
+
     return tvec
 
 
