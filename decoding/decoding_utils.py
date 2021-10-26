@@ -162,8 +162,8 @@ def remap_region(ids, source='Allen-lr', dest='Beryl-lr', output='acronym'):
         return br.get(br.id[br.mappings[dest][inds]])
 
 
-def compute_target(target, subject, eids_train, eid_test, savepath, behmodel='expSmoothingPrevActions',
-                   pseudo=False, fitmodel=None, one=None):
+def compute_target(target, subject, eids_train, eid_test, savepath, modeltype=expSmoothing_prevAction,
+                   pseudo=False, one=None):
     """
     Computes regression target for use with regress_target, using subject, eid, and a string
     identifying the target parameter to output a vector of N_trials length containing the target
@@ -175,11 +175,17 @@ def compute_target(target, subject, eids_train, eid_test, savepath, behmodel='ex
         or simple signed contrast per trial
     subject : str
         Subject identity in the IBL database, e.g. KS022
-    eid : str
-        UUID identifying session for which the target will be produced.
+    eids_train : str
+        list of UUID identifying sessions on which the model is trained.
+    eids_test : str
+        UUID identifying sessions on which the target signal is computed
+    savepath : str
+        where the beh model outputs are saved
+    behmodel : str
+        behmodel to use
     pseudo : bool
         Whether or not to compute a pseudosession result, rather than a real result.
-    fitmodel : behavior_models model object
+    modeltype : behavior_models model object
         Instantiated object of behavior models. Needs to be instantiated for pseudosession target
         generation in the case of a 'prior' or 'prederr' target.
 
@@ -191,12 +197,9 @@ def compute_target(target, subject, eids_train, eid_test, savepath, behmodel='ex
     possible_targets = ['prior', 'prederr', 'signcont']
     if target not in possible_targets:
         raise ValueError('target should be in {}'.format(possible_targets))
-    possible_behmodels = ['expSmoothingPrevActions', 'expSmoothingStimSides', 'optimal_bayesian']
-    if behmodel not in possible_behmodels:
-        raise ValueError('behmodel should be in {}'.format(possible_behmodels))
 
     target = singlesess_fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=False,
-                               modeltype=expSmoothing_prevAction, one=one)
+                               modeltype=modeltype, one=one)
     return target
 
 
