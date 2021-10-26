@@ -137,7 +137,7 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
     stimuli, actions, stim_side = mut.format_input([stimuli], [actions], [stim_side])
 
     if target == 'signcont':
-        return - np.nan_to_num(data['contrastRight']) + np.nan_to_num(data['contrastLeft'])
+        return np.nan_to_num(data['contrastLeft']) - np.nan_to_num(data['contrastRight'])
 
     # compute signal
     signal = model.compute_signal(signal=target, act=actions, stim=stimuli, side=stim_side)[target]
