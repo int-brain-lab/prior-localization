@@ -1,5 +1,6 @@
 # prior-localization
 this is an old readme
+
 Project seeking to localize encoding of the task prior in the brain
 
 We aim to utilize GLMs and neural decoders to determine how much information a given neuron
