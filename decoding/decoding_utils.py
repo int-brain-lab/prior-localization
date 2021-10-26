@@ -205,7 +205,7 @@ def compute_target(target, subject, eids_train, eid_test, savepath,
         raise ValueError('target should be in {}'.format(possible_targets))
 
     target = fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=False,
-                             modeltype=modeltype, one=one, data=beh_data)
+                             modeltype=modeltype, one=one, beh_data_test=beh_data)
 
     # todo make pd.Series
     return target
