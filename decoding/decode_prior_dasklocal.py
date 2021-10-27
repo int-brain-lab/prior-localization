@@ -14,6 +14,7 @@ from brainbox.singlecell import calculate_peths
 from brainbox.task.closed_loop import generate_pseudo_session
 from dask_jobqueue import SLURMCluster
 from dask.distributed import Client
+from tqdm import tqdm
 
 one = ONE()
 
@@ -87,14 +88,15 @@ def fit_eid(eid):
     msub_tvec = tvec - np.mean(tvec)
     trialsdf = bbone.load_trials_df(eid, one=one)
     filenames = []
-    for probe in sessdf.loc[subject, eid, :].probe:
+    print(f'Working on eid : {eid}')
+    for probe in tqdm(sessdf.loc[subject, eid, :].probe, desc='Probe: ', leave=False):
         spikes, clusters, _ = bbone.load_spike_sorting_with_channel(eid,
                                                                     one=one,
                                                                     probe=probe,
                                                                     aligned=True)
         beryl_reg = dut.remap_region(clusters[probe].atlas_id, br=brainreg)
         regions = np.unique(beryl_reg)
-        for region in regions:
+        for region in tqdm(regions, desc='Region: ', leave=False):
             reg_clu = np.argwhere(beryl_reg == region).flatten()
             N_units = len(reg_clu)
             if N_units < MIN_UNITS:
@@ -113,7 +115,7 @@ def fit_eid(eid):
             fit_result = dut.regress_target(msub_tvec, msub_binned, ESTIMATOR(),
                                             hyperparam_grid=HPARAM_GRID)
             pseudo_results = []
-            for _ in range(N_PSEUDO):
+            for _ in tqdm(range(N_PSEUDO), desc='Pseudo num: ', leave=False):
                 pseudosess = generate_pseudo_session(trialsdf)
                 pseudo_tvec = dut.compute_target(TARGET, subject, subjeids, eid,
                                                  MODELFIT_PATH,
