@@ -27,10 +27,11 @@ ESTIMATOR = sklm.Lasso
 N_PSEUDO = 200
 DATE = str(date.today())
 
+HPARAM_GRID = {'alpha': np.array([0.001, 0.01, 0.1])}
 
 # %% Define helper functions to make main loop readable
 def save_region_results(fit_result, pseudo_results, subject, eid, probe, region):
-    subjectfolder = OUTPUT_PATH.joinpath(subject)
+    subjectfolder = Path(OUTPUT_PATH).joinpath(subject)
     eidfolder = subjectfolder.joinpath(eid)
     probefolder = eidfolder.joinpath(probe)
     for folder in [subjectfolder, eidfolder, probefolder]:
@@ -85,14 +86,16 @@ for eid in sessdf.index.unique(level='eid'):
                                  'may be due to floating point representation error.'
                                  'Check window.')
             msub_binned = binned - np.mean(binned, axis=0)
-            fit_result = dut.regress_target(msub_tvec, msub_binned, ESTIMATOR())
+            fit_result = dut.regress_target(msub_tvec, msub_binned, ESTIMATOR(),
+                                            hyperparam_grid=HPARAM_GRID)
             pseudo_results = []
             for _ in range(N_PSEUDO):
                 pseudo_tvec = dut.compute_target(TARGET, subject, subjeids, eid,
                                                  MODELFIT_PATH,
                                                  modeltype=MODEL, beh_data=behavior_data, one=one)
                 msub_pseudo_tvec = pseudo_tvec - np.mean(pseudo_tvec)
-                pseudo_result = dut.regress_target(msub_pseudo_tvec, msub_binned, ESTIMATOR())
+                pseudo_result = dut.regress_target(msub_pseudo_tvec, msub_binned, ESTIMATOR(),
+                                                   hyperparam_grid=HPARAM_GRID)
                 pseudo_results.append(pseudo_result)
             filenames.append(save_region_results(fit_result, pseudo_results, subject,
                                                  eid, probe, region))

@@ -210,6 +210,7 @@ def compute_target(target, subject, eids_train, eid_test, savepath,
     # todo make pd.Series
     return target
 
+
 def regress_target(tvec, binned, estimator,
                    hyperparam_grid=None, test_prop=0.2, nFolds=5, verbose=False):
     """
@@ -256,8 +257,7 @@ def regress_target(tvec, binned, estimator,
                                         = train_test_split(binned, tvec, indices, test_size=test_prop, shuffle=True)
 
     # performance cross validation on train
-    tuned_parameters = {list(estimator.get_params().keys())[0]: hyperparam_grid}
-    clf = GridSearchCV(estimator, tuned_parameters, cv=nFolds)
+    clf = GridSearchCV(estimator, hyperparam_grid, cv=nFolds)
     clf.fit(X_train, y_train)
 
     # compute R2 on held-out data
@@ -268,7 +268,7 @@ def regress_target(tvec, binned, estimator,
     if verbose:
         print("Tested parameters set found on development set:")
         print()
-        print('{}: {}'.format(list(tuned_parameters.keys())[0],hyperparam_grid))
+        print('{}: {}'.format(list(hyperparam_grid.keys())[0],hyperparam_grid))
         print()
         print("Best parameters set found on development set:")
         print()
