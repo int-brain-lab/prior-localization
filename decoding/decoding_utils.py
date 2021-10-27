@@ -110,7 +110,7 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
     # check if is trained
     istrained, fullpath = check_bhv_fit_exists(subject, modeltype, eids_train, savepath)
 
-    if (beh_data_test is not None) and (not istrained):
+    if (beh_data_test is not None) and (not istrained) and (target != 'signcont'):
         raise ValueError('when actions, stimuli and stim_side are all defined,'
                          ' the model must have been trained')
 
