@@ -251,7 +251,9 @@ def regress_target(tvec, binned, estimator,
     ## train / test split
     # Split the dataset in two equal parts
     # when shuffle=False, the method will take the end of the dataset to create the test set
-    X_train, X_test, y_train, y_test = train_test_split(binned, tvec, test_size=test_prop, shuffle=True)
+    indices = np.arange( len(tvec))
+    X_train, X_test, y_train, y_test, idxes_train, idxes_test \
+                                        = train_test_split(binned, tvec, indices, test_size=test_prop, shuffle=True)
 
     # performance cross validation on train
     tuned_parameters = {list(estimator.get_params().keys())[0]: hyperparam_grid}
@@ -299,6 +301,8 @@ def regress_target(tvec, binned, estimator,
     outdict['intercept'] = clf.best_estimator_.intercept_
     outdict['target'] = tvec
     outdict['prediction'] = clf.best_estimator_.predict(binned)
+    outdict['idxes_test'] = idxes_test
+    outdict['idxes_train'] = idxes_train
 
     return outdict
 
@@ -336,13 +340,13 @@ if __name__ == '__main__':
     # debug
     subject = mouse_name
 
-    tvec = compute_target('prior', subject, session_uuids[:1], session_uuids[-1], 'results/inference/',
+    tvec = compute_target('prior', subject, session_uuids[:-1], session_uuids[-1], 'results/inference/',
                    modeltype=expSmoothing_prevAction)
 
     binned = np.random.rand(len(tvec), 10)
 
     from sklearn.linear_model import LinearRegression, Ridge
-    estimator = Ridge() #from sklearn.linear_model import Ridge
+    estimator = Ridge()
     test_prop = 0.2
     hyperparam_grid = [1, 10, 100, 1000]
 
