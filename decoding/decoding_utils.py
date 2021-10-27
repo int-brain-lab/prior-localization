@@ -274,34 +274,25 @@ def regress_target(tvec, binned, estimator,
 
     # logging
     if verbose:
-        print("Tested parameters set found on development set:")
-        print()
+        print("Tested parameters set found on development set:", "\n")
         print('{}: {}'.format(list(hyperparam_grid.keys())[0], hyperparam_grid))
-        print()
-        print("Best parameters set found on development set:")
-        print()
+        print("Best parameters set found on development set:", "\n")
         print(clf.best_params_)
-        print()
-        print("Grid scores on development set:")
-        print()
+        print("Grid scores on development set:", "\n")
         means = clf.cv_results_["mean_test_score"]
         stds = clf.cv_results_["std_test_score"]
         for mean, std, params in zip(means, stds, clf.cv_results_["params"]):
             print("%0.3f (+/-%0.03f) for %r" % (mean, std * 2, params))
-        print()
-        print("Test scores on {} folds set:".format(nFolds))
+        print("\n", "Test scores on {} folds set:".format(nFolds))
         for i_fold in range(nFolds):
             tscore_fold = list(np.round(clf.cv_results_['split{}_test_score'.format(int(i_fold))],
                                         3))
             print("perf on fold {}: {}".format(int(i_fold), tscore_fold))
 
-        print("Detailed classification report:")
-        print()
+        print("\n", "Detailed classification report:", "\n")
         print("The model is trained on the full development set.")
         print("The scores are computed on the full evaluation set.")
-        print()
-        print('Rsquare on held-out test data: {}'.format(np.round(Rsquared_test, 3)))
-        print()
+        print("\n", "Rsquare on held-out test data: {}".format(np.round(Rsquared_test, 3)), "\n")
 
     # generate output
     outdict = dict()
