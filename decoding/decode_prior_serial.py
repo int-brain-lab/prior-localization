@@ -1,5 +1,6 @@
 import os
 import pickle
+import logging
 import numpy as np
 import pandas as pd
 import decoding_utils as dut
@@ -11,16 +12,20 @@ from datetime import date
 from one.api import ONE
 from models.expSmoothing_prevAction import expSmoothing_prevAction
 from brainbox.singlecell import calculate_peths
+from brainbox.task.closed_loop import generate_pseudo_session
+from tqdm import tqdm
+
 
 one = ONE()
-
+logger = logging.getLogger('ibllib')
+logger.disabled = True
 # %% Run param definitions
 
 SESS_CRITERION = 'aligned-behavior'
 TARGET = 'prior'
 MODEL = expSmoothing_prevAction
 MODELFIT_PATH = '/home/berk/Documents/Projects/prior-localization/results/inference/'
-OUTPUT_PATH = '/home/berk/Documents/Projects/prior_localization/results/decoding/'
+OUTPUT_PATH = '/home/berk/Documents/Projects/prior-localization/results/decoding/'
 ALIGN_TIME = 'stimOn_times'
 TIME_WINDOW = (0, 0.1)
 ESTIMATOR = sklm.Lasso
@@ -28,6 +33,7 @@ N_PSEUDO = 200
 DATE = str(date.today())
 
 HPARAM_GRID = {'alpha': np.array([0.001, 0.01, 0.1])}
+
 
 # %% Define helper functions to make main loop readable
 def save_region_results(fit_result, pseudo_results, subject, eid, probe, region):
@@ -37,8 +43,8 @@ def save_region_results(fit_result, pseudo_results, subject, eid, probe, region)
     for folder in [subjectfolder, eidfolder, probefolder]:
         if not os.path.exists(folder):
             os.mkdir(folder)
-    fn = '_'.join(DATE, region) + '.pkl'
-    fw = open(fn, 'wb')
+    fn = '_'.join([DATE, region]) + '.pkl'
+    fw = open(probefolder.joinpath(fn), 'wb')
     outdict = {'fit': fit_result, 'pseudosessions': pseudo_results,
                'subject': subject, 'eid': eid, 'probe': probe, 'region': region}
     pickle.dump(outdict, fw)
@@ -51,7 +57,7 @@ sessdf = dut.query_sessions(selection=SESS_CRITERION)
 sessdf = sessdf.sort_values('subject').set_index(['subject', 'eid'])
 
 filenames = []
-for eid in sessdf.index.unique(level='eid'):
+for eid in tqdm(sessdf.index.unique(level='eid'), desc='EID: '):
     subject = sessdf.xs(eid, level='eid').index[0]
     subjeids = sessdf.xs(subject, level='subject').index.unique()
 
@@ -66,14 +72,14 @@ for eid in sessdf.index.unique(level='eid'):
 
     msub_tvec = tvec - np.mean(tvec)
     trialsdf = bbone.load_trials_df(eid, one=one)
-    for probe in sessdf.loc[subject, eid, :].probe:
+    for probe in tqdm(sessdf.loc[subject, eid, :].probe, desc='Probe: ', leave=False):
         spikes, clusters, _ = bbone.load_spike_sorting_with_channel(eid,
                                                                     one=one,
                                                                     probe=probe,
                                                                     aligned=True)
         beryl_reg = dut.remap_region(clusters[probe].atlas_id)
         regions = np.unique(beryl_reg)
-        for region in regions:
+        for region in tqdm(regions, desc='Region: ', leave=False):
             reg_clu = np.argwhere(beryl_reg == region).flatten()
             _, binned = calculate_peths(spikes[probe].times, spikes[probe].clusters, reg_clu,
                                         trialsdf[ALIGN_TIME], pre_time=TIME_WINDOW[0],
@@ -89,17 +95,18 @@ for eid in sessdf.index.unique(level='eid'):
             fit_result = dut.regress_target(msub_tvec, msub_binned, ESTIMATOR(),
                                             hyperparam_grid=HPARAM_GRID)
             pseudo_results = []
-            for _ in range(N_PSEUDO):
+            for _ in tqdm(range(N_PSEUDO), desc='Pseudosess: ', leave=False):
+                pseudosess = generate_pseudo_session(trialsdf)
                 pseudo_tvec = dut.compute_target(TARGET, subject, subjeids, eid,
                                                  MODELFIT_PATH,
-                                                 modeltype=MODEL, beh_data=behavior_data, one=one)
+                                                 modeltype=MODEL, beh_data=pseudosess, one=one)
                 msub_pseudo_tvec = pseudo_tvec - np.mean(pseudo_tvec)
                 pseudo_result = dut.regress_target(msub_pseudo_tvec, msub_binned, ESTIMATOR(),
                                                    hyperparam_grid=HPARAM_GRID)
                 pseudo_results.append(pseudo_result)
             filenames.append(save_region_results(fit_result, pseudo_results, subject,
                                                  eid, probe, region))
-            break
+
 # %% Collate results into master dataframe and save
 indexers = ['subject', 'eid', 'probe', 'region']
 resultsdf = pd.DataFrame(index=indexers)
