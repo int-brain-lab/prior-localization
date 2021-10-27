@@ -25,7 +25,7 @@ strlut = {sklm.Lasso: 'Lasso',
 # %% Run param definitions
 
 SESS_CRITERION = 'aligned-behavior'
-TARGET = 'prior'
+TARGET = 'signcont'
 MODEL = expSmoothing_prevAction
 MODELFIT_PATH = '/home/gercek/Projects/prior-localization/results/inference/'
 OUTPUT_PATH = '/home/gercek/scratch/results/decoding/'
@@ -33,6 +33,7 @@ ALIGN_TIME = 'stimOn_times'
 TIME_WINDOW = (0, 0.1)
 ESTIMATOR = sklm.Lasso
 N_PSEUDO = 200
+MIN_UNITS = 5
 DATE = str(date.today())
 
 HPARAM_GRID = {'alpha': np.array([0.001, 0.01, 0.1])}
@@ -47,13 +48,14 @@ fit_metadata = {
     'time_window': TIME_WINDOW,
     'estimator': strlut[ESTIMATOR],
     'n_pseudo': N_PSEUDO,
+    'min_units': MIN_UNITS,
     'date': DATE,
     'hyperparameter_grid': HPARAM_GRID,
 }
 
 
 # %% Define helper functions for dask workers to use
-def save_region_results(fit_result, pseudo_results, subject, eid, probe, region):
+def save_region_results(fit_result, pseudo_results, subject, eid, probe, region, N):
     subjectfolder = Path(OUTPUT_PATH).joinpath(subject)
     eidfolder = subjectfolder.joinpath(eid)
     probefolder = eidfolder.joinpath(probe)
@@ -63,7 +65,7 @@ def save_region_results(fit_result, pseudo_results, subject, eid, probe, region)
     fn = '_'.join([DATE, region]) + '.pkl'
     fw = open(probefolder.joinpath(fn), 'wb')
     outdict = {'fit': fit_result, 'pseudosessions': pseudo_results,
-               'subject': subject, 'eid': eid, 'probe': probe, 'region': region}
+               'subject': subject, 'eid': eid, 'probe': probe, 'region': region, 'N_units': N}
     pickle.dump(outdict, fw)
     fw.close()
     return probefolder.joinpath(fn)
@@ -72,7 +74,7 @@ def save_region_results(fit_result, pseudo_results, subject, eid, probe, region)
 def fit_eid(eid):
     subject = sessdf.xs(eid, level='eid').index[0]
     subjeids = sessdf.xs(subject, level='subject').index.unique()
-
+    brainreg = dut.BrainRegions()
     behavior_data = mut.load_session(eid, one=one)
     try:
         tvec = dut.compute_target(TARGET, subject, subjeids, eid, MODELFIT_PATH,
@@ -84,15 +86,19 @@ def fit_eid(eid):
 
     msub_tvec = tvec - np.mean(tvec)
     trialsdf = bbone.load_trials_df(eid, one=one)
+    filenames = []
     for probe in sessdf.loc[subject, eid, :].probe:
         spikes, clusters, _ = bbone.load_spike_sorting_with_channel(eid,
                                                                     one=one,
                                                                     probe=probe,
                                                                     aligned=True)
-        beryl_reg = dut.remap_region(clusters[probe].atlas_id)
+        beryl_reg = dut.remap_region(clusters[probe].atlas_id, br=brainreg)
         regions = np.unique(beryl_reg)
         for region in regions:
             reg_clu = np.argwhere(beryl_reg == region).flatten()
+            N_units = len(reg_clu)
+            if N_units < MIN_UNITS:
+                continue
             _, binned = calculate_peths(spikes[probe].times, spikes[probe].clusters, reg_clu,
                                         trialsdf[ALIGN_TIME], pre_time=TIME_WINDOW[0],
                                         post_time=TIME_WINDOW[1],
@@ -117,7 +123,7 @@ def fit_eid(eid):
                                                    hyperparam_grid=HPARAM_GRID)
                 pseudo_results.append(pseudo_result)
             filenames.append(save_region_results(fit_result, pseudo_results, subject,
-                                                 eid, probe, region))
+                                                 eid, probe, region, N_units))
 
     return filenames
 
@@ -126,11 +132,14 @@ def fit_eid(eid):
 sessdf = dut.query_sessions(selection=SESS_CRITERION)
 sessdf = sessdf.sort_values('subject').set_index(['subject', 'eid'])
 
-cluster = SLURMCluster(cores=1, memory='32GB', processes=1, queue="shared-cpu",
-                       walltime="01:00:00", log_directory='/home/gercek/dask-worker-logs',
-                       interface='eno1',
-                       extra=["--lifetime", "1h", "--lifetime-stagger", "4m"],
-                       job_cpu=1)
+N_CORES = 2
+cluster = SLURMCluster(cores=N_CORES, memory='32GB', processes=1, queue="shared-cpu",
+                       walltime="03:00:00", log_directory='/home/gercek/dask-worker-logs',
+                       interface='ib0',
+                       extra=["--lifetime", "3h", "--lifetime-stagger", "4m"],
+                       job_cpu=N_CORES, env_extra=[f'export OMP_NUM_THREADS={N_CORES}',
+                                                   f'export MKL_NUM_THREADS={N_CORES}',
+                                                   f'export OPENBLAS_NUM_THREADS={N_CORES}'])
 cluster.adapt(minimum_jobs=0, maximum_jobs=200)
 client = Client(cluster)
 
@@ -148,7 +157,7 @@ for fn in filenames:
     result = pickle.load(fo)
     fo.close()
     tmpdict = {**{x: result[x] for x in indexers},
-               'baseline': result['fit']['score'],
+               'baseline': result['fit']['r2'],
                **{f'run{i}': result['pseudosessions'][i]['score'] for i in range(N_PSEUDO)}}
     resultslist.append(tmpdict)
 resultsdf = pd.DataFrame(resultslist).set_index(indexers)

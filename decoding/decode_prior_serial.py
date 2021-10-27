@@ -22,7 +22,7 @@ logger.disabled = True
 # %% Run param definitions
 
 SESS_CRITERION = 'aligned-behavior'
-TARGET = 'prior'
+TARGET = 'signcont'
 MODEL = expSmoothing_prevAction
 MODELFIT_PATH = '/home/berk/Documents/Projects/prior-localization/results/inference/'
 OUTPUT_PATH = '/home/berk/Documents/Projects/prior-localization/results/decoding/'

@@ -15,8 +15,6 @@ from sklearn.model_selection import train_test_split
 from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import r2_score
 
-br = BrainRegions()
-
 modeldispatcher = {expSmoothing_prevAction: 'expSmoothingPrevActions',
                    expSmoothing_stimside: 'expSmoothingStimSides',
                    biased_ApproxBayesian: 'biased_Approxbayesian',
@@ -156,7 +154,8 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
     return signal.squeeze()
 
 
-def remap_region(ids, source='Allen-lr', dest='Beryl-lr', output='acronym'):
+def remap_region(ids, source='Allen-lr', dest='Beryl-lr', output='acronym', br=None):
+    br = br or BrainRegions()
     _, inds = ismember(ids, br.id[br.mappings[source]])
     ids = br.id[br.mappings[dest][inds]]
     if output == 'id':
