@@ -252,15 +252,21 @@ def regress_target(tvec, binned, estimator,
     ## train / test split
     # Split the dataset in two equal parts
     # when shuffle=False, the method will take the end of the dataset to create the test set
-    X_train, X_test, y_train, y_test = train_test_split(binned, tvec, test_size=test_prop, shuffle=True)
+    indices = np.arange( len(tvec))
+    X_train, X_test, y_train, y_test, idxes_train, idxes_test \
+                                        = train_test_split(binned, tvec, indices, test_size=test_prop, shuffle=True)
 
     # performance cross validation on train
     clf = GridSearchCV(estimator, hyperparam_grid, cv=nFolds)
     clf.fit(X_train, y_train)
 
+    # compute R2 on the train data
+    y_pred_train = clf.predict(X_train)
+    Rsquared_train = r2_score(y_train, y_pred_train)
+
     # compute R2 on held-out data
     y_true, y_pred = y_test, clf.predict(X_test)
-    Rsquared = r2_score(y_true, y_pred)
+    Rsquared_test = r2_score(y_true, y_pred)
 
     # logging
     if verbose:
@@ -294,11 +300,14 @@ def regress_target(tvec, binned, estimator,
 
     ## generate output
     outdict = dict()
-    outdict['score'] = Rsquared
+    outdict['Rsquared_train'] = Rsquared_train
+    outdict['Rsquared_test'] = Rsquared_test
     outdict['weights'] = clf.best_estimator_.coef_
     outdict['intercept'] = clf.best_estimator_.intercept_
     outdict['target'] = tvec
     outdict['prediction'] = clf.best_estimator_.predict(binned)
+    outdict['idxes_test'] = idxes_test
+    outdict['idxes_train'] = idxes_train
 
     return outdict
 
@@ -336,13 +345,13 @@ if __name__ == '__main__':
     # debug
     subject = mouse_name
 
-    tvec = compute_target('prior', subject, session_uuids[:1], session_uuids[-1], 'results/inference/',
+    tvec = compute_target('prior', subject, session_uuids[:-1], session_uuids[-1], 'results/inference/',
                    modeltype=expSmoothing_prevAction)
 
     binned = np.random.rand(len(tvec), 10)
 
     from sklearn.linear_model import LinearRegression, Ridge
-    estimator = Ridge() #from sklearn.linear_model import Ridge
+    estimator = Ridge()
     test_prop = 0.2
     hyperparam_grid = [1, 10, 100, 1000]
 
