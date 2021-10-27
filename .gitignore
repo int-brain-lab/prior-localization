@@ -13,3 +13,5 @@
 /results/
 /decoding/models/
 *.*lock
+*.parquet
+*.pkl
