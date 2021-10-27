@@ -113,7 +113,8 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
     istrained, fullpath = check_bhv_fit_exists(subject, modeltype, eids_train, savepath)
 
     if (beh_data_test is not None) and (not istrained):
-        raise ValueError('when actions, stimuli and stim_side are all defined, the model must have been trained')
+        raise ValueError('when actions, stimuli and stim_side are all defined,'
+                         ' the model must have been trained')
 
     if (not istrained) and target != 'signcont':
         datadict = {'stim_side': [], 'actions': [], 'stimuli': []}
@@ -143,7 +144,9 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
         beh_data_test = mut.load_session(eid_test, one=one)
 
     if target == 'signcont':
-        return np.nan_to_num(beh_data_test['contrastLeft']) - np.nan_to_num(beh_data_test['contrastRight'])
+        out = np.nan_to_num(beh_data_test['contrastLeft']) - \
+            np.nan_to_num(beh_data_test['contrastRight'])
+        return out
 
     # compute signal
     stim_side, stimuli, actions, _ = mut.format_data(beh_data_test)
@@ -249,12 +252,13 @@ def regress_target(tvec, binned, estimator,
             - Per-trial target values (copy of tvec)
             - Per-trial predictions from model
     """
-    ## train / test split
+    # train / test split
     # Split the dataset in two equal parts
     # when shuffle=False, the method will take the end of the dataset to create the test set
-    indices = np.arange( len(tvec))
+    indices = np.arange(len(tvec))
     X_train, X_test, y_train, y_test, idxes_train, idxes_test \
-                                        = train_test_split(binned, tvec, indices, test_size=test_prop, shuffle=True)
+        = train_test_split(binned, tvec, indices,
+                           test_size=test_prop, shuffle=True)
 
     # performance cross validation on train
     clf = GridSearchCV(estimator, hyperparam_grid, cv=nFolds)
@@ -272,7 +276,7 @@ def regress_target(tvec, binned, estimator,
     if verbose:
         print("Tested parameters set found on development set:")
         print()
-        print('{}: {}'.format(list(hyperparam_grid.keys())[0],hyperparam_grid))
+        print('{}: {}'.format(list(hyperparam_grid.keys())[0], hyperparam_grid))
         print()
         print("Best parameters set found on development set:")
         print()
@@ -287,7 +291,8 @@ def regress_target(tvec, binned, estimator,
         print()
         print("Test scores on {} folds set:".format(nFolds))
         for i_fold in range(nFolds):
-            tscore_fold = list(np.round(clf.cv_results_['split{}_test_score'.format(int(i_fold))], 3))
+            tscore_fold = list(np.round(clf.cv_results_['split{}_test_score'.format(int(i_fold))],
+                                        3))
             print("perf on fold {}: {}".format(int(i_fold), tscore_fold))
 
         print("Detailed classification report:")
@@ -295,10 +300,10 @@ def regress_target(tvec, binned, estimator,
         print("The model is trained on the full development set.")
         print("The scores are computed on the full evaluation set.")
         print()
-        print('Rsquare on held-out test data: {}'.format(np.round(Rsquared, 3)))
+        print('Rsquare on held-out test data: {}'.format(np.round(Rsquared_test, 3)))
         print()
 
-    ## generate output
+    # generate output
     outdict = dict()
     outdict['Rsquared_train'] = Rsquared_train
     outdict['Rsquared_test'] = Rsquared_test
@@ -313,6 +318,7 @@ def regress_target(tvec, binned, estimator,
 
 
 if __name__ == '__main__':
+    from sklearn.linear_model import Ridge
 
     one = ONE()
     mice_names, ins, ins_id, sess_id, _ = mut.get_bwm_ins_alyx(one)
@@ -345,12 +351,11 @@ if __name__ == '__main__':
     # debug
     subject = mouse_name
 
-    tvec = compute_target('prior', subject, session_uuids[:-1], session_uuids[-1], 'results/inference/',
-                   modeltype=expSmoothing_prevAction)
+    tvec = compute_target('prior', subject, session_uuids[:-1], session_uuids[-1],
+                          'results/inference/', modeltype=expSmoothing_prevAction)
 
     binned = np.random.rand(len(tvec), 10)
 
-    from sklearn.linear_model import LinearRegression, Ridge
     estimator = Ridge()
     test_prop = 0.2
     hyperparam_grid = [1, 10, 100, 1000]
