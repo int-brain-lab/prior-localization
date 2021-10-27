@@ -260,9 +260,13 @@ def regress_target(tvec, binned, estimator,
     clf = GridSearchCV(estimator, hyperparam_grid, cv=nFolds)
     clf.fit(X_train, y_train)
 
+    # compute R2 on the train data
+    y_pred_train = clf.predict(X_train)
+    Rsquared_train = r2_score(y_train, y_pred_train)
+
     # compute R2 on held-out data
     y_true, y_pred = y_test, clf.predict(X_test)
-    Rsquared = r2_score(y_true, y_pred)
+    Rsquared_test = r2_score(y_true, y_pred)
 
     # logging
     if verbose:
@@ -296,7 +300,8 @@ def regress_target(tvec, binned, estimator,
 
     ## generate output
     outdict = dict()
-    outdict['score'] = Rsquared
+    outdict['Rsquared_train'] = Rsquared_train
+    outdict['Rsquared_test'] = Rsquared_test
     outdict['weights'] = clf.best_estimator_.coef_
     outdict['intercept'] = clf.best_estimator_.intercept_
     outdict['target'] = tvec
