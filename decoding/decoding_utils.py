@@ -303,52 +303,6 @@ def regress_target(tvec, binned, estimator,
     outdict['prediction'] = clf.best_estimator_.predict(binned)
     outdict['idxes_test'] = idxes_test
     outdict['idxes_train'] = idxes_train
+    outdict['best_params'] = clf.best_params_
 
     return outdict
-
-
-if __name__ == '__main__':
-    from sklearn.linear_model import Ridge
-
-    one = ONE()
-    mice_names, ins, ins_id, sess_id, _ = mut.get_bwm_ins_alyx(one)
-    stimuli_arr, actions_arr, stim_sides_arr, session_uuids = [], [], [], []
-
-    # select particular mice
-    mouse_name = 'CSHL045'
-    for i in range(len(sess_id)):
-        if mice_names[i] == mouse_name:  # take only sessions of first mice
-            data = mut.load_session(sess_id[i])
-            if data['choice'] is not None and data['probabilityLeft'][0] == 0.5:
-                stim_side, stimuli, actions, pLeft_oracle = mut.format_data(data)
-                stimuli_arr.append(stimuli)
-                actions_arr.append(actions)
-                stim_sides_arr.append(stim_side)
-                session_uuids.append(sess_id[i])
-
-    # format data
-    stimuli, actions, stim_side = mut.format_input(stimuli_arr, actions_arr, stim_sides_arr)
-    session_uuids = np.array(session_uuids)
-
-    # launch inference
-    # model = exp_prevAction('./results/inference/', session_uuids, mouse_name, actions, stimuli,
-    #                        stim_side)
-    # model.load_or_train(remove_old=False)
-    # param = model.get_parameters()  # if you want the parameters
-    # signals = model.compute_signal(signal=['prior', 'prediction_error', 'score'],
-    #                               verbose=False)  # compute signals of interest
-
-    # debug
-    subject = mouse_name
-
-    tvec = compute_target('prior', subject, session_uuids[:-1], session_uuids[-1],
-                          'results/inference/', modeltype=expSmoothing_prevAction)
-
-    binned = np.random.rand(len(tvec), 10)
-
-    estimator = Ridge()
-    test_prop = 0.2
-    hyperparam_grid = [1, 10, 100, 1000]
-
-    regress_target(tvec, binned, estimator,
-                   hyperparam_grid=hyperparam_grid, test_prop=0.2, nFolds=5, verbose=False)
