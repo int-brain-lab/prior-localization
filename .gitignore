@@ -6,10 +6,10 @@
 *.p
 /data/*_fits/
 */__pycache__/
-/.ipynb_checkpoints/
+*.ipynb_checkpoints/
 *.pyc
 .one_params
-/dask-worker-space/
+*dask-worker-space/
 /results/
 /decoding/models/
 *.*lock

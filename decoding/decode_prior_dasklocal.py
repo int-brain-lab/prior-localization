@@ -1,5 +1,6 @@
 import os
 import pickle
+import logging
 import numpy as np
 import pandas as pd
 import decoding_utils as dut
@@ -17,6 +18,9 @@ from dask.distributed import Client
 from tqdm import tqdm
 
 one = ONE()
+
+logger = logging.getLogger('ibllib')
+logger.disabled = True
 
 strlut = {sklm.Lasso: 'Lasso',
           sklm.Ridge: 'Ridge',
@@ -159,8 +163,9 @@ for fn in filenames:
     result = pickle.load(fo)
     fo.close()
     tmpdict = {**{x: result[x] for x in indexers},
-               'baseline': result['fit']['r2'],
-               **{f'run{i}': result['pseudosessions'][i]['score'] for i in range(N_PSEUDO)}}
+               'baseline': result['fit']['Rsquared_test'],
+               **{f'run{i}': result['pseudosessions'][i]['Rsquared_test']
+                  for i in range(N_PSEUDO)}}
     resultslist.append(tmpdict)
 resultsdf = pd.DataFrame(resultslist).set_index(indexers)
 
