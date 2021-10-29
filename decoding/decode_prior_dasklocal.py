@@ -17,7 +17,6 @@ from dask_jobqueue import SLURMCluster
 from dask.distributed import Client
 from tqdm import tqdm
 
-one = ONE()
 
 logger = logging.getLogger('ibllib')
 logger.disabled = True
@@ -35,7 +34,7 @@ MODEL = expSmoothing_prevAction
 MODELFIT_PATH = '/home/gercek/Projects/prior-localization/results/inference/'
 OUTPUT_PATH = '/home/gercek/scratch/results/decoding/'
 ALIGN_TIME = 'stimOn_times'
-TIME_WINDOW = (0, 0.1)
+TIME_WINDOW = (-0.6, -0.2)
 ESTIMATOR = sklm.Lasso
 N_PSEUDO = 200
 MIN_UNITS = 5
@@ -77,6 +76,8 @@ def save_region_results(fit_result, pseudo_results, subject, eid, probe, region,
 
 
 def fit_eid(eid):
+    one = ONE()
+
     subject = sessdf.xs(eid, level='eid').index[0]
     subjeids = sessdf.xs(subject, level='subject').index.unique()
     brainreg = dut.BrainRegions()
@@ -106,8 +107,8 @@ def fit_eid(eid):
             if N_units < MIN_UNITS:
                 continue
             _, binned = calculate_peths(spikes[probe].times, spikes[probe].clusters, reg_clu,
-                                        trialsdf[ALIGN_TIME], pre_time=TIME_WINDOW[0],
-                                        post_time=TIME_WINDOW[1],
+                                        trialsdf[ALIGN_TIME] + TIME_WINDOW[0], pre_time=0,
+                                        post_time=TIME_WINDOW[1] - TIME_WINDOW[0],
                                         bin_size=TIME_WINDOW[1] - TIME_WINDOW[0], smoothing=0,
                                         return_fr=False)
             binned = binned.squeeze()
