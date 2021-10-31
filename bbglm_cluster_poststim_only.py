@@ -85,7 +85,7 @@ if __name__ == "__main__":
         sessdate = sessdict[eid]['start_time'][:10]
         for probe in sessdict[eid]['probe']:
             filename = savepath +\
-                f'{nickname}/{sessdate}_session_{currdate}_{probe}_poststim_nowhl_fit.p'
+                f'{nickname}/{sessdate}_session_{currdate}_{probe}_poststim_nowhl_pseudo_fit.p'
             if not check_fit_exists(filename):
                 argtuples.append(
                     (eid, kernlen, nbases, nickname, sessdate,
