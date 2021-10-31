@@ -7,8 +7,6 @@ import brainbox.io.one as bbone
 from pathlib import Path
 from one.api import ONE
 from tqdm import tqdm
-from dask.distributed import Client
-from dask_jobqueue import SLURMCluster
 from scipy.stats import zscore, percentileofscore
 
 
@@ -114,7 +112,7 @@ def fit_file(file, overwrite=False):
     input_arrs = {'lowprob_arr': lowprob_arr, 'highprob_arr': highprob_arr}
     fit_pars = params
     null_pars = []
-    for i in tqdm(range(fit_metadata.n_pseudo), 'Pseudo num:', leave=False):
+    for i in tqdm(range(len(filedata['pseudosessions'])), 'Pseudo num:', leave=False):
         keystr = f'run{i}_'
         fit = filedata['pseudosessions'][i]
         target = fit['target']
@@ -147,17 +145,20 @@ def fit_file(file, overwrite=False):
 
 
 if __name__ == "__main__":
+    from dask.distributed import Client
+    from dask_jobqueue import SLURMCluster
+
     fitpath = Path('/home/gercek/scratch/results/decoding/')
     fitdate = '2021-10-27'
     meta_f = fitdate + \
         '_decode_signcont_task_Lasso_align_stimOn_times_200_pseudosessions.metadata.pkl'
     fit_metadata = pd.read_pickle(meta_f)
 
-
     filenames = []
+    ignorestrs = ['void', 'root', 'neurometric']
     for path in fitpath.rglob(f'{fitdate}*.pkl'):
         pathstr = str(path)
-        if not pathstr.find('root') > -1 and not pathstr.find('void') > -1:
+        if not any(pathstr.find(x) > -1 for x in ignorestrs):
             filenames.append(path)
 
     N_CORES = 1
@@ -168,7 +169,7 @@ if __name__ == "__main__":
                         job_cpu=N_CORES, env_extra=[f'export OMP_NUM_THREADS={N_CORES}',
                                                     f'export MKL_NUM_THREADS={N_CORES}',
                                                     f'export OPENBLAS_NUM_THREADS={N_CORES}'])
-    cluster.adapt(minimum_jobs=0, maximum_jobs=300)
+    cluster.adapt(minimum_jobs=0, maximum_jobs=500)
     client = Client(cluster)
 
     fitresults = []
