@@ -205,8 +205,8 @@ def plot_rate_prior(eid, probe, clu_id,
     if not ax:
         fig, ax = plt.subplots(1, 1)
     if smoothing > 0:
-        filt = norm().pdf(np.linspace(0, 5, smoothing))
-        smoothed = np.convolve(binned.flat, filt)
+        filt = norm().pdf(np.linspace(0, 10, smoothing))
+        smoothed = np.convolve(binned.flat, filt)[:binned.size]
         smoothed /= smoothed.max()
     else:
         smoothed = binned.flat / binned.max()
