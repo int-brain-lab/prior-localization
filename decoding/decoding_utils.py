@@ -13,6 +13,7 @@ from models.biasedBayesian import biased_Bayesian
 from models.optimalBayesian import optimal_Bayesian
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import GridSearchCV
+from sklearn.linear_model._coordinate_descent import LinearModelCV
 from sklearn.metrics import r2_score
 
 modeldispatcher = {expSmoothing_prevAction: 'expSmoothingPrevActions',
@@ -259,8 +260,17 @@ def regress_target(tvec, binned, estimator,
         = train_test_split(binned, tvec, indices,
                            test_size=test_prop, shuffle=True)
 
-    # performance cross validation on train
-    clf = GridSearchCV(estimator, hyperparam_grid, cv=nFolds)
+    # Select either the GridSearchCV estimator for a normal estimator, or use the native estimator
+    # in the case of CV-type estimators
+    if isinstance(estimator, LinearModelCV):
+        if hyperparam_grid is not None:
+            raise TypeError('If using a CV estimator hyperparam_grid will not be respected;'
+                            ' set to None')
+        estimator.cv = nFolds  # Overwrite user spec to make sure nFolds is used
+        clf = estimator
+    else:
+        clf = GridSearchCV(estimator, hyperparam_grid, cv=nFolds)
+
     clf.fit(X_train, y_train)
 
     # compute R2 on the train data
