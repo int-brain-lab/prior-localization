@@ -22,7 +22,9 @@ logger = logging.getLogger('ibllib')
 logger.disabled = True
 
 strlut = {sklm.Lasso: 'Lasso',
+          sklm.LassoCV: 'LassoCV',
           sklm.Ridge: 'Ridge',
+          sklm.RidgeCV: 'RidgeCV',
           sklm.LinearRegression: 'PureLinear',
           sklm.LogisticRegression: 'Logistic'}
 
@@ -35,13 +37,14 @@ MODELFIT_PATH = '/home/gercek/Projects/prior-localization/results/inference/'
 OUTPUT_PATH = '/home/gercek/scratch/results/decoding/'
 ALIGN_TIME = 'stimOn_times'
 TIME_WINDOW = (0, 0.1)
-ESTIMATOR = sklm.Lasso
+ESTIMATOR = sklm.LassoCV
 N_PSEUDO = 2
 MIN_UNITS = 10
 DATE = str(date.today())
 QC_CRITERIA = 3/3  # In {None, 1/3, 2/3, 3/3}
+SAVE_BINNED = False
 
-HPARAM_GRID = {'alpha': np.array([0.001, 0.01, 0.1])}
+HPARAM_GRID = None  # For GridSearchCV, set to None if using a CV estimator
 
 fit_metadata = {
     'criterion': SESS_CRITERION,
@@ -57,6 +60,7 @@ fit_metadata = {
     'qc_criteria': QC_CRITERIA,
     'date': DATE,
     'hyperparameter_grid': HPARAM_GRID,
+    'save_binned': SAVE_BINNED,
 }
 
 
@@ -132,7 +136,8 @@ def fit_eid(eid):
                                  'Check window.')
             msub_binned = binned - np.mean(binned, axis=0)
             fit_result = dut.regress_target(msub_tvec, msub_binned, ESTIMATOR(),
-                                            hyperparam_grid=HPARAM_GRID)
+                                            hyperparam_grid=HPARAM_GRID,
+                                            save_binned=SAVE_BINNED)
             pseudo_results = []
             for _ in tqdm(range(N_PSEUDO), desc='Pseudo num: ', leave=False):
                 pseudosess = generate_pseudo_session(trialsdf)

@@ -215,7 +215,8 @@ def compute_target(target, subject, eids_train, eid_test, savepath,
 
 
 def regress_target(tvec, binned, estimator,
-                   hyperparam_grid=None, test_prop=0.2, nFolds=5, verbose=False):
+                   hyperparam_grid=None, test_prop=0.2, nFolds=5, save_binned=False,
+                   verbose=False):
     """
     Regresses binned neural activity against a target, using a provided sklearn estimator
 
@@ -234,13 +235,17 @@ def regress_target(tvec, binned, estimator,
         Dictionary with key indicating hyperparameter to grid search over, and value being a the
         nodes on the grid. See sklearn.model_selection.GridSearchCV : param_grid for more specs.
         Defaults to None, which means no hyperparameter estimation or GridSearchCV use.
-    test_prop : float in (0, 1)
-        Proportion of data to hold out for testing after fitting (with or without grid search)
-    interleave_test : bool
-        Whether or not test trials should be randomly selected from among the experiment. False
-        means last 20% of the experiment will be used.
-    grid_cv : See sklearn.model_selection.GridSearchCV, cv argument
-        passed through to determine how hyperparameter estimation is done.
+    test_prop : float
+        Proportion of data to hold out as the test set after running hyperparameter tuning.
+        Default 0.2
+    nFolds : int
+        Number of folds for cross-validation during hyperparameter tuning.
+    save_binned : bool
+        Whether or not to put the regressors in binned into the output dictionary. Can cause file
+        bloat if saving outputs.
+    verbose : bool
+        Whether you want to hear about the function's life, how things are going,
+        and what the neighbor down the street said to it the other day.
 
     Returns
     -------
@@ -251,6 +256,7 @@ def regress_target(tvec, binned, estimator,
             - Decoding intercept
             - Per-trial target values (copy of tvec)
             - Per-trial predictions from model
+            - Input regressors (optional, see binned argument)
     """
     # train / test split
     # Split the dataset in two equal parts
@@ -266,9 +272,11 @@ def regress_target(tvec, binned, estimator,
         if hyperparam_grid is not None:
             raise TypeError('If using a CV estimator hyperparam_grid will not be respected;'
                             ' set to None')
+        cvest = True
         estimator.cv = nFolds  # Overwrite user spec to make sure nFolds is used
         clf = estimator
     else:
+        cvest = False
         clf = GridSearchCV(estimator, hyperparam_grid, cv=nFolds)
 
     clf.fit(X_train, y_train)
@@ -307,12 +315,14 @@ def regress_target(tvec, binned, estimator,
     outdict = dict()
     outdict['Rsquared_train'] = Rsquared_train
     outdict['Rsquared_test'] = Rsquared_test
-    outdict['weights'] = clf.best_estimator_.coef_
-    outdict['intercept'] = clf.best_estimator_.intercept_
+    outdict['weights'] = clf.coef_ if cvest else clf.best_estimator_.coef_
+    outdict['intercept'] = clf.intercept_ if cvest else clf.best_estimator_.intercept_
     outdict['target'] = tvec
-    outdict['prediction'] = clf.best_estimator_.predict(binned)
+    outdict['prediction'] = clf.predict(binned) if cvest else clf.best_estimator_.predict(binned)
     outdict['idxes_test'] = idxes_test
     outdict['idxes_train'] = idxes_train
-    outdict['best_params'] = clf.best_params_
+    outdict['best_params'] = {'alpha': clf.alpha_} if cvest else clf.best_params_
+    if save_binned:
+        outdict['regressors'] = binned
 
     return outdict
