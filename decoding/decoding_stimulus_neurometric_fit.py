@@ -149,7 +149,7 @@ if __name__ == "__main__":
     from dask_jobqueue import SLURMCluster
 
     fitpath = Path('/home/gercek/scratch/results/decoding/')
-    fitdate = '2021-10-27'
+    fitdate = '2021-11-08'
     meta_f = fitdate + \
         '_decode_signcont_task_Lasso_align_stimOn_times_200_pseudosessions.metadata.pkl'
     fit_metadata = pd.read_pickle(meta_f)
@@ -163,12 +163,12 @@ if __name__ == "__main__":
 
     N_CORES = 1
     cluster = SLURMCluster(cores=N_CORES, memory='8GB', processes=1, queue="shared-cpu",
-                        walltime="00:45:00", log_directory='/home/gercek/dask-worker-logs',
-                        interface='ib0',
-                        extra=["--lifetime", "45m"],
-                        job_cpu=N_CORES, env_extra=[f'export OMP_NUM_THREADS={N_CORES}',
-                                                    f'export MKL_NUM_THREADS={N_CORES}',
-                                                    f'export OPENBLAS_NUM_THREADS={N_CORES}'])
+                           walltime="00:45:00", log_directory='/home/gercek/dask-worker-logs',
+                           interface='ib0',
+                           extra=["--lifetime", "45m"],
+                           job_cpu=N_CORES, env_extra=[f'export OMP_NUM_THREADS={N_CORES}',
+                                                       f'export MKL_NUM_THREADS={N_CORES}',
+                                                       f'export OPENBLAS_NUM_THREADS={N_CORES}'])
     cluster.adapt(minimum_jobs=0, maximum_jobs=500)
     client = Client(cluster)
 
@@ -184,21 +184,21 @@ if __name__ == "__main__":
     resultsdf = pd.DataFrame([x.result() for x in fitresults if x.status == 'finished'])
     resultsdf = resultsdf.set_index(['eid', 'probe', 'region'])
     resultsdf = resultsdf.reindex(columns=['subject',
-                                        'low_pLeft_slope',
-                                        'high_pLeft_slope',
-                                        'shift',
-                                        'low_bias',
-                                        'high_bias'
-                                        'low_range',
-                                        'high_range',
-                                        'low_gamma1',
-                                        'high_gamma1',
-                                        'low_gamma2',
-                                        'high_gamma2',
-                                        'low_L',
-                                        'high_L',
-                                        *columnorder])
-
+                                           'low_pLeft_slope',
+                                           'high_pLeft_slope',
+                                           'shift',
+                                           'low_bias',
+                                           'high_bias'
+                                           'low_range',
+                                           'high_range',
+                                           'mean_range',
+                                           'low_gamma1',
+                                           'high_gamma1',
+                                           'low_gamma2',
+                                           'high_gamma2',
+                                           'low_L',
+                                           'high_L',
+                                           *columnorder])
 
     def compute_perc(row, target):
         mapper = {'high_pLeft_slope': 'high_slope',
@@ -208,7 +208,6 @@ if __name__ == "__main__":
         null = row['run0_' + mapper[target]:'run199_' + mapper[target]]
         return percentileofscore(null, base)
 
-
     def compute_zsc(row, target):
         mapper = {'high_pLeft_slope': 'high_slope',
                   'low_pLeft_slope': 'low_slope',
@@ -217,7 +216,6 @@ if __name__ == "__main__":
         null = row.loc['run0_' + mapper[target]:'run199_' + mapper[target]]
         return zscore(np.append(null.astype(float).values, base))[-1]
 
-
     targets = ['high_pLeft_slope', 'low_pLeft_slope', 'shift']
     for target in targets:
         for name, metric in {'perc': compute_perc, 'zsc': compute_zsc}.items():
@@ -225,21 +223,21 @@ if __name__ == "__main__":
             resultsdf[colname] = resultsdf.apply(metric, target=target, axis=1)
 
     resultsdf['mean_shift_null'] = resultsdf.apply(lambda x:
-                                                np.mean(x.loc['run0_shift':'run199_shift']),
-                                                axis=1)
+                                                   np.mean(x.loc['run0_shift':'run199_shift']),
+                                                   axis=1)
     resultsdf['mean_slope'] = resultsdf.apply(lambda x:
-                                            np.mean([x.low_pLeft_slope, x.high_pLeft_slope]),
-                                            axis=1)
+                                              np.mean([x.low_pLeft_slope, x.high_pLeft_slope]),
+                                              axis=1)
     resultsdf['mean_slope_null'] = resultsdf.apply(
         lambda x: np.mean(
             np.vstack([x.loc['run0_high_slope':'run199_high_slope'].astype(float).values,
-                    x.loc['run0_low_slope':'run199_low_slope'].astype(float).values])),
+                       x.loc['run0_low_slope':'run199_low_slope'].astype(float).values])),
         axis=1)
 
     grpbyagg = resultsdf.groupby('region').agg({'mean_range': 'mean', 'shift': 'mean',
 
                                                 'shift_zsc': 'mean', 'shift_perc': 'mean',
-                                                'run0_range': 'mean', 
+                                                'run0_range': 'mean',
                                                 'run0_shift': 'mean'})
     slopedf = grpbyagg['mean_range'].to_frame()
     slopedf['pseudo'] = False

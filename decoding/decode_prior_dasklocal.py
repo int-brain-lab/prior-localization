@@ -34,11 +34,12 @@ MODEL = expSmoothing_prevAction
 MODELFIT_PATH = '/home/gercek/Projects/prior-localization/results/inference/'
 OUTPUT_PATH = '/home/gercek/scratch/results/decoding/'
 ALIGN_TIME = 'stimOn_times'
-TIME_WINDOW = (-0.6, -0.2)
+TIME_WINDOW = (0, 0.1)
 ESTIMATOR = sklm.Lasso
-N_PSEUDO = 200
-MIN_UNITS = 5
+N_PSEUDO = 2
+MIN_UNITS = 10
 DATE = str(date.today())
+QC_CRITERIA = 3/3  # In {None, 1/3, 2/3, 3/3}
 
 HPARAM_GRID = {'alpha': np.array([0.001, 0.01, 0.1])}
 
@@ -53,6 +54,7 @@ fit_metadata = {
     'estimator': strlut[ESTIMATOR],
     'n_pseudo': N_PSEUDO,
     'min_units': MIN_UNITS,
+    'qc_criteria': QC_CRITERIA,
     'date': DATE,
     'hyperparameter_grid': HPARAM_GRID,
 }
@@ -100,9 +102,21 @@ def fit_eid(eid):
                                                                     probe=probe,
                                                                     aligned=True)
         beryl_reg = dut.remap_region(clusters[probe].atlas_id, br=brainreg)
+        if QC_CRITERIA:
+            try:
+                metrics = clusters[probe].metrics
+            except AttributeError:
+                raise AttributeError('Session has no QC metrics')
+            qc_pass = metrics.label == QC_CRITERIA
+            if (beryl_reg.shape[0] - 1) != qc_pass.index.max():
+                raise IndexError('Shapes of metrics and number of clusters '
+                                 'in regions don\'t match')
+        else:
+            qc_pass = np.ones_like(beryl_reg, dtype=bool)
         regions = np.unique(beryl_reg)
         for region in tqdm(regions, desc='Region: ', leave=False):
-            reg_clu = np.argwhere(beryl_reg == region).flatten()
+            reg_mask = beryl_reg == region
+            reg_clu = np.argwhere((reg_mask & qc_pass).values).flatten()
             N_units = len(reg_clu)
             if N_units < MIN_UNITS:
                 continue
@@ -139,15 +153,15 @@ def fit_eid(eid):
 sessdf = dut.query_sessions(selection=SESS_CRITERION)
 sessdf = sessdf.sort_values('subject').set_index(['subject', 'eid'])
 
-N_CORES = 2
-cluster = SLURMCluster(cores=N_CORES, memory='32GB', processes=1, queue="shared-cpu",
-                       walltime="03:00:00", log_directory='/home/gercek/dask-worker-logs',
+N_CORES = 1
+cluster = SLURMCluster(cores=N_CORES, memory='12GB', processes=1, queue="shared-cpu",
+                       walltime="01:15:00", log_directory='/home/gercek/dask-worker-logs',
                        interface='ib0',
-                       extra=["--lifetime", "3h", "--lifetime-stagger", "4m"],
+                       extra=["--lifetime", "70m", "--lifetime-stagger", "4m"],
                        job_cpu=N_CORES, env_extra=[f'export OMP_NUM_THREADS={N_CORES}',
                                                    f'export MKL_NUM_THREADS={N_CORES}',
                                                    f'export OPENBLAS_NUM_THREADS={N_CORES}'])
-cluster.adapt(minimum_jobs=0, maximum_jobs=200)
+cluster.adapt(minimum_jobs=0, maximum_jobs=600)
 client = Client(cluster)
 
 
@@ -157,6 +171,7 @@ for eid in sessdf.index.unique(level='eid'):
     filenames.append(fns)
 
 # %% Collate results into master dataframe and save
+
 indexers = ['subject', 'eid', 'probe', 'region']
 resultslist = []
 for fn in filenames:
