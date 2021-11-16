@@ -5,7 +5,7 @@ from sklearn.metrics import mean_squared_error, r2_score
 from ibllib.atlas import BrainRegions
 from models.expSmoothing_prevAction import expSmoothing_prevAction as exp_prev_action
 from models.expSmoothing_stimside import expSmoothing_stimside as exp_stimside
-from brainbox.numerical import ismember
+from iblutil.numerical import ismember
 
 def regress(population_activity, trial_targets, reg=None, 
             cross_validation=None, return_training_r2_weights=False):

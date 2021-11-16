@@ -16,7 +16,7 @@ from sklearn.linear_model import LinearRegression
 import pandas as pd
 import alf
 from os.path import join
-from brainbox.numerical import ismember
+from iblutil.numerical import ismember
 from ibllib.atlas import BrainRegions
 from one.api import ONE
 

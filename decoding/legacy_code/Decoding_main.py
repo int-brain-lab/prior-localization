@@ -107,7 +107,7 @@ for i, subject in enumerate(np.unique(subjects)):
         trials['reaction_times'] = trials['firstMovement_times'] - trials['goCue_times']
         trials['signed_contrast'] = trials['contrastRight']
         trials.loc[trials.signed_contrast.isnull(), 'signed_contrast'] = -trials.contrastLeft
-        if skip_subject or (len(trials.keys()) == 0):  # Why the hell use a DF keys v cols?
+        if skip_subject or (len(trials.keys()) == 0): 
             indices_to_skip.append(j)
             continue
 

@@ -98,7 +98,8 @@ def check_bhv_fit_exists(subject, model, eids, resultpath):
 
 
 def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=False,
-                    modeltype=expSmoothing_prevAction, one=None, beh_data_test=None):
+                    no_unbias=False, modeltype=expSmoothing_prevAction, one=None,
+                    beh_data_test=None):
     '''
     load/fit a behavioral model to compute target on a single session
     Params:
@@ -142,6 +143,10 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
     if beh_data_test is None:
         beh_data_test = mut.load_session(eid_test, one=one)
 
+    if no_unbias:
+        mask = beh_data_test['probabilityLeft'] != 0.5
+        beh_data_test = {k: v[mask] for k, v in beh_data_test.iteritems()}
+
     if target == 'signcont':
         out = np.nan_to_num(beh_data_test['contrastLeft']) - \
             np.nan_to_num(beh_data_test['contrastRight'])
@@ -170,7 +175,7 @@ def remap_region(ids, source='Allen-lr', dest='Beryl-lr', output='acronym', br=N
 
 
 def compute_target(target, subject, eids_train, eid_test, savepath,
-                   modeltype=expSmoothing_prevAction, one=None,
+                   no_unbias=False, modeltype=expSmoothing_prevAction, one=None,
                    beh_data=None):
     """
     Computes regression target for use with regress_target, using subject, eid, and a string
@@ -208,7 +213,8 @@ def compute_target(target, subject, eids_train, eid_test, savepath,
         raise ValueError('target should be in {}'.format(possible_targets))
 
     target = fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=False,
-                             modeltype=modeltype, one=one, beh_data_test=beh_data)
+                             no_unbias=no_unbias, modeltype=modeltype, one=one,
+                             beh_data_test=beh_data)
 
     # todo make pd.Series
     return target

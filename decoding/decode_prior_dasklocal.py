@@ -40,6 +40,7 @@ TIME_WINDOW = (-0.6, -0.2)
 ESTIMATOR = sklm.LassoCV  # Must be one of the keys in strlut, defined above
 N_PSEUDO = 2
 MIN_UNITS = 10
+NO_UNBIAS = True
 DATE = str(date.today())
 QC_CRITERIA = 3/3  # In {None, 1/3, 2/3, 3/3}
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
@@ -59,6 +60,7 @@ fit_metadata = {
     'min_units': MIN_UNITS,
     'qc_criteria': QC_CRITERIA,
     'date': DATE,
+    'no_unbias': NO_UNBIAS,
     'hyperparameter_grid': HPARAM_GRID,
     'save_binned': SAVE_BINNED,
 }
@@ -90,11 +92,12 @@ def fit_eid(eid):
     behavior_data = mut.load_session(eid, one=one)
     try:
         tvec = dut.compute_target(TARGET, subject, subjeids, eid, MODELFIT_PATH,
-                                  modeltype=MODEL, beh_data=behavior_data, one=one)
+                                  modeltype=MODEL, beh_data=behavior_data, no_unbias=NO_UNBIAS,
+                                  one=one)
     except ValueError:
         print('Model not fit.')
         tvec = dut.compute_target(TARGET, subject, subjeids, eid, MODELFIT_PATH,
-                                  modeltype=MODEL, one=one)
+                                  modeltype=MODEL, no_unbias=NO_UNBIAS, one=one)
 
     msub_tvec = tvec - np.mean(tvec)
     trialsdf = bbone.load_trials_df(eid, one=one)
