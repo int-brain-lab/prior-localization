@@ -145,7 +145,7 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
 
     if no_unbias:
         mask = beh_data_test['probabilityLeft'] != 0.5
-        beh_data_test = {k: v[mask] for k, v in beh_data_test.iteritems()}
+        beh_data_test = {k: v[mask] for k, v in beh_data_test.items()}
 
     if target == 'signcont':
         out = np.nan_to_num(beh_data_test['contrastLeft']) - \
