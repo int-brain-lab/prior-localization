@@ -101,6 +101,10 @@ def fit_eid(eid):
 
     msub_tvec = tvec - np.mean(tvec)
     trialsdf = bbone.load_trials_df(eid, one=one)
+    if NO_UNBIAS:
+        nb_trialsdf = trialsdf[trialsdf.probabilityLeft != 0.5]
+    else:
+        nb_trialsdf = trialsdf.copy()
     filenames = []
     print(f'Working on eid : {eid}')
     for probe in tqdm(sessdf.loc[subject, eid, :].probe, desc='Probe: ', leave=False):
@@ -128,7 +132,7 @@ def fit_eid(eid):
             if N_units < MIN_UNITS:
                 continue
             _, binned = calculate_peths(spikes[probe].times, spikes[probe].clusters, reg_clu,
-                                        trialsdf[ALIGN_TIME] + TIME_WINDOW[0], pre_time=0,
+                                        nb_trialsdf[ALIGN_TIME] + TIME_WINDOW[0], pre_time=0,
                                         post_time=TIME_WINDOW[1] - TIME_WINDOW[0],
                                         bin_size=TIME_WINDOW[1] - TIME_WINDOW[0], smoothing=0,
                                         return_fr=False)
@@ -146,7 +150,8 @@ def fit_eid(eid):
                 pseudosess = generate_pseudo_session(trialsdf)
                 pseudo_tvec = dut.compute_target(TARGET, subject, subjeids, eid,
                                                  MODELFIT_PATH,
-                                                 modeltype=MODEL, beh_data=pseudosess, one=one)
+                                                 modeltype=MODEL, beh_data=pseudosess,
+                                                 no_unbias=NO_UNBIAS, one=one)
                 msub_pseudo_tvec = pseudo_tvec - np.mean(pseudo_tvec)
                 pseudo_result = dut.regress_target(msub_pseudo_tvec, msub_binned, ESTIMATOR(),
                                                    hyperparam_grid=HPARAM_GRID)
