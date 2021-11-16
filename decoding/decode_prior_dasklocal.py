@@ -36,13 +36,13 @@ MODEL = expSmoothing_prevAction
 MODELFIT_PATH = '/home/gercek/Projects/prior-localization/results/inference/'
 OUTPUT_PATH = '/home/gercek/scratch/results/decoding/'
 ALIGN_TIME = 'stimOn_times'
-TIME_WINDOW = (0, 0.1)
-ESTIMATOR = sklm.LassoCV
+TIME_WINDOW = (-0.6, -0.2)
+ESTIMATOR = sklm.LassoCV  # Must be one of the keys in strlut, defined above
 N_PSEUDO = 2
 MIN_UNITS = 10
 DATE = str(date.today())
 QC_CRITERIA = 3/3  # In {None, 1/3, 2/3, 3/3}
-SAVE_BINNED = False
+SAVE_BINNED = False  # Debugging parameter, not usually necessary
 
 HPARAM_GRID = None  # For GridSearchCV, set to None if using a CV estimator
 
@@ -111,7 +111,7 @@ def fit_eid(eid):
                 metrics = clusters[probe].metrics
             except AttributeError:
                 raise AttributeError('Session has no QC metrics')
-            qc_pass = metrics.label == QC_CRITERIA
+            qc_pass = metrics.label >= QC_CRITERIA
             if (beryl_reg.shape[0] - 1) != qc_pass.index.max():
                 raise IndexError('Shapes of metrics and number of clusters '
                                  'in regions don\'t match')
@@ -158,7 +158,7 @@ def fit_eid(eid):
 sessdf = dut.query_sessions(selection=SESS_CRITERION)
 sessdf = sessdf.sort_values('subject').set_index(['subject', 'eid'])
 
-N_CORES = 1
+N_CORES = 2
 cluster = SLURMCluster(cores=N_CORES, memory='12GB', processes=1, queue="shared-cpu",
                        walltime="01:15:00", log_directory='/home/gercek/dask-worker-logs',
                        interface='ib0',
@@ -166,7 +166,7 @@ cluster = SLURMCluster(cores=N_CORES, memory='12GB', processes=1, queue="shared-
                        job_cpu=N_CORES, env_extra=[f'export OMP_NUM_THREADS={N_CORES}',
                                                    f'export MKL_NUM_THREADS={N_CORES}',
                                                    f'export OPENBLAS_NUM_THREADS={N_CORES}'])
-cluster.adapt(minimum_jobs=0, maximum_jobs=600)
+cluster.adapt(minimum_jobs=0, maximum_jobs=200)
 client = Client(cluster)
 
 
@@ -174,12 +174,16 @@ filenames = []
 for eid in sessdf.index.unique(level='eid'):
     fns = client.submit(fit_eid, eid)
     filenames.append(fns)
-
+# WAIT FOR COMPUTATION TO FINISH BEFORE MOVING ON
 # %% Collate results into master dataframe and save
+tmp = [x.result() for x in filenames if x.status == 'finished']
+finished = []
+for fns in tmp:
+    finished.extend(fns)
 
 indexers = ['subject', 'eid', 'probe', 'region']
 resultslist = []
-for fn in filenames:
+for fn in finished:
     fo = open(fn, 'rb')
     result = pickle.load(fo)
     fo.close()

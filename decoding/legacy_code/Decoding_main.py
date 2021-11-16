@@ -98,7 +98,7 @@ for i, subject in enumerate(np.unique(subjects)):
                 print('loaded spiking sorting with count', count)
                 count = 1
 
-            except:  # TODO: This is shit
+            except:
                 logging.info((eid, '_', subject, '_withcount', count))
                 count -= 1
 
