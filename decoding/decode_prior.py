@@ -1,7 +1,6 @@
 import os
 import pickle
 import logging
-import warnings
 import numpy as np
 import pandas as pd
 import decoding_utils as dut
@@ -105,7 +104,7 @@ def fit_eid(eid):
         tvec = dut.compute_target(TARGET, subject, subjeids, eid, MODELFIT_PATH,
                                   modeltype=MODEL, no_unbias=NO_UNBIAS, one=one)
 
-    msub_tvec = tvec # - np.mean(tvec)
+    msub_tvec = tvec  # - np.mean(tvec)
     trialsdf = bbone.load_trials_df(eid, one=one, addtl_types=['firstMovement_times'])
     trialsdf = trialsdf[trialsdf[ALIGN_TIME].notna()]
     trialsdf['react_times'] = trialsdf['firstMovement_times'] - trialsdf['goCue_times']
@@ -113,7 +112,7 @@ def fit_eid(eid):
         nb_trialsdf = trialsdf[trialsdf.probabilityLeft != 0.5]
     else:
         nb_trialsdf = trialsdf.copy()
-    
+
     if MIN_RT is not None:
         mask = ~(nb_trialsdf['react_times'] < MIN_RT)
         nb_trialsdf = nb_trialsdf[mask]
@@ -146,6 +145,8 @@ def fit_eid(eid):
             N_units = len(reg_clu_ids)
             if N_units < MIN_UNITS:
                 continue
+            # TODO : Scrub NaN values in all aign times before passing to either calculate_peths
+            # or get_spike_count_in_bins
             # _, binned = calculate_peths(spikes[probe].times, spikes[probe].clusters, reg_clu_ids,
             #                             nb_trialsdf[ALIGN_TIME] + TIME_WINDOW[0], pre_time=0,
             #                             post_time=TIME_WINDOW[1] - TIME_WINDOW[0],
@@ -186,51 +187,52 @@ def fit_eid(eid):
     return filenames
 
 
-# %% Generate cluster interface and map eids to workers via dask.distributed.Client
-sessdf = dut.query_sessions(selection=SESS_CRITERION)
-sessdf = sessdf.sort_values('subject').set_index(['subject', 'eid'])
+if __name__ == '__main__':
+    # Generate cluster interface and map eids to workers via dask.distributed.Client
+    sessdf = dut.query_sessions(selection=SESS_CRITERION)
+    sessdf = sessdf.sort_values('subject').set_index(['subject', 'eid'])
 
-N_CORES = 2
-cluster = SLURMCluster(cores=N_CORES, memory='12GB', processes=1, queue="shared-cpu",
-                       walltime="01:15:00", log_directory='/home/gercek/dask-worker-logs',
-                       interface='ib0',
-                       extra=["--lifetime", "70m", "--lifetime-stagger", "4m"],
-                       job_cpu=N_CORES, env_extra=[f'export OMP_NUM_THREADS={N_CORES}',
-                                                   f'export MKL_NUM_THREADS={N_CORES}',
-                                                   f'export OPENBLAS_NUM_THREADS={N_CORES}'])
-cluster.adapt(minimum_jobs=0, maximum_jobs=200)
-client = Client(cluster)
+    N_CORES = 2
+    cluster = SLURMCluster(cores=N_CORES, memory='12GB', processes=1, queue="shared-cpu",
+                           walltime="01:15:00", log_directory='/home/gercek/dask-worker-logs',
+                           interface='ib0',
+                           extra=["--lifetime", "70m", "--lifetime-stagger", "4m"],
+                           job_cpu=N_CORES, env_extra=[f'export OMP_NUM_THREADS={N_CORES}',
+                                                       f'export MKL_NUM_THREADS={N_CORES}',
+                                                       f'export OPENBLAS_NUM_THREADS={N_CORES}'])
+    cluster.adapt(minimum_jobs=0, maximum_jobs=200)
+    client = Client(cluster)
 
+    filenames = []
+    for eid in sessdf.index.unique(level='eid'):
+        fns = client.submit(fit_eid, eid)
+        filenames.append(fns)
+    # WAIT FOR COMPUTATION TO FINISH BEFORE MOVING ON
+    # %% Collate results into master dataframe and save
+    tmp = [x.result() for x in filenames if x.status == 'finished']
+    finished = []
+    for fns in tmp:
+        finished.extend(fns)
 
-filenames = []
-for eid in sessdf.index.unique(level='eid'):
-    fns = client.submit(fit_eid, eid)
-    filenames.append(fns)
-# WAIT FOR COMPUTATION TO FINISH BEFORE MOVING ON
-# %% Collate results into master dataframe and save
-tmp = [x.result() for x in filenames if x.status == 'finished']
-finished = []
-for fns in tmp:
-    finished.extend(fns)
+    indexers = ['subject', 'eid', 'probe', 'region']
+    resultslist = []
+    for fn in finished:
+        fo = open(fn, 'rb')
+        result = pickle.load(fo)
+        fo.close()
+        tmpdict = {**{x: result[x] for x in indexers},
+                   'baseline': result['fit']['Rsquared_test'],
+                   **{f'run{i}': result['pseudosessions'][i]['Rsquared_test']
+                      for i in range(N_PSEUDO)}}
+        resultslist.append(tmpdict)
+    resultsdf = pd.DataFrame(resultslist).set_index(indexers)
 
-indexers = ['subject', 'eid', 'probe', 'region']
-resultslist = []
-for fn in finished:
-    fo = open(fn, 'rb')
-    result = pickle.load(fo)
-    fo.close()
-    tmpdict = {**{x: result[x] for x in indexers},
-               'baseline': result['fit']['Rsquared_test'],
-               **{f'run{i}': result['pseudosessions'][i]['Rsquared_test']
-                  for i in range(N_PSEUDO)}}
-    resultslist.append(tmpdict)
-resultsdf = pd.DataFrame(resultslist).set_index(indexers)
-
-estimatorstr = strlut[ESTIMATOR]
-fn = '_'.join([DATE, 'decode', TARGET,
-              dut.modeldispatcher[MODEL] if TARGET in ['prior', 'prederr'] else 'task',
-              estimatorstr, 'align', ALIGN_TIME, str(N_PSEUDO), 'pseudosessions']) + '.parquet'
-metadata_df = pd.Series({'filename': fn, **fit_metadata})
-metadata_fn = '.'.join([fn.split('.')[0], 'metadata', 'pkl'])
-resultsdf.to_parquet(fn)
-metadata_df.to_pickle(metadata_fn)
+    estimatorstr = strlut[ESTIMATOR]
+    fn = '_'.join([DATE, 'decode', TARGET,
+                   dut.modeldispatcher[MODEL] if TARGET in ['prior', 'prederr'] else 'task',
+                   estimatorstr, 'align', ALIGN_TIME, str(N_PSEUDO), 'pseudosessions']) + \
+        '.parquet'
+    metadata_df = pd.Series({'filename': fn, **fit_metadata})
+    metadata_fn = '.'.join([fn.split('.')[0], 'metadata', 'pkl'])
+    resultsdf.to_parquet(fn)
+    metadata_df.to_pickle(metadata_fn)
