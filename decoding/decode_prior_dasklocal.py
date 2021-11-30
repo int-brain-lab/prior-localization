@@ -1,6 +1,7 @@
 import os
 import pickle
 import logging
+import warnings
 import numpy as np
 import pandas as pd
 import decoding_utils as dut
@@ -12,6 +13,7 @@ from datetime import date
 from one.api import ONE
 from models.expSmoothing_prevAction import expSmoothing_prevAction
 from brainbox.singlecell import calculate_peths
+from brainbox.population.decode import get_spike_counts_in_bins
 from brainbox.task.closed_loop import generate_pseudo_session
 from dask_jobqueue import SLURMCluster
 from dask.distributed import Client
@@ -35,11 +37,13 @@ TARGET = 'signcont'
 MODEL = expSmoothing_prevAction
 MODELFIT_PATH = '/home/gercek/Projects/prior-localization/results/inference/'
 OUTPUT_PATH = '/home/gercek/scratch/results/decoding/'
-ALIGN_TIME = 'stimOn_times'
+ALIGN_TIME = 'goCue_times'
 TIME_WINDOW = (-0.6, -0.2)
-ESTIMATOR = sklm.LassoCV  # Must be one of the keys in strlut, defined above
+ESTIMATOR = sklm.LassoCV  # Must be in keys of strlut above
+ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': False}
 N_PSEUDO = 2
 MIN_UNITS = 10
+MIN_RT = 0.08  # Float (s) or None
 NO_UNBIAS = True
 DATE = str(date.today())
 QC_CRITERIA = 3/3  # In {None, 1/3, 2/3, 3/3}
@@ -86,6 +90,8 @@ def save_region_results(fit_result, pseudo_results, subject, eid, probe, region,
 def fit_eid(eid):
     one = ONE()
 
+    estimator = ESTIMATOR(**ESTIMATOR_KWARGS)
+
     subject = sessdf.xs(eid, level='eid').index[0]
     subjeids = sessdf.xs(subject, level='subject').index.unique()
     brainreg = dut.BrainRegions()
@@ -99,12 +105,20 @@ def fit_eid(eid):
         tvec = dut.compute_target(TARGET, subject, subjeids, eid, MODELFIT_PATH,
                                   modeltype=MODEL, no_unbias=NO_UNBIAS, one=one)
 
-    msub_tvec = tvec - np.mean(tvec)
-    trialsdf = bbone.load_trials_df(eid, one=one)
+    msub_tvec = tvec # - np.mean(tvec)
+    trialsdf = bbone.load_trials_df(eid, one=one, addtl_types=['firstMovement_times'])
+    trialsdf = trialsdf[trialsdf[ALIGN_TIME].notna()]
+    trialsdf['react_times'] = trialsdf['firstMovement_times'] - trialsdf['goCue_times']
     if NO_UNBIAS:
         nb_trialsdf = trialsdf[trialsdf.probabilityLeft != 0.5]
     else:
         nb_trialsdf = trialsdf.copy()
+    
+    if MIN_RT is not None:
+        mask = ~(nb_trialsdf['react_times'] < MIN_RT)
+        nb_trialsdf = nb_trialsdf[mask]
+        msub_tvec = msub_tvec[mask]
+
     filenames = []
     print(f'Working on eid : {eid}')
     for probe in tqdm(sessdf.loc[subject, eid, :].probe, desc='Probe: ', leave=False):
@@ -125,24 +139,34 @@ def fit_eid(eid):
         else:
             qc_pass = np.ones_like(beryl_reg, dtype=bool)
         regions = np.unique(beryl_reg)
+        # warnings.filterwarnings('ignore')
         for region in tqdm(regions, desc='Region: ', leave=False):
             reg_mask = beryl_reg == region
-            reg_clu = np.argwhere((reg_mask & qc_pass).values).flatten()
-            N_units = len(reg_clu)
+            reg_clu_ids = np.argwhere((reg_mask & qc_pass).values).flatten()
+            N_units = len(reg_clu_ids)
             if N_units < MIN_UNITS:
                 continue
-            _, binned = calculate_peths(spikes[probe].times, spikes[probe].clusters, reg_clu,
-                                        nb_trialsdf[ALIGN_TIME] + TIME_WINDOW[0], pre_time=0,
-                                        post_time=TIME_WINDOW[1] - TIME_WINDOW[0],
-                                        bin_size=TIME_WINDOW[1] - TIME_WINDOW[0], smoothing=0,
-                                        return_fr=False)
-            binned = binned.squeeze()
+            # _, binned = calculate_peths(spikes[probe].times, spikes[probe].clusters, reg_clu_ids,
+            #                             nb_trialsdf[ALIGN_TIME] + TIME_WINDOW[0], pre_time=0,
+            #                             post_time=TIME_WINDOW[1] - TIME_WINDOW[0],
+            #                             bin_size=TIME_WINDOW[1] - TIME_WINDOW[0], smoothing=0,
+            #                             return_fr=False)
+            # binned = binned.squeeze()
+            intervals = np.vstack([nb_trialsdf[ALIGN_TIME] + TIME_WINDOW[0],
+                                   nb_trialsdf[ALIGN_TIME] + TIME_WINDOW[1]]).T
+            spikemask = np.isin(spikes[probe].clusters, reg_clu_ids)
+            regspikes = spikes[probe].times[spikemask]
+            regclu = spikes[probe].clusters[spikemask]
+            binned, _ = get_spike_counts_in_bins(regspikes, regclu,
+                                                 intervals)
+            binned = binned.T.astype(int)
+
             if len(binned.shape) > 2:
                 raise ValueError('Multiple bins are being calculated per trial,'
                                  'may be due to floating point representation error.'
                                  'Check window.')
             msub_binned = binned - np.mean(binned, axis=0)
-            fit_result = dut.regress_target(msub_tvec, msub_binned, ESTIMATOR(),
+            fit_result = dut.regress_target(msub_tvec, msub_binned, estimator,
                                             hyperparam_grid=HPARAM_GRID,
                                             save_binned=SAVE_BINNED)
             pseudo_results = []
@@ -151,9 +175,9 @@ def fit_eid(eid):
                 pseudo_tvec = dut.compute_target(TARGET, subject, subjeids, eid,
                                                  MODELFIT_PATH,
                                                  modeltype=MODEL, beh_data=pseudosess,
-                                                 no_unbias=NO_UNBIAS, one=one)
+                                                 no_unbias=NO_UNBIAS, one=one)[mask]
                 msub_pseudo_tvec = pseudo_tvec - np.mean(pseudo_tvec)
-                pseudo_result = dut.regress_target(msub_pseudo_tvec, msub_binned, ESTIMATOR(),
+                pseudo_result = dut.regress_target(msub_pseudo_tvec, msub_binned, estimator,
                                                    hyperparam_grid=HPARAM_GRID)
                 pseudo_results.append(pseudo_result)
             filenames.append(save_region_results(fit_result, pseudo_results, subject,
