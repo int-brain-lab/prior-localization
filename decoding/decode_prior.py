@@ -11,12 +11,13 @@ from pathlib import Path
 from datetime import date
 from one.api import ONE
 from models.expSmoothing_prevAction import expSmoothing_prevAction
-from brainbox.singlecell import calculate_peths
+# from brainbox.singlecell import calculate_peths
 from brainbox.population.decode import get_spike_counts_in_bins
 from brainbox.task.closed_loop import generate_pseudo_session
 from dask_jobqueue import SLURMCluster
 from dask.distributed import Client
 from tqdm import tqdm
+from ibllib.atlas import AllenAtlas
 
 
 logger = logging.getLogger('ibllib')
@@ -88,6 +89,7 @@ def save_region_results(fit_result, pseudo_results, subject, eid, probe, region,
 
 def fit_eid(eid):
     one = ONE()
+    atlas = AllenAtlas()
 
     estimator = ESTIMATOR(**ESTIMATOR_KWARGS)
 
@@ -124,6 +126,7 @@ def fit_eid(eid):
         spikes, clusters, _ = bbone.load_spike_sorting_with_channel(eid,
                                                                     one=one,
                                                                     probe=probe,
+                                                                    brain_atlas=atlas,
                                                                     aligned=True)
         beryl_reg = dut.remap_region(clusters[probe].atlas_id, br=brainreg)
         if QC_CRITERIA:
