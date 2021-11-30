@@ -12,7 +12,7 @@ from models.biasedApproxBayesian import biased_ApproxBayesian
 from models.biasedBayesian import biased_Bayesian
 from models.optimalBayesian import optimal_Bayesian
 from sklearn.model_selection import train_test_split
-from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import GridSearchCV, KFold
 from sklearn.linear_model._coordinate_descent import LinearModelCV
 from sklearn.metrics import r2_score
 
@@ -222,7 +222,7 @@ def compute_target(target, subject, eids_train, eid_test, savepath,
 
 def regress_target(tvec, binned, estimator,
                    hyperparam_grid=None, test_prop=0.2, nFolds=5, save_binned=False,
-                   verbose=False):
+                   verbose=False, shuffle=True):
     """
     Regresses binned neural activity against a target, using a provided sklearn estimator
 
@@ -270,7 +270,7 @@ def regress_target(tvec, binned, estimator,
     indices = np.arange(len(tvec))
     X_train, X_test, y_train, y_test, idxes_train, idxes_test \
         = train_test_split(binned, tvec, indices,
-                           test_size=test_prop, shuffle=True)
+                           test_size=test_prop, shuffle=shuffle)
 
     # Select either the GridSearchCV estimator for a normal estimator, or use the native estimator
     # in the case of CV-type estimators
@@ -283,7 +283,8 @@ def regress_target(tvec, binned, estimator,
         clf = estimator
     else:
         cvest = False
-        clf = GridSearchCV(estimator, hyperparam_grid, cv=nFolds)
+        kfold = KFold(n_splits=nFolds, shuffle=False)
+        clf = GridSearchCV(estimator, hyperparam_grid, cv=kfold, scoring='r2')
 
     clf.fit(X_train, y_train)
 
@@ -306,7 +307,7 @@ def regress_target(tvec, binned, estimator,
         stds = clf.cv_results_["std_test_score"]
         for mean, std, params in zip(means, stds, clf.cv_results_["params"]):
             print("%0.3f (+/-%0.03f) for %r" % (mean, std * 2, params))
-        print("\n", "Test scores on {} folds set:".format(nFolds))
+        print("\n", "Test scores on {} development folds set:".format(nFolds))
         for i_fold in range(nFolds):
             tscore_fold = list(np.round(clf.cv_results_['split{}_test_score'.format(int(i_fold))],
                                         3))
@@ -316,6 +317,11 @@ def regress_target(tvec, binned, estimator,
         print("The model is trained on the full development set.")
         print("The scores are computed on the full evaluation set.")
         print("\n", "Rsquare on held-out test data: {}".format(np.round(Rsquared_test, 3)), "\n")
+
+        # verbose output
+        outdict_verbose = dict()
+        #outdict_verbose['binned_activity'] =
+
 
     # generate output
     outdict = dict()
