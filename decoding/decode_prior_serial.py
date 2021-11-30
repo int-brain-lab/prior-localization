@@ -27,7 +27,7 @@ MODEL = expSmoothing_prevAction
 MODELFIT_PATH = '/home/berk/Documents/Projects/prior-localization/results/inference/'
 OUTPUT_PATH = '/home/berk/Documents/Projects/prior-localization/results/decoding/'
 ALIGN_TIME = 'stimOn_times'
-TIME_WINDOW = (-0.1, -0)
+TIME_WINDOW = (0, 0.1)
 ESTIMATOR = sklm.Lasso
 N_PSEUDO = 200
 DATE = str(date.today())
@@ -73,7 +73,7 @@ except ValueError:
     tvec = dut.compute_target(TARGET, subject, subjeids, eid, MODELFIT_PATH,
                               modeltype=MODEL, one=one)
 
-msub_tvec = tvec - np.mean(tvec)
+msub_tvec = tvec #- np.mean(tvec)
 trialsdf = bbone.load_trials_df(eid, one=one)
 
 # select probe
