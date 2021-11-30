@@ -60,6 +60,7 @@ sessdf = sessdf.sort_values('subject').set_index(['subject', 'eid'])
 filenames = []
 for eid in tqdm(sessdf.index.unique(level='eid'), desc='EID: '):
 # beginning of loop
+    subject = sessdf.xs(eid, level='eid').index[0]
     subjeids = sessdf.xs(subject, level='subject').index.unique()
 
     behavior_data = mut.load_session(eid, one=one)
