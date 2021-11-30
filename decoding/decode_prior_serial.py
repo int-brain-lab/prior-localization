@@ -32,6 +32,7 @@ ESTIMATOR = sklm.Lasso
 N_PSEUDO = 200
 DATE = str(date.today())
 
+#HPARAM_GRID = {'alpha': np.array([0.001, 0.01, 0.1])}
 HPARAM_GRID = {'alpha': np.array([0.001, 0.01, 0.1])}
 
 
@@ -58,6 +59,8 @@ sessdf = sessdf.sort_values('subject').set_index(['subject', 'eid'])
 
 filenames = []
 for eid in tqdm(sessdf.index.unique(level='eid'), desc='EID: '):
+# beginning of loop
+    eid = sessdf.index.unique(level='eid')[0]
     subject = sessdf.xs(eid, level='eid').index[0]
     subjeids = sessdf.xs(subject, level='subject').index.unique()
 
@@ -106,6 +109,7 @@ for eid in tqdm(sessdf.index.unique(level='eid'), desc='EID: '):
                 pseudo_results.append(pseudo_result)
             filenames.append(save_region_results(fit_result, pseudo_results, subject,
                                                  eid, probe, region))
+# end of loop
 
 # %% Collate results into master dataframe and save
 indexers = ['subject', 'eid', 'probe', 'region']
