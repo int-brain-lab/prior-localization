@@ -108,12 +108,15 @@ def fit_eid(eid):
 
     msub_tvec = tvec  # - np.mean(tvec)
     trialsdf = bbone.load_trials_df(eid, one=one, addtl_types=['firstMovement_times'])
-    trialsdf = trialsdf[trialsdf[ALIGN_TIME].notna()]
-    trialsdf['react_times'] = trialsdf['firstMovement_times'] - trialsdf['goCue_times']
+    trialsdf['react_times'] = trialsdf['firstMovement_times'] - trialsdf[ALIGN_TIME]
     if NO_UNBIAS:
         nb_trialsdf = trialsdf[trialsdf.probabilityLeft != 0.5]
     else:
         nb_trialsdf = trialsdf.copy()
+
+    nanmask = nb_trialsdf[ALIGN_TIME].notna()
+    nb_trialsdf = nb_trialsdf[nanmask]
+    msub_tvec = msub_tvec[nanmask]
 
     if MIN_RT is not None:
         mask = ~(nb_trialsdf['react_times'] < MIN_RT)
@@ -239,3 +242,14 @@ if __name__ == '__main__':
     metadata_fn = '.'.join([fn.split('.')[0], 'metadata', 'pkl'])
     resultsdf.to_parquet(fn)
     metadata_df.to_pickle(metadata_fn)
+
+# If you want to get the errors per-failure in the run:
+"""
+failures = [(i, x) for i, x in enumerate(filenames) if x.status == 'error']
+for i, failure in failures:
+    print(i, failure.exception())
+
+print(len(failures))
+"""
+# You can also get the traceback from failure.traceback and print via `import traceback` and
+# traceback.print_tb()
