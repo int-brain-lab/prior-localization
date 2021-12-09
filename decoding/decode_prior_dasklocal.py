@@ -30,7 +30,9 @@ strlut = {sklm.Lasso: 'Lasso',
 
 # %% Run param definitions
 
-SESS_CRITERION = 'aligned-behavior'
+# aligned -> histology was performed by one experimenter
+# resolved -> histology was performed by 2-3 experiments
+SESS_CRITERION = 'aligned-behavior' # aligned and behavior
 TARGET = 'signcont'
 MODEL = expSmoothing_prevAction
 MODELFIT_PATH = '/home/gercek/Projects/prior-localization/results/inference/'
@@ -42,6 +44,7 @@ N_PSEUDO = 2
 MIN_UNITS = 10
 NO_UNBIAS = True
 DATE = str(date.today())
+# Basically, quality metric on the stability of a single unit. Should have 1 metric per neuron
 QC_CRITERIA = 3/3  # In {None, 1/3, 2/3, 3/3}
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 

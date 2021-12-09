@@ -298,29 +298,37 @@ def regress_target(tvec, binned, estimator,
 
     # logging
     if verbose:
-        print("Tested parameters set found on development set:", "\n")
+        print("Possible regularization parameters over {} validation sets:".format(nFolds))
         print('{}: {}'.format(list(hyperparam_grid.keys())[0], hyperparam_grid))
-        print("Best parameters set found on development set:", "\n")
+        print("\nBest parameters found over {} validation sets:".format(nFolds))
         print(clf.best_params_)
-        print("Grid scores on development set:", "\n")
+        print("\nAverage scores over {} validation sets:".format(nFolds))
         means = clf.cv_results_["mean_test_score"]
         stds = clf.cv_results_["std_test_score"]
         for mean, std, params in zip(means, stds, clf.cv_results_["params"]):
             print("%0.3f (+/-%0.03f) for %r" % (mean, std * 2, params))
-        print("\n", "Test scores on {} development folds set:".format(nFolds))
+        print("\n", "Detailed scores on {} validation sets:".format(nFolds))
         for i_fold in range(nFolds):
             tscore_fold = list(np.round(clf.cv_results_['split{}_test_score'.format(int(i_fold))],
                                         3))
             print("perf on fold {}: {}".format(int(i_fold), tscore_fold))
 
         print("\n", "Detailed classification report:", "\n")
-        print("The model is trained on the full development set.")
-        print("The scores are computed on the full evaluation set.")
+        print("The model is trained on the full (train + validation) set.")
         print("\n", "Rsquare on held-out test data: {}".format(np.round(Rsquared_test, 3)), "\n")
 
         # verbose output
+        import pickle
         outdict_verbose = dict()
-        #outdict_verbose['binned_activity'] =
+        outdict_verbose['binned_activity'] = binned
+        outdict_verbose['labels'] = tvec
+        outdict_verbose['pred_train'] = y_pred_train
+        outdict_verbose['R2_train'] = Rsquared_train
+        outdict_verbose['pred_test'] = y_pred
+        outdict_verbose['R2_test'] = Rsquared_test
+        outdict_verbose['regul_term'] = clf.best_params_
+        pickle.dump(outdict_verbose, open('eid_{}_sanity.pkl'.format(eid), 'wb'))
+
 
 
     # generate output
