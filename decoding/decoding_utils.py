@@ -283,7 +283,7 @@ def regress_target(tvec, binned, estimator,
         clf = estimator
     else:
         cvest = False
-        kfold = KFold(n_splits=nFolds, shuffle=False)
+        kfold = KFold(n_splits=nFolds, shuffle=shuffle)
         clf = GridSearchCV(estimator, hyperparam_grid, cv=kfold, scoring='r2')
 
     clf.fit(X_train, y_train)
@@ -318,6 +318,7 @@ def regress_target(tvec, binned, estimator,
         print("\n", "Rsquare on held-out test data: {}".format(np.round(Rsquared_test, 3)), "\n")
 
         # verbose output
+        '''
         import pickle
         outdict_verbose = dict()
         outdict_verbose['binned_activity'] = binned
@@ -328,8 +329,7 @@ def regress_target(tvec, binned, estimator,
         outdict_verbose['R2_test'] = Rsquared_test
         outdict_verbose['regul_term'] = clf.best_params_
         pickle.dump(outdict_verbose, open('eid_{}_sanity.pkl'.format(eid), 'wb'))
-
-
+        '''
 
     # generate output
     outdict = dict()
