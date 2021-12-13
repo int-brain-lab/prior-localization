@@ -108,28 +108,23 @@ def fit_eid(eid, sessdf):
     behavior_data = mut.load_session(eid, one=one)
     try:
         tvec = dut.compute_target(TARGET, subject, subjeids, eid, MODELFIT_PATH,
-                                  modeltype=MODEL, beh_data=behavior_data, no_unbias=NO_UNBIAS,
+                                  modeltype=MODEL, beh_data=behavior_data,
                                   one=one)
     except ValueError:
         print('Model not fit.')
         tvec = dut.compute_target(TARGET, subject, subjeids, eid, MODELFIT_PATH,
-                                  modeltype=MODEL, no_unbias=NO_UNBIAS, one=one)
+                                  modeltype=MODEL, one=one)
 
     trialsdf = bbone.load_trials_df(eid, one=one, addtl_types=['firstMovement_times'])
     trialsdf['react_times'] = trialsdf['firstMovement_times'] - trialsdf[ALIGN_TIME]
+    mask = trialsdf[ALIGN_TIME].notna()
     if NO_UNBIAS:
-        nb_trialsdf = trialsdf[trialsdf.probabilityLeft != 0.5]
-    else:
-        nb_trialsdf = trialsdf.copy()
-
-    nanmask = nb_trialsdf[ALIGN_TIME].notna()
-    nb_trialsdf = nb_trialsdf[nanmask]
-    msub_tvec = tvec[nanmask]
-
+        mask = mask & (trialsdf.probabilityLeft != 0.5).values
     if MIN_RT is not None:
-        mask = ~(nb_trialsdf['react_times'] < MIN_RT)
-        nb_trialsdf = nb_trialsdf[mask]
-        msub_tvec = msub_tvec[mask]
+        mask = mask & (~(trialsdf.react_times < MIN_RT)).values
+
+    nb_trialsdf = trialsdf[mask]
+    msub_tvec = tvec[mask]
 
     filenames = []
     print(f'Working on eid : {eid}')
@@ -183,10 +178,9 @@ def fit_eid(eid, sessdf):
             for _ in tqdm(range(N_PSEUDO), desc='Pseudo num: ', leave=False):
                 pseudosess = generate_pseudo_session(trialsdf)
                 pseudo_tvec = dut.compute_target(TARGET, subject, subjeids, eid,
-                                                 MODELFIT_PATH,
-                                                 modeltype=MODEL, beh_data=pseudosess,
-                                                 no_unbias=NO_UNBIAS, one=one)[mask]
-                msub_pseudo_tvec = pseudo_tvec - np.mean(pseudo_tvec)
+                                                 MODELFIT_PATH,modeltype=MODEL,
+                                                 beh_data=pseudosess,one=one)[mask]
+                msub_pseudo_tvec = pseudo_tvec #- np.mean(pseudo_tvec)
                 pseudo_result = dut.regress_target(msub_pseudo_tvec, msub_binned, estimator,
                                                    hyperparam_grid=HPARAM_GRID)
                 pseudo_results.append(pseudo_result)
@@ -216,7 +210,7 @@ if __name__ == '__main__':
 
     filenames = []
     for eid in sessdf.index.unique(level='eid'):
-        fns = client.submit(fit_eid, eid)
+        fns = client.submit(fit_eid, eid, sessdf)
         filenames.append(fns)
     # WAIT FOR COMPUTATION TO FINISH BEFORE MOVING ON
     # %% Collate results into master dataframe and save

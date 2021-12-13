@@ -175,7 +175,7 @@ def remap_region(ids, source='Allen-lr', dest='Beryl-lr', output='acronym', br=N
 
 
 def compute_target(target, subject, eids_train, eid_test, savepath,
-                   no_unbias=False, modeltype=expSmoothing_prevAction, one=None,
+                   modeltype=expSmoothing_prevAction, one=None,
                    beh_data=None):
     """
     Computes regression target for use with regress_target, using subject, eid, and a string
@@ -213,8 +213,7 @@ def compute_target(target, subject, eids_train, eid_test, savepath,
         raise ValueError('target should be in {}'.format(possible_targets))
 
     target = fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=False,
-                             no_unbias=no_unbias, modeltype=modeltype, one=one,
-                             beh_data_test=beh_data)
+                             modeltype=modeltype, one=one, beh_data_test=beh_data)
 
     # todo make pd.Series
     return target
