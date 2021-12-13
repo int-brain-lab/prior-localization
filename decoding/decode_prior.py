@@ -24,7 +24,6 @@ except:
 from tqdm import tqdm
 from ibllib.atlas import AllenAtlas
 
-
 logger = logging.getLogger('ibllib')
 logger.disabled = True
 
@@ -42,8 +41,8 @@ strlut = {sklm.Lasso: 'Lasso',
 SESS_CRITERION = 'aligned-behavior' # aligned and behavior
 TARGET = 'signcont'
 MODEL = expSmoothing_prevAction
-MODELFIT_PATH = '/home/users/f/findling/ibl/prior-localization/results/behavior/'
-OUTPUT_PATH = '/home/users/f/findling/ibl/prior-localization/results/decoding/'
+MODELFIT_PATH = '/home/users/f/findling/ibl/prior-localization/decoding/results/behavior/'
+OUTPUT_PATH = '/home/users/f/findling/ibl/prior-localization/decoding/results/decoding/'
 ALIGN_TIME = 'goCue_times'
 TIME_WINDOW = (-0.6, -0.2)
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
@@ -193,7 +192,7 @@ def fit_eid(eid, sessdf):
 if __name__ == '__main__':
     from decode_prior import fit_eid
     # Generate cluster interface and map eids to workers via dask.distributed.Client
-    sessdf = dut.query_sessions(selection=SESS_CRITERION)
+    sessdf = dut.query_sessions(selection=SESS_CRITERION)[-10:]
     sessdf = sessdf.sort_values('subject').set_index(['subject', 'eid'])
 
     N_CORES = 2
@@ -244,11 +243,11 @@ if __name__ == '__main__':
     resultsdf.to_parquet(fn)
     metadata_df.to_pickle(metadata_fn)
 
-# If you want to get the errors per-failure in the run:
+ # If you want to get the errors per-failure in the run:
 """
 failures = [(i, x) for i, x in enumerate(filenames) if x.status == 'error']
 for i, failure in failures:
-    print(i, failure.exception())
+    print(i, failure.exception(), failure.key)
 
 print(len(failures))
 """
