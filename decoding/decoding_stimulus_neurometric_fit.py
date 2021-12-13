@@ -48,31 +48,49 @@ def get_target_df(target, pred, test_idxs, trialsdf, one):
     return grpbyagg.loc[0.2].reset_index().values.T, grpbyagg.loc[0.8].reset_index().values.T
 
 
-def fit_get_shift_range(lowprob_arr, highprob_arr):
+def fit_get_shift_range(lowprob_arr,
+                        highprob_arr,
+                        seed_=None,
+                        possible_contrasts=np.array([-1, -0.25, -0.125, -0.0625, 0, 0.0625, 0.125, 0.25, 1])
+                        ):
     """
     Fit psychometric functions with erf with two gammas for lapse rate, and return the parameters,
     traces, and the slope and shift.
 
     Parameters
     ----------
-    lowprobarr : numpy.ndarray
+    lowprob_arr
+    seed_
+    possible_contrasts
+    lowprob_arr : numpy.ndarray
         3 x 9 array for function fitting (see get_target_df), from low probability left block
     highprob_arr : numpy.ndarray
         Same as above, for high probability Left
     """
-    low_pars, low_L = pfit.mle_fit_psycho(lowprob_arr, P_model='erf_psycho_2gammas')
-    low_fit_trace = pfit.erf_psycho_2gammas(low_pars, lowprob_arr[0, :])
+    # pLeft = 0.2 blocks
+    if seed_ is not None: np.random.seed(seed_)
+    low_pars, low_L = pfit.mle_fit_psycho(lowprob_arr, P_model='erf_psycho_2gammas', nfits=100)
+    contrasts = lowprob_arr[0, :] if possible_contrasts is None else possible_contrasts
+    low_fit_trace = pfit.erf_psycho_2gammas(low_pars, contrasts)
+    low_range = low_fit_trace[np.argwhere(np.isclose(contrasts, 1)).flat[0]] - \
+                       low_fit_trace[np.argwhere(np.isclose(contrasts, -1)).flat[0]]
     low_slope = low_pars[1]
-    high_pars, high_L = pfit.mle_fit_psycho(highprob_arr, P_model='erf_psycho_2gammas')
-    high_fit_trace = pfit.erf_psycho_2gammas(high_pars, highprob_arr[0, :])
+    low_zerind = np.argwhere(np.isclose(contrasts, 0)).flat[0]
+    # pLeft = 0.8 blocks
+    if seed_ is not None: np.random.seed(seed_)
+    high_pars, high_L = pfit.mle_fit_psycho(highprob_arr, P_model='erf_psycho_2gammas', nfits=100)
+    contrasts = highprob_arr[0, :] if possible_contrasts is None else possible_contrasts
+    high_fit_trace = pfit.erf_psycho_2gammas(high_pars, contrasts)
+    high_range = high_fit_trace[np.argwhere(np.isclose(contrasts, 1)).flat[0]] - \
+                       high_fit_trace[np.argwhere(np.isclose(contrasts, -1)).flat[0]]
     high_slope = high_pars[1]
-    high_zerind = np.argwhere(np.isclose(highprob_arr[0, :], 0)).flat[0]
-    low_zerind = np.argwhere(np.isclose(lowprob_arr[0, :], 0)).flat[0]
+    high_zerind = np.argwhere(np.isclose(contrasts, 0)).flat[0]
+    # compute shift
     shift = high_fit_trace[high_zerind] - low_fit_trace[low_zerind]
     params = {'low_pars': low_pars, 'low_likelihood': low_L,
               'high_pars': high_pars, 'high_likelihood': high_L,
               'low_fit_trace': low_fit_trace, 'high_fit_trace': high_fit_trace}
-    return params, low_slope, high_slope, shift
+    return params, low_slope, high_slope, low_range, high_range, shift
 
 
 def fit_file(file, overwrite=False):
@@ -235,7 +253,6 @@ if __name__ == "__main__":
         axis=1)
 
     grpbyagg = resultsdf.groupby('region').agg({'mean_range': 'mean', 'shift': 'mean',
-
                                                 'shift_zsc': 'mean', 'shift_perc': 'mean',
                                                 'run0_range': 'mean',
                                                 'run0_shift': 'mean'})
