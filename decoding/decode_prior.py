@@ -22,7 +22,6 @@ try:
     from dask.distributed import Client
 except:
     import warnings
-
     warnings.warn('dask import failed')
     pass
 from tqdm import tqdm
@@ -287,10 +286,7 @@ if __name__ == '__main__':
 
 # If you want to get the errors per-failure in the run:
 """
-failures = [(i, x) for i, x in enumerate(filenames) if x.status == 'error']
-for i, failure in failures:
-    print(i, failure.exception(), failure.key)
-print(len(failures))
+:
 """
 # You can also get the traceback from failure.traceback and print via `import traceback` and
 # traceback.print_tb()

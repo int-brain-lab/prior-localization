@@ -96,14 +96,17 @@ def fit_get_shift_range(lowprob_arr,
 
 def get_neurometric_parameters(fit_result, trialsdf, one):
     # fold-wise neurometric curve
-    prob_arrays = [get_target_df(fit_result['target'],
+    try:
+        prob_arrays = [get_target_df(fit_result['target'],
                                  fit_result['predictions'][k],
                                  fit_result['idxes_test'][k],
                                  trialsdf, one)
                    for k in range(fit_result['nFolds'])]
 
-    fold_neurometric = [fit_get_shift_range(prob_arrays[k][0], prob_arrays[k][1])
+        fold_neurometric = [fit_get_shift_range(prob_arrays[k][0], prob_arrays[k][1])
                         for k in range(fit_result['nFolds'])]
+    except KeyError:
+        fold_neurometric = None
 
     # full neurometric curve
     full_test_prediction = np.zeros(len(fit_result['target']))
