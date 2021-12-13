@@ -45,7 +45,7 @@ MODEL = expSmoothing_prevAction
 MODELFIT_PATH = '/home/users/f/findling/ibl/prior-localization/decoding/results/behavior/'
 OUTPUT_PATH = '/home/users/f/findling/ibl/prior-localization/decoding/results/decoding/'
 ALIGN_TIME = 'goCue_times'
-TIME_WINDOW = (-0.6, -0.2)
+TIME_WINDOW = (-0.4, -0.1)
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
 N_PSEUDO = 2
@@ -87,7 +87,8 @@ def save_region_results(fit_result, pseudo_results, subject, eid, probe, region,
     for folder in [subjectfolder, eidfolder, probefolder]:
         if not os.path.exists(folder):
             os.mkdir(folder)
-    fn = '_'.join([DATE, region]) + '.pkl'
+    start_tw, end_tw = TIME_WINDOW
+    fn = '_'.join([DATE, region, 'timeWindow', str(start_tw).replace('.', '_'), str(end_tw).replace('.', '_')]) + '.pkl'
     fw = open(probefolder.joinpath(fn), 'wb')
     outdict = {'fit': fit_result, 'pseudosessions': pseudo_results,
                'subject': subject, 'eid': eid, 'probe': probe, 'region': region, 'N_units': N}
@@ -153,7 +154,7 @@ def fit_eid(eid, sessdf):
                     if not np.all(((metrics_verif.label - metrics.label) < 1e-10) + metrics_verif.label.isna()):
                         raise ValueError('there is a problem in the metric computations')
             except AttributeError:
-                raise AttributeError('Session has no QC metrics')
+                pass
             qc_pass = (metrics.label >= QC_CRITERIA)
             if (beryl_reg.shape[0] - 1) != qc_pass.index.max():
                 raise IndexError('Shapes of metrics and number of clusters '
@@ -249,9 +250,11 @@ if __name__ == '__main__':
     resultsdf = pd.DataFrame(resultslist).set_index(indexers)
 
     estimatorstr = strlut[ESTIMATOR]
+    start_tw, end_tw = TIME_WINDOW
     fn = OUTPUT_PATH + '_'.join([DATE, 'decode', TARGET,
                    dut.modeldispatcher[MODEL] if TARGET in ['prior', 'prederr'] else 'task',
-                   estimatorstr, 'align', ALIGN_TIME, str(N_PSEUDO), 'pseudosessions']) + \
+                   estimatorstr, 'align', ALIGN_TIME, str(N_PSEUDO), 'pseudosessions',
+                   'timeWindow', str(start_tw).replace('.', '_'), str(end_tw).replace('.', '_')]) + \
         '.parquet'
     metadata_df = pd.Series({'filename': fn, **fit_metadata})
     metadata_fn = '.'.join([fn.split('.')[0], 'metadata', 'pkl'])
