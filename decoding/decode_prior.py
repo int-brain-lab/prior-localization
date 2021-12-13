@@ -50,6 +50,7 @@ ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
 N_PSEUDO = 2
 MIN_UNITS = 10
+MIN_BEHAV_TRIAS = 200
 MIN_RT = 0.08  # Float (s) or None
 NO_UNBIAS = True
 DATE = str(date.today())
@@ -71,6 +72,7 @@ fit_metadata = {
     'estimator': strlut[ESTIMATOR],
     'n_pseudo': N_PSEUDO,
     'min_units': MIN_UNITS,
+    'min_behav_trials': MIN_BEHAV_TRIAS,
     'qc_criteria': QC_CRITERIA,
     'date': DATE,
     'no_unbias': NO_UNBIAS,
@@ -133,6 +135,9 @@ def fit_eid(eid, sessdf):
     msub_tvec = tvec[mask]
 
     filenames = []
+    if len(msub_tvec) <= MIN_BEHAV_TRIAS:
+        return filenames
+
     print(f'Working on eid : {eid}')
     for probe in tqdm(sessdf.loc[subject, eid, :].probe, desc='Probe: ', leave=False):
         spikes, clusters, _ = bbone.load_spike_sorting_with_channel(eid,
@@ -147,7 +152,8 @@ def fit_eid(eid, sessdf):
             metrics = pd.DataFrame.from_dict(quick_unit_metrics(spikes[probe].clusters,
                                                                 spikes[probe].times,
                                                                 spikes[probe].amps,
-                                                                spikes[probe].depths))
+                                                                spikes[probe].depths,
+                                                                cluster_ids=np.arange(len(beryl_reg))))
             try:
                 metrics_verif = clusters[probe].metrics
                 if beryl_reg.shape[0] == len(metrics_verif):
