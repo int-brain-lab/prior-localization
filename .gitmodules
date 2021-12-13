@@ -1,6 +1,0 @@
-[submodule "neuroGLM"]
-	path = neuroGLM
-	url = https://github.com/pillowlab/neuroGLM
-[submodule "psytrack"]
-	path = psytrack
-	url = https://github.com/nicholas-roy/psytrack
