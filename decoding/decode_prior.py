@@ -14,6 +14,7 @@ from models.expSmoothing_prevAction import expSmoothing_prevAction
 # from brainbox.singlecell import calculate_peths
 from brainbox.population.decode import get_spike_counts_in_bins
 from brainbox.task.closed_loop import generate_pseudo_session
+from brainbox.metrics.single_units import quick_unit_metrics
 try:
     from dask_jobqueue import SLURMCluster
     from dask.distributed import Client
@@ -114,7 +115,12 @@ def fit_eid(eid, sessdf):
         tvec = dut.compute_target(TARGET, subject, subjeids, eid, MODELFIT_PATH,
                                   modeltype=MODEL, one=one)
 
-    trialsdf = bbone.load_trials_df(eid, one=one, addtl_types=['firstMovement_times'])
+    try:
+        trialsdf = bbone.load_trials_df(eid, one=one, addtl_types=['firstMovement_times'])
+        if len(trialsdf) != len(tvec):
+            raise IndexError
+    except IndexError:
+        raise IndexError('Problem in the dimensions of dataframe of session')
     trialsdf['react_times'] = trialsdf['firstMovement_times'] - trialsdf[ALIGN_TIME]
     mask = trialsdf[ALIGN_TIME].notna()
     if NO_UNBIAS:
@@ -132,11 +138,20 @@ def fit_eid(eid, sessdf):
                                                                     one=one,
                                                                     probe=probe,
                                                                     brain_atlas=atlas,
+                                                                    dataset_types=['spikes.depths', 'spikes.amps'],
                                                                     aligned=True)
+
         beryl_reg = dut.remap_region(clusters[probe].atlas_id, br=brainreg)
         if QC_CRITERIA:
+            metrics = pd.DataFrame.from_dict(quick_unit_metrics(spikes[probe].clusters,
+                                                                spikes[probe].times,
+                                                                spikes[probe].amps,
+                                                                spikes[probe].depths))
             try:
-                metrics = clusters[probe].metrics
+                metrics_verif = clusters[probe].metrics
+                if beryl_reg.shape[0] == len(metrics_verif):
+                    if not np.all(((metrics_verif.label - metrics.label) < 1e-10) + metrics_verif.label.isna()):
+                        raise ValueError('there is a problem in the metric computations')
             except AttributeError:
                 raise AttributeError('Session has no QC metrics')
             qc_pass = (metrics.label >= QC_CRITERIA)
@@ -243,11 +258,17 @@ if __name__ == '__main__':
     resultsdf.to_parquet(fn)
     metadata_df.to_pickle(metadata_fn)
 
+# command to close the ongoing placeholder
+# client.close(); cluster.close()
+
  # If you want to get the errors per-failure in the run:
 """
 failures = [(i, x) for i, x in enumerate(filenames) if x.status == 'error']
+count = 0
 for i, failure in failures:
     print(i, failure.exception(), failure.key)
+    if 'QC metrics' in str(failure.exception()):
+        count+= 1 
 print(len(failures))
 """
 # You can also get the traceback from failure.traceback and print via `import traceback` and
