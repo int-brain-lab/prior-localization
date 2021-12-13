@@ -192,7 +192,7 @@ def fit_eid(eid, sessdf):
 if __name__ == '__main__':
     from decode_prior import fit_eid
     # Generate cluster interface and map eids to workers via dask.distributed.Client
-    sessdf = dut.query_sessions(selection=SESS_CRITERION)[-10:]
+    sessdf = dut.query_sessions(selection=SESS_CRITERION)
     sessdf = sessdf.sort_values('subject').set_index(['subject', 'eid'])
 
     N_CORES = 2
@@ -234,7 +234,7 @@ if __name__ == '__main__':
     resultsdf = pd.DataFrame(resultslist).set_index(indexers)
 
     estimatorstr = strlut[ESTIMATOR]
-    fn = '_'.join([DATE, 'decode', TARGET,
+    fn = OUTPUT_PATH + '_'.join([DATE, 'decode', TARGET,
                    dut.modeldispatcher[MODEL] if TARGET in ['prior', 'prederr'] else 'task',
                    estimatorstr, 'align', ALIGN_TIME, str(N_PSEUDO), 'pseudosessions']) + \
         '.parquet'
@@ -248,7 +248,6 @@ if __name__ == '__main__':
 failures = [(i, x) for i, x in enumerate(filenames) if x.status == 'error']
 for i, failure in failures:
     print(i, failure.exception(), failure.key)
-
 print(len(failures))
 """
 # You can also get the traceback from failure.traceback and print via `import traceback` and
