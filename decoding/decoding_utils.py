@@ -175,7 +175,7 @@ def remap_region(ids, source='Allen-lr', dest='Beryl-lr', output='acronym', br=N
 
 
 def compute_target(target, subject, eids_train, eid_test, savepath,
-                   no_unbias=False, modeltype=expSmoothing_prevAction, one=None,
+                   modeltype=expSmoothing_prevAction, one=None,
                    beh_data=None):
     """
     Computes regression target for use with regress_target, using subject, eid, and a string
@@ -213,8 +213,7 @@ def compute_target(target, subject, eids_train, eid_test, savepath,
         raise ValueError('target should be in {}'.format(possible_targets))
 
     target = fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=False,
-                             no_unbias=no_unbias, modeltype=modeltype, one=one,
-                             beh_data_test=beh_data)
+                             modeltype=modeltype, one=one, beh_data_test=beh_data)
 
     # todo make pd.Series
     return target
@@ -222,7 +221,7 @@ def compute_target(target, subject, eids_train, eid_test, savepath,
 
 def regress_target(tvec, binned, estimator,
                    hyperparam_grid=None, test_prop=0.2, nFolds=5, save_binned=False,
-                   verbose=False, shuffle=True):
+                   verbose=False, shuffle=True, outer_cv=True):
     """
     Regresses binned neural activity against a target, using a provided sklearn estimator
 
@@ -252,7 +251,8 @@ def regress_target(tvec, binned, estimator,
     verbose : bool
         Whether you want to hear about the function's life, how things are going,
         and what the neighbor down the street said to it the other day.
-
+    outer_cv: bool
+        Perform outer cross validation such that the testing spans the entire dataset
     Returns
     -------
     dict
@@ -264,13 +264,18 @@ def regress_target(tvec, binned, estimator,
             - Per-trial predictions from model
             - Input regressors (optional, see binned argument)
     """
+    # initialize outputs
+    Rsquareds_test, Rsquareds_train, weights, intercepts = [], [], [], []
+    predictions, idxes_test, idxes_train, best_params = [], [], [], []
+
     # train / test split
     # Split the dataset in two equal parts
     # when shuffle=False, the method will take the end of the dataset to create the test set
     indices = np.arange(len(tvec))
-    X_train, X_test, y_train, y_test, idxes_train, idxes_test \
-        = train_test_split(binned, tvec, indices,
-                           test_size=test_prop, shuffle=shuffle)
+    if outer_cv:
+        outer_kfold = KFold(n_splits=nFolds, shuffle=shuffle).split(indices)
+    else:
+        outer_kfold = iter([train_test_split(indices, test_size=test_prop, shuffle=shuffle)])
 
     # Select either the GridSearchCV estimator for a normal estimator, or use the native estimator
     # in the case of CV-type estimators
@@ -281,23 +286,57 @@ def regress_target(tvec, binned, estimator,
         cvest = True
         estimator.cv = nFolds  # Overwrite user spec to make sure nFolds is used
         clf = estimator
+        raise NotImplemented('the code does not support a CV-type estimator for the moment.')
     else:
         cvest = False
-        kfold = KFold(n_splits=nFolds, shuffle=False)
-        clf = GridSearchCV(estimator, hyperparam_grid, cv=kfold, scoring='r2')
+        inner_kfold = KFold(n_splits=nFolds, shuffle=shuffle)
 
-    clf.fit(X_train, y_train)
+        for train_index, test_index in outer_kfold:
+            X_train, X_test = binned[train_index], binned[test_index]
+            y_train, y_test = tvec[train_index], tvec[test_index]
 
-    # compute R2 on the train data
-    y_pred_train = clf.predict(X_train)
-    Rsquared_train = r2_score(y_train, y_pred_train)
+            clf = GridSearchCV(estimator, hyperparam_grid, cv=inner_kfold, scoring='r2')
 
-    # compute R2 on held-out data
-    y_true, y_pred = y_test, clf.predict(X_test)
-    Rsquared_test = r2_score(y_true, y_pred)
+            clf.fit(X_train, y_train)
+
+            # compute R2 on the train data
+            y_pred_train = clf.predict(X_train)
+            Rsquareds_train.append(r2_score(y_train, y_pred_train))
+
+            # compute R2 on held-out data
+            y_true, y_pred = y_test, clf.predict(X_test)
+            Rsquareds_test.append(r2_score(y_true, y_pred))
+
+            # prediction, target, idxes_test, idxes_train
+            predictions.append(clf.predict(binned))
+            idxes_test.append(test_index)
+            idxes_train.append(train_index)
+            weights.append(clf.best_estimator_.coef_)
+            if clf.best_estimator_.fit_intercept:
+                intercepts.append(clf.best_estimator_.intercept_)
+            else:
+                intercepts.append(None)
+            best_params.append(clf.best_params_)
+
+    outdict = dict()
+    outdict['Rsquareds_train'] = Rsquareds_train
+    outdict['Rsquareds_test'] = Rsquareds_test
+    outdict['weights'] = weights
+    outdict['intercepts'] = intercepts
+    outdict['targets'] = tvec
+    outdict['predictions'] = predictions
+    outdict['idxes_test'] = idxes_test
+    outdict['idxes_train'] = idxes_train
+    outdict['best_params'] = best_params
+    outdict['nFolds'] = nFolds
+    if save_binned:
+        outdict['regressors'] = binned
 
     # logging
     if verbose:
+        # verbose output
+        if outer_cv:
+            print('Performance is only describe for last outer fold \n')
         print("Possible regularization parameters over {} validation sets:".format(nFolds))
         print('{}: {}'.format(list(hyperparam_grid.keys())[0], hyperparam_grid))
         print("\nBest parameters found over {} validation sets:".format(nFolds))
@@ -317,7 +356,7 @@ def regress_target(tvec, binned, estimator,
         print("The model is trained on the full (train + validation) set.")
         print("\n", "Rsquare on held-out test data: {}".format(np.round(Rsquared_test, 3)), "\n")
 
-        # verbose output
+        '''
         import pickle
         outdict_verbose = dict()
         outdict_verbose['binned_activity'] = binned
@@ -328,21 +367,6 @@ def regress_target(tvec, binned, estimator,
         outdict_verbose['R2_test'] = Rsquared_test
         outdict_verbose['regul_term'] = clf.best_params_
         pickle.dump(outdict_verbose, open('eid_{}_sanity.pkl'.format(eid), 'wb'))
-
-
-
-    # generate output
-    outdict = dict()
-    outdict['Rsquared_train'] = Rsquared_train
-    outdict['Rsquared_test'] = Rsquared_test
-    outdict['weights'] = clf.coef_ if cvest else clf.best_estimator_.coef_
-    outdict['intercept'] = clf.intercept_ if cvest else clf.best_estimator_.intercept_
-    outdict['target'] = tvec
-    outdict['prediction'] = clf.predict(binned) if cvest else clf.best_estimator_.predict(binned)
-    outdict['idxes_test'] = idxes_test
-    outdict['idxes_train'] = idxes_train
-    outdict['best_params'] = {'alpha': clf.alpha_} if cvest else clf.best_params_
-    if save_binned:
-        outdict['regressors'] = binned
+        '''
 
     return outdict

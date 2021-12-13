@@ -169,7 +169,7 @@ if __name__ == "__main__":
     fitpath = Path('/home/gercek/scratch/results/decoding/')
     fitdate = '2021-11-08'
     meta_f = fitdate + \
-        '_decode_signcont_task_Lasso_align_stimOn_times_200_pseudosessions.metadata.pkl'
+        '_decode_signcont_task_Lasso_align_stimOn_times_2_pseudosessions.metadata.pkl'
     fit_metadata = pd.read_pickle(meta_f)
 
     filenames = []
