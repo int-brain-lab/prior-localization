@@ -89,9 +89,32 @@ def fit_get_shift_range(lowprob_arr,
     shift = high_fit_trace[high_zerind] - low_fit_trace[low_zerind]
     params = {'low_pars': low_pars, 'low_likelihood': low_L,
               'high_pars': high_pars, 'high_likelihood': high_L,
-              'low_fit_trace': low_fit_trace, 'high_fit_trace': high_fit_trace}
-    return params, low_slope, high_slope, low_range, high_range, shift
+              'low_fit_trace': low_fit_trace, 'high_fit_trace': high_fit_trace,
+              'low_slope': low_slope, 'high_slope': high_slope, 'low_range': low_range,
+              'high_range': high_range, 'shift': shift}
+    return params
 
+def get_neurometric_parameters(fit_result, trialsdf, one):
+    # fold-wise neurometric curve
+    prob_arrays = [get_target_df(fit_result['target'],
+                                 fit_result['predictions'][k],
+                                 fit_result['idxes_test'][k],
+                                 trialsdf, one)
+                   for k in range(fit_result['nFolds'])]
+
+    fold_neurometric = [fit_get_shift_range(prob_arrays[k][0], prob_arrays[k][1])
+                        for k in range(fit_result['nFolds'])]
+
+    # full neurometric curve
+    full_test_prediction = np.zeros(len(fit_result['target']))
+    for k in range(fit_result['nFolds']):
+        full_test_prediction[fit_result['idxes_test'][k]] = fit_result['predictions_test'][k]
+
+    lowprob_arr, highprob_arr = get_target_df(fit_result['target'], full_test_prediction,
+                                              np.arange(len(fit_result['target'])), trialsdf, one)
+    full_neurometric = fit_get_shift_range(lowprob_arr, highprob_arr)
+
+    return full_neurometric, fold_neurometric
 
 def fit_file(file, overwrite=False):
     one = ONE()
