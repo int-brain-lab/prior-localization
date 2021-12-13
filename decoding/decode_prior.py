@@ -42,8 +42,8 @@ strlut = {sklm.Lasso: 'Lasso',
 SESS_CRITERION = 'aligned-behavior' # aligned and behavior
 TARGET = 'signcont'
 MODEL = expSmoothing_prevAction
-MODELFIT_PATH = '/home/gercek/Projects/prior-localization/results/inference/'
-OUTPUT_PATH = '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding/scratch'
+MODELFIT_PATH = '/home/users/f/findling/ibl/prior-localization/results/behavior/'
+OUTPUT_PATH = '/home/users/f/findling/ibl/prior-localization/results/decoding/'
 ALIGN_TIME = 'goCue_times'
 TIME_WINDOW = (-0.6, -0.2)
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
@@ -96,7 +96,7 @@ def save_region_results(fit_result, pseudo_results, subject, eid, probe, region,
     return probefolder.joinpath(fn)
 
 
-def fit_eid(eid):
+def fit_eid(eid, sessdf):
     one = ONE()
     atlas = AllenAtlas()
 
@@ -197,13 +197,15 @@ def fit_eid(eid):
 
 
 if __name__ == '__main__':
+    from decode_prior import fit_eid
     # Generate cluster interface and map eids to workers via dask.distributed.Client
     sessdf = dut.query_sessions(selection=SESS_CRITERION)
     sessdf = sessdf.sort_values('subject').set_index(['subject', 'eid'])
 
     N_CORES = 2
     cluster = SLURMCluster(cores=N_CORES, memory='12GB', processes=1, queue="shared-cpu",
-                           walltime="01:15:00", log_directory='/home/gercek/dask-worker-logs',
+                           walltime="01:15:00",
+                           log_directory='/home/users/f/findling/ibl/prior-localization/decoding/dask-worker-logs',
                            interface='ib0',
                            extra=["--lifetime", "70m", "--lifetime-stagger", "4m"],
                            job_cpu=N_CORES, env_extra=[f'export OMP_NUM_THREADS={N_CORES}',
@@ -229,11 +231,6 @@ if __name__ == '__main__':
         fo = open(fn, 'rb')
         result = pickle.load(fo)
         fo.close()
-        tmpdict = {**{x: result[x] for x in indexers},
-                   'baseline': result['fit']['Rsquareds_test'],
-                   **{f'run{i}': result['pseudosessions'][i]['Rsquareds_test']
-                      for i in range(N_PSEUDO)}}
-
         for kfold in range(result['fit']['nFolds']):
             tmpdict = {**{x: result[x] for x in indexers},
                        'fold':kfold,
