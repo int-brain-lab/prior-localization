@@ -266,7 +266,7 @@ def regress_target(tvec, binned, estimator,
     """
     # initialize outputs
     Rsquareds_test, Rsquareds_train, weights, intercepts = [], [], [], []
-    predictions, idxes_test, idxes_train, best_params = [], [], [], []
+    predictions, predictions_test, idxes_test, idxes_train, best_params = [], [], [], [], []
 
     # train / test split
     # Split the dataset in two equal parts
@@ -309,6 +309,7 @@ def regress_target(tvec, binned, estimator,
 
             # prediction, target, idxes_test, idxes_train
             predictions.append(clf.predict(binned))
+            predictions_test.append(clf.predict(binned)[test_index])
             idxes_test.append(test_index)
             idxes_train.append(train_index)
             weights.append(clf.best_estimator_.coef_)
@@ -323,8 +324,9 @@ def regress_target(tvec, binned, estimator,
     outdict['Rsquareds_test'] = Rsquareds_test
     outdict['weights'] = weights
     outdict['intercepts'] = intercepts
-    outdict['targets'] = tvec
+    outdict['target'] = tvec
     outdict['predictions'] = predictions
+    outdict['predictions_test'] = predictions_test
     outdict['idxes_test'] = idxes_test
     outdict['idxes_train'] = idxes_train
     outdict['best_params'] = best_params

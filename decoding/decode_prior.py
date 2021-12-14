@@ -15,6 +15,8 @@ from models.expSmoothing_prevAction import expSmoothing_prevAction
 from brainbox.population.decode import get_spike_counts_in_bins
 from brainbox.task.closed_loop import generate_pseudo_session
 from brainbox.metrics.single_units import quick_unit_metrics
+from decoding_stimulus_neurometric_fit import get_neurometric_parameters
+
 try:
     from dask_jobqueue import SLURMCluster
     from dask.distributed import Client
@@ -39,7 +41,7 @@ strlut = {sklm.Lasso: 'Lasso',
 
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
-SESS_CRITERION = 'aligned-behavior' # aligned and behavior
+SESS_CRITERION = 'aligned-behavior'  # aligned and behavior
 TARGET = 'signcont'
 MODEL = expSmoothing_prevAction
 MODELFIT_PATH = '/home/users/f/findling/ibl/prior-localization/decoding/results/behavior/'
@@ -54,12 +56,13 @@ MIN_BEHAV_TRIAS = 200
 MIN_RT = 0.08  # Float (s) or None
 NO_UNBIAS = True
 DATE = str(date.today())
+SHUFFLE = False
 # Basically, quality metric on the stability of a single unit. Should have 1 metric per neuron
-QC_CRITERIA = 3/3  # In {None, 1/3, 2/3, 3/3}
+QC_CRITERIA = 3 / 3  # In {None, 1/3, 2/3, 3/3}
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 
 HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10, 100])}
-#HPARAM_GRID = [0.001, 0.01, 0.1, 1, 10, 100] # None  # For GridSearchCV, set to None if using a CV estimator
+# HPARAM_GRID = [0.001, 0.01, 0.1, 1, 10, 100] # None  # For GridSearchCV, set to None if using a CV estimator
 
 fit_metadata = {
     'criterion': SESS_CRITERION,
@@ -75,6 +78,7 @@ fit_metadata = {
     'min_behav_trials': MIN_BEHAV_TRIAS,
     'qc_criteria': QC_CRITERIA,
     'date': DATE,
+    'shuffle': SHUFFLE,
     'no_unbias': NO_UNBIAS,
     'hyperparameter_grid': HPARAM_GRID,
     'save_binned': SAVE_BINNED,
@@ -194,16 +198,25 @@ def fit_eid(eid, sessdf):
                                  'Check window.')
             fit_result = dut.regress_target(msub_tvec, msub_binned, estimator,
                                             hyperparam_grid=HPARAM_GRID,
-                                            save_binned=SAVE_BINNED)
+                                            save_binned=SAVE_BINNED, shuffle=SHUFFLE)
+
+            # neurometric curve
+            fit_result['full_neurometric'], fit_result['fold_neurometric'] = \
+                get_neurometric_parameters(fit_result, nb_trialsdf.reset_index(), one)
+
             pseudo_results = []
             for _ in tqdm(range(N_PSEUDO), desc='Pseudo num: ', leave=False):
                 pseudosess = generate_pseudo_session(trialsdf)
-                pseudo_tvec = dut.compute_target(TARGET, subject, subjeids, eid,
-                                                 MODELFIT_PATH,modeltype=MODEL,
-                                                 beh_data=pseudosess,one=one)[mask]
-                msub_pseudo_tvec = pseudo_tvec #- np.mean(pseudo_tvec)
+                msub_pseudo_tvec = dut.compute_target(TARGET, subject, subjeids, eid,
+                                                      MODELFIT_PATH, modeltype=MODEL,
+                                                      beh_data=pseudosess, one=one)[mask]
                 pseudo_result = dut.regress_target(msub_pseudo_tvec, msub_binned, estimator,
-                                                   hyperparam_grid=HPARAM_GRID)
+                                                   hyperparam_grid=HPARAM_GRID, shuffle=SHUFFLE)
+
+                # neurometric curve
+                pseudo_result['full_neurometric'], pseudo_result['fold_neurometric'] = \
+                    get_neurometric_parameters(pseudo_result, pseudosess[mask].reset_index(), one)
+
                 pseudo_results.append(pseudo_result)
             filenames.append(save_region_results(fit_result, pseudo_results, subject,
                                                  eid, probe, region, N_units))
@@ -213,6 +226,7 @@ def fit_eid(eid, sessdf):
 
 if __name__ == '__main__':
     from decode_prior import fit_eid
+
     # Generate cluster interface and map eids to workers via dask.distributed.Client
     sessdf = dut.query_sessions(selection=SESS_CRITERION)
     sessdf = sessdf.sort_values('subject').set_index(['subject', 'eid'])
@@ -248,7 +262,7 @@ if __name__ == '__main__':
         fo.close()
         for kfold in range(result['fit']['nFolds']):
             tmpdict = {**{x: result[x] for x in indexers},
-                       'fold':kfold,
+                       'fold': kfold,
                        'baseline': result['fit']['Rsquareds_test'][kfold],
                        **{f'run{i}': result['pseudosessions'][i]['Rsquareds_test'][kfold]
                           for i in range(N_PSEUDO)}}
@@ -258,10 +272,10 @@ if __name__ == '__main__':
     estimatorstr = strlut[ESTIMATOR]
     start_tw, end_tw = TIME_WINDOW
     fn = OUTPUT_PATH + '_'.join([DATE, 'decode', TARGET,
-                   dut.modeldispatcher[MODEL] if TARGET in ['prior', 'prederr'] else 'task',
-                   estimatorstr, 'align', ALIGN_TIME, str(N_PSEUDO), 'pseudosessions',
-                   'timeWindow', str(start_tw).replace('.', '_'), str(end_tw).replace('.', '_')]) + \
-        '.parquet'
+                                 dut.modeldispatcher[MODEL] if TARGET in ['prior', 'prederr'] else 'task',
+                                 estimatorstr, 'align', ALIGN_TIME, str(N_PSEUDO), 'pseudosessions',
+                                 'timeWindow', str(start_tw).replace('.', '_'), str(end_tw).replace('.', '_')]) + \
+         '.parquet'
     metadata_df = pd.Series({'filename': fn, **fit_metadata})
     metadata_fn = '.'.join([fn.split('.')[0], 'metadata', 'pkl'])
     resultsdf.to_parquet(fn)
@@ -270,15 +284,9 @@ if __name__ == '__main__':
 # command to close the ongoing placeholder
 # client.close(); cluster.close()
 
- # If you want to get the errors per-failure in the run:
+# If you want to get the errors per-failure in the run:
 """
-failures = [(i, x) for i, x in enumerate(filenames) if x.status == 'error']
-count = 0
-for i, failure in failures:
-    print(i, failure.exception(), failure.key)
-    if 'QC metrics' in str(failure.exception()):
-        count+= 1 
-print(len(failures))
+:
 """
 # You can also get the traceback from failure.traceback and print via `import traceback` and
 # traceback.print_tb()
