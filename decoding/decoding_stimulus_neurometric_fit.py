@@ -94,18 +94,21 @@ def fit_get_shift_range(lowprob_arr,
               'high_range': high_range, 'shift': shift}
     return params
 
-def get_neurometric_parameters(fit_result, trialsdf, one):
+def get_neurometric_parameters(fit_result, trialsdf, one, compute_on_each_fold):
     # fold-wise neurometric curve
-    try:
-        prob_arrays = [get_target_df(fit_result['target'],
-                                 fit_result['predictions'][k],
-                                 fit_result['idxes_test'][k],
-                                 trialsdf, one)
-                   for k in range(fit_result['nFolds'])]
+    if compute_on_each_fold:
+        try:
+            prob_arrays = [get_target_df(fit_result['target'],
+                                     fit_result['predictions'][k],
+                                     fit_result['idxes_test'][k],
+                                     trialsdf, one)
+                       for k in range(fit_result['nFolds'])]
 
-        fold_neurometric = [fit_get_shift_range(prob_arrays[k][0], prob_arrays[k][1])
-                        for k in range(fit_result['nFolds'])]
-    except KeyError:
+            fold_neurometric = [fit_get_shift_range(prob_arrays[k][0], prob_arrays[k][1])
+                            for k in range(fit_result['nFolds'])]
+        except KeyError:
+            fold_neurometric = None
+    else:
         fold_neurometric = None
 
     # full neurometric curve
