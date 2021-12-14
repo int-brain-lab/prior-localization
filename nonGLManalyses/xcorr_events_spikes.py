@@ -14,6 +14,7 @@ from one.api import ONE
 BINWIDTH = 0.02
 CORRWIND = (-0.2, 0.8)  # seconds
 MIN_RATE = 1.  # Minimum rate, in hertz, for a neuron to be included in xcorr analysis
+PASSING_FRAC = 2/3
 
 # Do some data loading
 one = ONE()
@@ -24,7 +25,7 @@ def binf(t):
     return np.ceil(t / BINWIDTH).astype(int)
 
 
-def load_sess(eid, probe):
+def load_sess(eid, probe) -> tuple[dict, pd.DataFrame]:
     """
     Fetch spike info and 
     """
@@ -76,10 +77,10 @@ def get_binned(spikes, t_start, t_end):
     return binned
 
 
-def get_event_vec(t_start, t_end, event_times):
+def get_event_vec(t_start, t_end, event_times, event_name):
     vecshape = binf(t_end + BINWIDTH) - binf(t_start)
     evec = np.zeros(vecshape)
-    evinds = event_times.dropna().apply(binf)
+    evinds = event_times[event_name].dropna().apply(binf)
     evec[evinds] = 1
     return evec
 
@@ -103,9 +104,19 @@ def heatmap_xcorr(corrarr, lagvals, ax=None, norm=True):
 
 
 if __name__ == "__main__":
+    import dask
     from ..decoding.decoding_utils import query_sessions
     from dask.distributed import Client
     from dask_jobqueue import SLURMCluster
+
+    evkeys = [
+        'leftstim',
+        'rightstim',
+        'gocue',
+        'movement',
+        'correct',
+        'incorrect',
+    ]
 
     sessions = query_sessions('aligned-behavior')
     N_CORES = 1
@@ -119,4 +130,16 @@ if __name__ == "__main__":
     cluster.adapt(minimum_jobs=0, maximum_jobs=400)
     client = Client(cluster)
 
-    filefutures = client.map(load_sess, sessions['eid'], sessions['probe'])
+    corrarrs = {}
+    for i, (eid, probe) in sessions[['eid', 'probe']].iterrows():
+        spikes, trialsdf = dask.delayed(load_sess, nout=2)(eid, probe)
+        spikes, t_start, t_end, events = dask.delayed(get_spikes_events, nout=4)(spikes,
+                                                                                 trialsdf,
+                                                                                 PASSING_FRAC)
+        binned = dask.delayed(get_binned)(spikes, t_start, t_end)
+
+        evec = dask.delayed(get_event_vec)(t_start, t_end, events)
+        corrarr, lagvals = dask.delayed(xcorr_window, nout=2)(binned, evec)
+        corrarrs.append(corrarr)
+    
+    stacked_corrs = dask.delayed(np.vstack)(corrarrs)

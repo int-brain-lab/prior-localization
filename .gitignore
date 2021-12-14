@@ -16,3 +16,9 @@
 *.parquet
 *.pkl
 *.npy
+*.pdf
+*.out
+*.jpg
+*.svg
+*.parquet
+*.csv
