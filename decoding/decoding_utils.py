@@ -295,9 +295,16 @@ def regress_target(tvec, binned, estimator,
             X_train, X_test = binned[train_index], binned[test_index]
             y_train, y_test = tvec[train_index], tvec[test_index]
 
+            # normalize wrt to train
+            X_test = X_test - X_train.mean(axis=0)
+            X_train = X_train - X_train.mean(axis=0)
+            y_test = y_test - y_train.mean()
+            y_train = y_train - y_train.mean()
+
             clf = GridSearchCV(estimator, hyperparam_grid, cv=inner_kfold, scoring='r2')
 
-            clf.fit(X_train, y_train)
+            from sklearn.utils.class_weight import compute_sample_weight
+            clf.fit(X_train, y_train, sample_weight=compute_sample_weight("balanced", y=y_train))
 
             # compute R2 on the train data
             y_pred_train = clf.predict(X_train)
@@ -308,8 +315,8 @@ def regress_target(tvec, binned, estimator,
             Rsquareds_test.append(r2_score(y_true, y_pred))
 
             # prediction, target, idxes_test, idxes_train
-            predictions.append(clf.predict(binned))
-            predictions_test.append(clf.predict(binned)[test_index])
+            predictions.append(clf.predict(binned) + y_train.mean())
+            predictions_test.append(clf.predict(binned)[test_index] + y_train.mean())
             idxes_test.append(test_index)
             idxes_train.append(train_index)
             weights.append(clf.best_estimator_.coef_)
