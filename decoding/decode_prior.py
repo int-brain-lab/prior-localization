@@ -44,8 +44,10 @@ strlut = {sklm.Lasso: 'Lasso',
 SESS_CRITERION = 'aligned-behavior'  # aligned and behavior
 TARGET = 'signcont'
 MODEL = expSmoothing_prevAction
-MODELFIT_PATH = '/home/users/f/findling/ibl/prior-localization/decoding/results/behavior/'
-OUTPUT_PATH = '/home/users/f/findling/ibl/prior-localization/decoding/results/decoding/'
+#MODELFIT_PATH = '/home/users/f/findling/ibl/prior-localization/decoding/results/behavior/'
+#OUTPUT_PATH = '/home/users/f/findling/ibl/prior-localization/decoding/results/decoding/'
+MODELFIT_PATH = '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding/results/behavior/'
+OUTPUT_PATH = '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding/results/decoding/'
 ALIGN_TIME = 'goCue_times'
 TIME_WINDOW = (-0.4, -0.1)
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
@@ -243,6 +245,7 @@ if __name__ == '__main__':
     cluster.adapt(minimum_jobs=0, maximum_jobs=200)
     client = Client(cluster)
 
+    import time
     filenames = []
     for eid in sessdf.index.unique(level='eid'):
         fns = client.submit(fit_eid, eid, sessdf)
@@ -255,17 +258,32 @@ if __name__ == '__main__':
         finished.extend(fns)
 
     indexers = ['subject', 'eid', 'probe', 'region']
+    indexers_neurometric = ['low_slope', 'high_slope', 'low_range', 'high_range', 'shift']
     resultslist = []
     for fn in finished:
         fo = open(fn, 'rb')
         result = pickle.load(fo)
         fo.close()
+        tmpdict = {**{x: result[x] for x in indexers},
+                   'fold': -1,
+                   **{idx_neuro: result['fit']['full_neurometric'][idx_neuro] for idx_neuro in indexers_neurometric},
+                   **{'Rsquared_test': result['fit']['Rsquared_test_full']},
+                   **{f'Rsquared_test_run{i}': result['pseudosessions'][i]['Rsquared_test_full']
+                      for i in range(N_PSEUDO)},
+                   **{str(idx_neuro) + f'_run{i}': result['pseudosessions'][i]['full_neurometric'][idx_neuro]
+                      for i in range(N_PSEUDO) for idx_neuro in indexers_neurometric}}
+        resultslist.append(tmpdict)
         for kfold in range(result['fit']['nFolds']):
             tmpdict = {**{x: result[x] for x in indexers},
                        'fold': kfold,
-                       'baseline': result['fit']['Rsquareds_test'][kfold],
-                       **{f'run{i}': result['pseudosessions'][i]['Rsquareds_test'][kfold]
-                          for i in range(N_PSEUDO)}}
+                       'Rsquared_test': result['fit']['Rsquareds_test'][kfold],
+                       **{idx_neuro: result['fit']['fold_neurometric'][kfold][idx_neuro] for idx_neuro in
+                          indexers_neurometric},
+                       **{f'Rsquared_test_run{i}': result['pseudosessions'][i]['Rsquareds_test'][kfold]
+                          for i in range(N_PSEUDO)},
+                       **{str(idx_neuro) + f'_run{i}': result['pseudosessions'][i]['fold_neurometric'][kfold][idx_neuro]
+                          for i in range(N_PSEUDO) for idx_neuro in indexers_neurometric}
+                       }
             resultslist.append(tmpdict)
     resultsdf = pd.DataFrame(resultslist).set_index(indexers)
 
@@ -286,7 +304,10 @@ if __name__ == '__main__':
 
 # If you want to get the errors per-failure in the run:
 """
-:
+failures = [(i, x) for i, x in enumerate(filenames) if x.status == 'error']
+for i, failure in failures:
+    print(i, failure.exception(), failure.key)
+print(len(failures))
 """
 # You can also get the traceback from failure.traceback and print via `import traceback` and
 # traceback.print_tb()

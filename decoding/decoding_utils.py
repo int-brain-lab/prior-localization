@@ -319,7 +319,12 @@ def regress_target(tvec, binned, estimator,
                 intercepts.append(None)
             best_params.append(clf.best_params_)
 
+    full_test_prediction = np.zeros(len(tvec))
+    for k in range(nFolds):
+        full_test_prediction[idxes_test[k]] = predictions_test[k]
+
     outdict = dict()
+    outdict['Rsquared_test_full'] = r2_score(tvec, full_test_prediction)
     outdict['Rsquareds_train'] = Rsquareds_train
     outdict['Rsquareds_test'] = Rsquareds_test
     outdict['weights'] = weights
