@@ -315,8 +315,8 @@ def regress_target(tvec, binned, estimator,
             Rsquareds_test.append(r2_score(y_true, y_pred))
 
             # prediction, target, idxes_test, idxes_train
-            predictions.append(clf.predict(binned) + y_train.mean())
-            predictions_test.append(clf.predict(binned)[test_index] + y_train.mean())
+            predictions.append(clf.predict(binned - X_train.mean(axis=0)) + y_train.mean())
+            predictions_test.append(clf.predict(binned - X_train.mean(axis=0))[test_index] + y_train.mean())
             idxes_test.append(test_index)
             idxes_train.append(train_index)
             weights.append(clf.best_estimator_.coef_)
