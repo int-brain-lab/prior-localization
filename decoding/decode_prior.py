@@ -46,6 +46,8 @@ TARGET = 'signcont'
 MODEL = expSmoothing_prevAction
 MODELFIT_PATH = '/home/users/f/findling/ibl/prior-localization/decoding/results/behavior/'
 OUTPUT_PATH = '/home/users/f/findling/ibl/prior-localization/decoding/results/decoding/'
+#MODELFIT_PATH = '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding/results/behavior/'
+#OUTPUT_PATH = '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding/results/decoding/'
 ALIGN_TIME = 'goCue_times'
 TIME_WINDOW = (-0.4, -0.1)
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
@@ -56,6 +58,7 @@ MIN_BEHAV_TRIAS = 200
 MIN_RT = 0.08  # Float (s) or None
 NO_UNBIAS = True
 DATE = str(date.today())
+COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
 SHUFFLE = False
 # Basically, quality metric on the stability of a single unit. Should have 1 metric per neuron
 QC_CRITERIA = 3 / 3  # In {None, 1/3, 2/3, 3/3}
@@ -202,7 +205,8 @@ def fit_eid(eid, sessdf):
 
             # neurometric curve
             fit_result['full_neurometric'], fit_result['fold_neurometric'] = \
-                get_neurometric_parameters(fit_result, nb_trialsdf.reset_index(), one)
+                get_neurometric_parameters(fit_result, nb_trialsdf.reset_index(), one,
+                                           compute_on_each_fold=COMPUTE_NEURO_ON_EACH_FOLD)
 
             pseudo_results = []
             for _ in tqdm(range(N_PSEUDO), desc='Pseudo num: ', leave=False):
@@ -215,7 +219,8 @@ def fit_eid(eid, sessdf):
 
                 # neurometric curve
                 pseudo_result['full_neurometric'], pseudo_result['fold_neurometric'] = \
-                    get_neurometric_parameters(pseudo_result, pseudosess[mask].reset_index(), one)
+                    get_neurometric_parameters(pseudo_result, pseudosess[mask].reset_index(),
+                                               one, compute_on_each_fold=COMPUTE_NEURO_ON_EACH_FOLD)
 
                 pseudo_results.append(pseudo_result)
             filenames.append(save_region_results(fit_result, pseudo_results, subject,
@@ -232,17 +237,18 @@ if __name__ == '__main__':
     sessdf = sessdf.sort_values('subject').set_index(['subject', 'eid'])
 
     N_CORES = 2
-    cluster = SLURMCluster(cores=N_CORES, memory='12GB', processes=1, queue="shared-cpu",
+    cluster = SLURMCluster(cores=N_CORES, memory='16GB', processes=1, queue="shared-cpu",
                            walltime="01:15:00",
                            log_directory='/home/users/f/findling/ibl/prior-localization/decoding/dask-worker-logs',
                            interface='ib0',
-                           extra=["--lifetime", "70m", "--lifetime-stagger", "4m"],
+                           extra=["--lifetime", "60m", "--lifetime-stagger", "10m"],
                            job_cpu=N_CORES, env_extra=[f'export OMP_NUM_THREADS={N_CORES}',
                                                        f'export MKL_NUM_THREADS={N_CORES}',
                                                        f'export OPENBLAS_NUM_THREADS={N_CORES}'])
     cluster.adapt(minimum_jobs=0, maximum_jobs=200)
     client = Client(cluster)
 
+    import time
     filenames = []
     for eid in sessdf.index.unique(level='eid'):
         fns = client.submit(fit_eid, eid, sessdf)
@@ -255,17 +261,38 @@ if __name__ == '__main__':
         finished.extend(fns)
 
     indexers = ['subject', 'eid', 'probe', 'region']
+    indexers_neurometric = ['low_slope', 'high_slope', 'low_range', 'high_range', 'shift']
     resultslist = []
     for fn in finished:
         fo = open(fn, 'rb')
         result = pickle.load(fo)
         fo.close()
+        tmpdict = {**{x: result[x] for x in indexers},
+                   'fold': -1,
+                   **{'Rsquared_test': result['fit']['Rsquared_test_full']},
+                   **{f'Rsquared_test_pseudo{i}': result['pseudosessions'][i]['Rsquared_test_full']
+                      for i in range(N_PSEUDO)},
+                   **{idx_neuro: result['fit']['full_neurometric'][idx_neuro] for idx_neuro in indexers_neurometric},
+                   **{str(idx_neuro) + f'_pseudo{i}': result['pseudosessions'][i]['full_neurometric'][idx_neuro]
+                      for i in range(N_PSEUDO) for idx_neuro in indexers_neurometric}}
+        resultslist.append(tmpdict)
         for kfold in range(result['fit']['nFolds']):
             tmpdict = {**{x: result[x] for x in indexers},
                        'fold': kfold,
-                       'baseline': result['fit']['Rsquareds_test'][kfold],
-                       **{f'run{i}': result['pseudosessions'][i]['Rsquareds_test'][kfold]
-                          for i in range(N_PSEUDO)}}
+                       'Rsquared_test': result['fit']['Rsquareds_test'][kfold],
+                       **{f'Rsquared_test_pseudo{i}': result['pseudosessions'][i]['Rsquareds_test'][kfold]
+                          for i in range(N_PSEUDO)},
+                       }
+            if result['fit']['fold_neurometric'] is not None:
+                tmpdict = {**tmpdict,
+                           **{idx_neuro: result['fit']['fold_neurometric'][kfold][idx_neuro]
+                              for idx_neuro in indexers_neurometric}}
+            if np.all([result['pseudosessions'][i]['fold_neurometric'] is not None for i in range(N_PSEUDO)]):
+                tmpdict = {**tmpdict,
+                           **{str(idx_neuro) + f'_pseudo{i}': result['pseudosessions'][i][
+                               'fold_neurometric'][kfold][idx_neuro]
+                              for i in range(N_PSEUDO) for idx_neuro in indexers_neurometric}
+                           }
             resultslist.append(tmpdict)
     resultsdf = pd.DataFrame(resultslist).set_index(indexers)
 
@@ -286,7 +313,11 @@ if __name__ == '__main__':
 
 # If you want to get the errors per-failure in the run:
 """
-:
+failures = [(i, x) for i, x in enumerate(filenames) if x.status == 'error']
+for i, failure in failures:
+    print(i, failure.exception(), failure.key)
+print(len(failures))
+print(np.array(failures)[:,0])
 """
 # You can also get the traceback from failure.traceback and print via `import traceback` and
 # traceback.print_tb()
