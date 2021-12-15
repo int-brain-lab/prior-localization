@@ -25,7 +25,7 @@ def binf(t):
     return np.ceil(t / BINWIDTH).astype(int)
 
 
-def load_sess(eid, probe) -> tuple[dict, pd.DataFrame]:
+def load_sess(eid, probe):
     """
     Fetch spike info and 
     """
@@ -39,6 +39,22 @@ def load_sess(eid, probe) -> tuple[dict, pd.DataFrame]:
                                             ])
     trialsdf = bbone.load_trials_df(eid, one=one, addtl_types=['firstMovement_times'])
     return spikes[probe], trialsdf
+
+
+def load_sess_region(eid, probe, acronym='VISp'):
+    """
+    Fetch spike info and 
+    """
+    one = ONE()
+    spikes, clusters, _ = bbone.load_spike_sorting_with_channel(eid, probe=probe, one=one,
+                                                                dataset_types=[
+                                                                    'spikes.times',
+                                                                    'spikes.clusters',
+                                                                    'spikes.amps',
+                                                                    'spikes.depths'
+                                                                ])
+    trialsdf = bbone.load_trials_df(eid, one=one, addtl_types=['firstMovement_times'])
+    return spikes[probe], trialsdf, clusters[probe].acronym
 
 
 def get_spikes_events(spikes, trialsdf, passing_fraction=0.):
@@ -55,6 +71,7 @@ def get_spikes_events(spikes, trialsdf, passing_fraction=0.):
     # Get information about the details of our session such as start time etc
     t_start = 0
     t_end = trialsdf['trial_end'].max()
+
 
     events = {
         'leftstim': trialsdf[trialsdf.contrastLeft.notna()].stimOn_times,
@@ -86,12 +103,12 @@ def get_event_vec(t_start, t_end, event_times, event_name):
 
 
 def xcorr_window(binned, evec):
-    lags = correlation_lags(evec.shape[0], binned.shape[1]) * BINWIDTH  # Value of correlation lags
+    lags = correlation_lags(binned.shape[1], evec.shape[0]) * BINWIDTH  # Value of correlation lags
     start, end = np.searchsorted(lags, CORRWIND[0]), np.searchsorted(lags, CORRWIND[1]) + 1
     lagvals = lags[start:end]  # Per-step values of the lag
     corrarr = np.zeros((binned.shape[0], end - start))
     for i in range(binned.shape[0]):
-        corrarr[i] = correlate(evec, binned[i])[start:end]
+        corrarr[i] = correlate(binned[i], evec)[start:end]
     return corrarr, lagvals
 
 
@@ -99,7 +116,8 @@ def heatmap_xcorr(corrarr, lagvals, ax=None, norm=True):
     ax = ax if ax is not None else plt.subplots(1, 1)[1]
     normarr = normalize(corrarr) if norm else corrarr
     sortinds = np.argsort(normarr.argmax(axis=1))
-    sns.heatmap(pd.DataFrame(normarr[sortinds], columns=lagvals), ax=ax)
+    sns.heatmap(pd.DataFrame(normarr[sortinds], columns=np.round(lagvals, 3)), ax=ax)
+    ax.vlines(np.searchsorted(lagvals, 0) + 0.5, ax.get_ylim()[0], ax.get_ylim()[1], color='white')
     return ax
 
 
@@ -130,16 +148,18 @@ if __name__ == "__main__":
     cluster.adapt(minimum_jobs=0, maximum_jobs=400)
     client = Client(cluster)
 
-    corrarrs = {}
+    corrarrs = {k: [] for k in evkeys}
     for i, (eid, probe) in sessions[['eid', 'probe']].iterrows():
         spikes, trialsdf = dask.delayed(load_sess, nout=2)(eid, probe)
         spikes, t_start, t_end, events = dask.delayed(get_spikes_events, nout=4)(spikes,
                                                                                  trialsdf,
                                                                                  PASSING_FRAC)
         binned = dask.delayed(get_binned)(spikes, t_start, t_end)
-
-        evec = dask.delayed(get_event_vec)(t_start, t_end, events)
-        corrarr, lagvals = dask.delayed(xcorr_window, nout=2)(binned, evec)
-        corrarrs.append(corrarr)
+        for event in evkeys:
+            evec = dask.delayed(get_event_vec)(t_start, t_end, events, event)
+            corrarr, lagvals = dask.delayed(xcorr_window, nout=2)(binned, evec)
+            corrarrs[event].append(corrarr)
     
-    stacked_corrs = dask.delayed(np.vstack)(corrarrs)
+    corrcomp = {k: client.compute(v) for k, v in corrarrs.items()}
+    stacked_corrs = {k: dask.delayed(np.vstack)(corrarrs[k]) for k in evkeys}
+
