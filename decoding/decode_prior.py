@@ -255,7 +255,14 @@ if __name__ == '__main__':
         filenames.append(fns)
     # WAIT FOR COMPUTATION TO FINISH BEFORE MOVING ON
     # %% Collate results into master dataframe and save
-    tmp = [x.result() for x in filenames if x.status == 'finished']
+    tmp = []
+    for f in filenames:
+        if f.status == 'finished':
+            try:
+                tmp.append(f.result())
+            except:
+                pass
+    #tmp = [x.result() for x in filenames if x.status == 'finished']
     finished = []
     for fns in tmp:
         finished.extend(fns)
