@@ -280,6 +280,7 @@ if __name__ == '__main__':
             tmpdict = {**{x: result[x] for x in indexers},
                        'fold': kfold,
                        'Rsquared_test': result['fit']['Rsquareds_test'][kfold],
+                       'Best_regulCoef': result['fit']['best_params'][kfold],
                        **{f'Rsquared_test_pseudo{i}': result['pseudosessions'][i]['Rsquareds_test'][kfold]
                           for i in range(N_PSEUDO)},
                        }

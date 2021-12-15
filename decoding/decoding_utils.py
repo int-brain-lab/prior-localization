@@ -291,7 +291,7 @@ def regress_target(tvec, binned, estimator,
     else:
         cvest = False
         from sklearn.linear_model import Lasso, Ridge
-
+        estimatorObject = Lasso
         for train_index, test_index in outer_kfold:
             X_train, X_test = binned[train_index], binned[test_index]
             y_train, y_test = tvec[train_index], tvec[test_index]
@@ -305,7 +305,7 @@ def regress_target(tvec, binned, estimator,
                 y_train_inner, y_test_inner = y_train[train_inner], y_train[test_inner]
 
                 for i_alpha, alpha in enumerate(hyperparam_grid['alpha']):
-                    estimator = Ridge(alpha=alpha)
+                    estimator = estimatorObject(alpha=alpha)
                     estimator.fit(X_train_inner, y_train_inner, sample_weight=compute_sample_weight("balanced",
                                                                                                     y=y_train_inner))
                     pred_test_inner = estimator.predict(X_test_inner)
@@ -313,7 +313,7 @@ def regress_target(tvec, binned, estimator,
 
             r2s_avg = r2s.mean(axis=0)
             best_alpha = hyperparam_grid['alpha'][np.argmax(r2s_avg)]
-            clf = Ridge(alpha=best_alpha)
+            clf = estimatorObject(alpha=best_alpha)
             clf.fit(X_train, y_train, sample_weight=compute_sample_weight("balanced", y=y_train))
 
             # compute R2 on the train data

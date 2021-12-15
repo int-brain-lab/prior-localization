@@ -44,7 +44,7 @@ def get_target_df(target, pred, test_idxs, trialsdf, one):
                       index=test_idxs)
     grpby = df.groupby(['blockprob', 'stimuli'])
     grpbyagg = grpby.agg({'sign': [('num_trials', 'count'),
-                                   ('prop_L', lambda x: (x == 1).sum() / len(x))]})
+                                   ('prop_L', lambda x: ((x == 1).sum() + (x == 0).sum()/2.) / len(x))]})
     return grpbyagg.loc[0.2].reset_index().values.T, grpbyagg.loc[0.8].reset_index().values.T
 
 
