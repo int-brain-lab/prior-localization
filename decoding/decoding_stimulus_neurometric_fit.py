@@ -44,7 +44,7 @@ def get_target_df(target, pred, test_idxs, trialsdf, one):
                       index=test_idxs)
     grpby = df.groupby(['blockprob', 'stimuli'])
     grpbyagg = grpby.agg({'sign': [('num_trials', 'count'),
-                                   ('prop_L', lambda x: (x == 1).sum() / len(x))]})
+                                   ('prop_L', lambda x: ((x == 1).sum() + (x == 0).sum()/2.) / len(x))]})
     return grpbyagg.loc[0.2].reset_index().values.T, grpbyagg.loc[0.8].reset_index().values.T
 
 
@@ -69,7 +69,11 @@ def fit_get_shift_range(lowprob_arr,
     """
     # pLeft = 0.2 blocks
     if seed_ is not None: np.random.seed(seed_)
-    low_pars, low_L = pfit.mle_fit_psycho(lowprob_arr, P_model='erf_psycho_2gammas', nfits=100)
+    low_pars, low_L = pfit.mle_fit_psycho(lowprob_arr,
+                                          P_model='erf_psycho_2gammas',
+                                          nfits=100,
+                                          parmin=np.array([-1., -10.,  0.,  0.]),
+                                          parmax=np.array([1., 10.,  0.4,  0.4]))
     contrasts = lowprob_arr[0, :] if possible_contrasts is None else possible_contrasts
     low_fit_trace = pfit.erf_psycho_2gammas(low_pars, contrasts)
     low_range = low_fit_trace[np.argwhere(np.isclose(contrasts, 1)).flat[0]] - \
@@ -78,7 +82,11 @@ def fit_get_shift_range(lowprob_arr,
     low_zerind = np.argwhere(np.isclose(contrasts, 0)).flat[0]
     # pLeft = 0.8 blocks
     if seed_ is not None: np.random.seed(seed_)
-    high_pars, high_L = pfit.mle_fit_psycho(highprob_arr, P_model='erf_psycho_2gammas', nfits=100)
+    high_pars, high_L = pfit.mle_fit_psycho(highprob_arr,
+                                            P_model='erf_psycho_2gammas',
+                                            nfits=100,
+                                            parmin=np.array([-1., -10., 0., 0.]),
+                                            parmax=np.array([1., 10., 0.4, 0.4]))
     contrasts = highprob_arr[0, :] if possible_contrasts is None else possible_contrasts
     high_fit_trace = pfit.erf_psycho_2gammas(high_pars, contrasts)
     high_range = high_fit_trace[np.argwhere(np.isclose(contrasts, 1)).flat[0]] - \

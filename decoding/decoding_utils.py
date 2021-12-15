@@ -15,6 +15,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.model_selection import GridSearchCV, KFold
 from sklearn.linear_model._coordinate_descent import LinearModelCV
 from sklearn.metrics import r2_score
+from sklearn.utils.class_weight import compute_sample_weight
 
 modeldispatcher = {expSmoothing_prevAction: 'expSmoothingPrevActions',
                    expSmoothing_stimside: 'expSmoothingStimSides',
@@ -289,15 +290,31 @@ def regress_target(tvec, binned, estimator,
         raise NotImplemented('the code does not support a CV-type estimator for the moment.')
     else:
         cvest = False
-        inner_kfold = KFold(n_splits=nFolds, shuffle=shuffle)
-
+        from sklearn.linear_model import Lasso, Ridge
+        estimatorObject = Ridge
         for train_index, test_index in outer_kfold:
             X_train, X_test = binned[train_index], binned[test_index]
             y_train, y_test = tvec[train_index], tvec[test_index]
 
-            clf = GridSearchCV(estimator, hyperparam_grid, cv=inner_kfold, scoring='r2')
+            idx_inner = np.arange(len(X_train))
+            inner_kfold = KFold(n_splits=nFolds, shuffle=shuffle).split(idx_inner)
 
-            clf.fit(X_train, y_train)
+            r2s = np.zeros([nFolds, len(hyperparam_grid['alpha'])])
+            for ifold, (train_inner, test_inner) in enumerate(inner_kfold):
+                X_train_inner, X_test_inner = X_train[train_inner], X_train[test_inner]
+                y_train_inner, y_test_inner = y_train[train_inner], y_train[test_inner]
+
+                for i_alpha, alpha in enumerate(hyperparam_grid['alpha']):
+                    estimator = estimatorObject(alpha=alpha)
+                    estimator.fit(X_train_inner, y_train_inner, sample_weight=compute_sample_weight("balanced",
+                                                                                                    y=y_train_inner))
+                    pred_test_inner = estimator.predict(X_test_inner)
+                    r2s[ifold, i_alpha] = r2_score(y_test_inner, pred_test_inner)
+
+            r2s_avg = r2s.mean(axis=0)
+            best_alpha = hyperparam_grid['alpha'][np.argmax(r2s_avg)]
+            clf = estimatorObject(alpha=best_alpha)
+            clf.fit(X_train, y_train, sample_weight=compute_sample_weight("balanced", y=y_train))
 
             # compute R2 on the train data
             y_pred_train = clf.predict(X_train)
@@ -312,12 +329,12 @@ def regress_target(tvec, binned, estimator,
             predictions_test.append(clf.predict(binned)[test_index])
             idxes_test.append(test_index)
             idxes_train.append(train_index)
-            weights.append(clf.best_estimator_.coef_)
-            if clf.best_estimator_.fit_intercept:
-                intercepts.append(clf.best_estimator_.intercept_)
+            weights.append(clf.coef_)
+            if clf.fit_intercept:
+                intercepts.append(clf.intercept_)
             else:
                 intercepts.append(None)
-            best_params.append(clf.best_params_)
+            best_params.append({'alpha':best_alpha})
 
     full_test_prediction = np.zeros(len(tvec))
     for k in range(nFolds):

@@ -255,7 +255,14 @@ if __name__ == '__main__':
         filenames.append(fns)
     # WAIT FOR COMPUTATION TO FINISH BEFORE MOVING ON
     # %% Collate results into master dataframe and save
-    tmp = [x.result() for x in filenames if x.status == 'finished']
+    tmp = []
+    for f in filenames:
+        if f.status == 'finished':
+            try:
+                tmp.append(f.result())
+            except:
+                pass
+    #tmp = [x.result() for x in filenames if x.status == 'finished']
     finished = []
     for fns in tmp:
         finished.extend(fns)
@@ -280,6 +287,7 @@ if __name__ == '__main__':
             tmpdict = {**{x: result[x] for x in indexers},
                        'fold': kfold,
                        'Rsquared_test': result['fit']['Rsquareds_test'][kfold],
+                       'Best_regulCoef': result['fit']['best_params'][kfold],
                        **{f'Rsquared_test_pseudo{i}': result['pseudosessions'][i]['Rsquareds_test'][kfold]
                           for i in range(N_PSEUDO)},
                        }
