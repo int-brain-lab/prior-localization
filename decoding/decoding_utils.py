@@ -291,7 +291,7 @@ def regress_target(tvec, binned, estimator,
     else:
         cvest = False
         from sklearn.linear_model import Lasso, Ridge
-        estimatorObject = Lasso
+        estimatorObject = Ridge
         for train_index, test_index in outer_kfold:
             X_train, X_test = binned[train_index], binned[test_index]
             y_train, y_test = tvec[train_index], tvec[test_index]
