@@ -303,7 +303,7 @@ def regress_target(tvec, binned, estimatorObject,
                 y_train_inner, y_test_inner = y_train[train_inner], y_train[test_inner]
 
                 for i_alpha, alpha in enumerate(hyperparam_grid['alpha']):
-                    estimator = estimatorObject(alpha=alpha)
+                    estimator = estimatorObject(alpha=alpha, fit_intercept=False)
                     if balanced_weight:
                         estimator.fit(X_train_inner, y_train_inner, sample_weight=compute_sample_weight("balanced",
                                                                                                     y=y_train_inner))
@@ -314,7 +314,7 @@ def regress_target(tvec, binned, estimatorObject,
 
             r2s_avg = r2s.mean(axis=0)
             best_alpha = hyperparam_grid['alpha'][np.argmax(r2s_avg)]
-            clf = estimatorObject(alpha=best_alpha)
+            clf = estimatorObject(alpha=best_alpha, fit_intercept=False)
             if balanced_weight:
                 clf.fit(X_train, y_train, sample_weight=compute_sample_weight("balanced", y=y_train))
             else:
