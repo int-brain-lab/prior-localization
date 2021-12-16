@@ -10,7 +10,7 @@ from datetime import date
 from glob import glob
 from one.api import ONE
 from bbglm_sessfit import load_regressors, generate_design
-from .decoding.decoding_utils import query_sessions
+from .decoding.decoding_utils import compute_target, query_sessions
 
 
 def check_fit_exists(filename):
@@ -33,39 +33,13 @@ if __name__ == "__main__":
 
     savepath = '/home/gercek/scratch/fits/'
 
-    allsess = []
-    for region in target_regions:
-        reid, rsess, rprobe = sessions_with_region(region)
-        for rs, rp in zip(rsess, rprobe):
-            rs['probe'] = [rp]
-        allsess.extend(zip(reid, rsess))
+    sessions = query_sessions('resolved-behavior')
 
-    sessdict = {}
-    for sess in allsess:
-        if sess[0] not in sessdict.keys():
-            sessdict[sess[0]] = sess[1]
-        elif sessdict[sess[0]]['probe'] != sess[1]['probe']:
-            sessdict[sess[0]]['probe'].extend(sess[1]['probe'])
-
-    abswheel = True
-    kernlen = 0.6
-    nbases = 10
-    no_50perc = True
-    prior_estimate = None
-    binwidth = 0.02
-
-    fit_kwargs = {'binwidth': binwidth, 'abswheel': abswheel,
-                  'no_50perc': no_50perc, 'one': one}
-
-    argtuples = []
-    for eid in sessdict:
-        nickname = sessdict[eid]['subject']
-        sessdate = sessdict[eid]['start_time'][:10]
-        for probe in sessdict[eid]['probe']:
-            filename = savepath +\
-                f'{nickname}/{sessdate}_session_{currdate}_{probe}_stepwise_fit.p'
-            if not check_fit_exists(filename):
-                argtuples.append(
-                    (eid, kernlen, nbases, nickname, sessdate,
-                     filename, probe)
-                )
+    # Define delayed versions of the fit functions for use in dask
+    dload = dask.delayed(load_regressors, nout=5)
+    dprior = dask.delayed(compute_target)
+    ddesign = dask.delayed(generate_design)
+    dfit = dask.delayed(fit)
+    dsave = dask.delayed(save)
+    
+    for i, (subject, eid, probe) in sessions.iterrows():
