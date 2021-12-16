@@ -63,6 +63,7 @@ SHUFFLE = True
 # Basically, quality metric on the stability of a single unit. Should have 1 metric per neuron
 QC_CRITERIA = 3 / 3  # In {None, 1/3, 2/3, 3/3}
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
+BALANCED_WEIGHT = False
 
 HPARAM_GRID = {'alpha': np.array([0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000])}
 # HPARAM_GRID = [0.001, 0.01, 0.1, 1, 10, 100] # None  # For GridSearchCV, set to None if using a CV estimator
@@ -85,6 +86,7 @@ fit_metadata = {
     'no_unbias': NO_UNBIAS,
     'hyperparameter_grid': HPARAM_GRID,
     'save_binned': SAVE_BINNED,
+    'balanced_weight': BALANCED_WEIGHT
 }
 
 
@@ -141,6 +143,9 @@ def fit_eid(eid, sessdf):
     nb_trialsdf = trialsdf[mask]
     msub_tvec = tvec[mask]
 
+    # doubledipping
+    msub_tvec = msub_tvec - np.mean(msub_tvec)
+
     filenames = []
     if len(msub_tvec) <= MIN_BEHAV_TRIAS:
         return filenames
@@ -193,7 +198,9 @@ def fit_eid(eid, sessdf):
             regclu = spikes[probe].clusters[spikemask]
             binned, _ = get_spike_counts_in_bins(regspikes, regclu,
                                                  intervals)
-            msub_binned = binned.T.astype(int) #- np.mean(binned, axis=0)
+
+            # doubledipping
+            msub_binned = binned.T - np.mean(binned.T, axis=0) # binned.T.astype(int)
 
             if len(msub_binned.shape) > 2:
                 raise ValueError('Multiple bins are being calculated per trial,'
@@ -201,7 +208,8 @@ def fit_eid(eid, sessdf):
                                  'Check window.')
             fit_result = dut.regress_target(msub_tvec, msub_binned, estimator,
                                             hyperparam_grid=HPARAM_GRID,
-                                            save_binned=SAVE_BINNED, shuffle=SHUFFLE)
+                                            save_binned=SAVE_BINNED, shuffle=SHUFFLE,
+                                            balanced_weight=BALANCED_WEIGHT)
 
             # neurometric curve
             fit_result['full_neurometric'], fit_result['fold_neurometric'] = \
@@ -214,8 +222,12 @@ def fit_eid(eid, sessdf):
                 msub_pseudo_tvec = dut.compute_target(TARGET, subject, subjeids, eid,
                                                       MODELFIT_PATH, modeltype=MODEL,
                                                       beh_data=pseudosess, one=one)[mask]
+                # doubledipping
+                msub_pseudo_tvec = msub_pseudo_tvec - np.mean(msub_pseudo_tvec)
+
                 pseudo_result = dut.regress_target(msub_pseudo_tvec, msub_binned, estimator,
-                                                   hyperparam_grid=HPARAM_GRID, shuffle=SHUFFLE)
+                                                   hyperparam_grid=HPARAM_GRID, shuffle=SHUFFLE,
+                                                   balanced_weight=BALANCED_WEIGHT)
 
                 # neurometric curve
                 pseudo_result['full_neurometric'], pseudo_result['fold_neurometric'] = \
