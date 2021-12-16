@@ -59,12 +59,13 @@ MIN_RT = 0.08  # Float (s) or None
 NO_UNBIAS = True
 DATE = str(date.today())
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
-SHUFFLE = False
+SHUFFLE = True
 # Basically, quality metric on the stability of a single unit. Should have 1 metric per neuron
 QC_CRITERIA = 3 / 3  # In {None, 1/3, 2/3, 3/3}
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
+BALANCED_WEIGHT = False
 
-HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10, 100])}
+HPARAM_GRID = {'alpha': np.array([0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000])}
 # HPARAM_GRID = [0.001, 0.01, 0.1, 1, 10, 100] # None  # For GridSearchCV, set to None if using a CV estimator
 
 fit_metadata = {
@@ -85,6 +86,7 @@ fit_metadata = {
     'no_unbias': NO_UNBIAS,
     'hyperparameter_grid': HPARAM_GRID,
     'save_binned': SAVE_BINNED,
+    'balanced_weight': BALANCED_WEIGHT
 }
 
 
@@ -110,7 +112,7 @@ def fit_eid(eid, sessdf):
     one = ONE()
     atlas = AllenAtlas()
 
-    estimator = ESTIMATOR(**ESTIMATOR_KWARGS)
+    estimator = ESTIMATOR #(**ESTIMATOR_KWARGS)
 
     subject = sessdf.xs(eid, level='eid').index[0]
     subjeids = sessdf.xs(subject, level='subject').index.unique()
@@ -140,6 +142,9 @@ def fit_eid(eid, sessdf):
 
     nb_trialsdf = trialsdf[mask]
     msub_tvec = tvec[mask]
+
+    # doubledipping
+    # msub_tvec = msub_tvec - np.mean(msub_tvec)
 
     filenames = []
     if len(msub_tvec) <= MIN_BEHAV_TRIAS:
@@ -193,15 +198,20 @@ def fit_eid(eid, sessdf):
             regclu = spikes[probe].clusters[spikemask]
             binned, _ = get_spike_counts_in_bins(regspikes, regclu,
                                                  intervals)
-            msub_binned = binned.T.astype(int)
+
+            # doubledipping
+            msub_binned = binned.T
+            # msub_binned = binned.T - np.mean(binned.T, axis=0) # binned.T.astype(int)
 
             if len(msub_binned.shape) > 2:
                 raise ValueError('Multiple bins are being calculated per trial,'
                                  'may be due to floating point representation error.'
                                  'Check window.')
             fit_result = dut.regress_target(msub_tvec, msub_binned, estimator,
+                                            estimator_kwargs=ESTIMATOR_KWARGS,
                                             hyperparam_grid=HPARAM_GRID,
-                                            save_binned=SAVE_BINNED, shuffle=SHUFFLE)
+                                            save_binned=SAVE_BINNED, shuffle=SHUFFLE,
+                                            balanced_weight=BALANCED_WEIGHT)
 
             # neurometric curve
             fit_result['full_neurometric'], fit_result['fold_neurometric'] = \
@@ -214,8 +224,13 @@ def fit_eid(eid, sessdf):
                 msub_pseudo_tvec = dut.compute_target(TARGET, subject, subjeids, eid,
                                                       MODELFIT_PATH, modeltype=MODEL,
                                                       beh_data=pseudosess, one=one)[mask]
+                # doubledipping
+                # msub_pseudo_tvec = msub_pseudo_tvec - np.mean(msub_pseudo_tvec)
+
                 pseudo_result = dut.regress_target(msub_pseudo_tvec, msub_binned, estimator,
-                                                   hyperparam_grid=HPARAM_GRID, shuffle=SHUFFLE)
+                                                   estimator_kwargs=ESTIMATOR_KWARGS,
+                                                   hyperparam_grid=HPARAM_GRID, shuffle=SHUFFLE,
+                                                   balanced_weight=BALANCED_WEIGHT)
 
                 # neurometric curve
                 pseudo_result['full_neurometric'], pseudo_result['fold_neurometric'] = \
@@ -262,7 +277,8 @@ if __name__ == '__main__':
                 tmp.append(f.result())
             except:
                 pass
-    #tmp = [x.result() for x in filenames if x.status == 'finished']
+    tmp = [x.result() for x in filenames if x.status == 'finished']
+
     finished = []
     for fns in tmp:
         finished.extend(fns)
