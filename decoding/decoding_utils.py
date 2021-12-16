@@ -220,9 +220,9 @@ def compute_target(target, subject, eids_train, eid_test, savepath,
     return target
 
 
-def regress_target(tvec, binned, estimator,
+def regress_target(tvec, binned, estimatorObject,
                    hyperparam_grid=None, test_prop=0.2, nFolds=5, save_binned=False,
-                   verbose=False, shuffle=True, outer_cv=True):
+                   verbose=False, shuffle=True, outer_cv=True, balanced_weight=False):
     """
     Regresses binned neural activity against a target, using a provided sklearn estimator
 
@@ -280,18 +280,16 @@ def regress_target(tvec, binned, estimator,
 
     # Select either the GridSearchCV estimator for a normal estimator, or use the native estimator
     # in the case of CV-type estimators
-    if isinstance(estimator, LinearModelCV):
+    if isinstance(estimatorObject, LinearModelCV):
         if hyperparam_grid is not None:
             raise TypeError('If using a CV estimator hyperparam_grid will not be respected;'
                             ' set to None')
         cvest = True
-        estimator.cv = nFolds  # Overwrite user spec to make sure nFolds is used
-        clf = estimator
+        estimatorObject.cv = nFolds  # Overwrite user spec to make sure nFolds is used
+        clf = estimatorObject
         raise NotImplemented('the code does not support a CV-type estimator for the moment.')
     else:
         cvest = False
-        from sklearn.linear_model import Lasso, Ridge
-        estimatorObject = Ridge
         for train_index, test_index in outer_kfold:
             X_train, X_test = binned[train_index], binned[test_index]
             y_train, y_test = tvec[train_index], tvec[test_index]
@@ -306,15 +304,21 @@ def regress_target(tvec, binned, estimator,
 
                 for i_alpha, alpha in enumerate(hyperparam_grid['alpha']):
                     estimator = estimatorObject(alpha=alpha)
-                    estimator.fit(X_train_inner, y_train_inner, sample_weight=compute_sample_weight("balanced",
+                    if balanced_weight:
+                        estimator.fit(X_train_inner, y_train_inner, sample_weight=compute_sample_weight("balanced",
                                                                                                     y=y_train_inner))
+                    else:
+                        estimator.fit(X_train_inner, y_train_inner)
                     pred_test_inner = estimator.predict(X_test_inner)
                     r2s[ifold, i_alpha] = r2_score(y_test_inner, pred_test_inner)
 
             r2s_avg = r2s.mean(axis=0)
             best_alpha = hyperparam_grid['alpha'][np.argmax(r2s_avg)]
             clf = estimatorObject(alpha=best_alpha)
-            clf.fit(X_train, y_train, sample_weight=compute_sample_weight("balanced", y=y_train))
+            if balanced_weight:
+                clf.fit(X_train, y_train, sample_weight=compute_sample_weight("balanced", y=y_train))
+            else:
+                clf.fit(X_train, y_train)
 
             # compute R2 on the train data
             y_pred_train = clf.predict(X_train)

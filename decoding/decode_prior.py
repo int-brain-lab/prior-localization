@@ -59,12 +59,12 @@ MIN_RT = 0.08  # Float (s) or None
 NO_UNBIAS = True
 DATE = str(date.today())
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
-SHUFFLE = False
+SHUFFLE = True
 # Basically, quality metric on the stability of a single unit. Should have 1 metric per neuron
 QC_CRITERIA = 3 / 3  # In {None, 1/3, 2/3, 3/3}
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 
-HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10, 100])}
+HPARAM_GRID = {'alpha': np.array([0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000])}
 # HPARAM_GRID = [0.001, 0.01, 0.1, 1, 10, 100] # None  # For GridSearchCV, set to None if using a CV estimator
 
 fit_metadata = {
@@ -110,7 +110,7 @@ def fit_eid(eid, sessdf):
     one = ONE()
     atlas = AllenAtlas()
 
-    estimator = ESTIMATOR(**ESTIMATOR_KWARGS)
+    estimator = ESTIMATOR #(**ESTIMATOR_KWARGS)
 
     subject = sessdf.xs(eid, level='eid').index[0]
     subjeids = sessdf.xs(subject, level='subject').index.unique()
@@ -193,7 +193,7 @@ def fit_eid(eid, sessdf):
             regclu = spikes[probe].clusters[spikemask]
             binned, _ = get_spike_counts_in_bins(regspikes, regclu,
                                                  intervals)
-            msub_binned = binned.T.astype(int)
+            msub_binned = binned.T.astype(int) #- np.mean(binned, axis=0)
 
             if len(msub_binned.shape) > 2:
                 raise ValueError('Multiple bins are being calculated per trial,'
@@ -262,7 +262,8 @@ if __name__ == '__main__':
                 tmp.append(f.result())
             except:
                 pass
-    #tmp = [x.result() for x in filenames if x.status == 'finished']
+    tmp = [x.result() for x in filenames if x.status == 'finished']
+
     finished = []
     for fns in tmp:
         finished.extend(fns)
