@@ -5,30 +5,12 @@ Berk, May 2020
 """
 
 import pickle
-from datetime import date
 import os
-from oneibl import one
-from bbglm_bwmfit import fit_session
-from utils import sessions_with_region
-
-one = one.ONE()
-
-
-def fit_and_save(session_id, kernlen, nbases, nickname, sessdate, filename, probe,
-                 t_before=1., t_after=0.6, max_len=2., contnorm=5., binwidth=0.02,
-                 abswheel=False, no_50perc=False, one=one):
-    outtuple = fit_session(session_id, kernlen, nbases, t_before, t_after, max_len, probe,
-                           contnorm, binwidth, abswheel, no_50perc, one=one)
-    nglm, sequences, scores = outtuple
-    outdict = {'sessinfo': {'eid': session_id, 'nickname': nickname, 'sessdate': sessdate},
-               'kernlen': kernlen, 'nbases': nbases,
-               'binwidth': binwidth, 'sequences': sequences, 'scores': scores,
-               'fitobj': nglm}
-    subjfilepath = os.path.abspath(filename)
-    fw = open(subjfilepath, 'wb')
-    pickle.dump(outdict, fw)
-    fw.close()
-    return True
+from datetime import date
+from glob import glob
+from one.api import ONE
+from bbglm_sessfit import load_regressors, generate_design
+from .decoding.decoding_utils import query_sessions
 
 
 def check_fit_exists(filename):
@@ -42,7 +24,7 @@ def check_fit_exists(filename):
 
 
 if __name__ == "__main__":
-    from glob import glob
+    import dask
     from dask.distributed import Client
     from dask_jobqueue import SLURMCluster
 
@@ -50,8 +32,6 @@ if __name__ == "__main__":
     # currdate = '2021-05-04'
 
     savepath = '/home/gercek/scratch/fits/'
-
-    target_regions = ['']
 
     allsess = []
     for region in target_regions:
