@@ -144,7 +144,7 @@ def fit_eid(eid, sessdf):
     msub_tvec = tvec[mask]
 
     # doubledipping
-    msub_tvec = msub_tvec - np.mean(msub_tvec)
+    # msub_tvec = msub_tvec - np.mean(msub_tvec)
 
     filenames = []
     if len(msub_tvec) <= MIN_BEHAV_TRIAS:
@@ -200,13 +200,15 @@ def fit_eid(eid, sessdf):
                                                  intervals)
 
             # doubledipping
-            msub_binned = binned.T - np.mean(binned.T, axis=0) # binned.T.astype(int)
+            msub_binned = binned.T
+            # msub_binned = binned.T - np.mean(binned.T, axis=0) # binned.T.astype(int)
 
             if len(msub_binned.shape) > 2:
                 raise ValueError('Multiple bins are being calculated per trial,'
                                  'may be due to floating point representation error.'
                                  'Check window.')
             fit_result = dut.regress_target(msub_tvec, msub_binned, estimator,
+                                            estimator_kwargs=ESTIMATOR_KWARGS,
                                             hyperparam_grid=HPARAM_GRID,
                                             save_binned=SAVE_BINNED, shuffle=SHUFFLE,
                                             balanced_weight=BALANCED_WEIGHT)
@@ -223,9 +225,10 @@ def fit_eid(eid, sessdf):
                                                       MODELFIT_PATH, modeltype=MODEL,
                                                       beh_data=pseudosess, one=one)[mask]
                 # doubledipping
-                msub_pseudo_tvec = msub_pseudo_tvec - np.mean(msub_pseudo_tvec)
+                # msub_pseudo_tvec = msub_pseudo_tvec - np.mean(msub_pseudo_tvec)
 
                 pseudo_result = dut.regress_target(msub_pseudo_tvec, msub_binned, estimator,
+                                                   estimator_kwargs=ESTIMATOR_KWARGS,
                                                    hyperparam_grid=HPARAM_GRID, shuffle=SHUFFLE,
                                                    balanced_weight=BALANCED_WEIGHT)
 

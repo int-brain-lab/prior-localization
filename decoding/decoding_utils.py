@@ -220,7 +220,7 @@ def compute_target(target, subject, eids_train, eid_test, savepath,
     return target
 
 
-def regress_target(tvec, binned, estimatorObject,
+def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
                    hyperparam_grid=None, test_prop=0.2, nFolds=5, save_binned=False,
                    verbose=False, shuffle=True, outer_cv=True, balanced_weight=False):
     """
@@ -303,7 +303,7 @@ def regress_target(tvec, binned, estimatorObject,
                 y_train_inner, y_test_inner = y_train[train_inner], y_train[test_inner]
 
                 for i_alpha, alpha in enumerate(hyperparam_grid['alpha']):
-                    estimator = estimatorObject(alpha=alpha, fit_intercept=False)
+                    estimator = estimatorObject(**{**estimator_kwargs, 'alpha': alpha})
                     if balanced_weight:
                         estimator.fit(X_train_inner, y_train_inner, sample_weight=compute_sample_weight("balanced",
                                                                                                     y=y_train_inner))
@@ -314,7 +314,7 @@ def regress_target(tvec, binned, estimatorObject,
 
             r2s_avg = r2s.mean(axis=0)
             best_alpha = hyperparam_grid['alpha'][np.argmax(r2s_avg)]
-            clf = estimatorObject(alpha=best_alpha, fit_intercept=False)
+            clf = estimatorObject(**{**estimator_kwargs, 'alpha': best_alpha})
             if balanced_weight:
                 clf.fit(X_train, y_train, sample_weight=compute_sample_weight("balanced", y=y_train))
             else:
