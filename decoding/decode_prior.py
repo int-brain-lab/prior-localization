@@ -64,8 +64,7 @@ SHUFFLE = True
 QC_CRITERIA = None # 3 / 3  # In {None, 1/3, 2/3, 3/3}
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 BALANCED_WEIGHT = False
-HPARAM_GRID = {'alpha': np.array([0.001, 0.01, 0.1])} # , 1, 10, 100, 1000, 10000
-
+HPARAM_GRID = {'alpha': np.array([0.001, 0.01, 0.1])}  # , 1, 10, 100, 1000, 10000
 
 
 fit_metadata = {
@@ -173,8 +172,8 @@ def fit_eid(eid, sessdf):
                         raise ValueError('there is a problem in the metric computations')
             except AttributeError:
                 pass
-            qc_pass = (metrics.label >= QC_CRITERIA)
-            if (beryl_reg.shape[0] - 1) != qc_pass.index.max():
+            qc_pass = (metrics.label >= QC_CRITERIA).values
+            if beryl_reg.shape[0] != len(qc_pass):
                 raise IndexError('Shapes of metrics and number of clusters '
                                  'in regions don\'t match')
         else:
@@ -183,7 +182,7 @@ def fit_eid(eid, sessdf):
         # warnings.filterwarnings('ignore')
         for region in tqdm(regions, desc='Region: ', leave=False):
             reg_mask = beryl_reg == region
-            reg_clu_ids = np.argwhere(reg_mask & qc_pass.values).flatten()
+            reg_clu_ids = np.argwhere(reg_mask & qc_pass).flatten()
             N_units = len(reg_clu_ids)
             if N_units < MIN_UNITS:
                 continue
