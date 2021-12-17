@@ -65,7 +65,7 @@ QC_CRITERIA = None # 3 / 3  # In {None, 1/3, 2/3, 3/3}
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 BALANCED_WEIGHT = False
 HPARAM_GRID = {'alpha': np.array([0.001, 0.01, 0.1])}  # , 1, 10, 100, 1000, 10000
-
+DOUBLEDIP = True
 
 fit_metadata = {
     'criterion': SESS_CRITERION,
@@ -85,7 +85,8 @@ fit_metadata = {
     'no_unbias': NO_UNBIAS,
     'hyperparameter_grid': HPARAM_GRID,
     'save_binned': SAVE_BINNED,
-    'balanced_weight': BALANCED_WEIGHT
+    'balanced_weight': BALANCED_WEIGHT,
+    'double_dip': DOUBLEDIP
 }
 
 
@@ -143,7 +144,8 @@ def fit_eid(eid, sessdf):
     msub_tvec = tvec[mask]
 
     # doubledipping
-    # msub_tvec = msub_tvec - np.mean(msub_tvec)
+    if DOUBLEDIP:
+        msub_tvec = msub_tvec - np.mean(msub_tvec)
 
     filenames = []
     if len(msub_tvec) <= MIN_BEHAV_TRIAS:
@@ -200,7 +202,8 @@ def fit_eid(eid, sessdf):
 
             # doubledipping
             msub_binned = binned.T
-            # msub_binned = binned.T - np.mean(binned.T, axis=0) # binned.T.astype(int)
+            if DOUBLEDIP:
+                msub_binned = binned.T - np.mean(binned.T, axis=0) # binned.T.astype(int)
 
             if len(msub_binned.shape) > 2:
                 raise ValueError('Multiple bins are being calculated per trial,'
@@ -224,7 +227,8 @@ def fit_eid(eid, sessdf):
                                                       MODELFIT_PATH, modeltype=MODEL,
                                                       beh_data=pseudosess, one=one)[mask]
                 # doubledipping
-                # msub_pseudo_tvec = msub_pseudo_tvec - np.mean(msub_pseudo_tvec)
+                if DOUBLEDIP:
+                    msub_pseudo_tvec = msub_pseudo_tvec - np.mean(msub_pseudo_tvec)
 
                 pseudo_result = dut.regress_target(msub_pseudo_tvec, msub_binned, estimator,
                                                    estimator_kwargs=ESTIMATOR_KWARGS,
