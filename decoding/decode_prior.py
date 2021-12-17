@@ -49,24 +49,24 @@ OUTPUT_PATH = '/home/users/f/findling/ibl/prior-localization/decoding/results/de
 #MODELFIT_PATH = '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding/results/behavior/'
 #OUTPUT_PATH = '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding/results/decoding/'
 ALIGN_TIME = 'goCue_times'
-TIME_WINDOW = (-0.4, -0.1)
+TIME_WINDOW = (-0.6, -0.2) # (0, 0.1)
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
 N_PSEUDO = 2
 MIN_UNITS = 10
 MIN_BEHAV_TRIAS = 200
-MIN_RT = 0.08  # Float (s) or None
-NO_UNBIAS = True
+MIN_RT = None # 0.08  # Float (s) or None
+NO_UNBIAS = False
 DATE = str(date.today())
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
 SHUFFLE = True
 # Basically, quality metric on the stability of a single unit. Should have 1 metric per neuron
-QC_CRITERIA = 3 / 3  # In {None, 1/3, 2/3, 3/3}
+QC_CRITERIA = None # 3 / 3  # In {None, 1/3, 2/3, 3/3}
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 BALANCED_WEIGHT = False
+HPARAM_GRID = {'alpha': np.array([0.001, 0.01, 0.1])} # , 1, 10, 100, 1000, 10000
 
-HPARAM_GRID = {'alpha': np.array([0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000])}
-# HPARAM_GRID = [0.001, 0.01, 0.1, 1, 10, 100] # None  # For GridSearchCV, set to None if using a CV estimator
+
 
 fit_metadata = {
     'criterion': SESS_CRITERION,
@@ -229,7 +229,8 @@ def fit_eid(eid, sessdf):
 
                 pseudo_result = dut.regress_target(msub_pseudo_tvec, msub_binned, estimator,
                                                    estimator_kwargs=ESTIMATOR_KWARGS,
-                                                   hyperparam_grid=HPARAM_GRID, shuffle=SHUFFLE,
+                                                   hyperparam_grid=HPARAM_GRID,
+                                                   save_binned=SAVE_BINNED, shuffle=SHUFFLE,
                                                    balanced_weight=BALANCED_WEIGHT)
 
                 # neurometric curve
@@ -268,6 +269,7 @@ if __name__ == '__main__':
     for eid in sessdf.index.unique(level='eid'):
         fns = client.submit(fit_eid, eid, sessdf)
         filenames.append(fns)
+
     # WAIT FOR COMPUTATION TO FINISH BEFORE MOVING ON
     # %% Collate results into master dataframe and save
     tmp = []
