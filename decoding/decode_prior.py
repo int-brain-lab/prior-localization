@@ -58,14 +58,15 @@ MIN_BEHAV_TRIAS = 200
 MIN_RT = None  # 0.08  # Float (s) or None
 NO_UNBIAS = False
 DATE = str(date.today())
-COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
+COMPUTE_NEURO_ON_EACH_FOLD = True  # if True, expect a script that is 5 times slower
 SHUFFLE = True
 # Basically, quality metric on the stability of a single unit. Should have 1 metric per neuron
-QC_CRITERIA = None # 3 / 3  # In {None, 1/3, 2/3, 3/3}
+QC_CRITERIA = None  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 BALANCED_WEIGHT = False
 HPARAM_GRID = {'alpha': np.array([0.001, 0.01, 0.1])}  # , 1, 10, 100, 1000, 10000
 DOUBLEDIP = True
+FORCE_POSITIVE_NEURO_SLOPES = True
 
 fit_metadata = {
     'criterion': SESS_CRITERION,
@@ -86,7 +87,8 @@ fit_metadata = {
     'hyperparameter_grid': HPARAM_GRID,
     'save_binned': SAVE_BINNED,
     'balanced_weight': BALANCED_WEIGHT,
-    'double_dip': DOUBLEDIP
+    'double_dip': DOUBLEDIP,
+    'force_positive_neuro_slopes': FORCE_POSITIVE_NEURO_SLOPES
 }
 
 
@@ -218,7 +220,8 @@ def fit_eid(eid, sessdf):
             # neurometric curve
             fit_result['full_neurometric'], fit_result['fold_neurometric'] = \
                 get_neurometric_parameters(fit_result, nb_trialsdf.reset_index(), one,
-                                           compute_on_each_fold=COMPUTE_NEURO_ON_EACH_FOLD)
+                                           compute_on_each_fold=COMPUTE_NEURO_ON_EACH_FOLD,
+                                           force_positive_neuro_slopes=FORCE_POSITIVE_NEURO_SLOPES)
 
             pseudo_results = []
             for _ in tqdm(range(N_PSEUDO), desc='Pseudo num: ', leave=False):
@@ -239,7 +242,8 @@ def fit_eid(eid, sessdf):
                 # neurometric curve
                 pseudo_result['full_neurometric'], pseudo_result['fold_neurometric'] = \
                     get_neurometric_parameters(pseudo_result, pseudosess[mask].reset_index(),
-                                               one, compute_on_each_fold=COMPUTE_NEURO_ON_EACH_FOLD)
+                                               one, compute_on_each_fold=COMPUTE_NEURO_ON_EACH_FOLD,
+                                               force_positive_neuro_slopes=FORCE_POSITIVE_NEURO_SLOPES)
 
                 pseudo_results.append(pseudo_result)
             filenames.append(save_region_results(fit_result, pseudo_results, subject,
