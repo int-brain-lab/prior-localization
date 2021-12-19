@@ -335,7 +335,7 @@ if __name__ == '__main__':
     fn = OUTPUT_PATH + '_'.join([DATE, 'decode', TARGET,
                                  dut.modeldispatcher[MODEL] if TARGET in ['prior', 'prederr'] else 'task',
                                  estimatorstr, 'align', ALIGN_TIME, str(N_PSEUDO), 'pseudosessions',
-                                 'timeWindow', str(start_tw).replace('.', '_'), str(end_tw).replace('.', '_'),])
+                                 'timeWindow', str(start_tw).replace('.', '_'), str(end_tw).replace('.', '_')])
     if ADD_TO_SAVING_PATH != '':
         fn = fn + '_' + ADD_TO_SAVING_PATH
     fn = fn + '.parquet'
