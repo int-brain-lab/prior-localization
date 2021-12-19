@@ -67,6 +67,7 @@ BALANCED_WEIGHT = False
 HPARAM_GRID = {'alpha': np.array([0.001, 0.01, 0.1])}  # , 1, 10, 100, 1000, 10000
 DOUBLEDIP = False
 FORCE_POSITIVE_NEURO_SLOPES = True
+ADD_TO_SAVING_PATH = 'restrictedAlpha_constraintedSlope'
 
 fit_metadata = {
     'criterion': SESS_CRITERION,
@@ -334,8 +335,11 @@ if __name__ == '__main__':
     fn = OUTPUT_PATH + '_'.join([DATE, 'decode', TARGET,
                                  dut.modeldispatcher[MODEL] if TARGET in ['prior', 'prederr'] else 'task',
                                  estimatorstr, 'align', ALIGN_TIME, str(N_PSEUDO), 'pseudosessions',
-                                 'timeWindow', str(start_tw).replace('.', '_'), str(end_tw).replace('.', '_')]) + \
-         '.parquet'
+                                 'timeWindow', str(start_tw).replace('.', '_'), str(end_tw).replace('.', '_'),])
+    if ADD_TO_SAVING_PATH != '':
+        fn = fn + '_' + ADD_TO_SAVING_PATH
+    fn = fn + '.parquet'
+
     metadata_df = pd.Series({'filename': fn, **fit_metadata})
     metadata_fn = '.'.join([fn.split('.')[0], 'metadata', 'pkl'])
     resultsdf.to_parquet(fn)
