@@ -50,6 +50,7 @@ def get_target_df(target, pred, test_idxs, trialsdf, one):
 
 def fit_get_shift_range(lowprob_arr,
                         highprob_arr,
+                        force_positive_neuro_slopes,
                         seed_=None,
                         possible_contrasts=np.array([-1, -0.25, -0.125, -0.0625, 0, 0.0625, 0.125, 0.25, 1])
                         ):
@@ -69,11 +70,16 @@ def fit_get_shift_range(lowprob_arr,
     """
     # pLeft = 0.2 blocks
     if seed_ is not None: np.random.seed(seed_)
-    low_pars, low_L = pfit.mle_fit_psycho(lowprob_arr,
-                                          P_model='erf_psycho_2gammas',
-                                          nfits=100,
-                                          parmin=np.array([-1., -10.,  0.,  0.]),
-                                          parmax=np.array([1., 10.,  0.4,  0.4]))
+    if force_positive_neuro_slopes:
+        low_pars, low_L = pfit.mle_fit_psycho(lowprob_arr,
+                                              P_model='erf_psycho_2gammas',
+                                              nfits=100)
+    else:
+        low_pars, low_L = pfit.mle_fit_psycho(lowprob_arr,
+                                              P_model='erf_psycho_2gammas',
+                                              nfits=100,
+                                              parmin=np.array([-1., -10.,  0.,  0.]),
+                                              parmax=np.array([1., 10.,  0.4,  0.4]))
     contrasts = lowprob_arr[0, :] if possible_contrasts is None else possible_contrasts
     low_fit_trace = pfit.erf_psycho_2gammas(low_pars, contrasts)
     low_range = low_fit_trace[np.argwhere(np.isclose(contrasts, 1)).flat[0]] - \
@@ -82,11 +88,16 @@ def fit_get_shift_range(lowprob_arr,
     low_zerind = np.argwhere(np.isclose(contrasts, 0)).flat[0]
     # pLeft = 0.8 blocks
     if seed_ is not None: np.random.seed(seed_)
-    high_pars, high_L = pfit.mle_fit_psycho(highprob_arr,
-                                            P_model='erf_psycho_2gammas',
-                                            nfits=100,
-                                            parmin=np.array([-1., -10., 0., 0.]),
-                                            parmax=np.array([1., 10., 0.4, 0.4]))
+    if force_positive_neuro_slopes:
+        high_pars, high_L = pfit.mle_fit_psycho(highprob_arr,
+                                                P_model='erf_psycho_2gammas',
+                                                nfits=100)
+    else:
+        high_pars, high_L = pfit.mle_fit_psycho(highprob_arr,
+                                                P_model='erf_psycho_2gammas',
+                                                nfits=100,
+                                                parmin=np.array([-1., -10., 0., 0.]),
+                                                parmax=np.array([1., 10., 0.4, 0.4]))
     contrasts = highprob_arr[0, :] if possible_contrasts is None else possible_contrasts
     high_fit_trace = pfit.erf_psycho_2gammas(high_pars, contrasts)
     high_range = high_fit_trace[np.argwhere(np.isclose(contrasts, 1)).flat[0]] - \
@@ -102,7 +113,7 @@ def fit_get_shift_range(lowprob_arr,
               'high_range': high_range, 'shift': shift}
     return params
 
-def get_neurometric_parameters(fit_result, trialsdf, one, compute_on_each_fold):
+def get_neurometric_parameters(fit_result, trialsdf, one, compute_on_each_fold, force_positive_neuro_slopes):
     # fold-wise neurometric curve
     if compute_on_each_fold:
         try:
@@ -112,7 +123,7 @@ def get_neurometric_parameters(fit_result, trialsdf, one, compute_on_each_fold):
                                      trialsdf, one)
                        for k in range(fit_result['nFolds'])]
 
-            fold_neurometric = [fit_get_shift_range(prob_arrays[k][0], prob_arrays[k][1])
+            fold_neurometric = [fit_get_shift_range(prob_arrays[k][0], prob_arrays[k][1], force_positive_neuro_slopes)
                             for k in range(fit_result['nFolds'])]
         except KeyError:
             fold_neurometric = None
@@ -126,7 +137,7 @@ def get_neurometric_parameters(fit_result, trialsdf, one, compute_on_each_fold):
 
     lowprob_arr, highprob_arr = get_target_df(fit_result['target'], full_test_prediction,
                                               np.arange(len(fit_result['target'])), trialsdf, one)
-    full_neurometric = fit_get_shift_range(lowprob_arr, highprob_arr)
+    full_neurometric = fit_get_shift_range(lowprob_arr, highprob_arr, force_positive_neuro_slopes)
 
     return full_neurometric, fold_neurometric
 

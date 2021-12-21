@@ -49,24 +49,25 @@ OUTPUT_PATH = '/home/users/f/findling/ibl/prior-localization/decoding/results/de
 #MODELFIT_PATH = '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding/results/behavior/'
 #OUTPUT_PATH = '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding/results/decoding/'
 ALIGN_TIME = 'goCue_times'
-TIME_WINDOW = (-0.4, -0.1)
+TIME_WINDOW = (-0.6, -0.2) # (0, 0.1)
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
 N_PSEUDO = 2
 MIN_UNITS = 10
 MIN_BEHAV_TRIAS = 200
-MIN_RT = 0.08  # Float (s) or None
-NO_UNBIAS = True
+MIN_RT = 0.08  # 0.08  # Float (s) or None
+NO_UNBIAS = False
 DATE = str(date.today())
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
 SHUFFLE = True
 # Basically, quality metric on the stability of a single unit. Should have 1 metric per neuron
-QC_CRITERIA = 3 / 3  # In {None, 1/3, 2/3, 3/3}
+QC_CRITERIA = 3/3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 BALANCED_WEIGHT = False
-
-HPARAM_GRID = {'alpha': np.array([0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000])}
-# HPARAM_GRID = [0.001, 0.01, 0.1, 1, 10, 100] # None  # For GridSearchCV, set to None if using a CV estimator
+HPARAM_GRID = {'alpha': np.array([0.001, 0.01, 0.1])}  # , 1, 10, 100, 1000, 10000
+DOUBLEDIP = False
+FORCE_POSITIVE_NEURO_SLOPES = True
+ADD_TO_SAVING_PATH = 'restrictedAlpha_constraintedSlope'
 
 fit_metadata = {
     'criterion': SESS_CRITERION,
@@ -86,7 +87,9 @@ fit_metadata = {
     'no_unbias': NO_UNBIAS,
     'hyperparameter_grid': HPARAM_GRID,
     'save_binned': SAVE_BINNED,
-    'balanced_weight': BALANCED_WEIGHT
+    'balanced_weight': BALANCED_WEIGHT,
+    'double_dip': DOUBLEDIP,
+    'force_positive_neuro_slopes': FORCE_POSITIVE_NEURO_SLOPES
 }
 
 
@@ -144,7 +147,8 @@ def fit_eid(eid, sessdf):
     msub_tvec = tvec[mask]
 
     # doubledipping
-    # msub_tvec = msub_tvec - np.mean(msub_tvec)
+    if DOUBLEDIP:
+        msub_tvec = msub_tvec - np.mean(msub_tvec)
 
     filenames = []
     if len(msub_tvec) <= MIN_BEHAV_TRIAS:
@@ -173,8 +177,8 @@ def fit_eid(eid, sessdf):
                         raise ValueError('there is a problem in the metric computations')
             except AttributeError:
                 pass
-            qc_pass = (metrics.label >= QC_CRITERIA)
-            if (beryl_reg.shape[0] - 1) != qc_pass.index.max():
+            qc_pass = (metrics.label >= QC_CRITERIA).values
+            if beryl_reg.shape[0] != len(qc_pass):
                 raise IndexError('Shapes of metrics and number of clusters '
                                  'in regions don\'t match')
         else:
@@ -183,7 +187,7 @@ def fit_eid(eid, sessdf):
         # warnings.filterwarnings('ignore')
         for region in tqdm(regions, desc='Region: ', leave=False):
             reg_mask = beryl_reg == region
-            reg_clu_ids = np.argwhere(reg_mask & qc_pass.values).flatten()
+            reg_clu_ids = np.argwhere(reg_mask & qc_pass).flatten()
             N_units = len(reg_clu_ids)
             if N_units < MIN_UNITS:
                 continue
@@ -201,7 +205,8 @@ def fit_eid(eid, sessdf):
 
             # doubledipping
             msub_binned = binned.T
-            # msub_binned = binned.T - np.mean(binned.T, axis=0) # binned.T.astype(int)
+            if DOUBLEDIP:
+                msub_binned = binned.T - np.mean(binned.T, axis=0) # binned.T.astype(int)
 
             if len(msub_binned.shape) > 2:
                 raise ValueError('Multiple bins are being calculated per trial,'
@@ -216,7 +221,8 @@ def fit_eid(eid, sessdf):
             # neurometric curve
             fit_result['full_neurometric'], fit_result['fold_neurometric'] = \
                 get_neurometric_parameters(fit_result, nb_trialsdf.reset_index(), one,
-                                           compute_on_each_fold=COMPUTE_NEURO_ON_EACH_FOLD)
+                                           compute_on_each_fold=COMPUTE_NEURO_ON_EACH_FOLD,
+                                           force_positive_neuro_slopes=FORCE_POSITIVE_NEURO_SLOPES)
 
             pseudo_results = []
             for _ in tqdm(range(N_PSEUDO), desc='Pseudo num: ', leave=False):
@@ -225,17 +231,20 @@ def fit_eid(eid, sessdf):
                                                       MODELFIT_PATH, modeltype=MODEL,
                                                       beh_data=pseudosess, one=one)[mask]
                 # doubledipping
-                # msub_pseudo_tvec = msub_pseudo_tvec - np.mean(msub_pseudo_tvec)
+                if DOUBLEDIP:
+                    msub_pseudo_tvec = msub_pseudo_tvec - np.mean(msub_pseudo_tvec)
 
                 pseudo_result = dut.regress_target(msub_pseudo_tvec, msub_binned, estimator,
                                                    estimator_kwargs=ESTIMATOR_KWARGS,
-                                                   hyperparam_grid=HPARAM_GRID, shuffle=SHUFFLE,
+                                                   hyperparam_grid=HPARAM_GRID,
+                                                   save_binned=SAVE_BINNED, shuffle=SHUFFLE,
                                                    balanced_weight=BALANCED_WEIGHT)
 
                 # neurometric curve
                 pseudo_result['full_neurometric'], pseudo_result['fold_neurometric'] = \
                     get_neurometric_parameters(pseudo_result, pseudosess[mask].reset_index(),
-                                               one, compute_on_each_fold=COMPUTE_NEURO_ON_EACH_FOLD)
+                                               one, compute_on_each_fold=COMPUTE_NEURO_ON_EACH_FOLD,
+                                               force_positive_neuro_slopes=FORCE_POSITIVE_NEURO_SLOPES)
 
                 pseudo_results.append(pseudo_result)
             filenames.append(save_region_results(fit_result, pseudo_results, subject,
@@ -268,6 +277,7 @@ if __name__ == '__main__':
     for eid in sessdf.index.unique(level='eid'):
         fns = client.submit(fit_eid, eid, sessdf)
         filenames.append(fns)
+
     # WAIT FOR COMPUTATION TO FINISH BEFORE MOVING ON
     # %% Collate results into master dataframe and save
     tmp = []
@@ -325,8 +335,11 @@ if __name__ == '__main__':
     fn = OUTPUT_PATH + '_'.join([DATE, 'decode', TARGET,
                                  dut.modeldispatcher[MODEL] if TARGET in ['prior', 'prederr'] else 'task',
                                  estimatorstr, 'align', ALIGN_TIME, str(N_PSEUDO), 'pseudosessions',
-                                 'timeWindow', str(start_tw).replace('.', '_'), str(end_tw).replace('.', '_')]) + \
-         '.parquet'
+                                 'timeWindow', str(start_tw).replace('.', '_'), str(end_tw).replace('.', '_')])
+    if ADD_TO_SAVING_PATH != '':
+        fn = fn + '_' + ADD_TO_SAVING_PATH
+    fn = fn + '.parquet'
+
     metadata_df = pd.Series({'filename': fn, **fit_metadata})
     metadata_fn = '.'.join([fn.split('.')[0], 'metadata', 'pkl'])
     resultsdf.to_parquet(fn)
