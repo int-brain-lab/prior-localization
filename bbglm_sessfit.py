@@ -24,7 +24,8 @@ def load_regressors(session_id, probe,
     trialsdf = bbone.load_trials_df(session_id,
                                     maxlen=max_len, t_before=t_before, t_after=t_after,
                                     wheel_binsize=binwidth, ret_abswheel=abswheel,
-                                    ret_wheel=~abswheel, one=one)
+                                    ret_wheel=~abswheel, addtl_types=['firstMovement_times'],
+                                    one=one)
 
     if resolved_alignment:
         spikes, clusters, _ = bbone.load_spike_sorting_fast(session_id,
@@ -76,7 +77,6 @@ def generate_design(trialsdf, prior, t_before, bases,
     binwidth : float, optional
         Size of bins to use for design matrix, in seconds, by default 0.02
     """
-    trialsdf = trialsdf.iloc[1:-1]
     trialsdf['adj_contrastL'] = np.tanh(contnorm * trialsdf['contrastLeft']) / np.tanh(contnorm)
     trialsdf['adj_contrastR'] = np.tanh(contnorm * trialsdf['contrastRight']) / np.tanh(contnorm)
     trialsdf['prior'] = prior
@@ -88,9 +88,9 @@ def generate_design(trialsdf, prior, t_before, bases,
                 'feedbackType': 'value',
                 'feedback_times': 'timing',
                 'contrastLeft': 'value',
-                'adj_contrastLeft': 'value',
+                'adj_contrastL': 'value',
                 'contrastRight': 'value',
-                'adj_contrastRight': 'value',
+                'adj_contrastR': 'value',
                 'goCue_times': 'timing',
                 'stimOn_times': 'timing',
                 'trial_start': 'timing',
@@ -118,11 +118,11 @@ def generate_design(trialsdf, prior, t_before, bases,
 
     design.add_covariate_timing('stimonL', 'stimOn_times', bases['stim'],
                                 cond=lambda tr: np.isfinite(tr.contrastLeft),
-                                deltaval='adj_contrastLeft',
+                                deltaval='adj_contrastL',
                                 desc='Kernel conditioned on L stimulus onset')
     design.add_covariate_timing('stimonR', 'stimOn_times', bases['stim'],
                                 cond=lambda tr: np.isfinite(tr.contrastRight),
-                                deltaval='adj_contrastRight',
+                                deltaval='adj_contrastR',
                                 desc='Kernel conditioned on R stimulus onset')
     design.add_covariate_timing('correct', 'feedback_times', bases['feedback'],
                                 cond=lambda tr: tr.feedbackType == 1,
@@ -171,18 +171,24 @@ if __name__ == "__main__":
     binwidth = 0.02
     modelfit_path = '/home/berk/Documents/Projects/prior-localization/results/'
     one = ONE()
-    
+
     def tmp_binf(t):
         return np.ceil(t / binwidth).astype(int)
     bases = {
         'stim': mut.raised_cosine(0.4, 5, tmp_binf),
         'feedback': mut.raised_cosine(0.4, 5, tmp_binf),
-        'wheel': mut.raised_cosine()  # TODO: Figure out optimal timing for this using xcorr
+        'wheel': mut.raised_cosine(0.3, 3, tmp_binf),
+        'fmove': mut.raised_cosine(0.2, 3, tmp_binf),
     }
 
-    sessdf = query_sessions('aligned_behavior').set_index(['subject', 'eid'])
+    sessdf = query_sessions('aligned-behavior').set_index(['subject', 'eid'])
     subject = sessdf.xs(eid, level='eid').index[0]
-    trialsdf, spk_times, spk_clu, clu_regions, clu_qc = load_regressors(eid, probe, ret_qc=True)
+    trialsdf, spk_times, spk_clu, clu_regions, clu_qc = load_regressors(eid, probe,
+                                                                        t_after=0.4,
+                                                                        t_before=0.4,
+                                                                        ret_qc=True)
     train_eids = sessdf.xs(subject, level='subject').index.unique()
     prior = compute_target('prior', subject, train_eids, eid, modelfit_path, one=one)
-    design = generate_design(trialsdf, prior, 0.4, )
+    nadf = trialsdf.notna()
+    nanmask = nadf.loc[:, ['firstMovement_times', 'stimOn_times', 'feedback_times']].all(axis=1)
+    design = generate_design(trialsdf[nanmask].copy(), prior[trialsdf.index[nanmask]], 0.4, bases)
