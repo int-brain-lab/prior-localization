@@ -18,7 +18,7 @@ import pickle
 import os
 from tqdm import tqdm
 from copy import deepcopy
-from .utils import get_bwm_ins_alyx
+from ..utils import get_bwm_ins_alyx
 
 
 def fit_session(session_id, kernlen, nbases,
