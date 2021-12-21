@@ -42,13 +42,14 @@ strlut = {sklm.Lasso: 'Lasso',
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
 SESS_CRITERION = 'aligned-behavior'  # aligned and behavior
-TARGET = 'signcont'
 MODEL = expSmoothing_prevAction
+DATE = str(date.today())
 MODELFIT_PATH = '/home/users/f/findling/ibl/prior-localization/decoding/results/behavior/'
 OUTPUT_PATH = '/home/users/f/findling/ibl/prior-localization/decoding/results/decoding/'
 #MODELFIT_PATH = '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding/results/behavior/'
 #OUTPUT_PATH = '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding/results/decoding/'
 ALIGN_TIME = 'goCue_times'
+TARGET = 'signcont'
 TIME_WINDOW = (-0.6, -0.2) # (0, 0.1)
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
@@ -56,17 +57,17 @@ N_PSEUDO = 2
 MIN_UNITS = 10
 MIN_BEHAV_TRIAS = 200
 MIN_RT = 0.08  # 0.08  # Float (s) or None
-NO_UNBIAS = False
-DATE = str(date.today())
-COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
+NO_UNBIAS = False  # if True, expect a script that is 5 times slower
 SHUFFLE = True
+FORCE_POSITIVE_NEURO_SLOPES = True
 # Basically, quality metric on the stability of a single unit. Should have 1 metric per neuron
 QC_CRITERIA = 3/3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
-SAVE_BINNED = False  # Debugging parameter, not usually necessary
+
 BALANCED_WEIGHT = False
 HPARAM_GRID = {'alpha': np.array([0.001, 0.01, 0.1])}  # , 1, 10, 100, 1000, 10000
 DOUBLEDIP = False
-FORCE_POSITIVE_NEURO_SLOPES = True
+SAVE_BINNED = False  # Debugging parameter, not usually necessary
+COMPUTE_NEURO_ON_EACH_FOLD = False
 ADD_TO_SAVING_PATH = 'restrictedAlpha_constraintedSlope'
 
 fit_metadata = {
@@ -156,6 +157,7 @@ def fit_eid(eid, sessdf):
 
     print(f'Working on eid : {eid}')
     for probe in tqdm(sessdf.loc[subject, eid, :].probe, desc='Probe: ', leave=False):
+        # load_spike_sorting_fast
         spikes, clusters, _ = bbone.load_spike_sorting_with_channel(eid,
                                                                     one=one,
                                                                     probe=probe,
