@@ -8,7 +8,7 @@ import pickle
 from datetime import date
 import os
 from oneibl import one
-from bbglm_bwmfit_pseudoblocks import fit_session, get_bwm_ins_alyx
+from legacy_glms.bbglm_bwmfit_pseudoblocks import fit_session, get_bwm_ins_alyx
 
 if __name__ != "__main__":
     offline = True

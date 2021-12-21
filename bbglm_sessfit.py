@@ -7,11 +7,8 @@ Berk, May 2020
 import numpy as np
 import pandas as pd
 import brainbox.modeling.design_matrix as dm
-import brainbox.modeling.linear as lm
-import brainbox.modeling.utils as mut
 import brainbox.io.one as bbone
 import brainbox.metrics.single_units as bbqc
-from sklearn.linear_model import LinearRegression
 from one.api import ONE
 
 
@@ -69,8 +66,8 @@ def generate_design(trialsdf, prior, t_before, bases,
     t_before : float
         Time, in seconds, before stimulus onset that was used to define trial_start in trialsdf
     bases : dict
-        Dictionary of basis functions for each regressor. See function internals for which keys
-        are necessary
+        Dictionary of basis functions for each regressor. Needs keys 'stim', 'feedback', 'fmove',
+        (first movement) and 'wheel'.
     iti_prior : list, optional
         Two element list defining bounds on which step function for ITI prior is
         applied, by default [-0.4, -0.1]
@@ -160,3 +157,32 @@ def generate_design(trialsdf, prior, t_before, bases,
 
     print('Condition of design matrix:', np.linalg.cond(design.dm))
     return design
+
+
+if __name__ == "__main__":
+    import sys
+    import brainbox.modeling.utils as mut
+    from pathlib import Path
+    sys.path.append(Path(__file__).parent.joinpath('decoding'))
+    from decoding.decoding_utils import compute_target, query_sessions
+
+    eid = '5157810e-0fff-4bcf-b19d-32d4e39c7dfc'
+    probe = 'probe00'
+    binwidth = 0.02
+    modelfit_path = '/home/berk/Documents/Projects/prior-localization/results/'
+    one = ONE()
+    
+    def tmp_binf(t):
+        return np.ceil(t / binwidth).astype(int)
+    bases = {
+        'stim': mut.raised_cosine(0.4, 5, tmp_binf),
+        'feedback': mut.raised_cosine(0.4, 5, tmp_binf),
+        'wheel': mut.raised_cosine()  # TODO: Figure out optimal timing for this using xcorr
+    }
+
+    sessdf = query_sessions('aligned_behavior').set_index(['subject', 'eid'])
+    subject = sessdf.xs(eid, level='eid').index[0]
+    trialsdf, spk_times, spk_clu, clu_regions, clu_qc = load_regressors(eid, probe, ret_qc=True)
+    train_eids = sessdf.xs(subject, level='subject').index.unique()
+    prior = compute_target('prior', subject, train_eids, eid, modelfit_path, one=one)
+    design = generate_design(trialsdf, prior, 0.4, )
