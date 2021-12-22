@@ -106,6 +106,7 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
     Params:
         eids_train: list of eids on which we train the network
         eid_test: eid on which we want to compute the target signals, only one string
+        beh_data_test: if you have to launch the model on beh_data_test
     '''
 
     one = one or ONE()
