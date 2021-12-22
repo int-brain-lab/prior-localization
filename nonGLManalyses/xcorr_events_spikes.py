@@ -12,7 +12,7 @@ from one.api import ONE
 
 # which sesssion and probe to look at, bin size
 BINWIDTH = 0.02
-CORRWIND = (-0.2, 0.8)  # seconds
+CORRWIND = (-0.8, 0.02)  # seconds
 MIN_RATE = 1.  # Minimum rate, in hertz, for a neuron to be included in xcorr analysis
 PASSING_FRAC = 2/3
 
