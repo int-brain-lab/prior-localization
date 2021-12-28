@@ -153,7 +153,7 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
             np.nan_to_num(beh_data_test['contrastRight'])
         return out
     elif target == 'pLeft':
-        return beh_data_test['probabilityLeft']
+        return np.array(beh_data_test['probabilityLeft'])
 
     # compute signal
     stim_side, stimuli, actions, _ = mut.format_data(beh_data_test)
