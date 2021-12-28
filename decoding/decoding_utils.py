@@ -102,7 +102,7 @@ def check_bhv_fit_exists(subject, model, eids, resultpath):
 
 
 def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=False,
-                    no_unbias=False, modeltype=expSmoothing_prevAction, one=None,
+                    modeltype=expSmoothing_prevAction, one=None,
                     beh_data_test=None):
     '''
     load/fit a behavioral model to compute target on a single session
@@ -117,11 +117,11 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
     # check if is trained
     istrained, fullpath = check_bhv_fit_exists(subject, modeltype, eids_train, savepath)
 
-    if (beh_data_test is not None) and (not istrained) and (target != 'signcont'):
+    if (beh_data_test is not None) and (not istrained) and (target not in ['signcont', 'pLeft']):
         raise ValueError('when actions, stimuli and stim_side are all defined,'
                          ' the model must have been trained')
 
-    if (not istrained) and target != 'signcont':
+    if (not istrained) and (target not in ['signcont', 'pLeft']):
         datadict = {'stim_side': [], 'actions': [], 'stimuli': []}
         for eid in eids_train:
             data = mut.load_session(eid, one=one)
@@ -139,7 +139,7 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
         model = modeltype(savepath, eids, subject,
                           actions, stimuli, stim_side)
         model.load_or_train(remove_old=remove_old)
-    elif target != 'signcont':
+    elif target not in ['signcont', 'pLeft']:
         model = modeltype(savepath, eids_train, subject, actions=None, stimuli=None,
                           stim_side=None)
         model.load_or_train(loadpath=str(fullpath))
@@ -147,10 +147,6 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
     # load test session
     if beh_data_test is None:
         beh_data_test = mut.load_session(eid_test, one=one)
-
-    if no_unbias:
-        mask = beh_data_test['probabilityLeft'] != 0.5
-        beh_data_test = {k: v[mask] for k, v in beh_data_test.items()}
 
     if target == 'signcont':
         out = np.nan_to_num(beh_data_test['contrastLeft']) - \
