@@ -49,7 +49,7 @@ OUTPUT_PATH = '/home/users/f/findling/ibl/prior-localization/decoding/results/de
 #MODELFIT_PATH = '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding/results/behavior/'
 #OUTPUT_PATH = '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding/results/decoding/'
 ALIGN_TIME = 'goCue_times'
-TARGET = 'pLeft'  # 'signcont'
+TARGET = 'signcont'  # 'pLeft'
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
@@ -59,7 +59,7 @@ MIN_BEHAV_TRIAS = 200
 MIN_RT = 0.08  # 0.08  # Float (s) or None
 NO_UNBIAS = False  # if True, expect a script that is 5 times slower
 SHUFFLE = True
-COMPUTE_NEUROMETRIC = False
+COMPUTE_NEUROMETRIC = True
 FORCE_POSITIVE_NEURO_SLOPES = False
 # Basically, quality metric on the stability of a single unit. Should have 1 metric per neuron
 QC_CRITERIA = 3/3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
@@ -69,7 +69,7 @@ HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10, 100,
 DOUBLEDIP = False
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 COMPUTE_NEURO_ON_EACH_FOLD = False
-ADD_TO_SAVING_PATH = ''
+ADD_TO_SAVING_PATH = 'v2'
 
 # ValueErrors and NotImplementedErrors
 if TARGET not in ['signcont', 'pLeft']:
@@ -232,6 +232,8 @@ def fit_eid(eid, sessdf):
                                             save_binned=SAVE_BINNED, shuffle=SHUFFLE,
                                             balanced_weight=BALANCED_WEIGHT)
 
+            fit_result['mask'] = mask
+
             # neurometric curve
             if COMPUTE_NEUROMETRIC:
                 fit_result['full_neurometric'], fit_result['fold_neurometric'] = \
@@ -324,7 +326,8 @@ if __name__ == '__main__':
         fo.close()
         tmpdict = {**{x: result[x] for x in indexers},
                    'fold': -1,
-                   **{'Rsquared_test': result['fit']['Rsquared_test_full']},
+                   'mask': result['fit']['mask'],
+                   'Rsquared_test': result['fit']['Rsquared_test_full'],
                    **{f'Rsquared_test_pseudo{i}': result['pseudosessions'][i]['Rsquared_test_full']
                       for i in range(N_PSEUDO)}}
         if result['fit']['full_neurometric'] is not None \
