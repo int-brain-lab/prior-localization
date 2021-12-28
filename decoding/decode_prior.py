@@ -42,16 +42,16 @@ strlut = {sklm.Lasso: 'Lasso',
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
 SESS_CRITERION = 'aligned-behavior'  # aligned and behavior
-MODEL = expSmoothing_prevAction
+MODEL = None  # None or expSmoothing_prevAction or dut.modeldispatcher
 DATE = str(date.today())
 MODELFIT_PATH = '/home/users/f/findling/ibl/prior-localization/decoding/results/behavior/'
 OUTPUT_PATH = '/home/users/f/findling/ibl/prior-localization/decoding/results/decoding/'
 #MODELFIT_PATH = '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding/results/behavior/'
 #OUTPUT_PATH = '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding/results/decoding/'
 ALIGN_TIME = 'goCue_times'
-TARGET = 'signcont'
-TIME_WINDOW = (-0.6, -0.1) # (0, 0.1)
-ESTIMATOR = sklm.Ridge  # Must be in keys of strlut above
+TARGET = 'pLeft'  # 'signcont'
+TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)
+ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
 N_PSEUDO = 2
 MIN_UNITS = 10
@@ -59,6 +59,7 @@ MIN_BEHAV_TRIAS = 200
 MIN_RT = 0.08  # 0.08  # Float (s) or None
 NO_UNBIAS = False  # if True, expect a script that is 5 times slower
 SHUFFLE = True
+COMPUTE_NEUROMETRIC = False
 FORCE_POSITIVE_NEURO_SLOPES = False
 # Basically, quality metric on the stability of a single unit. Should have 1 metric per neuron
 QC_CRITERIA = 3/3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
@@ -69,6 +70,16 @@ DOUBLEDIP = False
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 COMPUTE_NEURO_ON_EACH_FOLD = False
 ADD_TO_SAVING_PATH = ''
+
+# ValueErrors and NotImplementedErrors
+if TARGET not in ['signcont', 'pLeft']:
+    raise NotImplementedError('this TARGET is not supported or stable yet')
+
+if MODEL not in list(dut.modeldispatcher.keys()):
+    raise NotImplementedError('this MODEL is not supported or stable yet')
+
+if COMPUTE_NEUROMETRIC and TARGET != 'signcont':
+    raise ValueError('the target should be signcont to compute neurometric curves')
 
 fit_metadata = {
     'criterion': SESS_CRITERION,
@@ -90,7 +101,8 @@ fit_metadata = {
     'save_binned': SAVE_BINNED,
     'balanced_weight': BALANCED_WEIGHT,
     'double_dip': DOUBLEDIP,
-    'force_positive_neuro_slopes': FORCE_POSITIVE_NEURO_SLOPES
+    'force_positive_neuro_slopes': FORCE_POSITIVE_NEURO_SLOPES,
+    'compute_neurometric': COMPUTE_NEUROMETRIC
 }
 
 
@@ -221,10 +233,14 @@ def fit_eid(eid, sessdf):
                                             balanced_weight=BALANCED_WEIGHT)
 
             # neurometric curve
-            fit_result['full_neurometric'], fit_result['fold_neurometric'] = \
-                get_neurometric_parameters(fit_result, nb_trialsdf.reset_index(), one,
-                                           compute_on_each_fold=COMPUTE_NEURO_ON_EACH_FOLD,
-                                           force_positive_neuro_slopes=FORCE_POSITIVE_NEURO_SLOPES)
+            if COMPUTE_NEUROMETRIC:
+                fit_result['full_neurometric'], fit_result['fold_neurometric'] = \
+                    get_neurometric_parameters(fit_result, nb_trialsdf.reset_index(), one,
+                                               compute_on_each_fold=COMPUTE_NEURO_ON_EACH_FOLD,
+                                               force_positive_neuro_slopes=FORCE_POSITIVE_NEURO_SLOPES)
+            else:
+                fit_result['full_neurometric'] = None
+                fit_result['fold_neurometric'] = None
 
             pseudo_results = []
             for _ in tqdm(range(N_PSEUDO), desc='Pseudo num: ', leave=False):
@@ -243,10 +259,14 @@ def fit_eid(eid, sessdf):
                                                    balanced_weight=BALANCED_WEIGHT)
 
                 # neurometric curve
-                pseudo_result['full_neurometric'], pseudo_result['fold_neurometric'] = \
-                    get_neurometric_parameters(pseudo_result, pseudosess[mask].reset_index(),
-                                               one, compute_on_each_fold=COMPUTE_NEURO_ON_EACH_FOLD,
-                                               force_positive_neuro_slopes=FORCE_POSITIVE_NEURO_SLOPES)
+                if COMPUTE_NEUROMETRIC:
+                    pseudo_result['full_neurometric'], pseudo_result['fold_neurometric'] = \
+                        get_neurometric_parameters(pseudo_result, pseudosess[mask].reset_index(),
+                                                   one, compute_on_each_fold=COMPUTE_NEURO_ON_EACH_FOLD,
+                                                   force_positive_neuro_slopes=FORCE_POSITIVE_NEURO_SLOPES)
+                else:
+                    pseudo_result['full_neurometric'] = None
+                    pseudo_result['fold_neurometric'] = None
 
                 pseudo_results.append(pseudo_result)
             filenames.append(save_region_results(fit_result, pseudo_results, subject,
@@ -282,13 +302,13 @@ if __name__ == '__main__':
 
     # WAIT FOR COMPUTATION TO FINISH BEFORE MOVING ON
     # %% Collate results into master dataframe and save
-    tmp = []
-    for f in filenames:
-        if f.status == 'finished':
-            try:
-                tmp.append(f.result())
-            except:
-                pass
+    #tmp = []
+    #for f in filenames:
+    #    if f.status == 'finished':
+    #        try:
+    #            tmp.append(f.result())
+    #        except:
+    #            pass
     tmp = [x.result() for x in filenames if x.status == 'finished']
 
     finished = []
@@ -306,10 +326,14 @@ if __name__ == '__main__':
                    'fold': -1,
                    **{'Rsquared_test': result['fit']['Rsquared_test_full']},
                    **{f'Rsquared_test_pseudo{i}': result['pseudosessions'][i]['Rsquared_test_full']
-                      for i in range(N_PSEUDO)},
-                   **{idx_neuro: result['fit']['full_neurometric'][idx_neuro] for idx_neuro in indexers_neurometric},
-                   **{str(idx_neuro) + f'_pseudo{i}': result['pseudosessions'][i]['full_neurometric'][idx_neuro]
-                      for i in range(N_PSEUDO) for idx_neuro in indexers_neurometric}}
+                      for i in range(N_PSEUDO)}}
+        if result['fit']['full_neurometric'] is not None \
+                and np.all([result['pseudosessions'][i]['full_neurometric'] is not None for i in range(N_PSEUDO)]):
+            tmpdict = {**tmpdict,
+                       **{idx_neuro: result['fit']['full_neurometric'][idx_neuro]
+                          for idx_neuro in indexers_neurometric},
+                       **{str(idx_neuro) + f'_pseudo{i}': result['pseudosessions'][i]['full_neurometric'][idx_neuro]
+                          for i in range(N_PSEUDO) for idx_neuro in indexers_neurometric}}
         resultslist.append(tmpdict)
         for kfold in range(result['fit']['nFolds']):
             tmpdict = {**{x: result[x] for x in indexers},

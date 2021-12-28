@@ -17,11 +17,14 @@ from sklearn.linear_model._coordinate_descent import LinearModelCV
 from sklearn.metrics import r2_score
 from sklearn.utils.class_weight import compute_sample_weight
 
+possible_targets = ['prior', 'prederr', 'signcont', 'pLeft']
+
 modeldispatcher = {expSmoothing_prevAction: 'expSmoothingPrevActions',
                    expSmoothing_stimside: 'expSmoothingStimSides',
                    biased_ApproxBayesian: 'biased_Approxbayesian',
                    biased_Bayesian: 'biased_Bayesian',
-                   optimal_Bayesian: 'optimal_bayesian'
+                   optimal_Bayesian: 'optimal_bayesian',
+                   None: 'none'
                    }
 
 # Loading data and input utilities
@@ -153,6 +156,8 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
         out = np.nan_to_num(beh_data_test['contrastLeft']) - \
             np.nan_to_num(beh_data_test['contrastRight'])
         return out
+    elif target == 'pLeft':
+        return beh_data_test['probabilityLeft']
 
     # compute signal
     stim_side, stimuli, actions, _ = mut.format_data(beh_data_test)
@@ -210,7 +215,6 @@ def compute_target(target, subject, eids_train, eid_test, savepath,
     pandas.Series
         Pandas series in which index is trial number, and value is the target
     """
-    possible_targets = ['prior', 'prederr', 'signcont']
     if target not in possible_targets:
         raise ValueError('target should be in {}'.format(possible_targets))
 
