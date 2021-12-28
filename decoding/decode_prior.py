@@ -51,7 +51,7 @@ OUTPUT_PATH = '/home/users/f/findling/ibl/prior-localization/decoding/results/de
 ALIGN_TIME = 'goCue_times'
 TARGET = 'signcont'  # 'pLeft'
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)
-ESTIMATOR = sklm.Ridge  # Must be in keys of strlut above
+ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
 N_PSEUDO = 2
 MIN_UNITS = 10
@@ -69,7 +69,7 @@ HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10, 100,
 DOUBLEDIP = False
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
-ADD_TO_SAVING_PATH = 'v2'
+ADD_TO_SAVING_PATH = 'balanced_v0'
 
 # ValueErrors and NotImplementedErrors
 if TARGET not in ['signcont', 'pLeft']:
@@ -304,13 +304,6 @@ if __name__ == '__main__':
 
     # WAIT FOR COMPUTATION TO FINISH BEFORE MOVING ON
     # %% Collate results into master dataframe and save
-    #tmp = []
-    #for f in filenames:
-    #    if f.status == 'finished':
-    #        try:
-    #            tmp.append(f.result())
-    #        except:
-    #            pass
     tmp = [x.result() for x in filenames if x.status == 'finished']
 
     finished = []
