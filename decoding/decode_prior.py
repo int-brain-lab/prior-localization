@@ -57,7 +57,7 @@ N_PSEUDO = 2
 MIN_UNITS = 10
 MIN_BEHAV_TRIAS = 200
 MIN_RT = 0.08  # 0.08  # Float (s) or None
-NO_UNBIAS = False  # if True, expect a script that is 5 times slower
+NO_UNBIAS = False
 SHUFFLE = True
 COMPUTE_NEUROMETRIC = True
 FORCE_POSITIVE_NEURO_SLOPES = False
@@ -68,7 +68,7 @@ BALANCED_WEIGHT = False
 HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000])}
 DOUBLEDIP = False
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
-COMPUTE_NEURO_ON_EACH_FOLD = False
+COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
 ADD_TO_SAVING_PATH = 'v2'
 
 # ValueErrors and NotImplementedErrors
