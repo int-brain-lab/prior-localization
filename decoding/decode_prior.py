@@ -64,7 +64,7 @@ FORCE_POSITIVE_NEURO_SLOPES = False
 # Basically, quality metric on the stability of a single unit. Should have 1 metric per neuron
 QC_CRITERIA = 3/3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
 
-BALANCED_WEIGHT = True
+BALANCED_WEIGHT = False
 HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000])}
 DOUBLEDIP = False
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
