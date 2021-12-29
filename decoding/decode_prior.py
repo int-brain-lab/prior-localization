@@ -49,9 +49,9 @@ OUTPUT_PATH = '/home/users/f/findling/ibl/prior-localization/decoding/results/de
 #MODELFIT_PATH = '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding/results/behavior/'
 #OUTPUT_PATH = '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding/results/decoding/'
 ALIGN_TIME = 'goCue_times'
-TARGET = 'signcont'  # 'pLeft'
+TARGET = 'pLeft'  # 'pLeft'
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)
-ESTIMATOR = sklm.Ridge  # Must be in keys of strlut above
+ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
 N_PSEUDO = 2
 MIN_UNITS = 10
@@ -64,7 +64,7 @@ FORCE_POSITIVE_NEURO_SLOPES = False
 # Basically, quality metric on the stability of a single unit. Should have 1 metric per neuron
 QC_CRITERIA = 3/3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
 
-BALANCED_WEIGHT = False
+BALANCED_WEIGHT = False # seems to work better with BALANCED_WEIGHT=False
 HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000])}
 DOUBLEDIP = False
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
@@ -183,7 +183,7 @@ def fit_eid(eid, sessdf):
                                                                 spikes[probe].times,
                                                                 spikes[probe].amps,
                                                                 spikes[probe].depths,
-                                                                cluster_ids=np.arange(len(beryl_reg))))
+                                                                cluster_ids=np.arange(beryl_reg.size)))
             try:
                 metrics_verif = clusters[probe].metrics
                 if beryl_reg.shape[0] == len(metrics_verif):
