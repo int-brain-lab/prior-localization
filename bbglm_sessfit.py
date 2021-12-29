@@ -44,6 +44,7 @@ def load_regressors(session_id, probe,
     if not ret_qc:
         return trialsdf, spk_times, spk_clu, clu_regions
 
+    # TODO: add cluster_ids=np.arange(beryl_reg.size) to quick_unit_metrics
     try:
         clu_qc = clusters['metrics'].loc[:, 'label':'ks2_label']
     except Exception:
