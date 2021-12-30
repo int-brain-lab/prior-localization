@@ -9,12 +9,12 @@ import sklearn.linear_model as sklm
 import models.utils as mut
 from pathlib import Path
 from datetime import date
+
 from one.api import ONE
-from models.expSmoothing_prevAction import expSmoothing_prevAction
-# from brainbox.singlecell import calculate_peths
 from brainbox.population.decode import get_spike_counts_in_bins
 from brainbox.task.closed_loop import generate_pseudo_session
-from brainbox.metrics.single_units import quick_unit_metrics
+import one.alf.io as alfio
+
 from decoding_stimulus_neurometric_fit import get_neurometric_parameters
 
 try:
@@ -107,8 +107,8 @@ fit_metadata = {
 
 
 # %% Define helper functions for dask workers to use
-def save_region_results(fit_result, pseudo_results, subject, eid, probe, region, N):
-    subjectfolder = Path(OUTPUT_PATH).joinpath(subject)
+def save_region_results(fit_result, pseudo_results, subject, eid, probe, region, N, output_path=OUTPUT_PATH):
+    subjectfolder = Path(output_path).joinpath(subject)
     eidfolder = subjectfolder.joinpath(eid)
     probefolder = eidfolder.joinpath(probe)
     for folder in [subjectfolder, eidfolder, probefolder]:
@@ -124,14 +124,14 @@ def save_region_results(fit_result, pseudo_results, subject, eid, probe, region,
     return probefolder.joinpath(fn)
 
 
-def fit_eid(eid, sessdf):
-    one = ONE()  # mode='local'
-    atlas = AllenAtlas()
-
+def fit_eid(eid, sessdf, modelfit_path=MODELFIT_PATH, output_path=OUTPUT_PATH):
+    atlas = AllenAtlas()  # not sure it's really an issue to instantiate on each node
+    one = ONE(mode='local')
     estimator = ESTIMATOR #(**ESTIMATOR_KWARGS)
+    df_insertions = sessdf.loc[sessdf['eid'] == eid]
+    subject = df_insertions['subject'].to_numpy()[0]
+    subjeids = sessdf.loc[sessdf['subject'] == subject]['eid'].unique()
 
-    subject = sessdf.xs(eid, level='eid').index[0]
-    subjeids = sessdf.xs(subject, level='subject').index.unique()
     brainreg = dut.BrainRegions()
     behavior_data = mut.load_session(eid, one=one)
     try:
@@ -168,35 +168,13 @@ def fit_eid(eid, sessdf):
         return filenames
 
     print(f'Working on eid : {eid}')
-    for probe in tqdm(sessdf.loc[subject, eid, :].probe, desc='Probe: ', leave=False):
-        # load_spike_sorting_fast
-        spikes, clusters, _ = bbone.load_spike_sorting_with_channel(eid,
-                                                                    one=one,
-                                                                    probe=probe,
-                                                                    brain_atlas=atlas,
-                                                                    dataset_types=['spikes.depths', 'spikes.amps'],
-                                                                    aligned=True)
-
-        beryl_reg = dut.remap_region(clusters[probe].atlas_id, br=brainreg)
-        if QC_CRITERIA:
-            metrics = pd.DataFrame.from_dict(quick_unit_metrics(spikes[probe].clusters,
-                                                                spikes[probe].times,
-                                                                spikes[probe].amps,
-                                                                spikes[probe].depths,
-                                                                cluster_ids=np.arange(len(beryl_reg))))
-            try:
-                metrics_verif = clusters[probe].metrics
-                if beryl_reg.shape[0] == len(metrics_verif):
-                    if not np.all(((metrics_verif.label - metrics.label) < 1e-10) + metrics_verif.label.isna()):
-                        raise ValueError('there is a problem in the metric computations')
-            except AttributeError:
-                pass
-            qc_pass = (metrics.label >= QC_CRITERIA).values
-            if beryl_reg.shape[0] != len(qc_pass):
-                raise IndexError('Shapes of metrics and number of clusters '
-                                 'in regions don\'t match')
-        else:
-            qc_pass = np.ones_like(beryl_reg, dtype=bool)
+    for i, ins in tqdm(df_insertions.iterrows(), desc='Probe: ', leave=False):
+        probe = ins['probe']
+        spike_sorting_path = Path(ins['session_path']).joinpath(ins['spike_sorting'])
+        spikes = alfio.load_object(spike_sorting_path, 'spikes')
+        clusters = pd.read_parquet(spike_sorting_path.joinpath('clusters.pqt'))
+        beryl_reg = dut.remap_region(clusters.atlas_id, br=brainreg)
+        qc_pass = (clusters['label'] >= QC_CRITERIA).values
         regions = np.unique(beryl_reg)
         # warnings.filterwarnings('ignore')
         for region in tqdm(regions, desc='Region: ', leave=False):
@@ -211,11 +189,10 @@ def fit_eid(eid, sessdf):
                 raise ValueError('this should not happen')
             intervals = np.vstack([nb_trialsdf[ALIGN_TIME] + TIME_WINDOW[0],
                                    nb_trialsdf[ALIGN_TIME] + TIME_WINDOW[1]]).T
-            spikemask = np.isin(spikes[probe].clusters, reg_clu_ids)
-            regspikes = spikes[probe].times[spikemask]
-            regclu = spikes[probe].clusters[spikemask]
-            binned, _ = get_spike_counts_in_bins(regspikes, regclu,
-                                                 intervals)
+            spikemask = np.isin(spikes.clusters, reg_clu_ids)
+            regspikes = spikes.times[spikemask]
+            regclu = spikes.clusters[spikemask]
+            binned, _ = get_spike_counts_in_bins(regspikes, regclu, intervals)
 
             # doubledipping
             msub_binned = binned.T
@@ -248,7 +225,7 @@ def fit_eid(eid, sessdf):
             for _ in tqdm(range(N_PSEUDO), desc='Pseudo num: ', leave=False):
                 pseudosess = generate_pseudo_session(trialsdf)
                 msub_pseudo_tvec = dut.compute_target(TARGET, subject, subjeids, eid,
-                                                      MODELFIT_PATH, modeltype=MODEL,
+                                                      modelfit_path, modeltype=MODEL,
                                                       beh_data=pseudosess, one=one)[mask]
                 # doubledipping
                 if DOUBLEDIP:
@@ -272,7 +249,7 @@ def fit_eid(eid, sessdf):
 
                 pseudo_results.append(pseudo_result)
             filenames.append(save_region_results(fit_result, pseudo_results, subject,
-                                                 eid, probe, region, N_units))
+                                                 eid, probe, region, N_units, output_path=output_path))
 
     return filenames
 

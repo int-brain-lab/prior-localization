@@ -11,9 +11,12 @@ This is heavily a work in progress, and relies on system calls to MATLAB via Pyt
 tested on any system besides Ubuntu 19.04, and likely will not work. Also requires a functional
 MATLAB license to run.
 
-Requires installation of contained Psytrack submodule (By Nick Roy & colleagues) via
-
+**Dependencies**:
+-   psytrack (By Nick Roy & colleagues) via
 ```
 cd ./psytrack
 pip install -e .
 ```
+-   behaviour model toolbox (clone and add to path) [here](https://github.com/int-brain-lab/behavior_models)
+-   dask-jobqueue `pip install dask-jobqueue --upgrade`
+-   sobol-seq : `pip install sobol-seq`

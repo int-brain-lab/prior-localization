@@ -30,13 +30,13 @@ modeldispatcher = {expSmoothing_prevAction: 'expSmoothingPrevActions',
 # Loading data and input utilities
 
 
-def query_sessions(selection='all'):
+def query_sessions(selection='all', one=None):
     '''
     Filters sessions on some canonical filters
     returns dataframe with index being EID, so indexing results in subject name and probe
     identities in that EID.
     '''
-    one = ONE()
+    one = one or ONE()
     if selection == 'all':
         # Query all ephysChoiceWorld sessions
         ins = one.alyx.rest('insertions', 'list',
@@ -77,7 +77,8 @@ def query_sessions(selection='all'):
     all_eids = np.array([i['session'] for i in ins])
     all_probes = np.array([i['name'] for i in ins])
     all_subjects = np.array([i['session_info']['subject'] for i in ins])
-    retdf = pd.DataFrame({'subject': all_subjects, 'eid': all_eids, 'probe': all_probes})
+    all_pids = np.array([i['id'] for i in ins])
+    retdf = pd.DataFrame({'subject': all_subjects, 'eid': all_eids, 'probe': all_probes, 'pid': all_pids})
     retdf.sort_values('subject', inplace=True)
     return retdf
 
