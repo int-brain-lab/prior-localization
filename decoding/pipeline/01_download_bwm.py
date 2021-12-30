@@ -46,7 +46,7 @@ for i, rec in insdf.iterrows():
         SpikeSortingLoader.merge_clusters(spikes, clusters, channels, cache_dir=ssl.spike_sorting_path)
     # saves the spike sorting path into the dataframe fossl.load_spike_sorting()r future loading, as well as the histology source
     insdf['histology'][i] = ssl.histology
-    insdf['session_path'][i] = ssl.session_path
+    insdf['session_path'][i] = str(ssl.session_path)
     insdf['spike_sorting'][i] = ssl.collection
     one.load_object(ssl.eid, 'trials', collection='alf', download_only=True)
     one.load_object(ssl.eid, 'wheel', collection='alf', download_only=True)
