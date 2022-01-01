@@ -50,7 +50,7 @@ OUTPUT_PATH = '/home/users/f/findling/ibl/prior-localization/decoding/results/de
 #OUTPUT_PATH = '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding/results/decoding/'
 ALIGN_TIME = 'goCue_times'
 TARGET = 'pLeft'  # 'pLeft'
-TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)
+TIME_WINDOW = (0, 0.1)  # (-0.6, -0.1)
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
 N_PSEUDO = 2
@@ -64,9 +64,9 @@ FORCE_POSITIVE_NEURO_SLOPES = False
 # Basically, quality metric on the stability of a single unit. Should have 1 metric per neuron
 QC_CRITERIA = 3/3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
 
-BALANCED_WEIGHT = False # seems to work better with BALANCED_WEIGHT=False
+BALANCED_WEIGHT = False  # seems to work better with BALANCED_WEIGHT=False
 HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000])}
-DOUBLEDIP = False
+DOUBLEDIP = False  # should be kept to false, else you are using test data to normalize train data (sanity analysis)
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
 ADD_TO_SAVING_PATH = 'v0'
