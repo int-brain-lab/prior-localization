@@ -1,3 +1,7 @@
+"""
+On the second part of the pipeline example, we loop over the dataframe
+The analysis tools load the downloaded and cached version of the data.
+"""
 from pathlib import Path
 import pandas as pd
 from decode_prior import fit_eid

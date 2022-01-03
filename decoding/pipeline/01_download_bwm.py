@@ -7,7 +7,7 @@ the cached datasets on disk for future loading
 from pathlib import Path
 from one.api import ONE
 from ibllib.atlas import AllenAtlas
-from ephys_atlas.data import SpikeSortingLoader
+from brainbox.io.one import SpikeSortingLoader
 
 import decoding_utils as dut
 from decode_prior import SESS_CRITERION, fit_eid
