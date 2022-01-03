@@ -41,7 +41,7 @@ def load_regressors(session_id, probes,
         spikes, clusters, _ = bbone.load_spike_sorting_fast(session_id,
                                                             dataset_types=dataset_types,
                                                             one=one)
-        if not all(hasattr(clusters[p], 'acronym') for p in clusters):
+        if not all(len(clusters[p]['acronym']) > 0 for p in clusters):
             raise KeyError('No resolved alignment datset found for {subject} : {eid}. '
                             'Try again with resolved_alignment=False.')
     else:

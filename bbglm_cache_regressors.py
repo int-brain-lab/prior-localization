@@ -41,7 +41,7 @@ params = {'max_len': MAX_LEN,
           't_before': T_BEF,
           't_after': T_AFT,
           'binwidth': BINWIDTH,
-          'abshweel': ABSWHEEL,
+          'abswheel': ABSWHEEL,
           'resolved_alignment': True if re.match('resolved.*', SESS_CRITERION) else False,
           'ret_qc': QC}
 
@@ -50,11 +50,25 @@ dataset_futures = []
 
 sessdf = query_sessions(SESS_CRITERION).set_index(['subject', 'eid'])
 
-for eid in sessdf.unique('eid', level='eid'):
+for eid in sessdf.index.unique(level='eid'):
     xsdf = sessdf.xs(eid, level='eid')
     subject = xsdf.index[0]
-    probes = xsdf.probes.to_list()
+    probes = xsdf.probe.to_list()
     load_outputs = delayed_load(eid, probes, params, force_load=FORCE)
     save_future = delayed_save(subject, eid, probes, params, load_outputs)
     dataset_futures.append([subject, eid, probes, save_future])
-    
+
+
+N_CORES = 4
+cluster = SLURMCluster(cores=N_CORES, memory='16GB', processes=1, queue="shared-cpu",
+                       walltime="01:15:00",
+                       log_directory='/home/gercek/dask-worker-logs',
+                       interface='ib0',
+                       extra=["--lifetime", "60m", "--lifetime-stagger", "10m"],
+                       job_cpu=N_CORES, env_extra=[f'export OMP_NUM_THREADS={N_CORES}',
+                                                   f'export MKL_NUM_THREADS={N_CORES}',
+                                                   f'export OPENBLAS_NUM_THREADS={N_CORES}'])
+cluster.adapt(minimum_jobs=0, maximum_jobs=20)
+client = Client(cluster)
+
+
