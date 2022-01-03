@@ -1,5 +1,9 @@
 import dask
 import re
+import pickle
+import pandas as pd
+from params import GLM_CACHE
+from pathlib import Path
 from datetime import datetime as dt
 from one.api import ONE
 from dask.distributed import Client, LocalCluster
@@ -21,7 +25,7 @@ def delayed_load(session_id, probes, params, force_load=False):
 
 @dask.delayed(pure=False, traverse=False)
 def delayed_save(subject, session_id, probes, params, outputs):
-    return cache_regressors(subject, session_id, probes, params, **outputs)
+    return cache_regressors(subject, session_id, probes, params, *outputs)
 
 
 # Parameters
@@ -58,9 +62,8 @@ for eid in sessdf.index.unique(level='eid'):
     save_future = delayed_save(subject, eid, probes, params, load_outputs)
     dataset_futures.append([subject, eid, probes, save_future])
 
-
 N_CORES = 4
-cluster = SLURMCluster(cores=N_CORES, memory='16GB', processes=1, queue="shared-cpu",
+cluster = SLURMCluster(cores=N_CORES, memory='32GB', processes=1, queue="shared-cpu",
                        walltime="01:15:00",
                        log_directory='/home/gercek/dask-worker-logs',
                        interface='ib0',
@@ -71,4 +74,11 @@ cluster = SLURMCluster(cores=N_CORES, memory='16GB', processes=1, queue="shared-
 cluster.adapt(minimum_jobs=0, maximum_jobs=20)
 client = Client(cluster)
 
+tmp_futures = [client.compute(future[3]) for future in dataset_futures]
+dataset = [{'subject': x[0], 'eid': x[1], 'probes': x[2], 'file': tmp_futures[i].result()[0]}
+           for i, x in enumerate(dataset_futures) if tmp_futures[i].status == 'finished']
+dataset = pd.DataFrame(dataset)
 
+outdict = {'params': params, 'dataset_filenames': dataset}
+with open(Path(GLM_CACHE).joinpath(DATE + '_dataset_metadata.pkl'), 'wb') as fw:
+    pickle.dump(outdict, fw)
