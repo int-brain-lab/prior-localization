@@ -4,15 +4,23 @@ Script to use new neuralGLM object from brainbox rather than complicated matlab 
 Berk, May 2020
 """
 
+from .params import GLM_CACHE
+import os
+import hashlib
+import logging
 import numpy as np
 import pandas as pd
 import brainbox.modeling.design_matrix as dm
 import brainbox.io.one as bbone
 import brainbox.metrics.single_units as bbqc
 from one.api import ONE
+from pathlib import Path
+from datetime import datetime as dt
+
+_logger = logging.getLogger('enc-dec')
 
 
-def load_regressors(session_id, probe,
+def load_regressors(session_id, probes,
                     max_len=2., t_before=0., t_after=0., binwidth=0.02, abswheel=False,
                     resolved_alignment=False, ret_qc=False, one=None):
     one = ONE() if one is None else one
@@ -29,7 +37,6 @@ def load_regressors(session_id, probe,
 
     if resolved_alignment:
         spikes, clusters, _ = bbone.load_spike_sorting_fast(session_id,
-                                                            probe=probe,
                                                             dataset_types=dataset_types,
                                                             one=one)
     else:
@@ -37,19 +44,69 @@ def load_regressors(session_id, probe,
                                                                     dataset_types=dataset_types,
                                                                     one=one,
                                                                     aligned=True)
-    spikes, clusters = spikes[probe], clusters[probe]
-    spk_times = spikes.times
-    spk_clu = spikes.clusters
-    clu_regions = clusters.acronym
+    allspikes, allclu, allreg, allamps, alldepths = [], [], [], [], []
+    clumax = 0
+    for probe in probes:
+        allspikes.append(spikes[probe].times)
+        allclu.append(spikes[probe].clusters + clumax)
+        allreg.append(clusters[probe].acronym)
+        allamps.append(spikes[probe].amps)
+        alldepths.append(spikes[probe].depths)
+        clumax += np.max(spikes[probe].clusters) + 1
+    
+    allspikes, allclu, allamps, alldepths = [np.hstack(x)
+                                             for x in (allspikes, allclu, allamps, alldepths)]
+    sortinds = np.argsort(allspikes)
+    spk_times = allspikes[sortinds]
+    spk_clu = allclu[sortinds]
+    spk_amps = allamps[sortinds]
+    spk_depths = alldepths[sortinds]
+    clu_regions = np.hstack(allreg)
     if not ret_qc:
         return trialsdf, spk_times, spk_clu, clu_regions
 
     # TODO: add cluster_ids=np.arange(beryl_reg.size) to quick_unit_metrics
-    try:
-        clu_qc = clusters['metrics'].loc[:, 'label':'ks2_label']
-    except Exception:
-        clu_qc = bbqc.quick_unit_metrics(spikes.clusters, spikes.times, spikes.amps, spikes.depths)
+    clu_qc = bbqc.quick_unit_metrics(spk_clu, spk_times, spk_amps, spk_depths,
+                                     cluster_ids=np.arange(clu_regions.size))
     return trialsdf, spk_times, spk_clu, clu_regions, clu_qc
+
+
+def cache_regressors(subject, session_id, probes, regressor_params,
+                     trialsdf, spk_times, spk_clu, clu_regions, clu_qc):
+    subpath = Path(GLM_CACHE.joinpath(subject))
+    if not subpath.exists():
+        os.mkdir(subpath)
+    sesspath = subpath.join(session_id)
+    if not sesspath.exists():
+        os.mkdir(sesspath)
+    curr_t = dt.now()
+    fnbase = str(curr_t.date())
+    metadata_fn = fnbase + '_metadata.pkl'
+    data_fn = fnbase + '_regressors.pkl'
+    regressors = {'trialsdf': trialsdf, 'spk_times': spk_times, 'spk_clu': spk_clu,
+                  'clu_regions': clu_regions, 'clu_qc': clu_qc}
+    reghash = _hash_dict(regressors)
+    metadata = {'subject': subject, 'session_id': session_id, 'probes': probes,
+                'regressor_hash': reghash, **regressor_params}
+    return
+
+
+def _hash_dict(d):
+    hasher = hashlib.md5()
+    sortkeys = sorted(d.keys())
+    for k in sortkeys:
+        v = d[k]
+        if type(v) == np.ndarray:
+            hasher.update(v)
+        elif isinstance(v, (pd.DataFrame, pd.Series)):
+            hasher.update(v.to_string().encode())
+        else:
+            try:
+                hasher.update(v)
+            except Exception:
+                _logger.warning(f'Key {k} was not able to be hashed. May lead to failure to update'
+                                'in cached files if something was changed.')
+    return hasher.hexdigest()
 
 
 def generate_design(trialsdf, prior, t_before, bases,
@@ -163,7 +220,6 @@ def generate_design(trialsdf, prior, t_before, bases,
 if __name__ == "__main__":
     import sys
     import brainbox.modeling.utils as mut
-    from pathlib import Path
     sys.path.append(Path(__file__).parent.joinpath('decoding'))
     from decoding.decoding_utils import compute_target, query_sessions
 
