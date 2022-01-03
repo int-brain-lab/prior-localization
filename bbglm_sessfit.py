@@ -4,10 +4,12 @@ Script to use new neuralGLM object from brainbox rather than complicated matlab 
 Berk, May 2020
 """
 
-from .params import GLM_CACHE
+from params import GLM_CACHE
 import os
+import re
 import hashlib
 import logging
+import pickle
 import numpy as np
 import pandas as pd
 import brainbox.modeling.design_matrix as dm
@@ -39,6 +41,9 @@ def load_regressors(session_id, probes,
         spikes, clusters, _ = bbone.load_spike_sorting_fast(session_id,
                                                             dataset_types=dataset_types,
                                                             one=one)
+        if not all(hasattr(clusters[p], 'acronym') for p in clusters):
+            raise KeyError('No resolved alignment datset found for {subject} : {eid}. '
+                            'Try again with resolved_alignment=False.')
     else:
         spikes, clusters, _ = bbone.load_spike_sorting_with_channel(session_id,
                                                                     dataset_types=dataset_types,
@@ -73,22 +78,49 @@ def load_regressors(session_id, probes,
 
 def cache_regressors(subject, session_id, probes, regressor_params,
                      trialsdf, spk_times, spk_clu, clu_regions, clu_qc):
-    subpath = Path(GLM_CACHE.joinpath(subject))
+    """
+    Take outputs of load_regressors() and cache them to disk in the folder defined in the params.py
+    file in this repository, using a nested subject -> session folder structure.
+
+    If an existing file in the directory already contains identical data, will not write a new file
+    and instead return the existing filenames.
+
+    Returns the metadata filename and regressors filename.
+    """
+    subpath = Path(GLM_CACHE).joinpath(subject)
     if not subpath.exists():
         os.mkdir(subpath)
-    sesspath = subpath.join(session_id)
+    sesspath = subpath.joinpath(session_id)
     if not sesspath.exists():
         os.mkdir(sesspath)
     curr_t = dt.now()
     fnbase = str(curr_t.date())
-    metadata_fn = fnbase + '_metadata.pkl'
-    data_fn = fnbase + '_regressors.pkl'
+    metadata_fn = sesspath.joinpath(fnbase + '_metadata.pkl')
+    data_fn = sesspath.joinpath(fnbase + '_regressors.pkl')
     regressors = {'trialsdf': trialsdf, 'spk_times': spk_times, 'spk_clu': spk_clu,
                   'clu_regions': clu_regions, 'clu_qc': clu_qc}
     reghash = _hash_dict(regressors)
     metadata = {'subject': subject, 'session_id': session_id, 'probes': probes,
                 'regressor_hash': reghash, **regressor_params}
-    return
+    prevdata = [sesspath.joinpath(f) for f in os.listdir(sesspath)
+                if re.match('.*_metadata\.pkl', f)]
+    matchfile = False
+    for f in prevdata:
+        with open(f, 'rb') as fr:
+            frdata = pickle.load(fr)
+            if metadata == frdata:
+                matchfile = True
+        if matchfile:
+            _logger.info(f'Existing cache file found for {subject}: {session_id}, '
+                         'not writing data.')
+            old_data_fn = sesspath.joinpath(f.name.split('_')[0] + '_regressors.pkl')
+            return f, old_data_fn
+    #If you've reached here, there's no matching file
+    with open(metadata_fn, 'wb') as fw:
+        pickle.dump(metadata, fw)
+    with open(data_fn, 'wb') as fw:
+        pickle.dump(regressors, fw)
+    return metadata_fn, data_fn
 
 
 def _hash_dict(d):
@@ -105,7 +137,7 @@ def _hash_dict(d):
                 hasher.update(v)
             except Exception:
                 _logger.warning(f'Key {k} was not able to be hashed. May lead to failure to update'
-                                'in cached files if something was changed.')
+                                ' in cached files if something was changed.')
     return hasher.hexdigest()
 
 
