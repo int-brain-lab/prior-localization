@@ -1,4 +1,10 @@
 # bb
+
+import sys
+MODELS_PATH = '/home/bensonb/IBL-working/behavior_models/'
+if not MODELS_PATH in sys.path:
+    sys.path.insert(0, MODELS_PATH)
+    
 import os
 import pickle
 import logging

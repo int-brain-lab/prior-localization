@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import pandas as pd
-import models.utils as mut
+from models import utils as mut
 from pathlib import Path
 from ibllib.atlas import BrainRegions
 from iblutil.numerical import ismember
