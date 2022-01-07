@@ -49,8 +49,8 @@ OUTPUT_PATH = '/home/users/f/findling/ibl/prior-localization/decoding/results/de
 #MODELFIT_PATH = '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding/results/behavior/'
 #OUTPUT_PATH = '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding/results/decoding/'
 ALIGN_TIME = 'goCue_times'
-TARGET = 'pLeft'  # 'pLeft'
-TIME_WINDOW = (0, 0.1)  # (-0.6, -0.1)
+TARGET = 'signcont'  # 'pLeft'
+TIME_WINDOW = (0, 0.1)  #(-0.6, -0.1) #
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
 N_PSEUDO = 2
@@ -69,7 +69,7 @@ HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10, 100,
 DOUBLEDIP = False  # should be kept to false, else you are using test data to normalize train data (sanity analysis)
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
-ADD_TO_SAVING_PATH = 'v0'
+ADD_TO_SAVING_PATH = ''
 
 # ValueErrors and NotImplementedErrors
 if TARGET not in ['signcont', 'pLeft']:
@@ -367,6 +367,16 @@ if __name__ == '__main__':
     resultsdf.to_parquet(fn)
     metadata_df.to_pickle(metadata_fn)
 
+    # save weights
+    weightsdict = {}
+    for fn in finished:
+        fo = open(fn, 'rb')
+        result = pickle.load(fo)
+        fo.close()
+        weightsdict = {**weightsdict, **{tuple(result[x] for x in indexers):np.vstack(result['fit']['weights'])}}
+
+    with open(metadata_fn.split('.metadata.pkl')[0] + '.weights.pkl', 'wb') as f:
+        pickle.dump(weightsdict, f)
 # command to close the ongoing placeholder
 # client.close(); cluster.close()
 
