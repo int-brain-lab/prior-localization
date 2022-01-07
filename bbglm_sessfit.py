@@ -143,7 +143,7 @@ def _hash_dict(d):
 
 def generate_design(trialsdf, prior, t_before, bases,
                     iti_prior=[-0.4, -0.1], fmove_offset=-0.4, wheel_offset=-0.4,
-                    contnorm=5., binwidth=0.02, reduce_wheel_dim=True):
+                    contnorm=5., binwidth=0.02, reduce_wheel_dim=True, **kwargs):
     """
     Generate GLM design matrix object
 
