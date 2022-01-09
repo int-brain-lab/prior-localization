@@ -75,7 +75,8 @@ cluster.adapt(minimum_jobs=0, maximum_jobs=20)
 client = Client(cluster)
 
 tmp_futures = [client.compute(future[3]) for future in dataset_futures]
-dataset = [{'subject': x[0], 'eid': x[1], 'probes': x[2], 'file': tmp_futures[i].result()[0]}
+dataset = [{'subject': x[0], 'eid': x[1], 'probes': x[2], 'meta_file': tmp_futures[i].result()[0],
+            'reg_file': tmp_futures[i].result()[1]}
            for i, x in enumerate(dataset_futures) if tmp_futures[i].status == 'finished']
 dataset = pd.DataFrame(dataset)
 

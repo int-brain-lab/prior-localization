@@ -13,13 +13,13 @@ from one.api import ONE
 from brainbox.task.closed_loop import generate_pseudo_session
 from bbglm_sessfit import fit, fit_stepwise, generate_design
 from .decoding.decoding_utils import compute_target, query_sessions
-from params import BEH_MOD_PATH, GLM_FIT_PATH
+from params import BEH_MOD_PATH, GLM_FIT_PATH, GLM_CACHE
 
 
 def get_cached_regressors(fpath):
     with open(fpath, 'rb') as fo:
-        data = pickle.load(fo)
-    return data['trialsdf'], data['spk_times'], data['spk_clu'], data['clu_reg'], data['clu_qc']
+        d = pickle.load(fo)
+    return d['trialsdf'], d['spk_times'], d['spk_clu'], d['clu_regions'], d['clu_qc']
 
 
 def save_pseudo(subject, session_id, fitout, params):
@@ -46,7 +46,7 @@ def save_stepwise(subject, session_id, fitout, params, probes, input_fn, clu_reg
     }
     outdict.update(fitout)
     with open(fn, 'wb') as fw:
-        pickle.dump(outdict)
+        pickle.dump(outdict, fw)
     return fn
 
 
@@ -68,6 +68,7 @@ if __name__ == "__main__":
     import sklearn.linear_model as skl
     from dask.distributed import Client
     from dask_jobqueue import SLURMCluster
+    from sklearn.model_selection import GridSearchCV
 
     # Model parameters
     def tmp_binf(t):
@@ -75,12 +76,6 @@ if __name__ == "__main__":
 
     params = {
         'binwidth': 0.02,
-        'bases': {
-            'stim': mut.raised_cosine(0.4, 5, tmp_binf),
-            'feedback': mut.raised_cosine(0.4, 5, tmp_binf),
-            'wheel': mut.raised_cosine(0.3, 3, tmp_binf),
-            'fmove': mut.raised_cosine(0.2, 3, tmp_binf),
-        },
         'iti_prior': [-0.4, -0.1],
         'fmove_offset': -0.4,
         'wheel_offset': -0.4,
@@ -88,36 +83,48 @@ if __name__ == "__main__":
         'reduce_wheel_dim': True,
         'dataset_fn': '2022-01-03_dataset_metadata.pkl',
         'model': lm.LinearGLM,
-        'estimator': skl.Ridge,
+        'alpha_grid': {'alpha': np.logspace(-2, 1.5, 100)},
         'contiguous': False,
         # 'n_pseudo': 100,
     }
+
+    params['bases'] = {
+            'stim': mut.raised_cosine(0.4, 5, tmp_binf),
+            'feedback': mut.raised_cosine(0.4, 5, tmp_binf),
+            'wheel': mut.raised_cosine(0.3, 3, tmp_binf),
+            'fmove': mut.raised_cosine(0.2, 3, tmp_binf),
+        }
+    params['estimator'] = GridSearchCV(skl.Ridge(), params['alpha_grid'])
+
 
     currdate = str(date.today())
     # currdate = '2021-05-04'
 
     savepath = '/home/gercek/scratch/fits/'
 
-    sessions = query_sessions('resolved-behavior')
-    with open(params['dataset_fn'], 'rb') as fo:
+    sessions = query_sessions('resolved-behavior').set_index(['subject', 'eid'])
+    with open(Path(GLM_CACHE).joinpath(params['dataset_fn']), 'rb') as fo:
         dataset = pickle.load(fo)
     dataset_params = dataset['params']
-    dataset_fns = dataset['dataset_filenames'].set_index(['subject', 'eid'])
+    dataset_fns = dataset['dataset_filenames']
 
     # Define delayed versions of the fit functions for use in dask
     dload = dask.delayed(get_cached_regressors, nout=5)
     dprior = dask.delayed(compute_target)
+    dselect_prior = dask.delayed(lambda arr, idx: arr[idx])
     ddesign = dask.delayed(generate_design)
     dpseudo = dask.delayed(generate_pseudo_session)
     dfit = dask.delayed(fit_stepwise)
     dsave = dask.delayed(save_stepwise)
     
     data_fns = []
-    for i, (subject, eid, probes, eidfn) in dataset_fns.iterrows():
-        subjeids = sessions.xs(subject, level='subject').eid.to_list()
+    for i, (subject, eid, probes, metafn, eidfn) in dataset_fns.iterrows():
+        subjeids = sessions.xs(subject, level='subject').index.unique().to_list()
         stdf, sspkt, sspkclu, sclureg, scluqc = dload(eidfn)
-        sessprior = dprior('prior', subjeids, subjeids, BEH_MOD_PATH)
-        sessdesign = ddesign(stdf, sessprior, dataset_params['t_before'], **params)
+        sessfullprior = dprior('prior', subject, subjeids, eid, BEH_MOD_PATH)
+        sessprior = dselect_prior(sessfullprior, stdf.index)
+        sessdesign = ddesign(stdf, sessprior, dataset_params['t_before'],
+                             **params)
         sessfit = dfit(sessdesign, sspkt, sspkclu, **params)
         outputfn = dsave(subject, eid, sessfit, params, probes, eidfn, sclureg, scluqc, currdate)
         data_fns.append(outputfn)

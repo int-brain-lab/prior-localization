@@ -285,7 +285,7 @@ def fit_stepwise(design, spk_t, spk_clu, binwidth, model, estimator, n_folds=5, 
                  **kwargs):
     trials_idx = design.trialsdf.index
     nglm = model(design, spk_t, spk_clu, binwidth=binwidth, estimator=estimator)
-    splitter = KFold(n_folds, shuffle=~contiguous)
+    splitter = KFold(n_folds, shuffle=not contiguous)
     sequences, scores, splits = [], [], []
     for test, train in splitter.split(trials_idx):
         nglm.traininds = train
