@@ -118,6 +118,7 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
     # check if is trained
     istrained, fullpath = check_bhv_fit_exists(subject, modeltype, eids_train, savepath)
 
+    # TODO: Make it possible to use test data on an untrained model
     if (beh_data_test is not None) and (not istrained) and (target not in ['signcont', 'pLeft']):
         raise ValueError('when actions, stimuli and stim_side are all defined,'
                          ' the model must have been trained')
@@ -403,7 +404,7 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
 
         print("\n", "Detailed classification report:", "\n")
         print("The model is trained on the full (train + validation) set.")
-        print("\n", "Rsquare on held-out test data: {}".format(np.round(Rsquared_test, 3)), "\n")
+        # print("\n", "Rsquare on held-out test data: {}".format(np.round(Rsquared_test, 3)), "\n")
 
         '''
         import pickle
