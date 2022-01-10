@@ -63,6 +63,8 @@ COMPUTE_NEUROMETRIC = True if TARGET == 'signcont' else False
 FORCE_POSITIVE_NEURO_SLOPES = False
 # Basically, quality metric on the stability of a single unit. Should have 1 metric per neuron
 QC_CRITERIA = 3/3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
+NORMALIZE_INPUT = False  # take out mean of the neural activity per unit across trials
+NORMALIZE_OUTPUT = False  # take out mean of output to predict
 
 BALANCED_WEIGHT = False  # seems to work better with BALANCED_WEIGHT=False
 HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000])}
@@ -109,7 +111,9 @@ fit_metadata = {
     'balanced_weight': BALANCED_WEIGHT,
     'force_positive_neuro_slopes': FORCE_POSITIVE_NEURO_SLOPES,
     'compute_neurometric': COMPUTE_NEUROMETRIC,
-    'n_runs': N_RUNS
+    'n_runs': N_RUNS,
+    'normalize_output': NORMALIZE_OUTPUT,
+    'normalize_input': NORMALIZE_INPUT
 }
 
 
@@ -227,7 +231,9 @@ def fit_eid(eid, sessdf, pseudo_id=-1, nb_runs=10,
                                                     estimator_kwargs=ESTIMATOR_KWARGS,
                                                     hyperparam_grid=HPARAM_GRID,
                                                     save_binned=SAVE_BINNED, shuffle=SHUFFLE,
-                                                    balanced_weight=BALANCED_WEIGHT)
+                                                    balanced_weight=BALANCED_WEIGHT,
+                                                    normalize_input=NORMALIZE_INPUT,
+                                                    normalize_output=NORMALIZE_OUTPUT)
                 else:
                     pseudosess = generate_pseudo_session(trialsdf)
                     msub_pseudo_tvec = dut.compute_target(TARGET, subject, subjeids, eid,
@@ -237,7 +243,9 @@ def fit_eid(eid, sessdf, pseudo_id=-1, nb_runs=10,
                                                     estimator_kwargs=ESTIMATOR_KWARGS,
                                                     hyperparam_grid=HPARAM_GRID,
                                                     save_binned=SAVE_BINNED, shuffle=SHUFFLE,
-                                                    balanced_weight=BALANCED_WEIGHT)
+                                                    balanced_weight=BALANCED_WEIGHT,
+                                                    normalize_input=NORMALIZE_INPUT,
+                                                    normalize_output=NORMALIZE_OUTPUT)
                 fit_result['mask'] = mask
                 fit_result['pseudo_id'] = pseudo_id
                 fit_result['run_id'] = i_run

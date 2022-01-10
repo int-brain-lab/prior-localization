@@ -333,7 +333,6 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
             # normalization when necessary
             mean_X_train = X_train.mean(axis=0) if normalize_input else 0
             X_train = X_train - mean_X_train
-            X_test = X_test - mean_X_train
             mean_y_train = y_train.mean(axis=0) if normalize_output else 0
             y_train = y_train - mean_y_train
 
@@ -347,11 +346,10 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
             Rsquareds_train.append(r2_score(y_train + mean_y_train, y_pred_train + mean_y_train))
 
             # compute R2 on held-out data
-            y_true, y_pred = y_test, clf.predict(X_test) + mean_y_train
-            Rsquareds_test.append(r2_score(y_true, y_pred))
+            y_true, prediction = y_test, clf.predict(binned - mean_X_train) + mean_y_train
+            Rsquareds_test.append(r2_score(y_true, prediction[test_index]))
 
             # prediction, target, idxes_test, idxes_train
-            prediction = clf.predict(binned) + mean_y_train
             predictions.append(prediction)
             predictions_test.append(prediction[test_index])
             idxes_test.append(test_index)
