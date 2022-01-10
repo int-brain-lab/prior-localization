@@ -66,7 +66,6 @@ QC_CRITERIA = 3/3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
 
 BALANCED_WEIGHT = False  # seems to work better with BALANCED_WEIGHT=False
 HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000])}
-DOUBLEDIP = False  # should be kept to false, else you are using test data to normalize train data (sanity analysis)
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
 ADD_TO_SAVING_PATH = ''
@@ -100,7 +99,6 @@ fit_metadata = {
     'hyperparameter_grid': HPARAM_GRID,
     'save_binned': SAVE_BINNED,
     'balanced_weight': BALANCED_WEIGHT,
-    'double_dip': DOUBLEDIP,
     'force_positive_neuro_slopes': FORCE_POSITIVE_NEURO_SLOPES,
     'compute_neurometric': COMPUTE_NEUROMETRIC
 }
@@ -159,10 +157,6 @@ def fit_eid(eid, sessdf, modelfit_path=MODELFIT_PATH, output_path=OUTPUT_PATH):
     nb_trialsdf = trialsdf[mask]
     msub_tvec = tvec[mask]
 
-    # doubledipping
-    if DOUBLEDIP:
-        msub_tvec = msub_tvec - np.mean(msub_tvec)
-
     filenames = []
     if len(msub_tvec) <= MIN_BEHAV_TRIAS:
         return filenames
@@ -193,11 +187,7 @@ def fit_eid(eid, sessdf, modelfit_path=MODELFIT_PATH, output_path=OUTPUT_PATH):
             regspikes = spikes.times[spikemask]
             regclu = spikes.clusters[spikemask]
             binned, _ = get_spike_counts_in_bins(regspikes, regclu, intervals)
-
-            # doubledipping
             msub_binned = binned.T
-            if DOUBLEDIP:
-                msub_binned = binned.T - np.mean(binned.T, axis=0) # binned.T.astype(int)
 
             if len(msub_binned.shape) > 2:
                 raise ValueError('Multiple bins are being calculated per trial,'
@@ -227,9 +217,6 @@ def fit_eid(eid, sessdf, modelfit_path=MODELFIT_PATH, output_path=OUTPUT_PATH):
                 msub_pseudo_tvec = dut.compute_target(TARGET, subject, subjeids, eid,
                                                       modelfit_path, modeltype=MODEL,
                                                       beh_data=pseudosess, one=one)[mask]
-                # doubledipping
-                if DOUBLEDIP:
-                    msub_pseudo_tvec = msub_pseudo_tvec - np.mean(msub_pseudo_tvec)
 
                 pseudo_result = dut.regress_target(msub_pseudo_tvec, msub_binned, estimator,
                                                    estimator_kwargs=ESTIMATOR_KWARGS,
