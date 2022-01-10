@@ -44,8 +44,7 @@ strlut = {sklm.Lasso: 'Lasso',
 SESS_CRITERION = 'aligned-behavior'  # aligned and behavior
 MODEL = None  # None or expSmoothing_prevAction or dut.modeldispatcher
 DATE = str(date.today())
-MODELFIT_PATH = '/home/users/f/findling/ibl/prior-localization/decoding/results/behavior/'
-OUTPUT_PATH = '/home/users/f/findling/ibl/prior-localization/decoding/results/decoding/'
+DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding")
 #MODELFIT_PATH = '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding/results/behavior/'
 #OUTPUT_PATH = '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding/results/decoding/'
 ALIGN_TIME = 'goCue_times'
@@ -63,6 +62,7 @@ COMPUTE_NEUROMETRIC = True if TARGET == 'signcont' else False
 FORCE_POSITIVE_NEURO_SLOPES = False
 # Basically, quality metric on the stability of a single unit. Should have 1 metric per neuron
 QC_CRITERIA = 3/3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
+N_RUNS = 10
 
 BALANCED_WEIGHT = False  # seems to work better with BALANCED_WEIGHT=False
 HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000])}
@@ -93,8 +93,7 @@ fit_metadata = {
     'criterion': SESS_CRITERION,
     'target': TARGET,
     'model_type': dut.modeldispatcher[MODEL],
-    'modelfit_path': MODELFIT_PATH,
-    'output_path': OUTPUT_PATH,
+    'decoding_path': DECODING_PATH,
     'align_time': ALIGN_TIME,
     'time_window': TIME_WINDOW,
     'estimator': strlut[ESTIMATOR],
@@ -109,7 +108,8 @@ fit_metadata = {
     'save_binned': SAVE_BINNED,
     'balanced_weight': BALANCED_WEIGHT,
     'force_positive_neuro_slopes': FORCE_POSITIVE_NEURO_SLOPES,
-    'compute_neurometric': COMPUTE_NEUROMETRIC
+    'compute_neurometric': COMPUTE_NEUROMETRIC,
+    'n_runs': N_RUNS
 }
 
 
@@ -155,12 +155,12 @@ def fit_eid(eid, sessdf, pseudo_id=-1, nb_runs=10, modelfit_path=MODELFIT_PATH, 
     brainreg = dut.BrainRegions()
     behavior_data = mut.load_session(eid, one=one)
     try:
-        tvec = dut.compute_target(TARGET, subject, subjeids, eid, MODELFIT_PATH,
+        tvec = dut.compute_target(TARGET, subject, subjeids, eid, modelfit_path,
                                   modeltype=MODEL, beh_data=behavior_data,
                                   one=one)
     except ValueError:
         print('Model not fit.')
-        tvec = dut.compute_target(TARGET, subject, subjeids, eid, MODELFIT_PATH,
+        tvec = dut.compute_target(TARGET, subject, subjeids, eid, modelfit_path,
                                   modeltype=MODEL, one=one)
 
     try:
@@ -183,7 +183,7 @@ def fit_eid(eid, sessdf, pseudo_id=-1, nb_runs=10, modelfit_path=MODELFIT_PATH, 
     if len(msub_tvec) <= MIN_BEHAV_TRIAS:
         return filenames
 
-    print(f'Working on eid : {eid}')
+    print(f'Working on eid and on pseudo_id: {eid}, {pseudo_id}')
     for i, ins in tqdm(df_insertions.iterrows(), desc='Probe: ', leave=False):
         probe = ins['probe']
         spike_sorting_path = Path(ins['session_path']).joinpath(ins['spike_sorting'])
@@ -260,13 +260,14 @@ def fit_eid(eid, sessdf, pseudo_id=-1, nb_runs=10, modelfit_path=MODELFIT_PATH, 
 if __name__ == '__main__':
     from decode_prior import fit_eid
 
-    output_path = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding/Data")
-    output_path.joinpath('models').mkdir(exist_ok=True)
-    output_path.joinpath('results').mkdir(exist_ok=True)
-
-    insdf = pd.read_parquet(output_path.joinpath('insertions.pqt'))
-
+    # import cached data
+    insdf = pd.read_parquet(DECODING_PATH.joinpath('insertions.pqt'))
     eids = insdf['eid'].unique()
+
+    # create necessary empty directories if not existing
+    DECODING_PATH.joinpath('results').mkdir(exist_ok=True)
+    DECODING_PATH.joinpath('results', 'behavioral').mkdir(exist_ok=True)
+    DECODING_PATH.joinpath('results', 'neural').mkdir(exist_ok=True)
 
     # Generate cluster interface and map eids to workers via dask.distributed.Client
     N_CORES = 2
@@ -280,6 +281,24 @@ if __name__ == '__main__':
                                                        f'export OPENBLAS_NUM_THREADS={N_CORES}'])
     cluster.adapt(minimum_jobs=0, maximum_jobs=80)
     client = Client(cluster)
+
+    # debug  one = ONE(mode='local')
+    IMIN = 0
+    filenames = []
+    for i, eid in enumerate(eids[:4]):
+        if i < IMIN or eid in excludes or np.any(insdf[insdf['eid'] == eid]['spike_sorting'] == ""):
+            print(f"dud {eid}")
+            continue
+        print(f"{i}, session: {eid}")
+        for pseudo_id in range(N_PSEUDO + 1):
+            fns = fit_eid(eid,
+                          insdf,
+                          modelfit_path=DECODING_PATH.joinpath('results', 'behavioral'),
+                          output_path=DECODING_PATH.joinpath('results', 'neural'),
+                          pseudo_id=-1 if pseudo_id == 0 else pseudo_id,
+                          nb_runs=N_RUNS,
+                          one=one)
+            filenames.append(fns)
 
     import time
     filenames = []
