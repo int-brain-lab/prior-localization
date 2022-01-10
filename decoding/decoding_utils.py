@@ -231,6 +231,10 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
 
     Parameters
     ----------
+    normalize_output: gives the possibility of normalizing (take out the mean across trials) of the output
+    (what we want to predict)
+    normalize_input: gives the possibility of normalizing (take out the mean across trials) of the input
+    (the binned neural activity). Average is taken across trials for each unit (one average per unit is computed).
     tvec : pandas.Series
         Series in which trial number is the index and the value is the regression target
     binned : numpy.ndarray
