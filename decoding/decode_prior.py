@@ -53,6 +53,7 @@ TIME_WINDOW = (0, 0.1)  #(-0.6, -0.1) #
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
 N_PSEUDO = 2
+N_RUNS = 10
 MIN_UNITS = 10
 MIN_BEHAV_TRIAS = 200
 MIN_RT = 0.08  # 0.08  # Float (s) or None
@@ -62,7 +63,6 @@ COMPUTE_NEUROMETRIC = True if TARGET == 'signcont' else False
 FORCE_POSITIVE_NEURO_SLOPES = False
 # Basically, quality metric on the stability of a single unit. Should have 1 metric per neuron
 QC_CRITERIA = 3/3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
-N_RUNS = 10
 
 BALANCED_WEIGHT = False  # seems to work better with BALANCED_WEIGHT=False
 HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000])}
@@ -75,7 +75,7 @@ excludes = [
     'bb6a5aae-2431-401d-8f6a-9fdd6de655a9',  # inconsistent trials object: relaunched task on 31-12-2021
     'c7b0e1a3-4d4d-4a76-9339-e73d0ed5425b',  # same same
     '7a887357-850a-4378-bd2a-b5bc8bdd3aac',  # same same
-    '56b57c38-2699-4091-90a8-aba35103155e',  # load obect pickle error
+    '56b57c38-2699-4091-90a8-aba35103155e',  # load object pickle error
     '09394481-8dd2-4d5c-9327-f2753ede92d7',  # same same
 ]
 
@@ -114,7 +114,8 @@ fit_metadata = {
 
 
 # %% Define helper functions for dask workers to use
-def save_region_results(fit_result, pseudo_id, subject, eid, probe, region, N, output_path=OUTPUT_PATH):
+def save_region_results(fit_result, pseudo_id, subject, eid, probe, region, N,
+                        output_path=DECODING_PATH.joinpath('results', 'neural')):
     subjectfolder = Path(output_path).joinpath(subject)
     eidfolder = subjectfolder.joinpath(eid)
     probefolder = eidfolder.joinpath(probe)
@@ -132,7 +133,9 @@ def save_region_results(fit_result, pseudo_id, subject, eid, probe, region, N, o
     return probefolder.joinpath(fn)
 
 
-def fit_eid(eid, sessdf, pseudo_id=-1, nb_runs=10, modelfit_path=MODELFIT_PATH, output_path=OUTPUT_PATH, one=None):
+def fit_eid(eid, sessdf, pseudo_id=-1, nb_runs=10,
+            modelfit_path=DECODING_PATH.joinpath('results', 'behavioral'),
+            output_path=DECODING_PATH.joinpath('results', 'neural'), one=None):
     """
     Parameters
     ----------
@@ -298,13 +301,17 @@ if __name__ == '__main__':
                           pseudo_id=-1 if pseudo_id == 0 else pseudo_id,
                           nb_runs=N_RUNS,
                           one=one)
+            #fns = client.submit(fit_eid, eid, sessdf)
+            #filenames.append(fns)
             filenames.append(fns)
 
     import time
+    '''
     filenames = []
     for eid in sessdf.index.unique(level='eid'):
         fns = client.submit(fit_eid, eid, sessdf)
         filenames.append(fns)
+    '''
 
     # WAIT FOR COMPUTATION TO FINISH BEFORE MOVING ON
     # %% Collate results into master dataframe and save
@@ -352,10 +359,10 @@ if __name__ == '__main__':
 
     estimatorstr = strlut[ESTIMATOR]
     start_tw, end_tw = TIME_WINDOW
-    fn = OUTPUT_PATH + '_'.join([DATE, 'decode', TARGET,
+    fn = str(DECODING_PATH.joinpath('results', 'neural', '_'.join([DATE, 'decode', TARGET,
                                  dut.modeldispatcher[MODEL] if TARGET in ['prior', 'prederr'] else 'task',
                                  estimatorstr, 'align', ALIGN_TIME, str(N_PSEUDO), 'pseudosessions',
-                                 'timeWindow', str(start_tw).replace('.', '_'), str(end_tw).replace('.', '_')])
+                                 'timeWindow', str(start_tw).replace('.', '_'), str(end_tw).replace('.', '_')])))
     if ADD_TO_SAVING_PATH != '':
         fn = fn + '_' + ADD_TO_SAVING_PATH
     fn = fn + '.parquet'
@@ -371,7 +378,11 @@ if __name__ == '__main__':
         fo = open(fn, 'rb')
         result = pickle.load(fo)
         fo.close()
-        weightsdict = {**weightsdict, **{tuple(result[x] for x in indexers):np.vstack(result['fit']['weights'])}}
+        for i_run in range(len(result['fit'])):
+            weightsdict = {**weightsdict, **{(tuple(result[x] for x in indexers)
+                                             + ('pseudo_id_{}'.format(result['pseudo_id']),
+                                                'run_id_{}'.format(i_run + 1)))
+                                             :np.vstack(result['fit'][i_run]['weights'])}}
 
     with open(metadata_fn.split('.metadata.pkl')[0] + '.weights.pkl', 'wb') as f:
         pickle.dump(weightsdict, f)
