@@ -12,7 +12,7 @@ from brainbox.io.one import SpikeSortingLoader
 import decoding_utils as dut
 from decode_prior import SESS_CRITERION, fit_eid
 
-output_path = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding")
+DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding")
 one = ONE()
 ba = AllenAtlas()
 
@@ -52,4 +52,4 @@ for i, rec in insdf.iterrows():
     one.load_object(ssl.eid, 'wheel', collection='alf', download_only=True)
 
 
-insdf.to_parquet(output_path.joinpath('insertions.pqt'))
+insdf.to_parquet(DECODING_PATH.joinpath('insertions.pqt'))
