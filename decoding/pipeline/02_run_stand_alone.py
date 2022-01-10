@@ -7,13 +7,12 @@ import pandas as pd
 from decode_prior import fit_eid
 import numpy as np
 
-output_path = Path("/datadisk/Data/taskforces/bwm")
-output_path.joinpath('models').mkdir(exist_ok=True)
-output_path.joinpath('results').mkdir(exist_ok=True)
-
-
-insdf = pd.read_parquet(output_path.joinpath('insertions.pqt'))
-
+DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding")
+# create necessary empty directories if not existing
+DECODING_PATH.joinpath('results').mkdir(exist_ok=True)
+DECODING_PATH.joinpath('results', 'behavioral').mkdir(exist_ok=True)
+DECODING_PATH.joinpath('results', 'neural').mkdir(exist_ok=True)
+insdf = pd.read_parquet(DECODING_PATH.joinpath('insertions.pqt'))
 
 eids = insdf['eid'].unique()
 # sessdf = insdf.sort_values('subject').set_index(['subject', 'eid'])
@@ -36,4 +35,10 @@ for i, eid in enumerate(eids):
         print(f"dud {eid}")
         continue
     print(f"{i}, session: {eid}")
-    fns = fit_eid(eid, insdf, modelfit_path=output_path.joinpath('models'), output_path=output_path.joinpath('results'))
+    fns = fit_eid(eid,
+                  insdf,
+                  modelfit_path=DECODING_PATH.joinpath('results', 'behavioral'),
+                  output_path=DECODING_PATH.joinpath('results', 'neural'),
+                  pseudo_id=-1,
+                  nb_runs=3,
+                  one=one)
