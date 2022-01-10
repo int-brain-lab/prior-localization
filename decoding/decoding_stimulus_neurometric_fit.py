@@ -110,7 +110,8 @@ def fit_get_shift_range(lowprob_arr,
               'high_pars': high_pars, 'high_likelihood': high_L,
               'low_fit_trace': low_fit_trace, 'high_fit_trace': high_fit_trace,
               'low_slope': low_slope, 'high_slope': high_slope, 'low_range': low_range,
-              'high_range': high_range, 'shift': shift}
+              'high_range': high_range, 'shift': shift, 'mean_range': (low_range + high_range)/2.,
+              'mean_slope': (low_slope + high_slope)/2.}
     return params
 
 def get_neurometric_parameters(fit_result, trialsdf, one, compute_on_each_fold, force_positive_neuro_slopes):
