@@ -12,7 +12,7 @@ from brainbox.io.one import SpikeSortingLoader
 import decoding_utils as dut
 from decode_prior import SESS_CRITERION, fit_eid
 
-output_path = Path("/datadisk/Data/taskforces/bwm")
+output_path = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding")
 one = ONE()
 ba = AllenAtlas()
 
