@@ -6,14 +6,22 @@ Berk, May 2020
 
 import pickle
 import os
+import sys
+import pandas as pd
+import numpy as np
 from datetime import date
-from glob import glob
 from pathlib import Path
-from one.api import ONE
 from brainbox.task.closed_loop import generate_pseudo_session
-from bbglm_sessfit import fit, fit_stepwise, generate_design
-from .decoding.decoding_utils import compute_target, query_sessions
+from bbglm_sessfit import fit_stepwise, generate_design
 from params import BEH_MOD_PATH, GLM_FIT_PATH, GLM_CACHE
+sys.path.append(Path(__file__).joinpath('decoding'))
+from decoding.decoding_utils import compute_target, query_sessions  # noqa
+
+
+def filter_nan(trialsdf):
+    target_cols = ['stimOn_times', 'feedback_times', 'firstMovement_times']
+    mask = ~np.any(np.isnan(trialsdf[target_cols]), axis=1)
+    return trialsdf[mask]
 
 
 def get_cached_regressors(fpath):
@@ -25,13 +33,13 @@ def get_cached_regressors(fpath):
 def save_pseudo(subject, session_id, fitout, params):
     # TODO: Make this work
     raise NotImplementedError
-    sesspath = _create_sub_sess_path(GLM_FIT_PATH, subject, session_id)
-    fn = sesspath.joinpath()
-    subjfilepath = os.path.abspath(filename)
-    fw = open(subjfilepath, 'wb')
-    pickle.dump(outdict, fw)
-    fw.close()
-    return True
+    # sesspath = _create_sub_sess_path(GLM_FIT_PATH, subject, session_id)
+    # fn = sesspath.joinpath()
+    # subjfilepath = os.path.abspath(filename)
+    # fw = open(subjfilepath, 'wb')
+    # pickle.dump(outdict, fw)
+    # fw.close()
+    # return True
 
 
 def save_stepwise(subject, session_id, fitout, params, probes, input_fn, clu_reg, clu_qc, fitdate):
@@ -50,6 +58,21 @@ def save_stepwise(subject, session_id, fitout, params, probes, input_fn, clu_reg
     return fn
 
 
+def compute_deltas(scores):
+    outdf = pd.DataFrame(np.zeros_like(scores), index=scores.index, columns=scores.columns)
+    for i in scores.columns:  # Change this for diff num covs
+        if i >= 1:
+            diff = scores[i] - scores[i - 1]
+        else:
+            diff = scores[i]
+        outdf[i] = diff
+    return outdf
+
+
+def colrename(cname, suffix):
+    return str(cname + 1) + 'cov' + suffix
+
+
 def _create_sub_sess_path(parent, subject, session):
     subpath = Path(parent).joinpath(subject)
     if not subpath.exists():
@@ -62,7 +85,6 @@ def _create_sub_sess_path(parent, subject, session):
 
 if __name__ == "__main__":
     import dask
-    import numpy as np
     import brainbox.modeling.utils as mut
     import brainbox.modeling.linear as lm
     import sklearn.linear_model as skl
@@ -83,19 +105,18 @@ if __name__ == "__main__":
         'reduce_wheel_dim': True,
         'dataset_fn': '2022-01-03_dataset_metadata.pkl',
         'model': lm.LinearGLM,
-        'alpha_grid': {'alpha': np.logspace(-2, 1.5, 100)},
+        'alpha_grid': {'alpha': np.logspace(-2, 1.5, 50)},
         'contiguous': False,
         # 'n_pseudo': 100,
     }
 
     params['bases'] = {
-            'stim': mut.raised_cosine(0.4, 5, tmp_binf),
-            'feedback': mut.raised_cosine(0.4, 5, tmp_binf),
-            'wheel': mut.raised_cosine(0.3, 3, tmp_binf),
-            'fmove': mut.raised_cosine(0.2, 3, tmp_binf),
-        }
+        'stim': mut.raised_cosine(0.4, 5, tmp_binf),
+        'feedback': mut.raised_cosine(0.4, 5, tmp_binf),
+        'wheel': mut.raised_cosine(0.3, 3, tmp_binf),
+        'fmove': mut.raised_cosine(0.2, 3, tmp_binf),
+    }
     params['estimator'] = GridSearchCV(skl.Ridge(), params['alpha_grid'])
-
 
     currdate = str(date.today())
     # currdate = '2021-05-04'
@@ -116,7 +137,7 @@ if __name__ == "__main__":
     dpseudo = dask.delayed(generate_pseudo_session)
     dfit = dask.delayed(fit_stepwise)
     dsave = dask.delayed(save_stepwise)
-    
+
     data_fns = []
     for i, (subject, eid, probes, metafn, eidfn) in dataset_fns.iterrows():
         subjeids = sessions.xs(subject, level='subject').index.unique().to_list()
@@ -130,15 +151,45 @@ if __name__ == "__main__":
         data_fns.append(outputfn)
 
     N_CORES = 4
-    cluster = SLURMCluster(cores=N_CORES, memory='32GB', processes=1, queue="shared-cpu",
-                           walltime="01:15:00",
+    cluster = SLURMCluster(cores=N_CORES, memory='24GB', processes=1, queue="shared-cpu",
+                           walltime="02:10:00",
                            log_directory='/home/gercek/dask-worker-logs',
                            interface='ib0',
-                           extra=["--lifetime", "60m", "--lifetime-stagger", "10m"],
+                           extra=["--lifetime", "2h", "--lifetime-stagger", "10m"],
                            job_cpu=N_CORES, env_extra=[f'export OMP_NUM_THREADS={N_CORES}',
                                                        f'export MKL_NUM_THREADS={N_CORES}',
                                                        f'export OPENBLAS_NUM_THREADS={N_CORES}'])
     cluster.adapt(minimum_jobs=0, maximum_jobs=400)
     client = Client(cluster)
     futures = client.compute(data_fns)
-    
+
+    filenames = [x.result() for x in futures if x.status == 'finished']
+    sessdfs = []
+    for fitname in filenames:
+        with open(fitname, 'rb') as fo:
+            tmpfile = pickle.load(fo)
+        folds = []
+        for i in range(len(tmpfile['scores'])):
+            tmp_sc = tmpfile['scores'][i].rename(columns=lambda c: colrename(c, '_score'))
+            tmp_seq = tmpfile['sequences'][i].rename(columns=lambda c: colrename(c, '_name'))
+            tmp_diff = compute_deltas(tmpfile['scores'][i])
+            tmp_diff.rename(columns=lambda c: colrename(c, '_diff'), inplace=True)
+            tmpdf = tmp_sc.join(tmp_seq).join(tmp_diff)
+            tmpdf['eid'] = fitname.parts[-2]
+            tmpdf['acronym'] = tmpfile['clu_regions'][tmpdf.index]
+            tmpdf['qc_label'] = tmpfile['clu_qc']['label'][tmpdf.index]
+            tmpdf['fold'] = i
+            tmpdf.index.set_names(['clu_id'], inplace=True)
+            folds.append(tmpdf.reset_index())
+        sess_master = pd.concat(folds)
+        sessdfs.append(sess_master)
+    masterscores = pd.concat(sessdfs)
+    masterscores.set_index(['eid', 'acronym', 'clu_id', 'fold'], inplace=True)
+    outdict = {
+        'fit_params': params,
+        'dataset': dataset,
+        'fit_results': masterscores,
+        'fit_files': filenames
+    }
+    with open(Path(GLM_FIT_PATH).joinpath(f'{currdate}_glm_fit.pkl'), 'wb') as fw:
+        pickle.dump(outdict, fw)
