@@ -271,6 +271,8 @@ def fit_eid(eid, sessdf, pseudo_id=-1, nb_runs=10,
 
 if __name__ == '__main__':
     from decode_prior import fit_eid
+    # LOCAL
+    LOCAL = False
 
     # import cached data
     insdf = pd.read_parquet(DECODING_PATH.joinpath('insertions.pqt'))
@@ -282,19 +284,22 @@ if __name__ == '__main__':
     DECODING_PATH.joinpath('results', 'neural').mkdir(exist_ok=True)
 
     # Generate cluster interface and map eids to workers via dask.distributed.Client
-    N_CORES = 2
-    cluster = SLURMCluster(cores=N_CORES, memory='16GB', processes=1, queue="shared-cpu",
-                           walltime="01:15:00",
-                           log_directory='/home/users/f/findling/ibl/prior-localization/decoding/dask-worker-logs',
-                           interface='ib0',
-                           extra=["--lifetime", "60m", "--lifetime-stagger", "10m"],
-                           job_cpu=N_CORES, env_extra=[f'export OMP_NUM_THREADS={N_CORES}',
-                                                       f'export MKL_NUM_THREADS={N_CORES}',
-                                                       f'export OPENBLAS_NUM_THREADS={N_CORES}'])
-    cluster.adapt(minimum_jobs=0, maximum_jobs=80)
+    if LOCAL:
+        cluster = LocalCluster(n_workers=4, threads_per_worker=2)
+    else:
+        N_CORES = 2
+        cluster = SLURMCluster(cores=N_CORES, memory='16GB', processes=1, queue="shared-cpu",
+                               walltime="01:15:00",
+                               log_directory='/home/users/f/findling/ibl/prior-localization/decoding/dask-worker-logs',
+                               interface='ib0',
+                               extra=["--lifetime", "60m", "--lifetime-stagger", "10m"],
+                               job_cpu=N_CORES, env_extra=[f'export OMP_NUM_THREADS={N_CORES}',
+                                                           f'export MKL_NUM_THREADS={N_CORES}',
+                                                           f'export OPENBLAS_NUM_THREADS={N_CORES}'])
+        cluster.adapt(minimum_jobs=0, maximum_jobs=80)
     client = Client(cluster)
 
-    # debug  one = ONE(mode='local')
+    # debug
     IMIN = 0
     filenames = []
     for i, eid in enumerate(eids[:4]):
@@ -303,24 +308,12 @@ if __name__ == '__main__':
             continue
         print(f"{i}, session: {eid}")
         for pseudo_id in range(N_PSEUDO + 1):
-            fns = fit_eid(eid,
-                          insdf,
-                          modelfit_path=DECODING_PATH.joinpath('results', 'behavioral'),
-                          output_path=DECODING_PATH.joinpath('results', 'neural'),
-                          pseudo_id=-1 if pseudo_id == 0 else pseudo_id,
-                          nb_runs=N_RUNS,
-                          one=one)
-            #fns = client.submit(fit_eid, eid, sessdf)
-            #filenames.append(fns)
+            fns = client.submit(fit_eid,
+                                eid=eid,
+                                sessdf=insdf,
+                                pseudo_id=-1 if pseudo_id == 0 else pseudo_id,
+                                nb_runs=N_RUNS)
             filenames.append(fns)
-
-    import time
-    '''
-    filenames = []
-    for eid in sessdf.index.unique(level='eid'):
-        fns = client.submit(fit_eid, eid, sessdf)
-        filenames.append(fns)
-    '''
 
     # WAIT FOR COMPUTATION TO FINISH BEFORE MOVING ON
     # %% Collate results into master dataframe and save
