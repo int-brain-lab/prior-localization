@@ -19,7 +19,7 @@ from decoding_stimulus_neurometric_fit import get_neurometric_parameters
 
 try:
     from dask_jobqueue import SLURMCluster
-    from dask.distributed import Client
+    from dask.distributed import Client, LocalCluster
 except:
     import warnings
     warnings.warn('dask import failed')
