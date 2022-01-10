@@ -178,6 +178,7 @@ def fit_eid(eid, sessdf, pseudo_id=-1, nb_runs=10,
         mask = mask & (trialsdf.probabilityLeft != 0.5).values
     if MIN_RT is not None:
         mask = mask & (~(trialsdf.react_times < MIN_RT)).values
+    mask = mask & (trialsdf.choice != 0)  # take out when mouse doesn't perform any action
 
     nb_trialsdf = trialsdf[mask]
     msub_tvec = tvec[mask]
