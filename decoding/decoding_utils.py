@@ -224,7 +224,8 @@ def compute_target(target, subject, eids_train, eid_test, savepath,
 
 def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
                    hyperparam_grid=None, test_prop=0.2, nFolds=5, save_binned=False,
-                   verbose=False, shuffle=True, outer_cv=True, balanced_weight=False):
+                   verbose=False, shuffle=True, outer_cv=True, balanced_weight=False,
+                   normalize_input=False, normalize_output=False):
     """
     Regresses binned neural activity against a target, using a provided sklearn estimator
 
@@ -304,6 +305,13 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
                 X_train_inner, X_test_inner = X_train[train_inner], X_train[test_inner]
                 y_train_inner, y_test_inner = y_train[train_inner], y_train[test_inner]
 
+                # normalization when necessary
+                mean_X_train = X_train_inner.mean(axis=0) if normalize_input else 0
+                X_train_inner = X_train_inner - mean_X_train
+                X_test_inner = X_test_inner - mean_X_train
+                mean_y_train = y_train_inner.mean(axis=0) if normalize_output else 0
+                y_train_inner = y_train_inner - mean_y_train
+
                 for i_alpha, alpha in enumerate(hyperparam_grid['alpha']):
                     estimator = estimatorObject(**{**estimator_kwargs, 'alpha': alpha})
                     if balanced_weight:
@@ -311,12 +319,20 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
                                                                                                     y=y_train_inner))
                     else:
                         estimator.fit(X_train_inner, y_train_inner)
-                    pred_test_inner = estimator.predict(X_test_inner)
+                    pred_test_inner = estimator.predict(X_test_inner) + mean_y_train
                     r2s[ifold, i_alpha] = r2_score(y_test_inner, pred_test_inner)
 
             r2s_avg = r2s.mean(axis=0)
             best_alpha = hyperparam_grid['alpha'][np.argmax(r2s_avg)]
             clf = estimatorObject(**{**estimator_kwargs, 'alpha': best_alpha})
+
+            # normalization when necessary
+            mean_X_train = X_train.mean(axis=0) if normalize_input else 0
+            X_train = X_train - mean_X_train
+            X_test = X_test - mean_X_train
+            mean_y_train = y_train.mean(axis=0) if normalize_output else 0
+            y_train = y_train - mean_y_train
+
             if balanced_weight:
                 clf.fit(X_train, y_train, sample_weight=compute_sample_weight("balanced", y=y_train))
             else:
@@ -324,15 +340,16 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
 
             # compute R2 on the train data
             y_pred_train = clf.predict(X_train)
-            Rsquareds_train.append(r2_score(y_train, y_pred_train))
+            Rsquareds_train.append(r2_score(y_train + mean_y_train, y_pred_train + mean_y_train))
 
             # compute R2 on held-out data
-            y_true, y_pred = y_test, clf.predict(X_test)
+            y_true, y_pred = y_test, clf.predict(X_test) + mean_y_train
             Rsquareds_test.append(r2_score(y_true, y_pred))
 
             # prediction, target, idxes_test, idxes_train
-            predictions.append(clf.predict(binned))
-            predictions_test.append(clf.predict(binned)[test_index])
+            prediction = clf.predict(binned) + mean_y_train
+            predictions.append(prediction)
+            predictions_test.append(prediction[test_index])
             idxes_test.append(test_index)
             idxes_train.append(train_index)
             weights.append(clf.coef_)
