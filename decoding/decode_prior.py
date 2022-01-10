@@ -7,8 +7,8 @@ import decoding_utils as dut
 import brainbox.io.one as bbone
 import sklearn.linear_model as sklm
 import models.utils as mut
-from pathlib import Path
 from datetime import date
+from pathlib import Path
 
 from one.api import ONE
 from brainbox.population.decode import get_spike_counts_in_bins
@@ -70,6 +70,15 @@ SAVE_BINNED = False  # Debugging parameter, not usually necessary
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
 ADD_TO_SAVING_PATH = ''
 
+# session to be excluded (by Olivier Winter)
+excludes = [
+    'bb6a5aae-2431-401d-8f6a-9fdd6de655a9',  # inconsistent trials object: relaunched task on 31-12-2021
+    'c7b0e1a3-4d4d-4a76-9339-e73d0ed5425b',  # same same
+    '7a887357-850a-4378-bd2a-b5bc8bdd3aac',  # same same
+    '56b57c38-2699-4091-90a8-aba35103155e',  # load obect pickle error
+    '09394481-8dd2-4d5c-9327-f2753ede92d7',  # same same
+]
+
 # ValueErrors and NotImplementedErrors
 if TARGET not in ['signcont', 'pLeft']:
     raise NotImplementedError('this TARGET is not supported or stable yet')
@@ -105,7 +114,7 @@ fit_metadata = {
 
 
 # %% Define helper functions for dask workers to use
-def save_region_results(fit_result, pseudo_results, subject, eid, probe, region, N, output_path=OUTPUT_PATH):
+def save_region_results(fit_result, pseudo_id, subject, eid, probe, region, N, output_path=OUTPUT_PATH):
     subjectfolder = Path(output_path).joinpath(subject)
     eidfolder = subjectfolder.joinpath(eid)
     probefolder = eidfolder.joinpath(probe)
@@ -113,19 +122,32 @@ def save_region_results(fit_result, pseudo_results, subject, eid, probe, region,
         if not os.path.exists(folder):
             os.mkdir(folder)
     start_tw, end_tw = TIME_WINDOW
-    fn = '_'.join([DATE, region, 'timeWindow', str(start_tw).replace('.', '_'), str(end_tw).replace('.', '_')]) + '.pkl'
+    fn = '_'.join([DATE, region, 'timeWindow', str(start_tw).replace('.', '_'), str(end_tw).replace('.', '_'),
+                   'pseudo_id', str(pseudo_id)]) + '.pkl'
     fw = open(probefolder.joinpath(fn), 'wb')
-    outdict = {'fit': fit_result, 'pseudosessions': pseudo_results,
+    outdict = {'fit': fit_result, 'pseudo_id': pseudo_id,
                'subject': subject, 'eid': eid, 'probe': probe, 'region': region, 'N_units': N}
     pickle.dump(outdict, fw)
     fw.close()
     return probefolder.joinpath(fn)
 
 
-def fit_eid(eid, sessdf, modelfit_path=MODELFIT_PATH, output_path=OUTPUT_PATH):
+def fit_eid(eid, sessdf, pseudo_id=-1, nb_runs=10, modelfit_path=MODELFIT_PATH, output_path=OUTPUT_PATH, one=None):
+    """
+    Parameters
+    ----------
+    eid: eid of session
+    sessdf: dataframe of session eid
+    pseudo_id: whether to compute a pseudosession or not. if pseudo_id=-1, the true session is considered
+    nb_runs: nb of independent runs performed. this was added after consequent variability was observed across runs
+    modelfit_path: outputs of behavioral fits
+    output_path: outputs of decoding fits
+    one: ONE object -- this is not to be used with dask, this option is given for debugging purposes
+    """
+
     atlas = AllenAtlas()  # not sure it's really an issue to instantiate on each node
-    one = ONE(mode='local')
-    estimator = ESTIMATOR #(**ESTIMATOR_KWARGS)
+    one = ONE(mode='local') if one is None else one
+    estimator = ESTIMATOR
     df_insertions = sessdf.loc[sessdf['eid'] == eid]
     subject = df_insertions['subject'].to_numpy()[0]
     subjeids = sessdf.loc[sessdf['subject'] == subject]['eid'].unique()
@@ -172,7 +194,7 @@ def fit_eid(eid, sessdf, modelfit_path=MODELFIT_PATH, output_path=OUTPUT_PATH):
         regions = np.unique(beryl_reg)
         # warnings.filterwarnings('ignore')
         for region in tqdm(regions, desc='Region: ', leave=False):
-            reg_mask = beryl_reg == region
+            reg_mask = (beryl_reg == region)
             reg_clu_ids = np.argwhere(reg_mask & qc_pass).flatten()
             N_units = len(reg_clu_ids)
             if N_units < MIN_UNITS:
@@ -193,49 +215,43 @@ def fit_eid(eid, sessdf, modelfit_path=MODELFIT_PATH, output_path=OUTPUT_PATH):
                 raise ValueError('Multiple bins are being calculated per trial,'
                                  'may be due to floating point representation error.'
                                  'Check window.')
-            fit_result = dut.regress_target(msub_tvec, msub_binned, estimator,
-                                            estimator_kwargs=ESTIMATOR_KWARGS,
-                                            hyperparam_grid=HPARAM_GRID,
-                                            save_binned=SAVE_BINNED, shuffle=SHUFFLE,
-                                            balanced_weight=BALANCED_WEIGHT)
 
-            fit_result['mask'] = mask
-
-            # neurometric curve
-            if COMPUTE_NEUROMETRIC:
-                fit_result['full_neurometric'], fit_result['fold_neurometric'] = \
-                    get_neurometric_parameters(fit_result, nb_trialsdf.reset_index(), one,
-                                               compute_on_each_fold=COMPUTE_NEURO_ON_EACH_FOLD,
-                                               force_positive_neuro_slopes=FORCE_POSITIVE_NEURO_SLOPES)
-            else:
-                fit_result['full_neurometric'] = None
-                fit_result['fold_neurometric'] = None
-
-            pseudo_results = []
-            for _ in tqdm(range(N_PSEUDO), desc='Pseudo num: ', leave=False):
-                pseudosess = generate_pseudo_session(trialsdf)
-                msub_pseudo_tvec = dut.compute_target(TARGET, subject, subjeids, eid,
-                                                      modelfit_path, modeltype=MODEL,
-                                                      beh_data=pseudosess, one=one)[mask]
-
-                pseudo_result = dut.regress_target(msub_pseudo_tvec, msub_binned, estimator,
-                                                   estimator_kwargs=ESTIMATOR_KWARGS,
-                                                   hyperparam_grid=HPARAM_GRID,
-                                                   save_binned=SAVE_BINNED, shuffle=SHUFFLE,
-                                                   balanced_weight=BALANCED_WEIGHT)
-
+            fit_results = []
+            for i_run in range(nb_runs):
+                if pseudo_id == -1:
+                    fit_result = dut.regress_target(msub_tvec, msub_binned, estimator,
+                                                    estimator_kwargs=ESTIMATOR_KWARGS,
+                                                    hyperparam_grid=HPARAM_GRID,
+                                                    save_binned=SAVE_BINNED, shuffle=SHUFFLE,
+                                                    balanced_weight=BALANCED_WEIGHT)
+                else:
+                    pseudosess = generate_pseudo_session(trialsdf)
+                    msub_pseudo_tvec = dut.compute_target(TARGET, subject, subjeids, eid,
+                                                          modelfit_path, modeltype=MODEL,
+                                                          beh_data=pseudosess, one=one)[mask]
+                    fit_result = dut.regress_target(msub_pseudo_tvec, msub_binned, estimator,
+                                                    estimator_kwargs=ESTIMATOR_KWARGS,
+                                                    hyperparam_grid=HPARAM_GRID,
+                                                    save_binned=SAVE_BINNED, shuffle=SHUFFLE,
+                                                    balanced_weight=BALANCED_WEIGHT)
+                fit_result['mask'] = mask
+                fit_result['pseudo_id'] = pseudo_id
+                fit_result['run_id'] = i_run
                 # neurometric curve
                 if COMPUTE_NEUROMETRIC:
-                    pseudo_result['full_neurometric'], pseudo_result['fold_neurometric'] = \
-                        get_neurometric_parameters(pseudo_result, pseudosess[mask].reset_index(),
-                                                   one, compute_on_each_fold=COMPUTE_NEURO_ON_EACH_FOLD,
+                    fit_result['full_neurometric'], fit_result['fold_neurometric'] = \
+                        get_neurometric_parameters(fit_result,
+                                                   trialsdf=nb_trialsdf.reset_index() if (pseudo_id == -1) else
+                                                   pseudosess[mask].reset_index(),
+                                                   one=one,
+                                                   compute_on_each_fold=COMPUTE_NEURO_ON_EACH_FOLD,
                                                    force_positive_neuro_slopes=FORCE_POSITIVE_NEURO_SLOPES)
                 else:
-                    pseudo_result['full_neurometric'] = None
-                    pseudo_result['fold_neurometric'] = None
+                    fit_result['full_neurometric'] = None
+                    fit_result['fold_neurometric'] = None
+                fit_results.append(fit_result)
 
-                pseudo_results.append(pseudo_result)
-            filenames.append(save_region_results(fit_result, pseudo_results, subject,
+            filenames.append(save_region_results(fit_results, pseudo_id, subject,
                                                  eid, probe, region, N_units, output_path=output_path))
 
     return filenames
@@ -244,10 +260,15 @@ def fit_eid(eid, sessdf, modelfit_path=MODELFIT_PATH, output_path=OUTPUT_PATH):
 if __name__ == '__main__':
     from decode_prior import fit_eid
 
-    # Generate cluster interface and map eids to workers via dask.distributed.Client
-    sessdf = dut.query_sessions(selection=SESS_CRITERION)
-    sessdf = sessdf.sort_values('subject').set_index(['subject', 'eid'])
+    output_path = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding/Data")
+    output_path.joinpath('models').mkdir(exist_ok=True)
+    output_path.joinpath('results').mkdir(exist_ok=True)
 
+    insdf = pd.read_parquet(output_path.joinpath('insertions.pqt'))
+
+    eids = insdf['eid'].unique()
+
+    # Generate cluster interface and map eids to workers via dask.distributed.Client
     N_CORES = 2
     cluster = SLURMCluster(cores=N_CORES, memory='16GB', processes=1, queue="shared-cpu",
                            walltime="01:15:00",
@@ -275,45 +296,39 @@ if __name__ == '__main__':
         finished.extend(fns)
 
     indexers = ['subject', 'eid', 'probe', 'region']
-    indexers_neurometric = ['low_slope', 'high_slope', 'low_range', 'high_range', 'shift']
+    indexers_neurometric = ['low_slope', 'high_slope', 'low_range', 'high_range', 'shift', 'mean_range', 'mean_slope']
     resultslist = []
     for fn in finished:
         fo = open(fn, 'rb')
         result = pickle.load(fo)
         fo.close()
-        tmpdict = {**{x: result[x] for x in indexers},
-                   'fold': -1,
-                   'mask': ''.join([str(item) for item in list(result['fit']['mask'].values * 1)]),
-                   'Rsquared_test': result['fit']['Rsquared_test_full'],
-                   **{f'Rsquared_test_pseudo{i}': result['pseudosessions'][i]['Rsquared_test_full']
-                      for i in range(N_PSEUDO)}}
-        if result['fit']['full_neurometric'] is not None \
-                and np.all([result['pseudosessions'][i]['full_neurometric'] is not None for i in range(N_PSEUDO)]):
-            tmpdict = {**tmpdict,
-                       **{idx_neuro: result['fit']['full_neurometric'][idx_neuro]
-                          for idx_neuro in indexers_neurometric},
-                       **{str(idx_neuro) + f'_pseudo{i}': result['pseudosessions'][i]['full_neurometric'][idx_neuro]
-                          for i in range(N_PSEUDO) for idx_neuro in indexers_neurometric}}
-        resultslist.append(tmpdict)
-        for kfold in range(result['fit']['nFolds']):
+        for i_run in range(len(result['fit'])):
             tmpdict = {**{x: result[x] for x in indexers},
-                       'fold': kfold,
-                       'Rsquared_test': result['fit']['Rsquareds_test'][kfold],
-                       'Best_regulCoef': result['fit']['best_params'][kfold],
-                       **{f'Rsquared_test_pseudo{i}': result['pseudosessions'][i]['Rsquareds_test'][kfold]
-                          for i in range(N_PSEUDO)},
-                       }
-            if result['fit']['fold_neurometric'] is not None:
-                tmpdict = {**tmpdict,
-                           **{idx_neuro: result['fit']['fold_neurometric'][kfold][idx_neuro]
+                       'fold': -1,
+                       'pseudo_id': result['pseudo_id'],
+                       'N_units': result['N_units'],
+                       'run_id': i_run + 1,
+                       'mask': ''.join([str(item) for item in list(result['fit'][i_run]['mask'].values * 1)]),
+                       'R2_test': result['fit'][i_run]['Rsquared_test_full']}
+            if result['fit'][i_run]['full_neurometric'] is not None:
+                tmpdict= {**tmpdict,
+                          **{idx_neuro: result['fit'][i_run]['full_neurometric'][idx_neuro]
                               for idx_neuro in indexers_neurometric}}
-            if np.all([result['pseudosessions'][i]['fold_neurometric'] is not None for i in range(N_PSEUDO)]):
-                tmpdict = {**tmpdict,
-                           **{str(idx_neuro) + f'_pseudo{i}': result['pseudosessions'][i][
-                               'fold_neurometric'][kfold][idx_neuro]
-                              for i in range(N_PSEUDO) for idx_neuro in indexers_neurometric}
-                           }
             resultslist.append(tmpdict)
+            for kfold in range(result['fit'][i_run]['nFolds']):
+                tmpdict = {**{x: result[x] for x in indexers},
+                           'fold': kfold,
+                           'pseudo_id': result['pseudo_id'],
+                           'N_units': result['N_units'],
+                           'run_id': i_run + 1,
+                           'R2_test': result['fit'][i_run]['Rsquareds_test'][kfold],
+                           'Best_regulCoef': result['fit'][i_run]['best_params'][kfold],
+                           }
+                if result['fit'][i_run]['fold_neurometric'] is not None:
+                    tmpdict = {**tmpdict,
+                               **{idx_neuro: result['fit'][i_run]['fold_neurometric'][kfold][idx_neuro]
+                                  for idx_neuro in indexers_neurometric}}
+                resultslist.append(tmpdict)
     resultsdf = pd.DataFrame(resultslist).set_index(indexers)
 
     estimatorstr = strlut[ESTIMATOR]
