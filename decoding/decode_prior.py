@@ -375,6 +375,7 @@ if __name__ == '__main__':
 
     with open(metadata_fn.split('.metadata.pkl')[0] + '.weights.pkl', 'wb') as f:
         pickle.dump(weightsdict, f)
+
 # command to close the ongoing placeholder
 # client.close(); cluster.close()
 
