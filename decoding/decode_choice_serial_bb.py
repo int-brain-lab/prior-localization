@@ -1,9 +1,9 @@
 # bb
 
 import sys
-MODELS_PATH = '/home/bensonb/IntBrainLab/behavior_models/'
-if not MODELS_PATH in sys.path:
-    sys.path.insert(0, MODELS_PATH)
+# MODELS_PATH = '/home/bensonb/IntBrainLab/behavior_models/'
+# if not MODELS_PATH in sys.path:
+#     sys.path.insert(0, MODELS_PATH)
     
 import os
 import pickle
@@ -12,26 +12,23 @@ import json
 
 import matplotlib.pyplot as plt
 import numpy as np
-# %% Run param definitions
 
-SESS_CRITERION = 'aligned-behavior'
-TARGET = 'signcont'
-MODEL = expSmoothing_prevAction
-MODELFIT_PATH = '/home/berk/Documents/Projects/prior-localization/results/inference/'
-OUTPUT_PATH = '/home/berk/Documents/Projects/prior-localization/results/decoding/'
 import pandas as pd
-import decoding_utils as dut
-import models.utils as mut
+import decoding_utils_bb as dut
 import brainbox.io.one as bbone
 
 import sklearn.linear_model as sklm
 from pathlib import Path
 from datetime import date
 from one.api import ONE
-from models.expSmoothing_prevAction import expSmoothing_prevAction
 from brainbox.population.decode import get_spike_counts_in_bins
 from brainbox.singlecell import calculate_peths
 from tqdm import tqdm
+
+# %% Run param definitions
+
+SESS_CRITERION = 'aligned-behavior'
+OUTPUT_PATH = '/home/bensonb/IntBrainLab/prior-localization/results/decoding/'
 
 one = ONE()
 logger = logging.getLogger('ibllib')
@@ -39,6 +36,7 @@ logger.disabled = True
 ALIGN_TIME = 'stimOn_times'
 TIME_WINDOW = (-0.6, -0.2)
 ESTIMATOR = sklm.Lasso
+ESTIMATOR_KWARG = {}
 N_PSEUDO = 10 #200
 DATE = str(date.today())
 deterministic_pseudoSessions = True
@@ -88,19 +86,9 @@ for eid in eid_list:
     eid_output = dict()
 
     subject = sessdf.xs(eid, level='eid').index[0]
-    subjeids = sessdf.xs(subject, level='subject').index.unique()
 
-    behavior_data = mut.load_session(eid, one=one)
-    try:
-        tvec = dut.compute_target(TARGET, subject, subjeids, eid, MODELFIT_PATH,
-                                  modeltype=MODEL, beh_data=behavior_data, one=one)
-    except ValueError:
-        print('Model not fit.')
-        tvec = dut.compute_target(TARGET, subject, subjeids, eid, MODELFIT_PATH,
-                                  modeltype=MODEL, one=one)
-
-    msub_tvec = tvec  # - np.mean(tvec)
     trialsdf = bbone.load_trials_df(eid, one=one)
+    tvec = np.array(trialsdf['choice'])
 
     # select probe
     probe = sessdf.loc[subject, eid, :].probe[0] #'probe00' #
@@ -137,38 +125,14 @@ for eid in eid_list:
                          'may be due to floating point representation error.'
                          'Check window.')
     msub_binned = binned  # - np.mean(binned, axis=0)
-    fit_result = dut.regress_target(msub_tvec, msub_binned, ESTIMATOR(),
+    fit_result = dut.regress_target(tvec, msub_binned, ESTIMATOR, ESTIMATOR_KWARG,
                                     hyperparam_grid=HPARAM_GRID, verbose=False, shuffle=False)
 
-    intervals = np.vstack([trialsdf[ALIGN_TIME] + TIME_WINDOW[0],
-                           trialsdf[ALIGN_TIME] + TIME_WINDOW[1]]).T
-    binned_gsc, _ = get_spike_counts_in_bins(spikes[probe].times, spikes[probe].clusters, intervals)
-
-    # computing neurometric curve
-    from decoding_stimulus_neurometric_fit import get_target_df, fit_get_shift_range
-
-    lowprob_arr, highprob_arr = get_target_df(fit_result['target'],
-                                              fit_result['prediction'],
-                                              fit_result['idxes_test'],
-                                              trialsdf,
-                                              one)
-
-    params, low_slope, high_slope, low_range, high_range, shift = fit_get_shift_range(lowprob_arr,
-                                                                                      highprob_arr,
-                                                                                      seed_=0)
-    print(' low_slope:{} \n high_slope:{} \n low_range:{} \n high_range:{} \n shift:{}'. \
-          format(low_slope, high_slope, low_range, high_range, shift))
-
     # save results
-    for s in ['Rsquared_train', 'Rsquared_test', 'weights', 'target', 'prediction', 'idxes_test']:
+    for s in ['Rsquareds_train', 'Rsquareds_test', 'weights', 'target', 'predictions_test', 'idxes_test']:
         eid_output[s] = fit_result[s]
     eid_output['probe'] = probe
-    eid_output['neurometric'] = {"low_slope": low_slope,
-                                 "high_slope": high_slope,
-                                 "low_range": low_range,
-                                 "high_range": high_range,
-                                 "mean_range": (low_range + high_range) / 2.,
-                                 "shift": shift}
+    
 
     from brainbox.task.closed_loop import generate_pseudo_session
 
@@ -180,33 +144,14 @@ for eid in eid_list:
         np.random.seed(pseudosess_idx)
         pseudosess = generate_pseudo_session(trialsdf)
 
-        pseudo_tvec = dut.compute_target(TARGET, subject, subjeids, eid,
-                                         MODELFIT_PATH,
-                                         modeltype=MODEL, beh_data=pseudosess, one=one)
+        pseudo_tvec = np.array(trialsdf['choice'])
 
-        # msub_pseudo_tvec = pseudo_tvec - np.mean(pseudo_tvec)
-        pseudo_result = dut.regress_target(pseudo_tvec, msub_binned, ESTIMATOR(),
+        pseudo_result = dut.regress_target(pseudo_tvec, msub_binned, ESTIMATOR, ESTIMATOR_KWARG,
                                            hyperparam_grid=HPARAM_GRID, shuffle=False)
 
-        # get neurometric curves
-        pseudo_lowprob_arr, pseudo_highprob_arr = get_target_df(pseudo_result['target'],
-                                                                pseudo_result['prediction'],
-                                                                pseudo_result['idxes_test'],
-                                                                pseudosess,
-                                                                one)
 
-        params, low_slope, high_slope, low_range, high_range, shift = fit_get_shift_range(pseudo_lowprob_arr,
-                                                                                          pseudo_highprob_arr,
-                                                                                          seed_=0)
-
-        for s in ['Rsquared_train', 'Rsquared_test', 'weights', 'target', 'prediction', 'idxes_test']:
+        for s in ['Rsquareds_train', 'Rsquareds_test', 'weights', 'target', 'predictions_test', 'idxes_test']:
             result_dict[s] = pseudo_result[s]
-        result_dict['neurometric'] = {"low_slope": low_slope,
-                                      "high_slope": high_slope,
-                                      "low_range": low_range,
-                                      "high_range": high_range,
-                                      "mean_range": (low_range + high_range)/2.,
-                                      "shift": shift}
         pseudo_results['{}'.format(pseudosess_idx)] = result_dict
 
     eid_output['pseudo_results'] = pseudo_results

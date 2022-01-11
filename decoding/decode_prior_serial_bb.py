@@ -12,13 +12,7 @@ import json
 
 import matplotlib.pyplot as plt
 import numpy as np
-# %% Run param definitions
 
-SESS_CRITERION = 'aligned-behavior'
-TARGET = 'signcont'
-MODEL = expSmoothing_prevAction
-MODELFIT_PATH = '/home/berk/Documents/Projects/prior-localization/results/inference/'
-OUTPUT_PATH = '/home/berk/Documents/Projects/prior-localization/results/decoding/'
 import pandas as pd
 import decoding_utils as dut
 import models.utils as mut
@@ -32,6 +26,14 @@ from models.expSmoothing_prevAction import expSmoothing_prevAction
 from brainbox.population.decode import get_spike_counts_in_bins
 from brainbox.singlecell import calculate_peths
 from tqdm import tqdm
+
+# %% Run param definitions
+
+SESS_CRITERION = 'aligned-behavior'
+TARGET = 'signcont'
+MODEL = expSmoothing_prevAction
+MODELFIT_PATH = '/home/berk/Documents/Projects/prior-localization/results/inference/'
+OUTPUT_PATH = '/home/berk/Documents/Projects/prior-localization/results/decoding/'
 
 one = ONE()
 logger = logging.getLogger('ibllib')
