@@ -13,6 +13,8 @@ from iblutil.numerical import ismember
 from ibllib.atlas import BrainRegions
 from models.expSmoothing_prevAction import expSmoothing_prevAction as exp_prevAct
 from sklearn.decomposition import PCA
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 from one.api import ONE
 
@@ -267,3 +269,22 @@ def check_eid_for_matching_metrics(eid, sessdf, one=None):
         else:
             probesdict[probe] = 'Matching metrics'
     return probesdict
+
+def ridge_plot(df, xcol, ycol, palette=sns.cubehelix_palette(10, rot=-.25, light=.7)):
+    g = sns.FacetGrid(df, row=ycol, hue=ycol, aspect=15., height=.5, palette=palette)
+    g.map(sns.kdeplot, xcol,
+          clip_on=False,
+          fill=True, alpha=1, linewidth=1.5)
+    g.refline(y=0, linewidth=2, linestyle="-", color=None, clip_on=False)
+
+    def label(x, color, label):
+        ax = plt.gca()
+        ax.text(0, .2, label, fontweight="bold", color=color,
+                ha="left", va="center", transform=ax.transAxes)
+    
+    g.map(label, xcol)
+    g.figure.subplots_adjust(hspace=-.25)
+    g.set_titles("")
+    g.set(yticks=[], ylabel="")
+    g.despine(bottom=True, left=True)
+    return g

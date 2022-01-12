@@ -65,7 +65,7 @@ def compute_deltas(scores):
             diff = scores[i] - scores[i - 1]
         else:
             diff = scores[i]
-        outdf[i] = diff
+        outdf [i] = diff
     return outdf
 
 
@@ -99,8 +99,8 @@ if __name__ == "__main__":
     params = {
         'binwidth': 0.02,
         'iti_prior': [-0.4, -0.1],
-        'fmove_offset': -0.4,
-        'wheel_offset': -0.4,
+        'fmove_offset': -0.2,
+        'wheel_offset': -0.3,
         'contnorm': 5.,
         'reduce_wheel_dim': True,
         'dataset_fn': '2022-01-03_dataset_metadata.pkl',
@@ -121,8 +121,6 @@ if __name__ == "__main__":
     currdate = str(date.today())
     # currdate = '2021-05-04'
 
-    savepath = '/home/gercek/scratch/fits/'
-
     sessions = query_sessions('resolved-behavior').set_index(['subject', 'eid'])
     with open(Path(GLM_CACHE).joinpath(params['dataset_fn']), 'rb') as fo:
         dataset = pickle.load(fo)
@@ -132,6 +130,7 @@ if __name__ == "__main__":
     # Define delayed versions of the fit functions for use in dask
     dload = dask.delayed(get_cached_regressors, nout=5)
     dprior = dask.delayed(compute_target)
+    dfilter = dask.delayed(filter_nan)
     dselect_prior = dask.delayed(lambda arr, idx: arr[idx])
     ddesign = dask.delayed(generate_design)
     dpseudo = dask.delayed(generate_pseudo_session)
@@ -142,16 +141,17 @@ if __name__ == "__main__":
     for i, (subject, eid, probes, metafn, eidfn) in dataset_fns.iterrows():
         subjeids = sessions.xs(subject, level='subject').index.unique().to_list()
         stdf, sspkt, sspkclu, sclureg, scluqc = dload(eidfn)
+        stdf_nona = dfilter(stdf)
         sessfullprior = dprior('prior', subject, subjeids, eid, BEH_MOD_PATH)
-        sessprior = dselect_prior(sessfullprior, stdf.index)
-        sessdesign = ddesign(stdf, sessprior, dataset_params['t_before'],
+        sessprior = dselect_prior(sessfullprior, stdf_nona.index)
+        sessdesign = ddesign(stdf_nona, sessprior, dataset_params['t_before'],
                              **params)
         sessfit = dfit(sessdesign, sspkt, sspkclu, **params)
         outputfn = dsave(subject, eid, sessfit, params, probes, eidfn, sclureg, scluqc, currdate)
         data_fns.append(outputfn)
 
-    N_CORES = 4
-    cluster = SLURMCluster(cores=N_CORES, memory='24GB', processes=1, queue="shared-cpu",
+    N_CORES = 8
+    cluster = SLURMCluster(cores=N_CORES, memory='12GB', processes=1, queue="shared-cpu",
                            walltime="02:10:00",
                            log_directory='/home/gercek/dask-worker-logs',
                            interface='ib0',
@@ -159,7 +159,7 @@ if __name__ == "__main__":
                            job_cpu=N_CORES, env_extra=[f'export OMP_NUM_THREADS={N_CORES}',
                                                        f'export MKL_NUM_THREADS={N_CORES}',
                                                        f'export OPENBLAS_NUM_THREADS={N_CORES}'])
-    cluster.adapt(minimum_jobs=0, maximum_jobs=400)
+    cluster.adapt(minimum_jobs=0, maximum_jobs=100)
     client = Client(cluster)
     futures = client.compute(data_fns)
 
