@@ -16,6 +16,7 @@ from sklearn.model_selection import GridSearchCV, KFold
 from sklearn.linear_model._coordinate_descent import LinearModelCV
 from sklearn.metrics import r2_score
 from sklearn.utils.class_weight import compute_sample_weight
+from tqdm import tqdm
 
 possible_targets = ['prior', 'prederr', 'signcont', 'pLeft']
 
@@ -311,11 +312,11 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
                 y_train_inner, y_test_inner = y_train[train_inner], y_train[test_inner]
 
                 # normalization when necessary
-                mean_X_train = X_train_inner.mean(axis=0) if normalize_input else 0
-                X_train_inner = X_train_inner - mean_X_train
-                X_test_inner = X_test_inner - mean_X_train
-                mean_y_train = y_train_inner.mean(axis=0) if normalize_output else 0
-                y_train_inner = y_train_inner - mean_y_train
+                mean_X_train_inner = X_train_inner.mean(axis=0) if normalize_input else 0
+                X_train_inner = X_train_inner - mean_X_train_inner
+                X_test_inner = X_test_inner - mean_X_train_inner
+                mean_y_train_inner = y_train_inner.mean(axis=0) if normalize_output else 0
+                y_train_inner = y_train_inner - mean_y_train_inner
 
                 for i_alpha, alpha in enumerate(hyperparam_grid['alpha']):
                     estimator = estimatorObject(**{**estimator_kwargs, 'alpha': alpha})
@@ -324,7 +325,7 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
                                                                                                     y=y_train_inner))
                     else:
                         estimator.fit(X_train_inner, y_train_inner)
-                    pred_test_inner = estimator.predict(X_test_inner) + mean_y_train
+                    pred_test_inner = estimator.predict(X_test_inner) + mean_y_train_inner
                     r2s[ifold, i_alpha] = r2_score(y_test_inner, pred_test_inner)
 
             r2s_avg = r2s.mean(axis=0)
@@ -420,3 +421,25 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
         '''
 
     return outdict
+
+
+def return_regions(eid, sessdf, QC_CRITERIA=1, NUM_UNITS=10):
+    df_insertions = sessdf.loc[sessdf['eid'] == eid]
+    brainreg = BrainRegions()
+    my_regions = {}
+    for i, ins in tqdm(df_insertions.iterrows(), desc='Probe: ', leave=False):
+        probe = ins['probe']
+        spike_sorting_path = Path(ins['session_path']).joinpath(ins['spike_sorting'])
+        clusters = pd.read_parquet(spike_sorting_path.joinpath('clusters.pqt'))
+        beryl_reg = remap_region(clusters.atlas_id, br=brainreg)
+        qc_pass = (clusters['label'] >= QC_CRITERIA).values
+        regions = np.unique(beryl_reg)
+        # warnings.filterwarnings('ignore')
+        probe_regions = []
+        for region in tqdm(regions, desc='Region: ', leave=False):
+            reg_mask = (beryl_reg == region)
+            reg_clu_ids = np.argwhere(reg_mask & qc_pass).flatten()
+            if len(reg_clu_ids) > NUM_UNITS:
+                probe_regions.append(region)
+        my_regions[probe] = probe_regions
+    return my_regions

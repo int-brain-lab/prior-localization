@@ -44,12 +44,11 @@ strlut = {sklm.Lasso: 'Lasso',
 SESS_CRITERION = 'aligned-behavior'  # aligned and behavior
 MODEL = None  # None or expSmoothing_prevAction or dut.modeldispatcher
 DATE = str(date.today())
-DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding")
-#MODELFIT_PATH = '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding/results/behavior/'
-#OUTPUT_PATH = '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding/results/decoding/'
+#DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding")
+DECODING_PATH = Path("/home/users/f/findling/ibl/prior-localization/decoding")
 ALIGN_TIME = 'goCue_times'
 TARGET = 'signcont'  # 'pLeft'
-TIME_WINDOW = (0, 0.1)  #(-0.6, -0.1) #
+TIME_WINDOW = (-0.6, -0.1)  #(0, 0.1)  #
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
 N_PSEUDO = 2
@@ -65,9 +64,11 @@ FORCE_POSITIVE_NEURO_SLOPES = False
 QC_CRITERIA = 3/3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
 NORMALIZE_INPUT = False  # take out mean of the neural activity per unit across trials
 NORMALIZE_OUTPUT = False  # take out mean of output to predict
+if NORMALIZE_INPUT or NORMALIZE_OUTPUT:
+    warnings.warn('This feature has not been tested')
 
 BALANCED_WEIGHT = False  # seems to work better with BALANCED_WEIGHT=False
-HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000])}
+HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])}
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
 ADD_TO_SAVING_PATH = ''
@@ -152,7 +153,6 @@ def fit_eid(eid, sessdf, pseudo_id=-1, nb_runs=10,
     one: ONE object -- this is not to be used with dask, this option is given for debugging purposes
     """
 
-    atlas = AllenAtlas()  # not sure it's really an issue to instantiate on each node
     one = ONE(mode='local') if one is None else one
     estimator = ESTIMATOR
     df_insertions = sessdf.loc[sessdf['eid'] == eid]
