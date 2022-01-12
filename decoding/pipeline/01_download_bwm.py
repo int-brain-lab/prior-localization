@@ -4,15 +4,17 @@ We compute clusters locations and metrics within the clusters objects and save i
 The output is a pandas dataframe of insertions, containing eids, pids, subjects, and the location of
 the cached datasets on disk for future loading
 """
+from json import JSONDecodeError
 from pathlib import Path
 from one.api import ONE
 from ibllib.atlas import AllenAtlas
 from brainbox.io.one import SpikeSortingLoader
 
 import decoding_utils as dut
-from decode_prior import SESS_CRITERION, fit_eid
+from decode_prior import SESS_CRITERION
 
-DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding")
+#DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding")
+DECODING_PATH = Path("/home/users/f/findling/ibl/prior-localization/decoding")
 one = ONE()
 ba = AllenAtlas()
 
@@ -25,12 +27,14 @@ excludes = [
     'c2184312-2421-492b-bbee-e8c8e982e49e',  # same same
     '58b271d5-f728-4de8-b2ae-51908931247c',  # same same
     'f86e9571-63ff-4116-9c40-aa44d57d2da9',  # 404 not found
+    '1a276285-8b0e-4cc9-9f0a-a3a002978724'
 ]
 
 insdf['spike_sorting'] = ''
 insdf['session_path'] = ''
 insdf['histology'] = ''
 
+errors_pid = []
 IMIN = 0
 for i, rec in insdf.iterrows():
     pid = rec['pid']
@@ -39,17 +43,25 @@ for i, rec in insdf.iterrows():
     if i < IMIN:
         continue
     print(i, pid)
-    ssl = SpikeSortingLoader(pid, one=one, atlas=ba)
-    spikes, clusters, channels = ssl.load_spike_sorting()
-    # this will cache both the metrics if they don't exist or don't match and also write a clusters.pqt dataframe
-    if not ssl.spike_sorting_path.joinpath('clusters.pqt').exists():
-        SpikeSortingLoader.merge_clusters(spikes, clusters, channels, cache_dir=ssl.spike_sorting_path)
-    # saves the spike sorting path into the dataframe fossl.load_spike_sorting()r future loading, as well as the histology source
-    insdf['histology'][i] = ssl.histology
-    insdf['session_path'][i] = str(ssl.session_path)
-    insdf['spike_sorting'][i] = ssl.collection
-    one.load_object(ssl.eid, 'trials', collection='alf', download_only=True)
-    one.load_object(ssl.eid, 'wheel', collection='alf', download_only=True)
-
+    try:
+        ssl = SpikeSortingLoader(pid, one=one, atlas=ba)
+        spikes, clusters, channels = ssl.load_spike_sorting()
+        # this will cache both the metrics if they don't exist or don't match and also write a clusters.pqt dataframe
+        if not ssl.spike_sorting_path.joinpath('clusters.pqt').exists():
+            SpikeSortingLoader.merge_clusters(spikes, clusters, channels, cache_dir=ssl.spike_sorting_path)
+        # saves the spike sorting path into the dataframe fossl.load_spike_sorting()r future loading, as well as the histology source
+        insdf['histology'][i] = ssl.histology
+        insdf['session_path'][i] = str(ssl.session_path)
+        insdf['spike_sorting'][i] = ssl.collection
+        one.load_object(ssl.eid, 'trials', collection='alf', download_only=True)
+        one.load_object(ssl.eid, 'wheel', collection='alf', download_only=True)
+    except JSONDecodeError:
+        print('JSONDecodeError with eid {}'.format(rec.eid))
+        errors_pid.append(rec.eid)
+        pass
 
 insdf.to_parquet(DECODING_PATH.joinpath('insertions.pqt'))
+
+print('\n')
+print('errors')
+print(errors_pid)
