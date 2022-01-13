@@ -103,6 +103,40 @@ def check_bhv_fit_exists(subject, model, eids, resultpath):
     return os.path.exists(fullpath), fullpath
 
 
+def generate_imposter_session(imposterdf, eid, trialsdf, nbSampledSess=20):
+    """
+
+    Parameters
+    ----------
+    imposterd: all sessions concatenated in pandas dataframe (generated with pipelines/03_generate_imposter_df.py)
+    eid: eid of session of interest
+    trialsdf: dataframe of trials of interest
+    nbSampledSess: number of imposter sessions sampled to generate the final imposter session. NB: the length
+    of the nbSampledSess stitched sessions must be greater than the session of interest, so typically choose a large
+    number. If that condition is not verified a ValueError will be raised.
+    Returns
+    -------
+    imposter session df
+
+    """
+    imposter_eids = np.random.choice(imposterdf[imposterdf.eid != eid].eid.unique(), size=nbSampledSess, replace=False)
+    sub_imposterdf = imposterdf[imposterdf.eid.isin(imposter_eids)].reset_index()
+    sub_imposterdf['row_id'] = sub_imposterdf.index
+    sub_imposterdf['sorted_eids'] = sub_imposterdf.apply(lambda x: (np.argmax(imposter_eids == x['eid']) *
+                                                                    sub_imposterdf.index.size + x.row_id),
+                                                         axis=1)
+    if np.any(sub_imposterdf['sorted_eids'].unique() != sub_imposterdf['sorted_eids']):
+        raise ValueError('There is most probably a bug in the function')
+
+    sub_imposterdf = sub_imposterdf.sort_values(by=['sorted_eids'])
+
+    if sub_imposterdf.index.size < trialsdf.index.size:
+        raise ValueError('you did not stitch enough imposter sessions. Simply increase the nbSampledSess argument')
+
+    random_number = np.random.randint(sub_imposterdf.index.size - trialsdf.index.size)
+    return sub_imposterdf.iloc[random_number:random_number + trialsdf.index.size]
+
+
 def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=False,
                     modeltype=expSmoothing_prevAction, one=None,
                     beh_data_test=None):

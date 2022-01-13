@@ -23,6 +23,7 @@ try:
     from dask.distributed import Client, LocalCluster
 except:
     import warnings
+
     warnings.warn('dask import failed')
     pass
 from tqdm import tqdm
@@ -48,8 +49,8 @@ ALIGN_TIME = 'goCue_times'
 TARGET = 'signcont'  # 'signcont' or 'pLeft'
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
 MODEL = expSmoothing_prevAction  # None or dut.modeldispatcher.
-TIME_WINDOW = (-0.6, -0.1)  #(0, 0.1)  #
-#DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding")
+TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
+# DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding")
 DECODING_PATH = Path("/home/users/f/findling/ibl/prior-localization/decoding")
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
@@ -65,11 +66,12 @@ COMPUTE_NEUROMETRIC = True if TARGET == 'signcont' else False
 FORCE_POSITIVE_NEURO_SLOPES = False
 # NEUROMETRIC_PRIOR_MODEL = expSmoothing_prevAction #'oracle'
 # Basically, quality metric on the stability of a single unit. Should have 1 metric per neuron
-QC_CRITERIA = 3/3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
+QC_CRITERIA = 3 / 3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
 NORMALIZE_INPUT = False  # take out mean of the neural activity per unit across trials
 NORMALIZE_OUTPUT = False  # take out mean of output to predict
 if NORMALIZE_INPUT or NORMALIZE_OUTPUT:
     warnings.warn('This feature has not been tested')
+USE_IMPOSTER_SESSION = True  # if false, it uses pseudosessions
 
 BALANCED_WEIGHT = False  # seems to work better with BALANCED_WEIGHT=False
 HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])}
@@ -88,10 +90,10 @@ excludes = [
 
 # ValueErrors and NotImplementedErrors
 if TARGET not in ['signcont', 'pLeft']:
-    raise NotImplementedError('this TARGET is not supported or stable yet')
+    raise NotImplementedError('this TARGET is not supported yet')
 
 if MODEL not in list(dut.modeldispatcher.keys()):
-    raise NotImplementedError('this MODEL is not supported or stable yet')
+    raise NotImplementedError('this MODEL is not supported yet')
 
 if COMPUTE_NEUROMETRIC and TARGET != 'signcont':
     raise ValueError('the target should be signcont to compute neurometric curves')
@@ -143,7 +145,7 @@ def save_region_results(fit_result, pseudo_id, subject, eid, probe, region, N,
     return probefolder.joinpath(fn)
 
 
-def fit_eid(eid, sessdf, pseudo_id=-1, nb_runs=10, single_region=SINGLE_REGION,
+def fit_eid(eid, sessdf, imposterdf, pseudo_id=-1, nb_runs=10, single_region=SINGLE_REGION,
             modelfit_path=DECODING_PATH.joinpath('results', 'behavioral'),
             output_path=DECODING_PATH.joinpath('results', 'neural'), one=None):
     """
@@ -248,11 +250,14 @@ def fit_eid(eid, sessdf, pseudo_id=-1, nb_runs=10, single_region=SINGLE_REGION,
                              'Check window.')
 
         if pseudo_id > 0:  # create pseudo session when necessary
-            pseudosess = generate_pseudo_session(trialsdf)
+            if USE_IMPOSTER_SESSION:
+                pseudosess = dut.generate_imposter_session(imposterdf, eid, trialsdf)
+            else:
+                pseudosess = generate_pseudo_session(trialsdf)
 
         if COMPUTE_NEUROMETRIC:  # compute prior for neurometric curve
             trialsdf_neurometric = nb_trialsdf.reset_index() if (pseudo_id == -1) else \
-                                                                pseudosess[mask].reset_index()
+                pseudosess[mask].reset_index()
             if MODEL is not None:
                 blockprob_neurometric = dut.compute_target('pLeft', subject, subjeids, eid, modelfit_path,
                                                            modeltype=MODEL,
@@ -311,6 +316,7 @@ def fit_eid(eid, sessdf, pseudo_id=-1, nb_runs=10, single_region=SINGLE_REGION,
 
 if __name__ == '__main__':
     from decode_prior import fit_eid, save_region_results
+
     # LOCAL
     LOCAL = False
 
@@ -318,6 +324,7 @@ if __name__ == '__main__':
     insdf = pd.read_parquet(DECODING_PATH.joinpath('insertions.pqt'))
     insdf = insdf[insdf.spike_sorting != '']
     eids = insdf['eid'].unique()
+    imposterdf = pd.read_parquet(DECODING_PATH.joinpath('imposterSessions.pqt'))
 
     # create necessary empty directories if not existing
     DECODING_PATH.joinpath('results').mkdir(exist_ok=True)
@@ -353,7 +360,8 @@ if __name__ == '__main__':
                                 eid=eid,
                                 sessdf=insdf,
                                 pseudo_id=-1 if pseudo_id == 0 else pseudo_id,
-                                nb_runs=N_RUNS)
+                                nb_runs=N_RUNS,
+                                imposterdf=imposterdf)
             filenames.append(fns)
 
     # WAIT FOR COMPUTATION TO FINISH BEFORE MOVING ON
@@ -380,8 +388,8 @@ if __name__ == '__main__':
                        'mask': ''.join([str(item) for item in list(result['fit'][i_run]['mask'].values * 1)]),
                        'R2_test': result['fit'][i_run]['Rsquared_test_full']}
             if result['fit'][i_run]['full_neurometric'] is not None:
-                tmpdict= {**tmpdict,
-                          **{idx_neuro: result['fit'][i_run]['full_neurometric'][idx_neuro]
+                tmpdict = {**tmpdict,
+                           **{idx_neuro: result['fit'][i_run]['full_neurometric'][idx_neuro]
                               for idx_neuro in indexers_neurometric}}
             resultslist.append(tmpdict)
             for kfold in range(result['fit'][i_run]['nFolds']):
@@ -403,10 +411,13 @@ if __name__ == '__main__':
     estimatorstr = strlut[ESTIMATOR]
     start_tw, end_tw = TIME_WINDOW
     fn = str(DECODING_PATH.joinpath('results', 'neural', '_'.join([DATE, 'decode', TARGET,
-                                 dut.modeldispatcher[MODEL] if TARGET in ['prior', 'prederr'] else 'task',
-                                 estimatorstr, 'align', ALIGN_TIME, str(N_PSEUDO), 'pseudosessions',
-                                 'regionWise' if SINGLE_REGION else 'allProbes',
-                                 'timeWindow', str(start_tw).replace('.', '_'), str(end_tw).replace('.', '_')])))
+                                                                   dut.modeldispatcher[MODEL] if TARGET in ['prior',
+                                                                                                            'prederr'] else 'task',
+                                                                   estimatorstr, 'align', ALIGN_TIME, str(N_PSEUDO),
+                                                                   'pseudosessions',
+                                                                   'regionWise' if SINGLE_REGION else 'allProbes',
+                                                                   'timeWindow', str(start_tw).replace('.', '_'),
+                                                                   str(end_tw).replace('.', '_')])))
     if COMPUTE_NEUROMETRIC:
         fn = fn + '_'.join(['', 'neurometricPLeft', dut.modeldispatcher[MODEL]])
 
@@ -428,9 +439,9 @@ if __name__ == '__main__':
         fo.close()
         for i_run in range(len(result['fit'])):
             weightsdict = {**weightsdict, **{(tuple(result[x] for x in indexers)
-                                             + ('pseudo_id_{}'.format(result['pseudo_id']),
-                                                'run_id_{}'.format(i_run + 1)))
-                                             :np.vstack(result['fit'][i_run]['weights'])}}
+                                              + ('pseudo_id_{}'.format(result['pseudo_id']),
+                                                 'run_id_{}'.format(i_run + 1)))
+                                             : np.vstack(result['fit'][i_run]['weights'])}}
 
     with open(metadata_fn.split('.metadata.pkl')[0] + '.weights.pkl', 'wb') as f:
         pickle.dump(weightsdict, f)
