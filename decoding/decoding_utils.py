@@ -111,7 +111,10 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
     Params:
         eids_train: list of eids on which we train the network
         eid_test: eid on which we want to compute the target signals, only one string
-        beh_data_test: if you have to launch the model on beh_data_test
+        beh_data_test: if you have to launch the model on beh_data_test.
+                       if beh_data_test is explicited, the eid_test will not be considered
+        target can be pLeft or signcont. If target=pLeft, it will return the prior predicted by modeltype
+                                         if modetype=None, then it will return the actual pLeft (.2, .5, .8)
     '''
 
     one = one or ONE()
@@ -119,12 +122,7 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
     # check if is trained
     istrained, fullpath = check_bhv_fit_exists(subject, modeltype, eids_train, savepath)
 
-    # TODO: Make it possible to use test data on an untrained model
-    if (beh_data_test is not None) and (not istrained) and (target not in ['signcont', 'pLeft']):
-        raise ValueError('when actions, stimuli and stim_side are all defined,'
-                         ' the model must have been trained')
-
-    if (not istrained) and (target not in ['signcont', 'pLeft']):
+    if (not istrained) and (target != 'signcont') and (modeltype is not None):
         datadict = {'stim_side': [], 'actions': [], 'stimuli': []}
         for eid in eids_train:
             data = mut.load_session(eid, one=one)
@@ -139,15 +137,15 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
         stimuli, actions, stim_side = mut.format_input(datadict['stimuli'], datadict['actions'],
                                                        datadict['stim_side'])
         eids = np.array(eids_train)
-        model = modeltype(savepath, eids, subject,
+        model = modeltype(str(savepath), eids, subject,
                           actions, stimuli, stim_side)
         model.load_or_train(remove_old=remove_old)
-    elif target not in ['signcont', 'pLeft']:
+    elif (target != 'signcont') and (modeltype is not None):
         model = modeltype(savepath, eids_train, subject, actions=None, stimuli=None,
                           stim_side=None)
         model.load_or_train(loadpath=str(fullpath))
 
-    # load test session
+    # load test session is beh_data_test is None
     if beh_data_test is None:
         beh_data_test = mut.load_session(eid_test, one=one)
 
@@ -155,13 +153,16 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
         out = np.nan_to_num(beh_data_test['contrastLeft']) - \
             np.nan_to_num(beh_data_test['contrastRight'])
         return out
-    elif target == 'pLeft':
+    elif (target == 'pLeft') and (modeltype is None):
         return np.array(beh_data_test['probabilityLeft'])
 
     # compute signal
     stim_side, stimuli, actions, _ = mut.format_data(beh_data_test)
     stimuli, actions, stim_side = mut.format_input([stimuli], [actions], [stim_side])
-    signal = model.compute_signal(signal=target, act=actions, stim=stimuli, side=stim_side)[target]
+    signal = model.compute_signal(signal='prior' if target == 'pLeft' else target,
+                                  act=actions,
+                                  stim=stimuli,
+                                  side=stim_side)['prior' if target == 'pLeft' else target]
 
     return signal.squeeze()
 
