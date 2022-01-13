@@ -49,12 +49,12 @@ TARGET = 'signcont'  # 'signcont' or 'pLeft'
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
 MODEL = expSmoothing_prevAction  # None or dut.modeldispatcher.
 TIME_WINDOW = (-0.6, -0.1)  #(0, 0.1)  #
-DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding")
-#DECODING_PATH = Path("/home/users/f/findling/ibl/prior-localization/decoding")
+#DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding")
+DECODING_PATH = Path("/home/users/f/findling/ibl/prior-localization/decoding")
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
 N_PSEUDO = 2
-N_RUNS = 3
+N_RUNS = 10
 MIN_UNITS = 10
 MIN_BEHAV_TRIAS = 200
 MIN_RT = 0.08  # 0.08  # Float (s) or None
@@ -309,7 +309,7 @@ def fit_eid(eid, sessdf, pseudo_id=-1, nb_runs=10, single_region=SINGLE_REGION,
 if __name__ == '__main__':
     from decode_prior import fit_eid
     # LOCAL
-    LOCAL = True
+    LOCAL = False
 
     # import cached data
     insdf = pd.read_parquet(DECODING_PATH.joinpath('insertions.pqt'))
@@ -334,13 +334,13 @@ if __name__ == '__main__':
                                job_cpu=N_CORES, env_extra=[f'export OMP_NUM_THREADS={N_CORES}',
                                                            f'export MKL_NUM_THREADS={N_CORES}',
                                                            f'export OPENBLAS_NUM_THREADS={N_CORES}'])
-        cluster.adapt(minimum_jobs=0, maximum_jobs=80)
+        cluster.adapt(minimum_jobs=0, maximum_jobs=200)
     client = Client(cluster)
 
     # debug
     IMIN = 0
     filenames = []
-    for i, eid in enumerate(eids[:2]):
+    for i, eid in enumerate(eids):
         if i < IMIN or eid in excludes or np.any(insdf[insdf['eid'] == eid]['spike_sorting'] == ""):
             print(f"dud {eid}")
             continue
