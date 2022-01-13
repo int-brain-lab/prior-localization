@@ -236,7 +236,10 @@ def fit_eid(eid, sessdf, pseudo_id=-1, nb_runs=10, single_region=SINGLE_REGION,
         spikemask = np.isin(across_probes['clusters'], reg_clu_ids)
         regspikes = across_probes['times'][spikemask]
         regclu = across_probes['clusters'][spikemask]
-        binned, _ = get_spike_counts_in_bins(regspikes, regclu, intervals)
+        arg_sortedSpikeTimes = np.argsort(regspikes)
+        binned, _ = get_spike_counts_in_bins(regspikes[arg_sortedSpikeTimes],
+                                             regclu[arg_sortedSpikeTimes],
+                                             intervals)
         msub_binned = binned.T
 
         if len(msub_binned.shape) > 2:
@@ -307,7 +310,7 @@ def fit_eid(eid, sessdf, pseudo_id=-1, nb_runs=10, single_region=SINGLE_REGION,
 
 
 if __name__ == '__main__':
-    from decode_prior import fit_eid
+    from decode_prior import fit_eid, save_region_results
     # LOCAL
     LOCAL = False
 
