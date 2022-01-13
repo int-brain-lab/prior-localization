@@ -404,8 +404,12 @@ if __name__ == '__main__':
                                  estimatorstr, 'align', ALIGN_TIME, str(N_PSEUDO), 'pseudosessions',
                                  'regionWise' if SINGLE_REGION else 'allProbes',
                                  'timeWindow', str(start_tw).replace('.', '_'), str(end_tw).replace('.', '_')])))
+    if COMPUTE_NEUROMETRIC:
+        fn = fn + '_'.join(['', 'neurometricPLeft', dut.modeldispatcher[MODEL]])
+
     if ADD_TO_SAVING_PATH != '':
         fn = fn + '_' + ADD_TO_SAVING_PATH
+
     fn = fn + '.parquet'
 
     metadata_df = pd.Series({'filename': fn, **fit_metadata})

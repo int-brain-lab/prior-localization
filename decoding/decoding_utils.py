@@ -18,14 +18,14 @@ from sklearn.metrics import r2_score
 from sklearn.utils.class_weight import compute_sample_weight
 from tqdm import tqdm
 
-possible_targets = ['prior', 'prederr', 'signcont', 'pLeft']
+possible_targets = ['prederr', 'signcont', 'pLeft']
 
 modeldispatcher = {expSmoothing_prevAction: 'expSmoothingPrevActions',
                    expSmoothing_stimside: 'expSmoothingStimSides',
                    biased_ApproxBayesian: 'biased_Approxbayesian',
                    biased_Bayesian: 'biased_Bayesian',
                    optimal_Bayesian: 'optimal_bayesian',
-                   None: 'none'
+                   None: 'oracle'
                    }
 
 # Loading data and input utilities
