@@ -121,7 +121,8 @@ fit_metadata = {
     'n_runs': N_RUNS,
     'normalize_output': NORMALIZE_OUTPUT,
     'normalize_input': NORMALIZE_INPUT,
-    'single_region': SINGLE_REGION
+    'single_region': SINGLE_REGION,
+    'use_imposter_session': USE_IMPOSTER_SESSION
 }
 
 

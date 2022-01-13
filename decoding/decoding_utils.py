@@ -127,14 +127,12 @@ def generate_imposter_session(imposterdf, eid, trialsdf, nbSampledSess=20):
                                                          axis=1)
     if np.any(sub_imposterdf['sorted_eids'].unique() != sub_imposterdf['sorted_eids']):
         raise ValueError('There is most probably a bug in the function')
-
     sub_imposterdf = sub_imposterdf.sort_values(by=['sorted_eids'])
-
     if sub_imposterdf.index.size < trialsdf.index.size:
         raise ValueError('you did not stitch enough imposter sessions. Simply increase the nbSampledSess argument')
-
     random_number = np.random.randint(sub_imposterdf.index.size - trialsdf.index.size)
-    return sub_imposterdf.iloc[random_number:random_number + trialsdf.index.size]
+    imposter_sess = sub_imposterdf.iloc[random_number:random_number + trialsdf.index.size].reset_index()
+    return imposter_sess.drop(columns=['index', 'level_0'])
 
 
 def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=False,
@@ -171,7 +169,7 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
         stimuli, actions, stim_side = mut.format_input(datadict['stimuli'], datadict['actions'],
                                                        datadict['stim_side'])
         eids = np.array(eids_train)
-        model = modeltype(str(savepath), eids, subject,
+        model = modeltype(savepath, eids, subject,
                           actions, stimuli, stim_side)
         model.load_or_train(remove_old=remove_old)
     elif (target != 'signcont') and (modeltype is not None):
@@ -252,11 +250,11 @@ def compute_target(target, subject, eids_train, eid_test, savepath,
     if target not in possible_targets:
         raise ValueError('target should be in {}'.format(possible_targets))
 
-    target = fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=False,
+    tvec = fit_load_bhvmod(target, subject, savepath.as_posix() + '/', eids_train, eid_test, remove_old=False,
                              modeltype=modeltype, one=one, beh_data_test=beh_data)
 
     # todo make pd.Series
-    return target
+    return tvec
 
 
 def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
