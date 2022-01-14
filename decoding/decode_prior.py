@@ -50,8 +50,8 @@ TARGET = 'signcont'  # 'signcont' or 'pLeft'
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
 MODEL = expSmoothing_prevAction  # None or dut.modeldispatcher.
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
-DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding")
-# DECODING_PATH = Path("/home/users/f/findling/ibl/prior-localization/decoding")
+# DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding")
+DECODING_PATH = Path("/home/users/f/findling/ibl/prior-localization/decoding")
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
 N_PSEUDO = 2
@@ -319,7 +319,7 @@ if __name__ == '__main__':
     from decode_prior import fit_eid, save_region_results
 
     # LOCAL
-    LOCAL = True
+    LOCAL = False
 
     # import cached data
     insdf = pd.read_parquet(DECODING_PATH.joinpath('insertions.pqt'))
@@ -345,8 +345,9 @@ if __name__ == '__main__':
                                job_cpu=N_CORES, env_extra=[f'export OMP_NUM_THREADS={N_CORES}',
                                                            f'export MKL_NUM_THREADS={N_CORES}',
                                                            f'export OPENBLAS_NUM_THREADS={N_CORES}'])
-        cluster.adapt(minimum_jobs=0, maximum_jobs=200)
+        cluster.adapt(minimum_jobs=1, maximum_jobs=200)
     client = Client(cluster)
+    imposterdf_future = client.scatter(imposterdf)
 
     # debug
     IMIN = 0
@@ -362,7 +363,7 @@ if __name__ == '__main__':
                                 sessdf=insdf,
                                 pseudo_id=-1 if pseudo_id == 0 else pseudo_id,
                                 nb_runs=N_RUNS,
-                                imposterdf=imposterdf)
+                                imposterdf=imposterdf_future)
             filenames.append(fns)
 
     # WAIT FOR COMPUTATION TO FINISH BEFORE MOVING ON
