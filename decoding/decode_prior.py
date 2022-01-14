@@ -276,7 +276,8 @@ def fit_eid(eid, sessdf):
 
     return filenames
 
-
+# tmux and then salloc onto compute node
+# run on cluster by pasteing.  "ipython --no-autoindents".  
 if __name__ == '__main__':
     from decode_prior import fit_eid
 
@@ -285,7 +286,7 @@ if __name__ == '__main__':
     sessdf = sessdf.sort_values('subject').set_index(['subject', 'eid'])
 
     N_CORES = 2
-    cluster = SLURMCluster(cores=N_CORES, memory='16GB', processes=1, queue="shared-cpu",
+    cluster = SLURMCluster(cores=N_CORES, memory='16GB', processes=1, queue="shared-cpu", # modify queue for Sherlock, Partition name from squeue
                            walltime="01:15:00",
                            log_directory='/home/users/f/findling/ibl/prior-localization/decoding/dask-worker-logs',
                            interface='ib0',

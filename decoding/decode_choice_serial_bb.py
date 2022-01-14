@@ -30,7 +30,7 @@ from tqdm import tqdm
 SESS_CRITERION = 'aligned-behavior'
 OUTPUT_PATH = '/home/bensonb/IntBrainLab/prior-localization/results/decoding/'
 
-one = ONE()
+one = ONE()#added local because bad zip file error,mode='local'
 logger = logging.getLogger('ibllib')
 logger.disabled = True
 ALIGN_TIME = 'stimOn_times'
@@ -77,7 +77,7 @@ eid_list = ['dfd8e7df-dc51-4589-b6ca-7baccfeb94b4', '034e726f-b35f-41e0-8d6c-a22
             'ecb5520d-1358-434c-95ec-93687ecd1396', '5386aba9-9b97-4557-abcd-abc2da66b863',
             '4b00df29-3769-43be-bb40-128b1cba6d35', '3663d82b-f197-4e8b-b299-7b803a155b84',
             '85dc2ebd-8aaf-46b0-9284-a197aee8b16f', '15f742e1-1043-45c9-9504-f1e8a53c1744']
-
+#%%
 # eid_list = ['034e726f-b35f-41e0-8d6c-a22cc32391fb'] #['46794e05-3f6a-4d35-afb3-9165091a5a74']
 # sessdf.index.unique(level='eid')[115] #sessdf.index.unique(level='eid')[0]
 all_outputs = dict()
@@ -134,7 +134,6 @@ for eid in eid_list:
     eid_output['probe'] = probe
     
 
-    from brainbox.task.closed_loop import generate_pseudo_session
 
     # pseudo sessions
     pseudo_results = dict()
@@ -142,9 +141,8 @@ for eid in eid_list:
         result_dict = dict()
 
         np.random.seed(pseudosess_idx)
-        pseudosess = generate_pseudo_session(trialsdf)
 
-        pseudo_tvec = np.array(trialsdf['choice'])
+        pseudo_tvec = dut.get_impostor_target()
 
         pseudo_result = dut.regress_target(pseudo_tvec, msub_binned, ESTIMATOR, ESTIMATOR_KWARG,
                                            hyperparam_grid=HPARAM_GRID, shuffle=False)
