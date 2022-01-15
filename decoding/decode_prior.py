@@ -40,6 +40,11 @@ strlut = {sklm.Lasso: 'Lasso',
           sklm.LogisticRegression: 'Logistic'}
 
 # %% Run param definitions
+LOCAL = True
+if LOCAL:
+    DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding")
+else:
+    DECODING_PATH = Path("/home/users/f/findling/ibl/prior-localization/decoding")
 
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
@@ -50,8 +55,6 @@ TARGET = 'signcont'  # 'signcont' or 'pLeft'
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
 MODEL = None  # expSmoothing_prevAction  # or dut.modeldispatcher.
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
-# DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding")
-DECODING_PATH = Path("/home/users/f/findling/ibl/prior-localization/decoding")
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
 N_PSEUDO = 2
@@ -77,7 +80,7 @@ BALANCED_WEIGHT = False  # seems to work better with BALANCED_WEIGHT=False
 HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])}
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
-ADD_TO_SAVING_PATH = ''
+ADD_TO_SAVING_PATH = 'imposter'
 
 # session to be excluded (by Olivier Winter)
 excludes = [
@@ -256,6 +259,10 @@ def fit_eid(eid, sessdf, imposterdf, pseudo_id=-1, nb_runs=10, single_region=SIN
             else:
                 pseudosess = generate_pseudo_session(trialsdf)
 
+            msub_pseudo_tvec = dut.compute_target(TARGET, subject, subjeids, eid,
+                                                  modelfit_path, modeltype=MODEL,
+                                                  beh_data=pseudosess, one=one)[mask]
+
         if COMPUTE_NEUROMETRIC:  # compute prior for neurometric curve
             trialsdf_neurometric = nb_trialsdf.reset_index() if (pseudo_id == -1) else \
                 pseudosess[mask].reset_index()
@@ -271,7 +278,7 @@ def fit_eid(eid, sessdf, imposterdf, pseudo_id=-1, nb_runs=10, single_region=SIN
                 trialsdf_neurometric['blockprob_neurometric'] = blockprob_neurometric
 
         fit_results = []
-        for i_run in range(nb_runs):
+        for _ in range(nb_runs):
             if pseudo_id == -1:
                 fit_result = dut.regress_target(msub_tvec, msub_binned, estimator,
                                                 estimator_kwargs=ESTIMATOR_KWARGS,
@@ -281,9 +288,6 @@ def fit_eid(eid, sessdf, imposterdf, pseudo_id=-1, nb_runs=10, single_region=SIN
                                                 normalize_input=NORMALIZE_INPUT,
                                                 normalize_output=NORMALIZE_OUTPUT)
             else:
-                msub_pseudo_tvec = dut.compute_target(TARGET, subject, subjeids, eid,
-                                                      modelfit_path, modeltype=MODEL,
-                                                      beh_data=pseudosess, one=one)[mask]
                 fit_result = dut.regress_target(msub_pseudo_tvec, msub_binned, estimator,
                                                 estimator_kwargs=ESTIMATOR_KWARGS,
                                                 hyperparam_grid=HPARAM_GRID,
@@ -318,9 +322,6 @@ def fit_eid(eid, sessdf, imposterdf, pseudo_id=-1, nb_runs=10, single_region=SIN
 if __name__ == '__main__':
     from decode_prior import fit_eid, save_region_results
 
-    # LOCAL
-    LOCAL = False
-
     # import cached data
     insdf = pd.read_parquet(DECODING_PATH.joinpath('insertions.pqt'))
     insdf = insdf[insdf.spike_sorting != '']
@@ -347,6 +348,7 @@ if __name__ == '__main__':
                                                            f'export OPENBLAS_NUM_THREADS={N_CORES}'])
         cluster.adapt(minimum_jobs=1, maximum_jobs=200)
     client = Client(cluster)
+    # todo verify the behavior of scatter
     imposterdf_future = client.scatter(imposterdf)
 
     # debug
