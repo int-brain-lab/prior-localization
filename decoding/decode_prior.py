@@ -40,7 +40,7 @@ strlut = {sklm.Lasso: 'Lasso',
           sklm.LogisticRegression: 'Logistic'}
 
 # %% Run param definitions
-LOCAL = False
+LOCAL = True
 if LOCAL:
     DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding")
 else:
@@ -60,7 +60,7 @@ ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
 N_PSEUDO = 2
 N_RUNS = 10
 MIN_UNITS = 10
-MIN_BEHAV_TRIAS = 200
+MIN_BEHAV_TRIAS = 400  # default BWM setting
 MIN_RT = 0.08  # 0.08  # Float (s) or None
 SINGLE_REGION = True  # perform decoding on region-wise or whole brain analysis
 NO_UNBIAS = False
@@ -346,7 +346,7 @@ if __name__ == '__main__':
                                job_cpu=N_CORES, env_extra=[f'export OMP_NUM_THREADS={N_CORES}',
                                                            f'export MKL_NUM_THREADS={N_CORES}',
                                                            f'export OPENBLAS_NUM_THREADS={N_CORES}'])
-        cluster.adapt(minimum_jobs=1, maximum_jobs=1000)
+        cluster.adapt(minimum_jobs=1, maximum_jobs=200)
     client = Client(cluster)
     # todo verify the behavior of scatter
     imposterdf_future = client.scatter(imposterdf)
@@ -355,7 +355,8 @@ if __name__ == '__main__':
     IMIN = 0
     filenames = []
     for i, eid in enumerate(eids):
-        if i < IMIN or eid in excludes or np.any(insdf[insdf['eid'] == eid]['spike_sorting'] == ""):
+        if (i < IMIN or eid in excludes or np.any(insdf[insdf['eid'] == eid]['spike_sorting'] == "")) or \
+                (USE_IMPOSTER_SESSION and eid not in imposterdf.eid.values):
             print(f"dud {eid}")
             continue
         print(f"{i}, session: {eid}")

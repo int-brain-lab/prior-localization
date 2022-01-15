@@ -119,7 +119,11 @@ def generate_imposter_session(imposterdf, eid, trialsdf, nbSampledSess=50):
     imposter session df
 
     """
-    imposter_eids = np.random.choice(imposterdf[imposterdf.eid != eid].eid.unique(), size=nbSampledSess, replace=False)
+    # todo add eid template https://github.com/int-brain-lab/iblenv/issues/117
+    template_sess_eid = float(imposterdf[imposterdf.eid == eid].template_sess.unique())
+    imposter_eids = np.random.choice(imposterdf[imposterdf.template_sess != template_sess_eid].eid.unique(),
+                                     size=nbSampledSess,
+                                     replace=False)
     sub_imposterdf = imposterdf[imposterdf.eid.isin(imposter_eids)].reset_index()
     sub_imposterdf['row_id'] = sub_imposterdf.index
     sub_imposterdf['sorted_eids'] = sub_imposterdf.apply(lambda x: (np.argmax(imposter_eids == x['eid']) *
