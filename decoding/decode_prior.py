@@ -40,7 +40,7 @@ strlut = {sklm.Lasso: 'Lasso',
           sklm.LogisticRegression: 'Logistic'}
 
 # %% Run param definitions
-LOCAL = True
+LOCAL = False
 if LOCAL:
     DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding")
 else:
@@ -74,13 +74,13 @@ NORMALIZE_INPUT = False  # take out mean of the neural activity per unit across 
 NORMALIZE_OUTPUT = False  # take out mean of output to predict
 if NORMALIZE_INPUT or NORMALIZE_OUTPUT:
     warnings.warn('This feature has not been tested')
-USE_IMPOSTER_SESSION = False  # if false, it uses pseudosessions
+USE_IMPOSTER_SESSION = True  # if false, it uses pseudosessions
 
 BALANCED_WEIGHT = False  # seems to work better with BALANCED_WEIGHT=False
 HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])}
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
-ADD_TO_SAVING_PATH = 'pseudosess_v1'
+ADD_TO_SAVING_PATH = 'imposter_v2'
 
 # session to be excluded (by Olivier Winter)
 excludes = [
