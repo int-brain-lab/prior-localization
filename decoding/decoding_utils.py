@@ -132,8 +132,7 @@ def generate_imposter_session(imposterdf, eid, trialsdf, nbSampledSess=50):
     if np.any(sub_imposterdf['sorted_eids'].unique() != sub_imposterdf['sorted_eids']):
         raise ValueError('There is most probably a bug in the function')
     sub_imposterdf = sub_imposterdf.sort_values(by=['sorted_eids'])
-    sub_imposterdf = sub_imposterdf[(sub_imposterdf.probabilityLeft != 0.5) |
-                                    (sub_imposterdf.eid == imposter_eids[0])]
+    sub_imposterdf = sub_imposterdf[(sub_imposterdf.probabilityLeft != 0.5)]  #|(sub_imposterdf.eid == imposter_eids[0])
     first_pLeft = sub_imposterdf.groupby('eid').first().sort_values(by=['sorted_eids']).probabilityLeft.values
     last_pLeft = sub_imposterdf.groupby('eid').last().sort_values(by=['sorted_eids']).probabilityLeft.values
     valid_imposter_eids, current_last_pLeft = [imposter_eids[0]], last_pLeft[0]
