@@ -40,7 +40,7 @@ strlut = {sklm.Lasso: 'Lasso',
           sklm.LogisticRegression: 'Logistic'}
 
 # %% Run param definitions
-LOCAL = True
+LOCAL = False
 if LOCAL:
     DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding")
 else:
@@ -278,7 +278,7 @@ def fit_eid(eid, sessdf, imposterdf, pseudo_id=-1, nb_runs=10, single_region=SIN
                 trialsdf_neurometric['blockprob_neurometric'] = blockprob_neurometric
 
         fit_results = []
-        for _ in range(nb_runs):
+        for i_run in range(nb_runs):
             if pseudo_id == -1:
                 fit_result = dut.regress_target(msub_tvec, msub_binned, estimator,
                                                 estimator_kwargs=ESTIMATOR_KWARGS,
