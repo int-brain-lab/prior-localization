@@ -57,7 +57,7 @@ MODEL = None  # expSmoothing_prevAction  # or dut.modeldispatcher.
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
-N_PSEUDO = 2
+N_PSEUDO = 10
 N_RUNS = 10
 MIN_UNITS = 10
 MIN_BEHAV_TRIAS = 200
@@ -74,13 +74,13 @@ NORMALIZE_INPUT = False  # take out mean of the neural activity per unit across 
 NORMALIZE_OUTPUT = False  # take out mean of output to predict
 if NORMALIZE_INPUT or NORMALIZE_OUTPUT:
     warnings.warn('This feature has not been tested')
-USE_IMPOSTER_SESSION = True  # if false, it uses pseudosessions
+USE_IMPOSTER_SESSION = False  # if false, it uses pseudosessions
 
 BALANCED_WEIGHT = False  # seems to work better with BALANCED_WEIGHT=False
 HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])}
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
-ADD_TO_SAVING_PATH = 'imposter'
+ADD_TO_SAVING_PATH = 'pseudosess_v1'
 
 # session to be excluded (by Olivier Winter)
 excludes = [
@@ -346,7 +346,7 @@ if __name__ == '__main__':
                                job_cpu=N_CORES, env_extra=[f'export OMP_NUM_THREADS={N_CORES}',
                                                            f'export MKL_NUM_THREADS={N_CORES}',
                                                            f'export OPENBLAS_NUM_THREADS={N_CORES}'])
-        cluster.adapt(minimum_jobs=1, maximum_jobs=200)
+        cluster.adapt(minimum_jobs=1, maximum_jobs=1000)
     client = Client(cluster)
     # todo verify the behavior of scatter
     imposterdf_future = client.scatter(imposterdf)
