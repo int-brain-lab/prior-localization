@@ -461,7 +461,7 @@ for i, failure in failures:
     print(i, failure.exception(), failure.key)
 print(len(failures))
 print(np.array(failures)[:,0])
-print(len([(i, x) for i, x in enumerate(filenames) if x.status == 'pending']))
+print(len([(i, x) for i, x in enumerate(filenames) if x.status == 'error']))
 import traceback
 tb = failure.traceback()
 traceback.print_tb(tb)

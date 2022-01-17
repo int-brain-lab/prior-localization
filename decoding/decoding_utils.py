@@ -120,6 +120,7 @@ def generate_imposter_session(imposterdf, eid, trialsdf, nbSampledSess=50):
 
     """
     # todo add eid template https://github.com/int-brain-lab/iblenv/issues/117
+    # todo change this with good performing behavioral sessions? not ephys sessions
     template_sess_eid = float(imposterdf[imposterdf.eid == eid].template_sess.unique())
     imposter_eids = np.random.choice(imposterdf[imposterdf.template_sess != template_sess_eid].eid.unique(),
                                      size=nbSampledSess,

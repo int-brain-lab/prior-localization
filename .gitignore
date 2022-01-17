@@ -1,4 +1,7 @@
+dj_local_conf.json
+.DS_Store
 /.vscode/
+/decoding/*pqt
 *.mat
 *.html
 *.log
@@ -11,6 +14,8 @@
 .one_params
 *dask-worker-space/
 /results/
+/decoding/Data
+/decoding/results/
 /decoding/models/
 *.*lock
 *.parquet
