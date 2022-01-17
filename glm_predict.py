@@ -5,7 +5,7 @@ from brainbox.modeling import poisson
 from brainbox.plot import peri_event_time_histogram
 
 
-def predict(nglm, targ_regressors=None, trials=None, retlab=False, incl_bias=True, glm_type='poisson'): #wasn't sure the best way to specify glm_type here...
+def predict(nglm, targ_regressors=None, trials=None, retlab=False, incl_bias=True, glm_type='linear'): #wasn't sure the best way to specify glm_type here...
     if trials is None:
         trials = nglm.design.trialsdf.index
     if targ_regressors is None:
@@ -61,15 +61,15 @@ def pred_psth(nglm, align_time, t_before, t_after, targ_regressors=None, trials=
     return psths
 
 class GLMPredictor:
-    def __init__(self, nglm, spk_t, spk_clu):
+    def __init__(self, trialsdf, nglm, spk_t, spk_clu):
         self.covar = list(nglm.design.covar.keys())
         self.nglm = nglm
         self.binnedspikes = nglm.binnedspikes
         self.design = nglm.design
         self.spk_t = spk_t
         self.spk_clu = spk_clu
-        self.trials = nglm.design.trialsdf.index
-        self.trialsdf = nglm.design.trialsdf #maybe not best way to do this
+        self.trials = trialsdf.index
+        self.trialsdf = trialsdf #maybe not best way to do this
         self.full_psths = {}
         self.cov_psths = {}
         self.combweights = nglm.combine_weights()
@@ -93,9 +93,10 @@ class GLMPredictor:
                 tmp[cov] = pred_psth(self.nglm, align_time, t_before, t_after,
                                      targ_regressors=[cov], trials=self.trials,
                                      incl_bias=False)
-                ax[2].plot(self.combweights[cov].loc[unit])
+        for cov in self.covar:
+            ax[2].plot(self.combweights[cov].loc[unit])
         x = np.arange(-t_before, t_after, self.nglm.binwidth) + 0.01
-        ax[0].plot(x, self.full_psths[keytuple][unit][0], label='Model prediction')
+        ax[0].plot(x, self.full_psths[keytuple][unit][0],color='orange', label='Model prediction')
         ax[0].legend()
         for cov in self.covar:
             ax[1].plot(x, self.cov_psths[keytuple][cov][unit][0], label=cov)
