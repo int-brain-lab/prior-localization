@@ -9,6 +9,7 @@ import sklearn.linear_model as sklm
 import models.utils as mut
 from datetime import date
 from pathlib import Path
+from models.expSmoothing_prevAction import expSmoothing_prevAction
 
 from one.api import ONE
 from brainbox.population.decode import get_spike_counts_in_bins
@@ -22,6 +23,7 @@ try:
     from dask.distributed import Client, LocalCluster
 except:
     import warnings
+
     warnings.warn('dask import failed')
     pass
 from tqdm import tqdm
@@ -38,40 +40,47 @@ strlut = {sklm.Lasso: 'Lasso',
           sklm.LogisticRegression: 'Logistic'}
 
 # %% Run param definitions
+LOCAL = False
+if LOCAL:
+    DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding")
+else:
+    DECODING_PATH = Path("/home/users/f/findling/ibl/prior-localization/decoding")
 
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
 SESS_CRITERION = 'aligned-behavior'  # aligned and behavior
-MODEL = None  # None or expSmoothing_prevAction or dut.modeldispatcher
 DATE = str(date.today())
-#DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding")
-DECODING_PATH = Path("/home/users/f/findling/ibl/prior-localization/decoding")
 ALIGN_TIME = 'goCue_times'
-TARGET = 'signcont'  # 'pLeft'
-TIME_WINDOW = (-0.6, -0.1)  #(0, 0.1)  #
+TARGET = 'signcont'  # 'signcont' or 'pLeft'
+# NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
+MODEL = None  # expSmoothing_prevAction  # or dut.modeldispatcher.
+TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
-N_PSEUDO = 2
+N_PSEUDO = 100
 N_RUNS = 10
 MIN_UNITS = 10
-MIN_BEHAV_TRIAS = 200
+MIN_BEHAV_TRIAS = 400  # default BWM setting
 MIN_RT = 0.08  # 0.08  # Float (s) or None
+SINGLE_REGION = True  # perform decoding on region-wise or whole brain analysis
 NO_UNBIAS = False
 SHUFFLE = True
 COMPUTE_NEUROMETRIC = True if TARGET == 'signcont' else False
 FORCE_POSITIVE_NEURO_SLOPES = False
+# NEUROMETRIC_PRIOR_MODEL = expSmoothing_prevAction #'oracle'
 # Basically, quality metric on the stability of a single unit. Should have 1 metric per neuron
-QC_CRITERIA = 3/3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
+QC_CRITERIA = 3 / 3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
 NORMALIZE_INPUT = False  # take out mean of the neural activity per unit across trials
 NORMALIZE_OUTPUT = False  # take out mean of output to predict
 if NORMALIZE_INPUT or NORMALIZE_OUTPUT:
     warnings.warn('This feature has not been tested')
+USE_IMPOSTER_SESSION = True  # if false, it uses pseudosessions
 
 BALANCED_WEIGHT = False  # seems to work better with BALANCED_WEIGHT=False
 HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])}
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
-ADD_TO_SAVING_PATH = ''
+ADD_TO_SAVING_PATH = 'imposter_v3'
 
 # session to be excluded (by Olivier Winter)
 excludes = [
@@ -84,10 +93,10 @@ excludes = [
 
 # ValueErrors and NotImplementedErrors
 if TARGET not in ['signcont', 'pLeft']:
-    raise NotImplementedError('this TARGET is not supported or stable yet')
+    raise NotImplementedError('this TARGET is not supported yet')
 
 if MODEL not in list(dut.modeldispatcher.keys()):
-    raise NotImplementedError('this MODEL is not supported or stable yet')
+    raise NotImplementedError('this MODEL is not supported yet')
 
 if COMPUTE_NEUROMETRIC and TARGET != 'signcont':
     raise ValueError('the target should be signcont to compute neurometric curves')
@@ -114,7 +123,9 @@ fit_metadata = {
     'compute_neurometric': COMPUTE_NEUROMETRIC,
     'n_runs': N_RUNS,
     'normalize_output': NORMALIZE_OUTPUT,
-    'normalize_input': NORMALIZE_INPUT
+    'normalize_input': NORMALIZE_INPUT,
+    'single_region': SINGLE_REGION,
+    'use_imposter_session': USE_IMPOSTER_SESSION
 }
 
 
@@ -138,20 +149,25 @@ def save_region_results(fit_result, pseudo_id, subject, eid, probe, region, N,
     return probefolder.joinpath(fn)
 
 
-def fit_eid(eid, sessdf, pseudo_id=-1, nb_runs=10,
+def fit_eid(eid, sessdf, imposterdf, pseudo_id=-1, nb_runs=10, single_region=SINGLE_REGION,
             modelfit_path=DECODING_PATH.joinpath('results', 'behavioral'),
             output_path=DECODING_PATH.joinpath('results', 'neural'), one=None):
     """
     Parameters
     ----------
+    single_region: Bool, decoding using region wise or pulled over regions
     eid: eid of session
     sessdf: dataframe of session eid
-    pseudo_id: whether to compute a pseudosession or not. if pseudo_id=-1, the true session is considered
-    nb_runs: nb of independent runs performed. this was added after consequent variability was observed across runs
+    pseudo_id: whether to compute a pseudosession or not. if pseudo_id=-1, the true session is considered.
+    can not be 0
+    nb_runs: nb of independent runs performed. this was added after consequent variability was observed across runs.
     modelfit_path: outputs of behavioral fits
     output_path: outputs of decoding fits
     one: ONE object -- this is not to be used with dask, this option is given for debugging purposes
     """
+
+    if pseudo_id == 0:
+        raise ValueError('pseudo id can be -1 (actual session) or strictly greater than 0 (pseudo session)')
 
     one = ONE(mode='local') if one is None else one
     estimator = ESTIMATOR
@@ -192,91 +208,125 @@ def fit_eid(eid, sessdf, pseudo_id=-1, nb_runs=10,
         return filenames
 
     print(f'Working on eid and on pseudo_id: {eid}, {pseudo_id}')
-    for i, ins in tqdm(df_insertions.iterrows(), desc='Probe: ', leave=False):
+    across_probes = {'regions': [], 'clusters': [], 'times': [], 'qc_pass': []}
+    for i_probe, (_, ins) in tqdm(enumerate(df_insertions.iterrows()), desc='Probe: ', leave=False):
         probe = ins['probe']
         spike_sorting_path = Path(ins['session_path']).joinpath(ins['spike_sorting'])
         spikes = alfio.load_object(spike_sorting_path, 'spikes')
         clusters = pd.read_parquet(spike_sorting_path.joinpath('clusters.pqt'))
         beryl_reg = dut.remap_region(clusters.atlas_id, br=brainreg)
         qc_pass = (clusters['label'] >= QC_CRITERIA).values
-        regions = np.unique(beryl_reg)
-        # warnings.filterwarnings('ignore')
-        for region in tqdm(regions, desc='Region: ', leave=False):
-            reg_mask = (beryl_reg == region)
-            reg_clu_ids = np.argwhere(reg_mask & qc_pass).flatten()
-            N_units = len(reg_clu_ids)
-            if N_units < MIN_UNITS:
-                continue
-            # or get_spike_count_in_bins
-            if np.any(np.isnan(nb_trialsdf[ALIGN_TIME])):
-                # if this happens, verify scrub of NaN values in all aign times before get_spike_counts_in_bins
-                raise ValueError('this should not happen')
-            intervals = np.vstack([nb_trialsdf[ALIGN_TIME] + TIME_WINDOW[0],
-                                   nb_trialsdf[ALIGN_TIME] + TIME_WINDOW[1]]).T
-            spikemask = np.isin(spikes.clusters, reg_clu_ids)
-            regspikes = spikes.times[spikemask]
-            regclu = spikes.clusters[spikemask]
-            binned, _ = get_spike_counts_in_bins(regspikes, regclu, intervals)
-            msub_binned = binned.T
+        across_probes['regions'].extend(beryl_reg)
+        across_probes['clusters'].extend(spikes.clusters if i_probe == 0 else
+                                         (spikes.clusters + max(across_probes['clusters']) + 1))
+        across_probes['times'].extend(spikes.times)
+        across_probes['qc_pass'].extend(qc_pass)
+    across_probes = {k: np.array(v) for k, v in across_probes.items()}
+    # warnings.filterwarnings('ignore')
+    if single_region:
+        regions = [[k] for k in np.unique(across_probes['regions'])]
+    else:
+        regions = [np.unique(across_probes['regions'])]
+    for region in tqdm(regions, desc='Region: ', leave=False):
+        reg_mask = np.isin(across_probes['regions'], region)
+        reg_clu_ids = np.argwhere(reg_mask & across_probes['qc_pass']).flatten()
+        N_units = len(reg_clu_ids)
+        if N_units < MIN_UNITS:
+            continue
+        # or get_spike_count_in_bins
+        if np.any(np.isnan(nb_trialsdf[ALIGN_TIME])):
+            # if this happens, verify scrub of NaN values in all align times before get_spike_counts_in_bins
+            raise ValueError('this should not happen')
+        intervals = np.vstack([nb_trialsdf[ALIGN_TIME] + TIME_WINDOW[0],
+                               nb_trialsdf[ALIGN_TIME] + TIME_WINDOW[1]]).T
+        spikemask = np.isin(across_probes['clusters'], reg_clu_ids)
+        regspikes = across_probes['times'][spikemask]
+        regclu = across_probes['clusters'][spikemask]
+        arg_sortedSpikeTimes = np.argsort(regspikes)
+        binned, _ = get_spike_counts_in_bins(regspikes[arg_sortedSpikeTimes],
+                                             regclu[arg_sortedSpikeTimes],
+                                             intervals)
+        msub_binned = binned.T
 
-            if len(msub_binned.shape) > 2:
-                raise ValueError('Multiple bins are being calculated per trial,'
-                                 'may be due to floating point representation error.'
-                                 'Check window.')
+        if len(msub_binned.shape) > 2:
+            raise ValueError('Multiple bins are being calculated per trial,'
+                             'may be due to floating point representation error.'
+                             'Check window.')
 
-            fit_results = []
-            for i_run in range(nb_runs):
-                if pseudo_id == -1:
-                    fit_result = dut.regress_target(msub_tvec, msub_binned, estimator,
-                                                    estimator_kwargs=ESTIMATOR_KWARGS,
-                                                    hyperparam_grid=HPARAM_GRID,
-                                                    save_binned=SAVE_BINNED, shuffle=SHUFFLE,
-                                                    balanced_weight=BALANCED_WEIGHT,
-                                                    normalize_input=NORMALIZE_INPUT,
-                                                    normalize_output=NORMALIZE_OUTPUT)
-                else:
-                    pseudosess = generate_pseudo_session(trialsdf)
-                    msub_pseudo_tvec = dut.compute_target(TARGET, subject, subjeids, eid,
-                                                          modelfit_path, modeltype=MODEL,
-                                                          beh_data=pseudosess, one=one)[mask]
-                    fit_result = dut.regress_target(msub_pseudo_tvec, msub_binned, estimator,
-                                                    estimator_kwargs=ESTIMATOR_KWARGS,
-                                                    hyperparam_grid=HPARAM_GRID,
-                                                    save_binned=SAVE_BINNED, shuffle=SHUFFLE,
-                                                    balanced_weight=BALANCED_WEIGHT,
-                                                    normalize_input=NORMALIZE_INPUT,
-                                                    normalize_output=NORMALIZE_OUTPUT)
-                fit_result['mask'] = mask
-                fit_result['pseudo_id'] = pseudo_id
-                fit_result['run_id'] = i_run
-                # neurometric curve
-                if COMPUTE_NEUROMETRIC:
-                    fit_result['full_neurometric'], fit_result['fold_neurometric'] = \
-                        get_neurometric_parameters(fit_result,
-                                                   trialsdf=nb_trialsdf.reset_index() if (pseudo_id == -1) else
-                                                   pseudosess[mask].reset_index(),
-                                                   one=one,
-                                                   compute_on_each_fold=COMPUTE_NEURO_ON_EACH_FOLD,
-                                                   force_positive_neuro_slopes=FORCE_POSITIVE_NEURO_SLOPES)
-                else:
-                    fit_result['full_neurometric'] = None
-                    fit_result['fold_neurometric'] = None
-                fit_results.append(fit_result)
+        if pseudo_id > 0:  # create pseudo session when necessary
+            if USE_IMPOSTER_SESSION:
+                pseudosess = dut.generate_imposter_session(imposterdf, eid, trialsdf)
+            else:
+                pseudosess = generate_pseudo_session(trialsdf)
 
-            filenames.append(save_region_results(fit_results, pseudo_id, subject,
-                                                 eid, probe, region, N_units, output_path=output_path))
+            msub_pseudo_tvec = dut.compute_target(TARGET, subject, subjeids, eid,
+                                                  modelfit_path, modeltype=MODEL,
+                                                  beh_data=pseudosess, one=one)[mask]
+
+        if COMPUTE_NEUROMETRIC:  # compute prior for neurometric curve
+            trialsdf_neurometric = nb_trialsdf.reset_index() if (pseudo_id == -1) else \
+                pseudosess[mask].reset_index()
+            if MODEL is not None:
+                blockprob_neurometric = dut.compute_target('pLeft', subject, subjeids, eid, modelfit_path,
+                                                           modeltype=MODEL,
+                                                           beh_data=trialsdf if pseudo_id == -1 else pseudosess,
+                                                           one=one)
+                trialsdf_neurometric['blockprob_neurometric'] = np.greater_equal(blockprob_neurometric[mask],
+                                                                                 0.5).astype(int)
+            else:
+                blockprob_neurometric = trialsdf_neurometric['probabilityLeft'].replace(0.2, 0).replace(0.8, 1)
+                trialsdf_neurometric['blockprob_neurometric'] = blockprob_neurometric
+
+        fit_results = []
+        for i_run in range(nb_runs):
+            if pseudo_id == -1:
+                fit_result = dut.regress_target(msub_tvec, msub_binned, estimator,
+                                                estimator_kwargs=ESTIMATOR_KWARGS,
+                                                hyperparam_grid=HPARAM_GRID,
+                                                save_binned=SAVE_BINNED, shuffle=SHUFFLE,
+                                                balanced_weight=BALANCED_WEIGHT,
+                                                normalize_input=NORMALIZE_INPUT,
+                                                normalize_output=NORMALIZE_OUTPUT)
+            else:
+                fit_result = dut.regress_target(msub_pseudo_tvec, msub_binned, estimator,
+                                                estimator_kwargs=ESTIMATOR_KWARGS,
+                                                hyperparam_grid=HPARAM_GRID,
+                                                save_binned=SAVE_BINNED, shuffle=SHUFFLE,
+                                                balanced_weight=BALANCED_WEIGHT,
+                                                normalize_input=NORMALIZE_INPUT,
+                                                normalize_output=NORMALIZE_OUTPUT)
+            fit_result['mask'] = mask
+            fit_result['pseudo_id'] = pseudo_id
+            fit_result['run_id'] = i_run
+            # neurometric curve
+            if COMPUTE_NEUROMETRIC:
+                fit_result['full_neurometric'], fit_result['fold_neurometric'] = \
+                    get_neurometric_parameters(fit_result,
+                                               trialsdf=trialsdf_neurometric,
+                                               one=one,
+                                               compute_on_each_fold=COMPUTE_NEURO_ON_EACH_FOLD,
+                                               force_positive_neuro_slopes=FORCE_POSITIVE_NEURO_SLOPES)
+            else:
+                fit_result['full_neurometric'] = None
+                fit_result['fold_neurometric'] = None
+            fit_results.append(fit_result)
+
+        filenames.append(save_region_results(fit_results, pseudo_id, subject,
+                                             eid, 'pulledProbes',
+                                             region[0] if single_region else 'allRegions',
+                                             N_units, output_path=output_path))
 
     return filenames
 
 
 if __name__ == '__main__':
-    from decode_prior import fit_eid
-    # LOCAL
-    LOCAL = False
+    from decode_prior import fit_eid, save_region_results
 
     # import cached data
     insdf = pd.read_parquet(DECODING_PATH.joinpath('insertions.pqt'))
+    insdf = insdf[insdf.spike_sorting != '']
     eids = insdf['eid'].unique()
+    imposterdf = pd.read_parquet(DECODING_PATH.joinpath('imposterSessions.pqt'))
 
     # create necessary empty directories if not existing
     DECODING_PATH.joinpath('results').mkdir(exist_ok=True)
@@ -296,14 +346,17 @@ if __name__ == '__main__':
                                job_cpu=N_CORES, env_extra=[f'export OMP_NUM_THREADS={N_CORES}',
                                                            f'export MKL_NUM_THREADS={N_CORES}',
                                                            f'export OPENBLAS_NUM_THREADS={N_CORES}'])
-        cluster.adapt(minimum_jobs=0, maximum_jobs=80)
+        cluster.adapt(minimum_jobs=1, maximum_jobs=200)
     client = Client(cluster)
+    # todo verify the behavior of scatter
+    imposterdf_future = client.scatter(imposterdf)
 
     # debug
     IMIN = 0
     filenames = []
-    for i, eid in enumerate(eids[:4]):
-        if i < IMIN or eid in excludes or np.any(insdf[insdf['eid'] == eid]['spike_sorting'] == ""):
+    for i, eid in enumerate(eids):
+        if (i < IMIN or eid in excludes or np.any(insdf[insdf['eid'] == eid]['spike_sorting'] == "")) or \
+                (USE_IMPOSTER_SESSION and eid not in imposterdf.eid.values):
             print(f"dud {eid}")
             continue
         print(f"{i}, session: {eid}")
@@ -312,7 +365,8 @@ if __name__ == '__main__':
                                 eid=eid,
                                 sessdf=insdf,
                                 pseudo_id=-1 if pseudo_id == 0 else pseudo_id,
-                                nb_runs=N_RUNS)
+                                nb_runs=N_RUNS,
+                                imposterdf=imposterdf_future)
             filenames.append(fns)
 
     # WAIT FOR COMPUTATION TO FINISH BEFORE MOVING ON
@@ -339,8 +393,8 @@ if __name__ == '__main__':
                        'mask': ''.join([str(item) for item in list(result['fit'][i_run]['mask'].values * 1)]),
                        'R2_test': result['fit'][i_run]['Rsquared_test_full']}
             if result['fit'][i_run]['full_neurometric'] is not None:
-                tmpdict= {**tmpdict,
-                          **{idx_neuro: result['fit'][i_run]['full_neurometric'][idx_neuro]
+                tmpdict = {**tmpdict,
+                           **{idx_neuro: result['fit'][i_run]['full_neurometric'][idx_neuro]
                               for idx_neuro in indexers_neurometric}}
             resultslist.append(tmpdict)
             for kfold in range(result['fit'][i_run]['nFolds']):
@@ -362,11 +416,19 @@ if __name__ == '__main__':
     estimatorstr = strlut[ESTIMATOR]
     start_tw, end_tw = TIME_WINDOW
     fn = str(DECODING_PATH.joinpath('results', 'neural', '_'.join([DATE, 'decode', TARGET,
-                                 dut.modeldispatcher[MODEL] if TARGET in ['prior', 'prederr'] else 'task',
-                                 estimatorstr, 'align', ALIGN_TIME, str(N_PSEUDO), 'pseudosessions',
-                                 'timeWindow', str(start_tw).replace('.', '_'), str(end_tw).replace('.', '_')])))
+                                                                   dut.modeldispatcher[MODEL] if TARGET in ['prior',
+                                                                                                            'prederr'] else 'task',
+                                                                   estimatorstr, 'align', ALIGN_TIME, str(N_PSEUDO),
+                                                                   'pseudosessions',
+                                                                   'regionWise' if SINGLE_REGION else 'allProbes',
+                                                                   'timeWindow', str(start_tw).replace('.', '_'),
+                                                                   str(end_tw).replace('.', '_')])))
+    if COMPUTE_NEUROMETRIC:
+        fn = fn + '_'.join(['', 'neurometricPLeft', dut.modeldispatcher[MODEL]])
+
     if ADD_TO_SAVING_PATH != '':
         fn = fn + '_' + ADD_TO_SAVING_PATH
+
     fn = fn + '.parquet'
 
     metadata_df = pd.Series({'filename': fn, **fit_metadata})
@@ -382,9 +444,9 @@ if __name__ == '__main__':
         fo.close()
         for i_run in range(len(result['fit'])):
             weightsdict = {**weightsdict, **{(tuple(result[x] for x in indexers)
-                                             + ('pseudo_id_{}'.format(result['pseudo_id']),
-                                                'run_id_{}'.format(i_run + 1)))
-                                             :np.vstack(result['fit'][i_run]['weights'])}}
+                                              + ('pseudo_id_{}'.format(result['pseudo_id']),
+                                                 'run_id_{}'.format(i_run + 1)))
+                                             : np.vstack(result['fit'][i_run]['weights'])}}
 
     with open(metadata_fn.split('.metadata.pkl')[0] + '.weights.pkl', 'wb') as f:
         pickle.dump(weightsdict, f)

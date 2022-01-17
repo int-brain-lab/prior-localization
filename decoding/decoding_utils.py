@@ -18,14 +18,14 @@ from sklearn.metrics import r2_score
 from sklearn.utils.class_weight import compute_sample_weight
 from tqdm import tqdm
 
-possible_targets = ['prior', 'prederr', 'signcont', 'pLeft']
+possible_targets = ['prederr', 'signcont', 'pLeft']
 
 modeldispatcher = {expSmoothing_prevAction: 'expSmoothingPrevActions',
                    expSmoothing_stimside: 'expSmoothingStimSides',
                    biased_ApproxBayesian: 'biased_Approxbayesian',
                    biased_Bayesian: 'biased_Bayesian',
                    optimal_Bayesian: 'optimal_bayesian',
-                   None: 'none'
+                   None: 'oracle'
                    }
 
 # Loading data and input utilities
@@ -103,6 +103,54 @@ def check_bhv_fit_exists(subject, model, eids, resultpath):
     return os.path.exists(fullpath), fullpath
 
 
+def generate_imposter_session(imposterdf, eid, trialsdf, nbSampledSess=50):
+    """
+
+    Parameters
+    ----------
+    imposterd: all sessions concatenated in pandas dataframe (generated with pipelines/03_generate_imposter_df.py)
+    eid: eid of session of interest
+    trialsdf: dataframe of trials of interest
+    nbSampledSess: number of imposter sessions sampled to generate the final imposter session. NB: the length
+    of the nbSampledSess stitched sessions must be greater than the session of interest, so typically choose a large
+    number. If that condition is not verified a ValueError will be raised.
+    Returns
+    -------
+    imposter session df
+
+    """
+    # todo add eid template https://github.com/int-brain-lab/iblenv/issues/117
+    template_sess_eid = float(imposterdf[imposterdf.eid == eid].template_sess.unique())
+    imposter_eids = np.random.choice(imposterdf[imposterdf.template_sess != template_sess_eid].eid.unique(),
+                                     size=nbSampledSess,
+                                     replace=False)
+    sub_imposterdf = imposterdf[imposterdf.eid.isin(imposter_eids)].reset_index()
+    sub_imposterdf['row_id'] = sub_imposterdf.index
+    sub_imposterdf['sorted_eids'] = sub_imposterdf.apply(lambda x: (np.argmax(imposter_eids == x['eid']) *
+                                                                    sub_imposterdf.index.size + x.row_id),
+                                                         axis=1)
+    if np.any(sub_imposterdf['sorted_eids'].unique() != sub_imposterdf['sorted_eids']):
+        raise ValueError('There is most probably a bug in the function')
+    sub_imposterdf = sub_imposterdf.sort_values(by=['sorted_eids'])
+    sub_imposterdf = sub_imposterdf[(sub_imposterdf.probabilityLeft != 0.5)]  #|(sub_imposterdf.eid == imposter_eids[0])
+    first_pLeft = sub_imposterdf.groupby('eid').first().sort_values(by=['sorted_eids']).probabilityLeft.values
+    last_pLeft = sub_imposterdf.groupby('eid').last().sort_values(by=['sorted_eids']).probabilityLeft.values
+    valid_imposter_eids, current_last_pLeft = [imposter_eids[0]], last_pLeft[0]
+    for i, imposter_eid in enumerate(imposter_eids[1:]):  # make it such that stitches correspond to pLeft changepoints
+        if first_pLeft[i + 1] != current_last_pLeft:
+            valid_imposter_eids.append(imposter_eid)
+            current_last_pLeft = last_pLeft[i + 1]
+    sub_imposterdf = sub_imposterdf[sub_imposterdf.eid.isin(valid_imposter_eids)]
+    if sub_imposterdf.index.size < trialsdf.index.size:
+        raise ValueError('you did not stitch enough imposter sessions. Simply increase the nbSampledSess argument')
+    imposter_sess = sub_imposterdf.iloc[:trialsdf.index.size].reset_index()
+    first_pLeft = imposter_sess.groupby('eid').first().sort_values(by=['sorted_eids']).probabilityLeft.values[1:]
+    last_pLeft = imposter_sess.groupby('eid').last().sort_values(by=['sorted_eids']).probabilityLeft.values[:-1]
+    if np.any(last_pLeft == first_pLeft):
+        raise ValueError('There is most likely a bug in the code')
+    return imposter_sess.drop(columns=['index', 'level_0'])
+
+
 def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=False,
                     modeltype=expSmoothing_prevAction, one=None,
                     beh_data_test=None):
@@ -111,7 +159,10 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
     Params:
         eids_train: list of eids on which we train the network
         eid_test: eid on which we want to compute the target signals, only one string
-        beh_data_test: if you have to launch the model on beh_data_test
+        beh_data_test: if you have to launch the model on beh_data_test.
+                       if beh_data_test is explicited, the eid_test will not be considered
+        target can be pLeft or signcont. If target=pLeft, it will return the prior predicted by modeltype
+                                         if modetype=None, then it will return the actual pLeft (.2, .5, .8)
     '''
 
     one = one or ONE()
@@ -119,12 +170,7 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
     # check if is trained
     istrained, fullpath = check_bhv_fit_exists(subject, modeltype, eids_train, savepath)
 
-    # TODO: Make it possible to use test data on an untrained model
-    if (beh_data_test is not None) and (not istrained) and (target not in ['signcont', 'pLeft']):
-        raise ValueError('when actions, stimuli and stim_side are all defined,'
-                         ' the model must have been trained')
-
-    if (not istrained) and (target not in ['signcont', 'pLeft']):
+    if (not istrained) and (target != 'signcont') and (modeltype is not None):
         datadict = {'stim_side': [], 'actions': [], 'stimuli': []}
         for eid in eids_train:
             data = mut.load_session(eid, one=one)
@@ -142,12 +188,12 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
         model = modeltype(savepath, eids, subject,
                           actions, stimuli, stim_side)
         model.load_or_train(remove_old=remove_old)
-    elif target not in ['signcont', 'pLeft']:
+    elif (target != 'signcont') and (modeltype is not None):
         model = modeltype(savepath, eids_train, subject, actions=None, stimuli=None,
                           stim_side=None)
         model.load_or_train(loadpath=str(fullpath))
 
-    # load test session
+    # load test session is beh_data_test is None
     if beh_data_test is None:
         beh_data_test = mut.load_session(eid_test, one=one)
 
@@ -155,13 +201,16 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
         out = np.nan_to_num(beh_data_test['contrastLeft']) - \
             np.nan_to_num(beh_data_test['contrastRight'])
         return out
-    elif target == 'pLeft':
+    elif (target == 'pLeft') and (modeltype is None):
         return np.array(beh_data_test['probabilityLeft'])
 
     # compute signal
     stim_side, stimuli, actions, _ = mut.format_data(beh_data_test)
     stimuli, actions, stim_side = mut.format_input([stimuli], [actions], [stim_side])
-    signal = model.compute_signal(signal=target, act=actions, stim=stimuli, side=stim_side)[target]
+    signal = model.compute_signal(signal='prior' if target == 'pLeft' else target,
+                                  act=actions,
+                                  stim=stimuli,
+                                  side=stim_side)['prior' if target == 'pLeft' else target]
 
     return signal.squeeze()
 
@@ -217,11 +266,11 @@ def compute_target(target, subject, eids_train, eid_test, savepath,
     if target not in possible_targets:
         raise ValueError('target should be in {}'.format(possible_targets))
 
-    target = fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=False,
+    tvec = fit_load_bhvmod(target, subject, savepath.as_posix() + '/', eids_train, eid_test, remove_old=False,
                              modeltype=modeltype, one=one, beh_data_test=beh_data)
 
     # todo make pd.Series
-    return target
+    return tvec
 
 
 def regress_target(tvec, binned, estimatorObject, estimator_kwargs,

@@ -40,12 +40,12 @@ def get_target_df(target, pred, test_idxs, trialsdf, one):
     df = pd.DataFrame({'stimuli': corr_test,
                        'predictions': corr_pred,
                        'sign': pred_signs,
-                       'blockprob': trialsdf.loc[test_idxs, 'probabilityLeft']},
+                       'blockprob': trialsdf.loc[test_idxs, 'blockprob_neurometric']},
                       index=test_idxs)
     grpby = df.groupby(['blockprob', 'stimuli'])
     grpbyagg = grpby.agg({'sign': [('num_trials', 'count'),
                                    ('prop_L', lambda x: ((x == 1).sum() + (x == 0).sum()/2.) / len(x))]})
-    return grpbyagg.loc[0.2].reset_index().values.T, grpbyagg.loc[0.8].reset_index().values.T
+    return grpbyagg.loc[0].reset_index().values.T, grpbyagg.loc[1].reset_index().values.T
 
 
 def fit_get_shift_range(lowprob_arr,
