@@ -201,7 +201,7 @@ def generate_design(trialsdf, prior, t_before, bases,
 
     def stepfunc_poststim(row):
         zerovec = np.zeros(design.binf(row.duration))
-        currtr_start = design.binf(row.stimOn_times + 0.1)
+        currtr_start = design.binf(row.stimOn_times)
         currtr_end = design.binf(row.feedback_times)
         zerovec[currtr_start:currtr_end] = row.prior_last
         zerovec[currtr_end:] = row.prior
@@ -257,7 +257,7 @@ def fit(design, spk_t, spk_clu, binwidth, model, estimator, n_folds=5, contiguou
         **kwargs):
     trials_idx = design.trialsdf.index
     nglm = model(design, spk_t, spk_clu, binwidth=binwidth, estimator=estimator)
-    splitter = KFold(n_folds, shuffle=~contiguous)
+    splitter = KFold(n_folds, shuffle=not contiguous)
     scores, weights, intercepts, alphas, splits = [], [], [], [], []
     for test, train in splitter.split(trials_idx):
         nglm.fit(train_idx=train, printcond=False)
