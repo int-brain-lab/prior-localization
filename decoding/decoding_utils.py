@@ -28,6 +28,7 @@ modeldispatcher = {expSmoothing_prevAction: 'expSmoothingPrevActions',
                    None: 'oracle'
                    }
 
+
 # Loading data and input utilities
 
 
@@ -42,33 +43,33 @@ def query_sessions(selection='all', one=None):
         # Query all ephysChoiceWorld sessions
         ins = one.alyx.rest('insertions', 'list',
                             django='session__project__name__icontains,ibl_neuropixel_brainwide_01,'
-                            'session__qc__lt,50')
+                                   'session__qc__lt,50')
     elif selection == 'aligned':
         # Query all sessions with at least one alignment
         ins = one.alyx.rest('insertions', 'list',
                             django='session__project__name__icontains,ibl_neuropixel_brainwide_01,'
-                            'session__qc__lt,50,'
-                            'json__extended_qc__alignment_count__gt,0')
+                                   'session__qc__lt,50,'
+                                   'json__extended_qc__alignment_count__gt,0')
     elif selection == 'resolved':
         # Query all sessions with resolved alignment
         ins = one.alyx.rest('insertions', 'list',
                             django='session__project__name__icontains,ibl_neuropixel_brainwide_01,'
-                            'session__qc__lt,50,'
-                            'json__extended_qc__alignment_resolved,True')
+                                   'session__qc__lt,50,'
+                                   'json__extended_qc__alignment_resolved,True')
     elif selection == 'aligned-behavior':
         # Query sessions with at least one alignment and that meet behavior criterion
         ins = one.alyx.rest('insertions', 'list',
                             django='session__project__name__icontains,ibl_neuropixel_brainwide_01,'
-                            'session__qc__lt,50,'
-                            'json__extended_qc__alignment_count__gt,0,'
-                            'session__extended_qc__behavior,1')
+                                   'session__qc__lt,50,'
+                                   'json__extended_qc__alignment_count__gt,0,'
+                                   'session__extended_qc__behavior,1')
     elif selection == 'resolved-behavior':
         # Query sessions with resolved alignment and that meet behavior criterion
         ins = one.alyx.rest('insertions', 'list',
                             django='session__project__name__icontains,ibl_neuropixel_brainwide_01,'
-                            'session__qc__lt,50,'
-                            'json__extended_qc__alignment_resolved,True,'
-                            'session__extended_qc__behavior,1')
+                                   'session__qc__lt,50,'
+                                   'json__extended_qc__alignment_resolved,True,'
+                                   'session__extended_qc__behavior,1')
     else:
         raise ValueError('Invalid selection was passed.'
                          'Must be in [\'all\', \'aligned\', \'resolved\', \'aligned-behavior\','
@@ -93,7 +94,7 @@ def check_bhv_fit_exists(subject, model, eids, resultpath):
     '''
     trainmeth = 'MCMC'  # This needs to be un-hard-coded if charles changes to diff. methods
     trunc_eids = [eid.split('-')[0] for eid in eids]
-    str_sessionuuids = '_'.join(f'sess{k+1}_{eid}' for k, eid in enumerate(trunc_eids))
+    str_sessionuuids = '_'.join(f'sess{k + 1}_{eid}' for k, eid in enumerate(trunc_eids))
     if model not in modeldispatcher.keys():
         raise KeyError('Model is not an instance of a model from behavior_models')
     subjmodpath = Path(resultpath).joinpath(Path(subject))
@@ -103,7 +104,7 @@ def check_bhv_fit_exists(subject, model, eids, resultpath):
     return os.path.exists(fullpath), fullpath
 
 
-def generate_imposter_session(imposterdf, eid, trialsdf, nbSampledSess=50, pLeftChange_when_stitch=False):
+def generate_imposter_session(imposterdf, eid, trialsdf, nbSampledSess=50, pLeftChange_when_stitch=True):
     """
 
     Parameters
@@ -131,22 +132,33 @@ def generate_imposter_session(imposterdf, eid, trialsdf, nbSampledSess=50, pLeft
     if np.any(sub_imposterdf['sorted_eids'].unique() != sub_imposterdf['sorted_eids']):
         raise ValueError('There is most probably a bug in the function')
     sub_imposterdf = sub_imposterdf.sort_values(by=['sorted_eids'])
-    sub_imposterdf = sub_imposterdf[(sub_imposterdf.probabilityLeft != 0.5)].reset_index(drop=True)
+    sub_imposterdf = sub_imposterdf[(sub_imposterdf.probabilityLeft != 0.5) |
+                                    (sub_imposterdf.eid == imposter_eids[0])].reset_index(drop=True)
     if pLeftChange_when_stitch:
-        first_pLeft = sub_imposterdf.groupby('eid').first().sort_values(by=['sorted_eids']).probabilityLeft.values
-        last_pLeft = sub_imposterdf.groupby('eid').last().sort_values(by=['sorted_eids']).probabilityLeft.values
-        valid_imposter_eids, current_last_pLeft = [imposter_eids[0]], last_pLeft[0]
-        for i, imposter_eid in enumerate(imposter_eids[1:]):  # make it such that stitches correspond to pLeft changepoints
-            if first_pLeft[i + 1] != current_last_pLeft:
-                valid_imposter_eids.append(imposter_eid)
-                current_last_pLeft = last_pLeft[i + 1]
-        sub_imposterdf = sub_imposterdf[sub_imposterdf.eid.isin(valid_imposter_eids)]
+        valid_imposter_eids, current_last_pLeft = [], 0
+        for i, imposter_eid in enumerate(imposter_eids):
+            #  get first pLeft
+            first_pLeft = sub_imposterdf[(sub_imposterdf.eid == imposter_eid)].probabilityLeft.values[0]
+            #  make it such that stitches correspond to pLeft changepoints
+            if np.abs(first_pLeft - current_last_pLeft) > 1e-8:
+                valid_imposter_eids.append(imposter_eid)  # if first pLeft is different from current pLeft, accept sess
+                #  take out the last block on the first session to stitch as it may not be a block with the right
+                #  statistics (given the mouse stops the task there)
+                second2last_pLeft = 1 - sub_imposterdf[(sub_imposterdf.eid == imposter_eid)].probabilityLeft.values[-1]
+                second2last_block_idx = sub_imposterdf[(sub_imposterdf.eid == imposter_eid) &
+                                                       (np.abs(sub_imposterdf.probabilityLeft -
+                                                               second2last_pLeft) < 1e-8)].index[-1]
+                last_block_idx = sub_imposterdf[(sub_imposterdf.eid == imposter_eid)].index[-1]
+                sub_imposterdf = sub_imposterdf.drop(np.arange(second2last_block_idx + 1, last_block_idx + 1))
+                #  update current last pLeft
+                current_last_pLeft = sub_imposterdf[(sub_imposterdf.eid == imposter_eid)].probabilityLeft.values[-1]
+                if np.abs(second2last_pLeft - current_last_pLeft) > 1e-8:
+                    raise ValueError('There is most certainly a bug here')
+        sub_imposterdf = sub_imposterdf[sub_imposterdf.eid.isin(valid_imposter_eids)].sort_values(by=['sorted_eids'])
         if sub_imposterdf.index.size < trialsdf.index.size:
             raise ValueError('you did not stitch enough imposter sessions. Simply increase the nbSampledSess argument')
         sub_imposterdf = sub_imposterdf.reset_index(drop=True)
-
-    random_trial = np.random.randint(sub_imposterdf.index.size - trialsdf.index.size)
-    imposter_sess = sub_imposterdf.iloc[random_trial:(random_trial + trialsdf.index.size)].reset_index(drop=True)
+    imposter_sess = sub_imposterdf.iloc[:trialsdf.index.size].reset_index(drop=True)
     return imposter_sess
 
 
@@ -198,7 +210,7 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
 
     if target == 'signcont':
         out = np.nan_to_num(beh_data_test['contrastLeft']) - \
-            np.nan_to_num(beh_data_test['contrastRight'])
+              np.nan_to_num(beh_data_test['contrastRight'])
         return out
     elif (target == 'pLeft') and (modeltype is None):
         return np.array(beh_data_test['probabilityLeft'])
@@ -266,7 +278,7 @@ def compute_target(target, subject, eids_train, eid_test, savepath,
         raise ValueError('target should be in {}'.format(possible_targets))
 
     tvec = fit_load_bhvmod(target, subject, savepath.as_posix() + '/', eids_train, eid_test, remove_old=False,
-                             modeltype=modeltype, one=one, beh_data_test=beh_data)
+                           modeltype=modeltype, one=one, beh_data_test=beh_data)
 
     # todo make pd.Series
     return tvec
@@ -370,7 +382,7 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
                     estimator = estimatorObject(**{**estimator_kwargs, 'alpha': alpha})
                     if balanced_weight:
                         estimator.fit(X_train_inner, y_train_inner, sample_weight=compute_sample_weight("balanced",
-                                                                                                    y=y_train_inner))
+                                                                                                        y=y_train_inner))
                     else:
                         estimator.fit(X_train_inner, y_train_inner)
                     pred_test_inner = estimator.predict(X_test_inner) + mean_y_train_inner
@@ -409,7 +421,7 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
                 intercepts.append(clf.intercept_)
             else:
                 intercepts.append(None)
-            best_params.append({'alpha':best_alpha})
+            best_params.append({'alpha': best_alpha})
 
     full_test_prediction = np.zeros(len(tvec))
     for k in range(nFolds):
