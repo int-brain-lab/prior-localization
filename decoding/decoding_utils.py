@@ -158,7 +158,9 @@ def generate_imposter_session(imposterdf, eid, trialsdf, nbSampledSess=50, pLeft
         if sub_imposterdf.index.size < trialsdf.index.size:
             raise ValueError('you did not stitch enough imposter sessions. Simply increase the nbSampledSess argument')
         sub_imposterdf = sub_imposterdf.reset_index(drop=True)
-    random_number = np.random.randint(sub_imposterdf.index.size - trialsdf.index.size)
+    # select a random first block index
+    idx_chge = np.where(sub_imposterdf.probabilityLeft.values[1:] != sub_imposterdf.probabilityLeft.values[:-1])[0] + 1
+    random_number = np.random.choice(idx_chge[idx_chge < (sub_imposterdf.index.size - trialsdf.index.size)])
     imposter_sess = sub_imposterdf.iloc[random_number:(random_number + trialsdf.index.size)].reset_index(drop=True)
     return imposter_sess
 
