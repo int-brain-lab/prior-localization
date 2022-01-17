@@ -40,7 +40,7 @@ strlut = {sklm.Lasso: 'Lasso',
           sklm.LogisticRegression: 'Logistic'}
 
 # %% Run param definitions
-LOCAL = True
+LOCAL = False
 if LOCAL:
     DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding")
 else:
@@ -57,7 +57,7 @@ MODEL = None  # expSmoothing_prevAction  # or dut.modeldispatcher.
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
-N_PSEUDO = 100
+N_PSEUDO = 2
 N_RUNS = 10
 MIN_UNITS = 10
 MIN_BEHAV_TRIAS = 400  # default BWM setting
@@ -80,7 +80,7 @@ BALANCED_WEIGHT = False  # seems to work better with BALANCED_WEIGHT=False
 HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])}
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
-ADD_TO_SAVING_PATH = 'imposter_v3'
+ADD_TO_SAVING_PATH = 'imposter_v5'
 
 # session to be excluded (by Olivier Winter)
 excludes = [

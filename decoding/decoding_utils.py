@@ -123,7 +123,7 @@ def generate_imposter_session(imposterdf, eid, trialsdf, nbSampledSess=50, pLeft
     imposter_eids = np.random.choice(imposterdf[imposterdf.template_sess != template_sess_eid].eid.unique(),
                                      size=nbSampledSess,
                                      replace=False)
-    sub_imposterdf = imposterdf[imposterdf.eid.isin(imposter_eids)].reset_index()
+    sub_imposterdf = imposterdf[imposterdf.eid.isin(imposter_eids)].reset_index(drop=True)
     sub_imposterdf['row_id'] = sub_imposterdf.index
     sub_imposterdf['sorted_eids'] = sub_imposterdf.apply(lambda x: (np.argmax(imposter_eids == x['eid']) *
                                                                     sub_imposterdf.index.size + x.row_id),
@@ -131,7 +131,7 @@ def generate_imposter_session(imposterdf, eid, trialsdf, nbSampledSess=50, pLeft
     if np.any(sub_imposterdf['sorted_eids'].unique() != sub_imposterdf['sorted_eids']):
         raise ValueError('There is most probably a bug in the function')
     sub_imposterdf = sub_imposterdf.sort_values(by=['sorted_eids'])
-    sub_imposterdf = sub_imposterdf[(sub_imposterdf.probabilityLeft != 0.5)]  #|(sub_imposterdf.eid == imposter_eids[0])
+    sub_imposterdf = sub_imposterdf[(sub_imposterdf.probabilityLeft != 0.5)].reset_index(drop=True)
     if pLeftChange_when_stitch:
         first_pLeft = sub_imposterdf.groupby('eid').first().sort_values(by=['sorted_eids']).probabilityLeft.values
         last_pLeft = sub_imposterdf.groupby('eid').last().sort_values(by=['sorted_eids']).probabilityLeft.values
@@ -143,11 +143,11 @@ def generate_imposter_session(imposterdf, eid, trialsdf, nbSampledSess=50, pLeft
         sub_imposterdf = sub_imposterdf[sub_imposterdf.eid.isin(valid_imposter_eids)]
         if sub_imposterdf.index.size < trialsdf.index.size:
             raise ValueError('you did not stitch enough imposter sessions. Simply increase the nbSampledSess argument')
-        sub_imposterdf = sub_imposterdf.reset_index()
+        sub_imposterdf = sub_imposterdf.reset_index(drop=True)
 
     random_trial = np.random.randint(sub_imposterdf.index.size - trialsdf.index.size)
-    imposter_sess = sub_imposterdf.iloc[random_trial:(random_trial + trialsdf.index.size)].reset_index()
-    return imposter_sess.drop(columns=['index', 'level_0'])
+    imposter_sess = sub_imposterdf.iloc[random_trial:(random_trial + trialsdf.index.size)].reset_index(drop=True)
+    return imposter_sess
 
 
 def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=False,
