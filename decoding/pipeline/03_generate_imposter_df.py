@@ -42,6 +42,8 @@ all_trialsdf[columns].to_parquet(DECODING_PATH.joinpath('imposterSessions.pqt'))
 
 
 '''
+# ?todo add eid template https://github.com/int-brain-lab/iblenv/issues/117
+# ?todo change this with good performing behavioral sessions? not ephys sessions
 #  get eids of behavioral sessions
 one = ONE()
 # task_protocol='ephysChoiceWorld' for template sessions with neural activity

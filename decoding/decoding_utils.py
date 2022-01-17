@@ -103,7 +103,7 @@ def check_bhv_fit_exists(subject, model, eids, resultpath):
     return os.path.exists(fullpath), fullpath
 
 
-def generate_imposter_session(imposterdf, eid, trialsdf, nbSampledSess=50):
+def generate_imposter_session(imposterdf, eid, trialsdf, nbSampledSess=50, pLeftChange_when_stitch=False):
     """
 
     Parameters
@@ -119,8 +119,6 @@ def generate_imposter_session(imposterdf, eid, trialsdf, nbSampledSess=50):
     imposter session df
 
     """
-    # todo add eid template https://github.com/int-brain-lab/iblenv/issues/117
-    # todo change this with good performing behavioral sessions? not ephys sessions
     template_sess_eid = float(imposterdf[imposterdf.eid == eid].template_sess.unique())
     imposter_eids = np.random.choice(imposterdf[imposterdf.template_sess != template_sess_eid].eid.unique(),
                                      size=nbSampledSess,
@@ -134,21 +132,21 @@ def generate_imposter_session(imposterdf, eid, trialsdf, nbSampledSess=50):
         raise ValueError('There is most probably a bug in the function')
     sub_imposterdf = sub_imposterdf.sort_values(by=['sorted_eids'])
     sub_imposterdf = sub_imposterdf[(sub_imposterdf.probabilityLeft != 0.5)]  #|(sub_imposterdf.eid == imposter_eids[0])
-    first_pLeft = sub_imposterdf.groupby('eid').first().sort_values(by=['sorted_eids']).probabilityLeft.values
-    last_pLeft = sub_imposterdf.groupby('eid').last().sort_values(by=['sorted_eids']).probabilityLeft.values
-    valid_imposter_eids, current_last_pLeft = [imposter_eids[0]], last_pLeft[0]
-    for i, imposter_eid in enumerate(imposter_eids[1:]):  # make it such that stitches correspond to pLeft changepoints
-        if first_pLeft[i + 1] != current_last_pLeft:
-            valid_imposter_eids.append(imposter_eid)
-            current_last_pLeft = last_pLeft[i + 1]
-    sub_imposterdf = sub_imposterdf[sub_imposterdf.eid.isin(valid_imposter_eids)]
-    if sub_imposterdf.index.size < trialsdf.index.size:
-        raise ValueError('you did not stitch enough imposter sessions. Simply increase the nbSampledSess argument')
-    imposter_sess = sub_imposterdf.iloc[:trialsdf.index.size].reset_index()
-    first_pLeft = imposter_sess.groupby('eid').first().sort_values(by=['sorted_eids']).probabilityLeft.values[1:]
-    last_pLeft = imposter_sess.groupby('eid').last().sort_values(by=['sorted_eids']).probabilityLeft.values[:-1]
-    if np.any(last_pLeft == first_pLeft):
-        raise ValueError('There is most likely a bug in the code')
+    if pLeftChange_when_stitch:
+        first_pLeft = sub_imposterdf.groupby('eid').first().sort_values(by=['sorted_eids']).probabilityLeft.values
+        last_pLeft = sub_imposterdf.groupby('eid').last().sort_values(by=['sorted_eids']).probabilityLeft.values
+        valid_imposter_eids, current_last_pLeft = [imposter_eids[0]], last_pLeft[0]
+        for i, imposter_eid in enumerate(imposter_eids[1:]):  # make it such that stitches correspond to pLeft changepoints
+            if first_pLeft[i + 1] != current_last_pLeft:
+                valid_imposter_eids.append(imposter_eid)
+                current_last_pLeft = last_pLeft[i + 1]
+        sub_imposterdf = sub_imposterdf[sub_imposterdf.eid.isin(valid_imposter_eids)]
+        if sub_imposterdf.index.size < trialsdf.index.size:
+            raise ValueError('you did not stitch enough imposter sessions. Simply increase the nbSampledSess argument')
+        sub_imposterdf = sub_imposterdf.reset_index()
+
+    random_trial = np.random.randint(sub_imposterdf.index.size - trialsdf.index.size)
+    imposter_sess = sub_imposterdf.iloc[random_trial:(random_trial + trialsdf.index.size)].reset_index()
     return imposter_sess.drop(columns=['index', 'level_0'])
 
 
