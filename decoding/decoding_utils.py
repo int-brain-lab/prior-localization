@@ -132,8 +132,8 @@ def generate_imposter_session(imposterdf, eid, trialsdf, nbSampledSess=50, pLeft
     if np.any(sub_imposterdf['sorted_eids'].unique() != sub_imposterdf['sorted_eids']):
         raise ValueError('There is most probably a bug in the function')
     sub_imposterdf = sub_imposterdf.sort_values(by=['sorted_eids'])
-    sub_imposterdf = sub_imposterdf[(sub_imposterdf.probabilityLeft != 0.5) |
-                                    (sub_imposterdf.eid == imposter_eids[0])].reset_index(drop=True)
+    sub_imposterdf = sub_imposterdf[(sub_imposterdf.probabilityLeft != 0.5)].reset_index(drop=True)
+    #  (sub_imposterdf.eid == imposter_eids[0])].reset_index(drop=True)
     if pLeftChange_when_stitch:
         valid_imposter_eids, current_last_pLeft = [], 0
         for i, imposter_eid in enumerate(imposter_eids):
@@ -158,7 +158,8 @@ def generate_imposter_session(imposterdf, eid, trialsdf, nbSampledSess=50, pLeft
         if sub_imposterdf.index.size < trialsdf.index.size:
             raise ValueError('you did not stitch enough imposter sessions. Simply increase the nbSampledSess argument')
         sub_imposterdf = sub_imposterdf.reset_index(drop=True)
-    imposter_sess = sub_imposterdf.iloc[:trialsdf.index.size].reset_index(drop=True)
+    random_number = np.random.randint(sub_imposterdf.index.size - trialsdf.index.size)
+    imposter_sess = sub_imposterdf.iloc[random_number:(random_number + trialsdf.index.size)].reset_index(drop=True)
     return imposter_sess
 
 
