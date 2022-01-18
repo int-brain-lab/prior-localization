@@ -189,7 +189,8 @@ if __name__ == "__main__":
         'fit_params': params,
         'dataset': dataset,
         'fit_results': masterscores,
-        'fit_files': filenames
+        'fit_files': filenames,
+        'design_example': sessdesign.result()
     }
     with open(Path(GLM_FIT_PATH).joinpath(f'{currdate}_glm_fit.pkl'), 'wb') as fw:
         pickle.dump(outdict, fw)

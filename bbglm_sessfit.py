@@ -175,10 +175,13 @@ def generate_design(trialsdf, prior, t_before, bases,
     trialsdf['adj_contrastR'] = np.tanh(contnorm * trialsdf['contrastRight']) / np.tanh(contnorm)
     trialsdf['prior'] = prior
     trialsdf['prior_last'] = pd.Series(np.roll(trialsdf['prior'], 1), index=trialsdf.index)
+    trialsdf['pLeft_last'] = pd.Series(np.roll(trialsdf['probabilityLeft'], 1),
+                                       index=trialsdf.index)
 
     vartypes = {'choice': 'value',
                 'response_times': 'timing',
                 'probabilityLeft': 'value',
+                'pLeft_last': 'value',
                 'feedbackType': 'value',
                 'feedback_times': 'timing',
                 'contrastLeft': 'value',
@@ -196,15 +199,15 @@ def generate_design(trialsdf, prior, t_before, bases,
 
     def stepfunc_prestim(row):
         stepvec = np.zeros(design.binf(row.duration))
-        stepvec[stepbounds[0]:stepbounds[1]] = row.prior_last
+        stepvec[stepbounds[0]:stepbounds[1]] = row.pLeft_last
         return stepvec
 
     def stepfunc_poststim(row):
         zerovec = np.zeros(design.binf(row.duration))
-        currtr_start = design.binf(row.stimOn_times)
+        currtr_start = design.binf(row.stimOn_times + 0.1)
         currtr_end = design.binf(row.feedback_times)
-        zerovec[currtr_start:currtr_end] = row.prior_last
-        zerovec[currtr_end:] = row.prior
+        zerovec[currtr_start:currtr_end] = row.pLeft_last
+        zerovec[currtr_end:] = row.probabilityLeft
         return zerovec
 
     design = dm.DesignMatrix(trialsdf, vartypes, binwidth=binwidth)
@@ -228,9 +231,9 @@ def generate_design(trialsdf, prior, t_before, bases,
                                 offset=fmove_offset,
                                 desc='Lead up to first movement')
     design.add_covariate_raw('pLeft', stepfunc_prestim,
-                             desc='Step function on prior estimate')
+                             desc='Step function on pLeft')
     design.add_covariate_raw('pLeft_tr', stepfunc_poststim,
-                             desc='Step function on post-stimulus prior')
+                             desc='Step function on post-stimulus pLeft')
 
     design.add_covariate('wheel', trialsdf['wheel_velocity'], bases['wheel'], wheel_offset)
     design.compile_design_matrix()
