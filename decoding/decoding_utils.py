@@ -29,9 +29,6 @@ modeldispatcher = {expSmoothing_prevAction: 'expSmoothingPrevActions',
                    }
 
 
-# Loading data and input utilities
-
-
 def query_sessions(selection='all', one=None):
     '''
     Filters sessions on some canonical filters
@@ -75,7 +72,7 @@ def query_sessions(selection='all', one=None):
                          'Must be in [\'all\', \'aligned\', \'resolved\', \'aligned-behavior\','
                          ' \'resolved-behavior\']')
 
-    # Get list of eids and probes
+    #  Get list of eids and probes
     all_eids = np.array([i['session'] for i in ins])
     all_probes = np.array([i['name'] for i in ins])
     all_subjects = np.array([i['session_info']['subject'] for i in ins])
@@ -132,8 +129,9 @@ def generate_imposter_session(imposterdf, eid, trialsdf, nbSampledSess=50, pLeft
     if np.any(sub_imposterdf['sorted_eids'].unique() != sub_imposterdf['sorted_eids']):
         raise ValueError('There is most probably a bug in the function')
     sub_imposterdf = sub_imposterdf.sort_values(by=['sorted_eids'])
-    sub_imposterdf = sub_imposterdf[(sub_imposterdf.probabilityLeft != 0.5)].reset_index(drop=True)
-    #  (sub_imposterdf.eid == imposter_eids[0])].reset_index(drop=True)
+    # seems to work better when starting the imposter session as the actual session, with an unbiased block
+    sub_imposterdf = sub_imposterdf[(sub_imposterdf.probabilityLeft != 0.5) |
+                                    (sub_imposterdf.eid == imposter_eids[0])].reset_index(drop=True)
     if pLeftChange_when_stitch:
         valid_imposter_eids, current_last_pLeft = [], 0
         for i, imposter_eid in enumerate(imposter_eids):
@@ -158,10 +156,11 @@ def generate_imposter_session(imposterdf, eid, trialsdf, nbSampledSess=50, pLeft
         if sub_imposterdf.index.size < trialsdf.index.size:
             raise ValueError('you did not stitch enough imposter sessions. Simply increase the nbSampledSess argument')
         sub_imposterdf = sub_imposterdf.reset_index(drop=True)
-    # select a random first block index
-    idx_chge = np.where(sub_imposterdf.probabilityLeft.values[1:] != sub_imposterdf.probabilityLeft.values[:-1])[0] + 1
-    random_number = np.random.choice(idx_chge[idx_chge < (sub_imposterdf.index.size - trialsdf.index.size)])
-    imposter_sess = sub_imposterdf.iloc[random_number:(random_number + trialsdf.index.size)].reset_index(drop=True)
+    # select a random first block index <- this doesn't seem to work well, it changes the block statistics too much
+    # idx_chge = np.where(sub_imposterdf.probabilityLeft.values[1:] != sub_imposterdf.probabilityLeft.values[:-1])[0]+1
+    # random_number = np.random.choice(idx_chge[idx_chge < (sub_imposterdf.index.size - trialsdf.index.size)])
+    # imposter_sess = sub_imposterdf.iloc[random_number:(random_number + trialsdf.index.size)].reset_index(drop=True)
+    imposter_sess = sub_imposterdf.iloc[:trialsdf.index.size].reset_index(drop=True)
     return imposter_sess
 
 

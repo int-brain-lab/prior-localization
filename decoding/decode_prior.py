@@ -43,7 +43,7 @@ LOCAL = False
 if LOCAL:
     DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding")
 else:
-    DECODING_PATH = Path("/home/users/f/findling/ibl/prior-localization/decoding")
+    DECODING_PATH = Path("/home/users/f/findling/scratch/ibl")
 
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
@@ -79,7 +79,7 @@ BALANCED_WEIGHT = False  # seems to work better with BALANCED_WEIGHT=False
 HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])}
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
-ADD_TO_SAVING_PATH = 'fakeimposter-v2'
+ADD_TO_SAVING_PATH = 'behimposter-v0'
 
 # session to be excluded (by Olivier Winter)
 excludes = [
@@ -325,7 +325,7 @@ if __name__ == '__main__':
     insdf = pd.read_parquet(DECODING_PATH.joinpath('insertions.pqt'))
     insdf = insdf[insdf.spike_sorting != '']
     eids = insdf['eid'].unique()
-    imposterdf = pd.read_parquet(DECODING_PATH.joinpath('fake_imposterSessions.pqt'))
+    imposterdf = pd.read_parquet(DECODING_PATH.joinpath('mposterSessions_beforeRecordings.pqt'))
 
     # create necessary empty directories if not existing
     DECODING_PATH.joinpath('results').mkdir(exist_ok=True)
