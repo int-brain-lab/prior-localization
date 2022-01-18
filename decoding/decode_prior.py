@@ -27,17 +27,16 @@ except:
     warnings.warn('dask import failed')
     pass
 from tqdm import tqdm
-from ibllib.atlas import AllenAtlas
 
 logger = logging.getLogger('ibllib')
 logger.disabled = True
 
-strlut = {sklm.Lasso: 'Lasso',
-          sklm.LassoCV: 'LassoCV',
-          sklm.Ridge: 'Ridge',
-          sklm.RidgeCV: 'RidgeCV',
-          sklm.LinearRegression: 'PureLinear',
-          sklm.LogisticRegression: 'Logistic'}
+strlut = {sklm.Lasso: "Lasso",
+          sklm.LassoCV: "LassoCV",
+          sklm.Ridge: "Ridge",
+          sklm.RidgeCV: "RidgeCV",
+          sklm.LinearRegression: "PureLinear",
+          sklm.LogisticRegression: "Logistic"}
 
 # %% Run param definitions
 LOCAL = False
@@ -80,7 +79,7 @@ BALANCED_WEIGHT = False  # seems to work better with BALANCED_WEIGHT=False
 HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])}
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
-ADD_TO_SAVING_PATH = 'imposter_v5'
+ADD_TO_SAVING_PATH = 'fakeimposter-v2'
 
 # session to be excluded (by Olivier Winter)
 excludes = [
@@ -326,7 +325,7 @@ if __name__ == '__main__':
     insdf = pd.read_parquet(DECODING_PATH.joinpath('insertions.pqt'))
     insdf = insdf[insdf.spike_sorting != '']
     eids = insdf['eid'].unique()
-    imposterdf = pd.read_parquet(DECODING_PATH.joinpath('imposterSessions.pqt'))
+    imposterdf = pd.read_parquet(DECODING_PATH.joinpath('fake_imposterSessions.pqt'))
 
     # create necessary empty directories if not existing
     DECODING_PATH.joinpath('results').mkdir(exist_ok=True)
@@ -461,7 +460,7 @@ for i, failure in failures:
     print(i, failure.exception(), failure.key)
 print(len(failures))
 print(np.array(failures)[:,0])
-print(len([(i, x) for i, x in enumerate(filenames) if x.status == 'error']))
+print(len([(i, x) for i, x in enumerate(filenames) if x.status == 'pending']))
 import traceback
 tb = failure.traceback()
 traceback.print_tb(tb)
