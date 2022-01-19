@@ -103,7 +103,7 @@ if __name__ == "__main__":
         'wheel_offset': -0.3,
         'contnorm': 5.,
         'reduce_wheel_dim': True,
-        'dataset_fn': '2022-01-03_dataset_metadata.pkl',
+        'dataset_fn': '2022-01-19_dataset_metadata.pkl',
         'model': lm.LinearGLM,
         'alpha_grid': {'alpha': np.logspace(-2, 1.5, 50)},
         'contiguous': False,
@@ -159,7 +159,7 @@ if __name__ == "__main__":
                            job_cpu=N_CORES, env_extra=[f'export OMP_NUM_THREADS={N_CORES}',
                                                        f'export MKL_NUM_THREADS={N_CORES}',
                                                        f'export OPENBLAS_NUM_THREADS={N_CORES}'])
-    cluster.adapt(minimum_jobs=0, maximum_jobs=100)
+    cluster.scale(len(data_fns) * 2 // 3)
     client = Client(cluster)
     futures = client.compute(data_fns)
 
