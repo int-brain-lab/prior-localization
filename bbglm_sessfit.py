@@ -38,7 +38,7 @@ def load_regressors(session_id, probes,
     trialsdf = bbone.load_trials_df(session_id,
                                     maxlen=max_len, t_before=t_before, t_after=t_after,
                                     wheel_binsize=binwidth, ret_abswheel=abswheel,
-                                    ret_wheel=~abswheel, addtl_types=['firstMovement_times'],
+                                    ret_wheel=not abswheel, addtl_types=['firstMovement_times'],
                                     one=one)
 
     if resolved_alignment:
