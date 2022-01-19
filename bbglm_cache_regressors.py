@@ -35,7 +35,7 @@ MAX_LEN = 2.
 T_BEF = 0.6
 T_AFT = 0.6
 BINWIDTH = 0.02
-ABSWHEEL = False
+ABSWHEEL = True
 QC = True
 FORCE = True  # If load_spike_sorting_fast doesn't return _channels, use _channels function
 # End parameters
