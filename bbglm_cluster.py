@@ -142,7 +142,7 @@ if __name__ == "__main__":
         subjeids = sessions.xs(subject, level='subject').index.unique().to_list()
         stdf, sspkt, sspkclu, sclureg, scluqc = dload(eidfn)
         stdf_nona = dfilter(stdf)
-        sessfullprior = dprior('prior', subject, subjeids, eid, BEH_MOD_PATH)
+        sessfullprior = dprior('pLeft', subject, subjeids, eid, Path(BEH_MOD_PATH))
         sessprior = dselect_prior(sessfullprior, stdf_nona.index)
         sessdesign = ddesign(stdf_nona, sessprior, dataset_params['t_before'],
                              **params)
@@ -185,12 +185,13 @@ if __name__ == "__main__":
         sessdfs.append(sess_master)
     masterscores = pd.concat(sessdfs)
     masterscores.set_index(['eid', 'acronym', 'clu_id', 'fold'], inplace=True)
+    design_example = sessdesign.compute()
     outdict = {
         'fit_params': params,
         'dataset': dataset,
         'fit_results': masterscores,
         'fit_files': filenames,
-        'design_example': sessdesign.result()
+        'design_example': design_example
     }
     with open(Path(GLM_FIT_PATH).joinpath(f'{currdate}_glm_fit.pkl'), 'wb') as fw:
         pickle.dump(outdict, fw)
