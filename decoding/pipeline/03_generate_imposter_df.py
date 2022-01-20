@@ -9,8 +9,8 @@ from models import utils as mut
 
 FAKE_IMPOSTER_SESSION = False  # only here for debugging
 GENERATE_FROM_EPHYS = False  # the number of ephys session template is too small
-# DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding")
-DECODING_PATH = Path("/home/users/f/findling/ibl/prior-localization/decoding")
+DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding")
+#DECODING_PATH = Path("/home/users/f/findling/scratch/decoding")
 
 one = ONE()
 
