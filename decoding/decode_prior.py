@@ -325,7 +325,7 @@ if __name__ == '__main__':
     insdf = pd.read_parquet(DECODING_PATH.joinpath('insertions.pqt'))
     insdf = insdf[insdf.spike_sorting != '']
     eids = insdf['eid'].unique()
-    imposterdf = pd.read_parquet(DECODING_PATH.joinpath('mposterSessions_beforeRecordings.pqt'))
+    imposterdf = pd.read_parquet(DECODING_PATH.joinpath('imposterSessions_beforeRecordings.pqt'))
 
     # create necessary empty directories if not existing
     DECODING_PATH.joinpath('results').mkdir(exist_ok=True)
@@ -354,8 +354,7 @@ if __name__ == '__main__':
     IMIN = 0
     filenames = []
     for i, eid in enumerate(eids):
-        if (i < IMIN or eid in excludes or np.any(insdf[insdf['eid'] == eid]['spike_sorting'] == "")) or \
-                (USE_IMPOSTER_SESSION and eid not in imposterdf.eid.values):
+        if (i < IMIN or eid in excludes or np.any(insdf[insdf['eid'] == eid]['spike_sorting'] == "")):
             print(f"dud {eid}")
             continue
         print(f"{i}, session: {eid}")
@@ -464,6 +463,7 @@ print(len([(i, x) for i, x in enumerate(filenames) if x.status == 'pending']))
 import traceback
 tb = failure.traceback()
 traceback.print_tb(tb)
+print(len([(i, x) for i, x in enumerate(filenames) if x.status == 'error']))
 """
 # You can also get the traceback from failure.traceback and print via `import traceback` and
 # traceback.print_tb()
