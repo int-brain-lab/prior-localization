@@ -38,7 +38,7 @@ def load_regressors(session_id, probes,
     trialsdf = bbone.load_trials_df(session_id,
                                     maxlen=max_len, t_before=t_before, t_after=t_after,
                                     wheel_binsize=binwidth, ret_abswheel=abswheel,
-                                    ret_wheel=~abswheel, addtl_types=['firstMovement_times'],
+                                    ret_wheel=not abswheel, addtl_types=['firstMovement_times'],
                                     one=one)
 
     if resolved_alignment:
@@ -199,15 +199,15 @@ def generate_design(trialsdf, prior, t_before, bases,
 
     def stepfunc_prestim(row):
         stepvec = np.zeros(design.binf(row.duration))
-        stepvec[stepbounds[0]:stepbounds[1]] = row.pLeft_last
+        stepvec[stepbounds[0]:stepbounds[1]] = row.prior_last
         return stepvec
 
     def stepfunc_poststim(row):
         zerovec = np.zeros(design.binf(row.duration))
         currtr_start = design.binf(row.stimOn_times + 0.1)
         currtr_end = design.binf(row.feedback_times)
-        zerovec[currtr_start:currtr_end] = row.pLeft_last
-        zerovec[currtr_end:] = row.probabilityLeft
+        zerovec[currtr_start:currtr_end] = row.prior_last
+        zerovec[currtr_end:] = row.prior
         return zerovec
 
     design = dm.DesignMatrix(trialsdf, vartypes, binwidth=binwidth)
@@ -231,9 +231,9 @@ def generate_design(trialsdf, prior, t_before, bases,
                                 offset=fmove_offset,
                                 desc='Lead up to first movement')
     design.add_covariate_raw('pLeft', stepfunc_prestim,
-                             desc='Step function on pLeft')
+                             desc='Step function on prior estimate')
     design.add_covariate_raw('pLeft_tr', stepfunc_poststim,
-                             desc='Step function on post-stimulus pLeft')
+                             desc='Step function on post-stimulus prior estimate')
 
     design.add_covariate('wheel', trialsdf['wheel_velocity'], bases['wheel'], wheel_offset)
     design.compile_design_matrix()
