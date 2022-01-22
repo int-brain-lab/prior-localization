@@ -281,7 +281,11 @@ def fit_eid(eid, sessdf):
                                                  eid, probe, region, N_units))
 
     return filenames
+<<<<<<< HEAD
 #%%
+=======
+
+>>>>>>> 9cbb2a13e5e505f31f538f8d969a21dfdcd51bc4
 # tmux and then salloc onto compute node
 # run on cluster by pasteing.  "ipython --no-autoindents".  
 if __name__ == '__main__':
@@ -290,6 +294,7 @@ if __name__ == '__main__':
     # Generate cluster interface and map eids to workers via dask.distributed.Client
     sessdf = dut.query_sessions(selection=SESS_CRITERION)
     sessdf = sessdf.sort_values('subject').set_index(['subject', 'eid'])
+<<<<<<< HEAD
     if False:
         N_CORES = 2
         cluster = SLURMCluster(cores=N_CORES, memory='16GB', processes=1, queue="shared-cpu", # modify queue for Sherlock, Partition name from squeue
@@ -303,6 +308,19 @@ if __name__ == '__main__':
         cluster.adapt(minimum_jobs=0, maximum_jobs=80)
     else:
         cluster = LocalCluster()
+=======
+
+    N_CORES = 2
+    cluster = SLURMCluster(cores=N_CORES, memory='16GB', processes=1, queue="shared-cpu", # modify queue for Sherlock, Partition name from squeue
+                           walltime="01:15:00",
+                           log_directory='/home/users/f/findling/ibl/prior-localization/decoding/dask-worker-logs',
+                           interface='ib0',
+                           extra=["--lifetime", "60m", "--lifetime-stagger", "10m"],
+                           job_cpu=N_CORES, env_extra=[f'export OMP_NUM_THREADS={N_CORES}',
+                                                       f'export MKL_NUM_THREADS={N_CORES}',
+                                                       f'export OPENBLAS_NUM_THREADS={N_CORES}'])
+    cluster.adapt(minimum_jobs=0, maximum_jobs=80)
+>>>>>>> 9cbb2a13e5e505f31f538f8d969a21dfdcd51bc4
     client = Client(cluster)
 
     import time
