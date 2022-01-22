@@ -1,9 +1,10 @@
 # bb
 
 import sys
-MODELS_PATH = '/home/bensonb/IBL-working/behavior_models/'
+MODELS_PATH = '/home/bensonb/IntBrainLab/behavior_models/'
 if not MODELS_PATH in sys.path:
     sys.path.insert(0, MODELS_PATH)
+
     
 import os
 import pickle
@@ -33,11 +34,12 @@ logger.disabled = True
 SESS_CRITERION = 'aligned-behavior'
 TARGET = 'signcont'
 MODEL = expSmoothing_prevAction
-MODELFIT_PATH = '/home/berk/Documents/Projects/prior-localization/results/inference/'
-OUTPUT_PATH = '/home/berk/Documents/Projects/prior-localization/results/decoding/'
+MODELFIT_PATH = '/home/bensonb/IntBrainLab/prior-localization/results/inference/'
+OUTPUT_PATH = '/home/bensonb/IntBrainLab/prior-localization/results/decoding/'
 ALIGN_TIME = 'stimOn_times'
 TIME_WINDOW = (-0.6, -0.2)
 ESTIMATOR = sklm.Lasso
+ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
 N_PSEUDO = 10 #200
 DATE = str(date.today())
 deterministic_pseudoSessions = True
@@ -68,17 +70,18 @@ sessdf = sessdf.sort_values('subject').set_index(['subject', 'eid'])
 filenames = []
 
 # select eid
-eid_list = ['dfd8e7df-dc51-4589-b6ca-7baccfeb94b4', '034e726f-b35f-41e0-8d6c-a22cc32391fb',
-            '7939711b-8b4d-4251-b698-b97c1eaa846e', 'fa704052-147e-46f6-b190-a65b837e605e',
-            '46794e05-3f6a-4d35-afb3-9165091a5a74', '1538493d-226a-46f7-b428-59ce5f43f0f9',
-            'b52182e7-39f6-4914-9717-136db589706e', '89f0d6ff-69f4-45bc-b89e-72868abb042a',
-            '3ce452b3-57b4-40c9-885d-1b814036e936', '2d5f6d81-38c4-4bdc-ac3c-302ea4d5f46e',
-            '4b7fbad4-f6de-43b4-9b15-c7c7ef44db4b', 'd839491f-55d8-4cbe-a298-7839208ba12b',
-            'd2918f52-8280-43c0-924b-029b2317e62c', 'c99d53e6-c317-4c53-99ba-070b26673ac4',
-            'ecb5520d-1358-434c-95ec-93687ecd1396', '5386aba9-9b97-4557-abcd-abc2da66b863',
-            '4b00df29-3769-43be-bb40-128b1cba6d35', '3663d82b-f197-4e8b-b299-7b803a155b84',
-            '85dc2ebd-8aaf-46b0-9284-a197aee8b16f', '15f742e1-1043-45c9-9504-f1e8a53c1744']
-
+# eid_list = ['dfd8e7df-dc51-4589-b6ca-7baccfeb94b4', '034e726f-b35f-41e0-8d6c-a22cc32391fb',
+#             '7939711b-8b4d-4251-b698-b97c1eaa846e', 'fa704052-147e-46f6-b190-a65b837e605e',
+#             '46794e05-3f6a-4d35-afb3-9165091a5a74', '1538493d-226a-46f7-b428-59ce5f43f0f9',
+#             'b52182e7-39f6-4914-9717-136db589706e', '89f0d6ff-69f4-45bc-b89e-72868abb042a',
+#             '3ce452b3-57b4-40c9-885d-1b814036e936', '2d5f6d81-38c4-4bdc-ac3c-302ea4d5f46e',
+#             '4b7fbad4-f6de-43b4-9b15-c7c7ef44db4b', 'd839491f-55d8-4cbe-a298-7839208ba12b',
+#             'd2918f52-8280-43c0-924b-029b2317e62c', 'c99d53e6-c317-4c53-99ba-070b26673ac4',
+#             'ecb5520d-1358-434c-95ec-93687ecd1396', '5386aba9-9b97-4557-abcd-abc2da66b863',
+#             '4b00df29-3769-43be-bb40-128b1cba6d35', '3663d82b-f197-4e8b-b299-7b803a155b84',
+#             '85dc2ebd-8aaf-46b0-9284-a197aee8b16f', '15f742e1-1043-45c9-9504-f1e8a53c1744']
+eid_list = ['15f742e1-1043-45c9-9504-f1e8a53c1744']
+#%%
 # eid_list = ['034e726f-b35f-41e0-8d6c-a22cc32391fb'] #['46794e05-3f6a-4d35-afb3-9165091a5a74']
 # sessdf.index.unique(level='eid')[115] #sessdf.index.unique(level='eid')[0]
 all_outputs = dict()
@@ -136,7 +139,7 @@ for eid in eid_list:
                          'may be due to floating point representation error.'
                          'Check window.')
     msub_binned = binned  # - np.mean(binned, axis=0)
-    fit_result = dut.regress_target(msub_tvec, msub_binned, ESTIMATOR(),
+    fit_result = dut.regress_target(msub_tvec, msub_binned, ESTIMATOR, ESTIMATOR_KWARGS,
                                     hyperparam_grid=HPARAM_GRID, verbose=False, shuffle=False)
 
     intervals = np.vstack([trialsdf[ALIGN_TIME] + TIME_WINDOW[0],
@@ -147,7 +150,7 @@ for eid in eid_list:
     from decoding_stimulus_neurometric_fit import get_target_df, fit_get_shift_range
 
     lowprob_arr, highprob_arr = get_target_df(fit_result['target'],
-                                              fit_result['prediction'],
+                                              fit_result['predictions'],
                                               fit_result['idxes_test'],
                                               trialsdf,
                                               one)
@@ -159,7 +162,7 @@ for eid in eid_list:
           format(low_slope, high_slope, low_range, high_range, shift))
 
     # save results
-    for s in ['Rsquared_train', 'Rsquared_test', 'weights', 'target', 'prediction', 'idxes_test']:
+    for s in ['Rsquared_train', 'Rsquared_test', 'weights', 'target', 'predictions', 'idxes_test']:
         eid_output[s] = fit_result[s]
     eid_output['probe'] = probe
     eid_output['neurometric'] = {"low_slope": low_slope,
@@ -189,7 +192,7 @@ for eid in eid_list:
 
         # get neurometric curves
         pseudo_lowprob_arr, pseudo_highprob_arr = get_target_df(pseudo_result['target'],
-                                                                pseudo_result['prediction'],
+                                                                pseudo_result['predictions'],
                                                                 pseudo_result['idxes_test'],
                                                                 pseudosess,
                                                                 one)
@@ -198,7 +201,7 @@ for eid in eid_list:
                                                                                           pseudo_highprob_arr,
                                                                                           seed_=0)
 
-        for s in ['Rsquared_train', 'Rsquared_test', 'weights', 'target', 'prediction', 'idxes_test']:
+        for s in ['Rsquared_train', 'Rsquared_test', 'weights', 'target', 'predictions', 'idxes_test']:
             result_dict[s] = pseudo_result[s]
         result_dict['neurometric'] = {"low_slope": low_slope,
                                       "high_slope": high_slope,

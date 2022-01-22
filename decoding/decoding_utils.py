@@ -17,7 +17,8 @@ from sklearn.linear_model._coordinate_descent import LinearModelCV
 from sklearn.metrics import r2_score
 from sklearn.utils.class_weight import compute_sample_weight
 
-possible_targets = ['prior', 'prederr', 'signcont', 'pLeft']
+possible_targets = ['prior', 'prederr', 'signcont', 'pLeft',
+                    'choice','feedback']
 
 modeldispatcher = {expSmoothing_prevAction: 'expSmoothingPrevActions',
                    expSmoothing_stimside: 'expSmoothingStimSides',
@@ -117,11 +118,11 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
     # check if is trained
     istrained, fullpath = check_bhv_fit_exists(subject, modeltype, eids_train, savepath)
 
-    if (beh_data_test is not None) and (not istrained) and (target not in ['signcont', 'pLeft']):
+    if (beh_data_test is not None) and (not istrained) and (target not in ['signcont', 'pLeft','choice','feedback']):
         raise ValueError('when actions, stimuli and stim_side are all defined,'
                          ' the model must have been trained')
 
-    if (not istrained) and (target not in ['signcont', 'pLeft']):
+    if (not istrained) and (target not in ['signcont', 'pLeft','choice','feedback']):
         datadict = {'stim_side': [], 'actions': [], 'stimuli': []}
         for eid in eids_train:
             data = mut.load_session(eid, one=one)
@@ -139,7 +140,7 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
         model = modeltype(savepath, eids, subject,
                           actions, stimuli, stim_side)
         model.load_or_train(remove_old=remove_old)
-    elif target not in ['signcont', 'pLeft']:
+    elif target not in ['signcont', 'pLeft','choice','feedback']:
         model = modeltype(savepath, eids_train, subject, actions=None, stimuli=None,
                           stim_side=None)
         model.load_or_train(loadpath=str(fullpath))
@@ -154,6 +155,10 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
         return out
     elif target == 'pLeft':
         return np.array(beh_data_test['probabilityLeft'])
+    elif target == 'choice':
+        return np.array(beh_data_test['choice'])
+    elif target == 'feedback':
+        return np.array(beh_data_test['feedbackType'])
 
     # compute signal
     stim_side, stimuli, actions, _ = mut.format_data(beh_data_test)

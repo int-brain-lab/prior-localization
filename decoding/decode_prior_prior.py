@@ -310,17 +310,16 @@ if __name__ == '__main__':
     sessdf_eids = sessdf.index.unique(level='eid')
     #%%
     # sessdf_eids=np.unique(sessdf_eids)[30:32]
-    sessdf_eids= ['dfd8e7df-dc51-4589-b6ca-7baccfeb94b4', '034e726f-b35f-41e0-8d6c-a22cc32391fb',
-                '7939711b-8b4d-4251-b698-b97c1eaa846e', 'fa704052-147e-46f6-b190-a65b837e605e',
-                '46794e05-3f6a-4d35-afb3-9165091a5a74', '1538493d-226a-46f7-b428-59ce5f43f0f9',
-                # 'b52182e7-39f6-4914-9717-136db589706e', '89f0d6ff-69f4-45bc-b89e-72868abb042a',
-                # '3ce452b3-57b4-40c9-885d-1b814036e936', '2d5f6d81-38c4-4bdc-ac3c-302ea4d5f46e',
-                # '4b7fbad4-f6de-43b4-9b15-c7c7ef44db4b', 'd839491f-55d8-4cbe-a298-7839208ba12b',
-                # 'd2918f52-8280-43c0-924b-029b2317e62c', 'c99d53e6-c317-4c53-99ba-070b26673ac4',
-                # 'ecb5520d-1358-434c-95ec-93687ecd1396', '5386aba9-9b97-4557-abcd-abc2da66b863',
-                '4b00df29-3769-43be-bb40-128b1cba6d35', '3663d82b-f197-4e8b-b299-7b803a155b84',
-                '85dc2ebd-8aaf-46b0-9284-a197aee8b16f', '15f742e1-1043-45c9-9504-f1e8a53c1744']
-    # sessdf_eids= ['15f742e1-1043-45c9-9504-f1e8a53c1744']
+    # sessdf_eids= ['dfd8e7df-dc51-4589-b6ca-7baccfeb94b4', '034e726f-b35f-41e0-8d6c-a22cc32391fb',
+    #             '7939711b-8b4d-4251-b698-b97c1eaa846e', 'fa704052-147e-46f6-b190-a65b837e605e',
+    #             '46794e05-3f6a-4d35-afb3-9165091a5a74', '1538493d-226a-46f7-b428-59ce5f43f0f9',
+    #             'b52182e7-39f6-4914-9717-136db589706e', '89f0d6ff-69f4-45bc-b89e-72868abb042a',
+    #             '3ce452b3-57b4-40c9-885d-1b814036e936', '2d5f6d81-38c4-4bdc-ac3c-302ea4d5f46e',
+    #             '4b7fbad4-f6de-43b4-9b15-c7c7ef44db4b', 'd839491f-55d8-4cbe-a298-7839208ba12b',
+    #             'd2918f52-8280-43c0-924b-029b2317e62c', 'c99d53e6-c317-4c53-99ba-070b26673ac4',
+    #             'ecb5520d-1358-434c-95ec-93687ecd1396', '5386aba9-9b97-4557-abcd-abc2da66b863',
+    #             '4b00df29-3769-43be-bb40-128b1cba6d35', '3663d82b-f197-4e8b-b299-7b803a155b84',
+    #             '85dc2ebd-8aaf-46b0-9284-a197aee8b16f', '15f742e1-1043-45c9-9504-f1e8a53c1744']
     for eid in sessdf_eids:
         
         # fns = client.submit(fit_eid, eid, sessdf)
