@@ -14,7 +14,7 @@ import decoding_utils as dut
 from decode_prior import SESS_CRITERION
 
 #DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding")
-DECODING_PATH = Path("/home/users/f/findling/scratch/decoding")
+DECODING_PATH = Path("/home/users/f/findling/scratch")
 one = ONE()
 ba = AllenAtlas()
 

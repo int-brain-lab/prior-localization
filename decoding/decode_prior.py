@@ -21,6 +21,7 @@ from decoding_stimulus_neurometric_fit import get_neurometric_parameters
 try:
     from dask_jobqueue import SLURMCluster
     from dask.distributed import Client, LocalCluster
+    import dask
 except:
     import warnings
 
@@ -43,7 +44,7 @@ LOCAL = False
 if LOCAL:
     DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding")
 else:
-    DECODING_PATH = Path("/home/users/f/findling/scratch/ibl")
+    DECODING_PATH = Path("/home/users/f/findling/scratch/")
 
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
@@ -56,7 +57,7 @@ MODEL = None  # expSmoothing_prevAction  # or dut.modeldispatcher.
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
-N_PSEUDO = 2
+N_PSEUDO = 55
 N_RUNS = 10
 MIN_UNITS = 10
 MIN_BEHAV_TRIAS = 400  # default BWM setting
@@ -79,7 +80,7 @@ BALANCED_WEIGHT = False  # seems to work better with BALANCED_WEIGHT=False
 HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])}
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
-ADD_TO_SAVING_PATH = 'behimposter-v0'
+ADD_TO_SAVING_PATH = 'pseudoSessions_unmergedProbes'
 
 # session to be excluded (by Olivier Winter)
 excludes = [
@@ -266,22 +267,14 @@ def fit_eid(eid, sessdf, imposterdf, pseudo_id=-1, nb_runs=10, single_region=SIN
 
             fit_results = []
             for i_run in range(nb_runs):
-                if pseudo_id == -1:
-                    fit_result = dut.regress_target(msub_tvec, msub_binned, estimator,
-                                                    estimator_kwargs=ESTIMATOR_KWARGS,
-                                                    hyperparam_grid=HPARAM_GRID,
-                                                    save_binned=SAVE_BINNED, shuffle=SHUFFLE,
-                                                    balanced_weight=BALANCED_WEIGHT,
-                                                    normalize_input=NORMALIZE_INPUT,
-                                                    normalize_output=NORMALIZE_OUTPUT)
-                else:
-                    fit_result = dut.regress_target(msub_pseudo_tvec, msub_binned, estimator,
-                                                    estimator_kwargs=ESTIMATOR_KWARGS,
-                                                    hyperparam_grid=HPARAM_GRID,
-                                                    save_binned=SAVE_BINNED, shuffle=SHUFFLE,
-                                                    balanced_weight=BALANCED_WEIGHT,
-                                                    normalize_input=NORMALIZE_INPUT,
-                                                    normalize_output=NORMALIZE_OUTPUT)
+                fit_result = dut.regress_target(msub_tvec if (pseudo_id == -1) else msub_pseudo_tvec,
+                                                msub_binned, estimator,
+                                                estimator_kwargs=ESTIMATOR_KWARGS,
+                                                hyperparam_grid=HPARAM_GRID,
+                                                save_binned=SAVE_BINNED, shuffle=SHUFFLE,
+                                                balanced_weight=BALANCED_WEIGHT,
+                                                normalize_input=NORMALIZE_INPUT,
+                                                normalize_output=NORMALIZE_OUTPUT)
                 fit_result['mask'] = mask
                 fit_result['pseudo_id'] = pseudo_id
                 fit_result['run_id'] = i_run
@@ -306,13 +299,12 @@ def fit_eid(eid, sessdf, imposterdf, pseudo_id=-1, nb_runs=10, single_region=SIN
 
 
 if __name__ == '__main__':
-    from decode_prior import fit_eid, save_region_results
+    from decode_prior import *
 
     # import cached data
     insdf = pd.read_parquet(DECODING_PATH.joinpath('insertions.pqt'))
     insdf = insdf[insdf.spike_sorting != '']
     eids = insdf['eid'].unique()
-    imposterdf = pd.read_parquet(DECODING_PATH.joinpath('imposterSessions_beforeRecordings.pqt'))
 
     # create necessary empty directories if not existing
     DECODING_PATH.joinpath('results').mkdir(exist_ok=True)
@@ -321,37 +313,45 @@ if __name__ == '__main__':
 
     # Generate cluster interface and map eids to workers via dask.distributed.Client
     if LOCAL:
-        cluster = LocalCluster(n_workers=4, threads_per_worker=2)
+        cluster = LocalCluster(n_workers=2, threads_per_worker=1)
     else:
-        N_CORES = 2
+        N_CORES = 8
         cluster = SLURMCluster(cores=N_CORES, memory='16GB', processes=1, queue="shared-cpu",
-                               walltime="01:15:00",
+                               walltime="10:00:00",
                                log_directory='/home/users/f/findling/ibl/prior-localization/decoding/dask-worker-logs',
                                interface='ib0',
-                               extra=["--lifetime", "60m", "--lifetime-stagger", "10m"],
+                               extra=["--lifetime", "24h", "--lifetime-stagger", "10m"],
                                job_cpu=N_CORES, env_extra=[f'export OMP_NUM_THREADS={N_CORES}',
                                                            f'export MKL_NUM_THREADS={N_CORES}',
                                                            f'export OPENBLAS_NUM_THREADS={N_CORES}'])
-        cluster.adapt(minimum_jobs=1, maximum_jobs=200)
+        #cluster.adapt(minimum_jobs=1, maximum_jobs=len(eids))
+        cluster.scale(len(eids) * N_PSEUDO // 10)
     client = Client(cluster)
     # todo verify the behavior of scatter
-    imposterdf_future = client.scatter(imposterdf)
+    if USE_IMPOSTER_SESSION:
+        imposterdf = pd.read_parquet(DECODING_PATH.joinpath('imposterSessions_beforeRecordings.pqt'))
+        imposterdf_future = client.scatter(imposterdf)
+    else:
+        imposterdf_future = None
 
-    # debug
-    IMIN = 0
+
+    import time
+#        if i != 0 and i % 20 == 0:
+#            print('sleeping')
+#            time.sleep(45 * 60)  # wait 30min every 20 eids <- less than 500 jobs every 40mins
+    one = ONE(mode='local')
     filenames = []
     for i, eid in enumerate(eids):
-        if (i < IMIN or eid in excludes or np.any(insdf[insdf['eid'] == eid]['spike_sorting'] == "")):
+        if (eid in excludes or np.any(insdf[insdf['eid'] == eid]['spike_sorting'] == "")):
             print(f"dud {eid}")
             continue
         print(f"{i}, session: {eid}")
         for pseudo_id in range(N_PSEUDO + 1):
-            fns = client.submit(fit_eid,
-                                eid=eid,
-                                sessdf=insdf,
+            fns = client.submit(fit_eid, eid=eid, sessdf=insdf,
                                 pseudo_id=-1 if pseudo_id == 0 else pseudo_id,
                                 nb_runs=N_RUNS,
-                                imposterdf=imposterdf_future)
+                                imposterdf=imposterdf_future,
+                                one=one)
             filenames.append(fns)
 
     # WAIT FOR COMPUTATION TO FINISH BEFORE MOVING ON
@@ -446,11 +446,22 @@ for i, failure in failures:
     print(i, failure.exception(), failure.key)
 print(len(failures))
 print(np.array(failures)[:,0])
-print(len([(i, x) for i, x in enumerate(filenames) if x.status == 'pending']))
+print(len([(i, x) for i, x in enumerate(filenames) if x.status == 'error']))
 import traceback
 tb = failure.traceback()
 traceback.print_tb(tb)
-print(len([(i, x) for i, x in enumerate(filenames) if x.status == 'error']))
+print(len([(i, x) for i, x in enumerate(filenames) if x.status == 'pending']))
 """
 # You can also get the traceback from failure.traceback and print via `import traceback` and
 # traceback.print_tb()
+
+
+'''
+custom static plot
+fo = open(finished[418], 'rb') # 416, 418
+result = pickle.load(fo)
+fo.close()
+
+low_trace = np.vstack([result["fit"][k]['full_neurometric']['low_fit_trace'] for k in range(len(result["fit"]))])
+high_trace = np.vstack([result["fit"][k]['full_neurometric']['high_fit_trace'] for k in range(len(result["fit"]))])
+'''
