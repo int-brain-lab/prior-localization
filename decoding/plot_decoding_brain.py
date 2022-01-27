@@ -18,9 +18,11 @@ if not PLOTUTILS_PATH in sys.path:
     sys.path.insert(0, PLOTUTILS_PATH)
 from utils import plot_scalar_on_slice
 
-def plot_decoding_results(acronyms, values, filename, cmap='viridis'):
+def plot_decoding_results(acronyms, values, filename, 
+                FILE_PATH='/home/bensonb/IntBrainLab/prior-localization/decoding_figures/',
+                cmap='viridis'):
     PLOT_TITLE = ''
-    SAVE_PATH = '/home/bensonb/IntBrainLab/prior-localization/decoding_figures/'+filename
+    SAVE_PATH = FILE_PATH + filename
     # cmap = 'viridis'#'purples','blues','greens','oranges','reds'
     
     extend=None

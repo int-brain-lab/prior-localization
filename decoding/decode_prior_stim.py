@@ -54,8 +54,8 @@ MODELFIT_PATH = '/home/bensonb/IntBrainLab/prior-localization/decoding/results/b
 OUTPUT_PATH = '/home/bensonb/IntBrainLab/prior-localization/decoding/results/decoding/'
 #MODELFIT_PATH = '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding/results/behavior/'
 #OUTPUT_PATH = '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding/results/decoding/'
-ALIGN_TIME = 'goCue_times'# 'feedback_times'
-TARGET = 'signcont'  # 'pLeft','prior','choice','feedback','signcont'
+ALIGN_TIME = 'feedback_times'# 'feedback_times'
+TARGET = 'feedback'  # 'pLeft','prior','choice','feedback','signcont'
 TIME_WINDOW = (0, 0.1)  # (-0.6, -0.2), (0, 0.1)
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
@@ -75,7 +75,7 @@ HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10, 100,
 DOUBLEDIP = False
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
-ADD_TO_SAVING_PATH = 'v0'
+ADD_TO_SAVING_PATH = '20eidV0'
 
 # ValueErrors and NotImplementedErrors
 if TARGET not in ['prior','signcont', 'pLeft','choice','feedback']:
@@ -87,6 +87,7 @@ if MODEL not in list(dut.modeldispatcher.keys()):
 if COMPUTE_NEUROMETRIC and TARGET != 'signcont':
     raise ValueError('the target should be signcont to compute neurometric curves')
 
+ESTIMATORSTR = strlut[ESTIMATOR]
 fit_metadata = {
     'criterion': SESS_CRITERION,
     'target': TARGET,
@@ -95,7 +96,7 @@ fit_metadata = {
     'output_path': OUTPUT_PATH,
     'align_time': ALIGN_TIME,
     'time_window': TIME_WINDOW,
-    'estimator': strlut[ESTIMATOR],
+    'estimator': ESTIMATORSTR,
     'n_pseudo': N_PSEUDO,
     'min_units': MIN_UNITS,
     'min_behav_trials': MIN_BEHAV_TRIAS,
@@ -113,7 +114,8 @@ fit_metadata = {
 
 
 # %% Define helper functions for dask workers to use
-def save_region_results(fit_result, pseudo_results, subject, eid, probe, region, N):
+def save_region_results(fit_result, pseudo_results, 
+                        subject, eid, probe, region, N):#
     subjectfolder = Path(OUTPUT_PATH).joinpath(subject)
     eidfolder = subjectfolder.joinpath(eid)
     probefolder = eidfolder.joinpath(probe)
@@ -121,7 +123,18 @@ def save_region_results(fit_result, pseudo_results, subject, eid, probe, region,
         if not os.path.exists(folder):
             os.mkdir(folder)
     start_tw, end_tw = TIME_WINDOW
-    fn = '_'.join([DATE, region, 'timeWindow', str(start_tw).replace('.', '_'), str(end_tw).replace('.', '_')]) + '.pkl'
+    # fn = '_'.join([DATE, region, 
+    #                'timeWindow', 
+    #                str(start_tw).replace('.', '_'), 
+    #                str(end_tw).replace('.', '_')]) + '.pkl'
+    fn = '_'.join([DATE, region,
+                   'decode', TARGET,
+                   dut.modeldispatcher[MODEL] if TARGET in ['prior', 'prederr'] else 'task',
+                   ESTIMATORSTR, 'align', ALIGN_TIME, 
+                   str(N_PSEUDO), 'pseudosessions',
+                   'timeWindow', 
+                   str(start_tw).replace('.', '_'), 
+                   str(end_tw).replace('.', '_')]) + '_' + ADD_TO_SAVING_PATH + '.pkl'
     fw = open(probefolder.joinpath(fn), 'wb')
     outdict = {'fit': fit_result, 'pseudosessions': pseudo_results,
                'subject': subject, 'eid': eid, 'probe': probe, 'region': region, 'N_units': N}
@@ -140,6 +153,7 @@ def fit_eid(eid, sessdf):
     subjeids = sessdf.xs(subject, level='subject').index.unique()
     brainreg = dut.BrainRegions()
     behavior_data = mut.load_session(eid, one=one)
+    pLeft_vec = np.array(behavior_data['probabilityLeft'])
     try:
         tvec = dut.compute_target(TARGET, subject, subjeids, eid, MODELFIT_PATH,
                                   modeltype=MODEL, beh_data=behavior_data,
@@ -239,6 +253,7 @@ def fit_eid(eid, sessdf):
                                             balanced_weight=BALANCED_WEIGHT)
 
             fit_result['mask'] = mask
+            fit_result['pLeft_vec'] = pLeft_vec
 
             # neurometric curve
             if COMPUTE_NEUROMETRIC:
@@ -275,6 +290,8 @@ def fit_eid(eid, sessdf):
                 else:
                     pseudo_result['full_neurometric'] = None
                     pseudo_result['fold_neurometric'] = None
+                
+                pseudo_result['pLeft_vec'] = pLeft_vec
 
                 pseudo_results.append(pseudo_result)
             filenames.append(save_region_results(fit_result, pseudo_results, subject,
@@ -285,7 +302,7 @@ def fit_eid(eid, sessdf):
 # tmux and then salloc onto compute node
 # run on cluster by pasteing.  "ipython --no-autoindents".  
 if __name__ == '__main__':
-    from decode_prior import fit_eid
+    from decode_prior_stim import fit_eid
 
     # Generate cluster interface and map eids to workers via dask.distributed.Client
     sessdf = dut.query_sessions(selection=SESS_CRITERION)
@@ -378,11 +395,10 @@ if __name__ == '__main__':
             resultslist.append(tmpdict)
     resultsdf = pd.DataFrame(resultslist).set_index(indexers)
 
-    estimatorstr = strlut[ESTIMATOR]
     start_tw, end_tw = TIME_WINDOW
     fn = OUTPUT_PATH + '_'.join([DATE, 'decode', TARGET,
                                  dut.modeldispatcher[MODEL] if TARGET in ['prior', 'prederr'] else 'task',
-                                 estimatorstr, 'align', ALIGN_TIME, str(N_PSEUDO), 'pseudosessions',
+                                 ESTIMATORSTR, 'align', ALIGN_TIME, str(N_PSEUDO), 'pseudosessions',
                                  'timeWindow', str(start_tw).replace('.', '_'), str(end_tw).replace('.', '_')])
     if ADD_TO_SAVING_PATH != '':
         fn = fn + '_' + ADD_TO_SAVING_PATH

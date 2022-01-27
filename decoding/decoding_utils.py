@@ -388,7 +388,7 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
 
         print("\n", "Detailed classification report:", "\n")
         print("The model is trained on the full (train + validation) set.")
-        print("\n", "Rsquare on held-out test data: {}".format(np.round(Rsquared_test, 3)), "\n")
+        print("\n", "Rsquare on held-out test data: {}".format(np.round(Rsquareds_test, 3)), "\n")
 
         '''
         import pickle
@@ -396,9 +396,9 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
         outdict_verbose['binned_activity'] = binned
         outdict_verbose['labels'] = tvec
         outdict_verbose['pred_train'] = y_pred_train
-        outdict_verbose['R2_train'] = Rsquared_train
+        outdict_verbose['R2_train'] = Rsquareds_train
         outdict_verbose['pred_test'] = y_pred
-        outdict_verbose['R2_test'] = Rsquared_test
+        outdict_verbose['R2_test'] = Rsquareds_test
         outdict_verbose['regul_term'] = clf.best_params_
         pickle.dump(outdict_verbose, open('eid_{}_sanity.pkl'.format(eid), 'wb'))
         '''
