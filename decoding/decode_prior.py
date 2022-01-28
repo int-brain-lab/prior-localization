@@ -10,6 +10,7 @@ import models.utils as mut
 from datetime import date
 from pathlib import Path
 from models.expSmoothing_prevAction import expSmoothing_prevAction
+import dask.bag as db
 
 from one.api import ONE
 from brainbox.population.decode import get_spike_counts_in_bins
@@ -339,7 +340,7 @@ if __name__ == '__main__':
 #        if i != 0 and i % 20 == 0:
 #            print('sleeping')
 #            time.sleep(45 * 60)  # wait 30min every 20 eids <- less than 500 jobs every 40mins
-    one = ONE(mode='local')
+    one_future = client.scatter(ONE(mode='local'))
     filenames = []
     for i, eid in enumerate(eids):
         if (eid in excludes or np.any(insdf[insdf['eid'] == eid]['spike_sorting'] == "")):
@@ -351,7 +352,7 @@ if __name__ == '__main__':
                                 pseudo_id=-1 if pseudo_id == 0 else pseudo_id,
                                 nb_runs=N_RUNS,
                                 imposterdf=imposterdf_future,
-                                one=one)
+                                one=one_future)
             filenames.append(fns)
 
     # WAIT FOR COMPUTATION TO FINISH BEFORE MOVING ON
