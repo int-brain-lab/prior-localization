@@ -58,7 +58,9 @@ MODEL = None  # expSmoothing_prevAction  # or dut.modeldispatcher.
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
-N_PSEUDO = 55
+N_PSEUDO = 100
+N_PSEUDO_PER_JOB = 20
+N_JOBS_PER_SESSION = N_PSEUDO // N_PSEUDO_PER_JOB
 N_RUNS = 10
 MIN_UNITS = 10
 MIN_BEHAV_TRIAS = 400  # default BWM setting
@@ -150,7 +152,7 @@ def save_region_results(fit_result, pseudo_id, subject, eid, probe, region, N,
     return probefolder.joinpath(fn)
 
 
-def fit_eid(eid, sessdf, imposterdf, pseudo_id=-1, nb_runs=10, single_region=SINGLE_REGION,
+def fit_eid(eid, sessdf, imposterdf, pseudo_ids=[-1], nb_runs=10, single_region=SINGLE_REGION,
             modelfit_path=DECODING_PATH.joinpath('results', 'behavioral'),
             output_path=DECODING_PATH.joinpath('results', 'neural'), one=None):
     """
@@ -167,7 +169,7 @@ def fit_eid(eid, sessdf, imposterdf, pseudo_id=-1, nb_runs=10, single_region=SIN
     one: ONE object -- this is not to be used with dask, this option is given for debugging purposes
     """
 
-    if pseudo_id == 0:
+    if 0 in pseudo_ids:
         raise ValueError('pseudo id can be -1 (actual session) or strictly greater than 0 (pseudo session)')
 
     one = ONE(mode='local') if one is None else one
@@ -242,59 +244,60 @@ def fit_eid(eid, sessdf, imposterdf, pseudo_id=-1, nb_runs=10, single_region=SIN
                                  'may be due to floating point representation error.'
                                  'Check window.')
 
-            if pseudo_id > 0:  # create pseudo session when necessary
-                if USE_IMPOSTER_SESSION:
-                    pseudosess = dut.generate_imposter_session(imposterdf, eid, trialsdf)
-                else:
-                    pseudosess = generate_pseudo_session(trialsdf)
+            for pseudo_id in pseudo_ids:
+                if pseudo_id > 0:  # create pseudo session when necessary
+                    if USE_IMPOSTER_SESSION:
+                        pseudosess = dut.generate_imposter_session(imposterdf, eid, trialsdf)
+                    else:
+                        pseudosess = generate_pseudo_session(trialsdf)
 
-                msub_pseudo_tvec = dut.compute_target(TARGET, subject, subjeids, eid,
-                                                      modelfit_path, modeltype=MODEL,
-                                                      beh_data=pseudosess, one=one)[mask]
+                    msub_pseudo_tvec = dut.compute_target(TARGET, subject, subjeids, eid,
+                                                          modelfit_path, modeltype=MODEL,
+                                                          beh_data=pseudosess, one=one)[mask]
 
-            if COMPUTE_NEUROMETRIC:  # compute prior for neurometric curve
-                trialsdf_neurometric = nb_trialsdf.reset_index() if (pseudo_id == -1) else \
-                    pseudosess[mask].reset_index()
-                if MODEL is not None:
-                    blockprob_neurometric = dut.compute_target('pLeft', subject, subjeids, eid, modelfit_path,
-                                                               modeltype=MODEL,
-                                                               beh_data=trialsdf if pseudo_id == -1 else pseudosess,
-                                                               one=one)
-                    trialsdf_neurometric['blockprob_neurometric'] = np.greater_equal(blockprob_neurometric[mask],
-                                                                                     0.5).astype(int)
-                else:
-                    blockprob_neurometric = trialsdf_neurometric['probabilityLeft'].replace(0.2, 0).replace(0.8, 1)
-                    trialsdf_neurometric['blockprob_neurometric'] = blockprob_neurometric
+                if COMPUTE_NEUROMETRIC:  # compute prior for neurometric curve
+                    trialsdf_neurometric = nb_trialsdf.reset_index() if (pseudo_id == -1) else \
+                        pseudosess[mask].reset_index()
+                    if MODEL is not None:
+                        blockprob_neurometric = dut.compute_target('pLeft', subject, subjeids, eid, modelfit_path,
+                                                                   modeltype=MODEL,
+                                                                   beh_data=trialsdf if pseudo_id == -1 else pseudosess,
+                                                                   one=one)
+                        trialsdf_neurometric['blockprob_neurometric'] = np.greater_equal(blockprob_neurometric[mask],
+                                                                                         0.5).astype(int)
+                    else:
+                        blockprob_neurometric = trialsdf_neurometric['probabilityLeft'].replace(0.2, 0).replace(0.8, 1)
+                        trialsdf_neurometric['blockprob_neurometric'] = blockprob_neurometric
 
-            fit_results = []
-            for i_run in range(nb_runs):
-                fit_result = dut.regress_target(msub_tvec if (pseudo_id == -1) else msub_pseudo_tvec,
-                                                msub_binned, estimator,
-                                                estimator_kwargs=ESTIMATOR_KWARGS,
-                                                hyperparam_grid=HPARAM_GRID,
-                                                save_binned=SAVE_BINNED, shuffle=SHUFFLE,
-                                                balanced_weight=BALANCED_WEIGHT,
-                                                normalize_input=NORMALIZE_INPUT,
-                                                normalize_output=NORMALIZE_OUTPUT)
-                fit_result['mask'] = mask
-                fit_result['pseudo_id'] = pseudo_id
-                fit_result['run_id'] = i_run
-                # neurometric curve
-                if COMPUTE_NEUROMETRIC:
-                    fit_result['full_neurometric'], fit_result['fold_neurometric'] = \
-                        get_neurometric_parameters(fit_result,
-                                                   trialsdf=trialsdf_neurometric,
-                                                   one=one,
-                                                   compute_on_each_fold=COMPUTE_NEURO_ON_EACH_FOLD,
-                                                   force_positive_neuro_slopes=FORCE_POSITIVE_NEURO_SLOPES)
-                else:
-                    fit_result['full_neurometric'] = None
-                    fit_result['fold_neurometric'] = None
-                fit_results.append(fit_result)
+                fit_results = []
+                for i_run in range(nb_runs):
+                    fit_result = dut.regress_target(msub_tvec if (pseudo_id == -1) else msub_pseudo_tvec,
+                                                    msub_binned, estimator,
+                                                    estimator_kwargs=ESTIMATOR_KWARGS,
+                                                    hyperparam_grid=HPARAM_GRID,
+                                                    save_binned=SAVE_BINNED, shuffle=SHUFFLE,
+                                                    balanced_weight=BALANCED_WEIGHT,
+                                                    normalize_input=NORMALIZE_INPUT,
+                                                    normalize_output=NORMALIZE_OUTPUT)
+                    fit_result['mask'] = mask
+                    fit_result['pseudo_id'] = pseudo_id
+                    fit_result['run_id'] = i_run
+                    # neurometric curve
+                    if COMPUTE_NEUROMETRIC:
+                        fit_result['full_neurometric'], fit_result['fold_neurometric'] = \
+                            get_neurometric_parameters(fit_result,
+                                                       trialsdf=trialsdf_neurometric,
+                                                       one=one,
+                                                       compute_on_each_fold=COMPUTE_NEURO_ON_EACH_FOLD,
+                                                       force_positive_neuro_slopes=FORCE_POSITIVE_NEURO_SLOPES)
+                    else:
+                        fit_result['full_neurometric'] = None
+                        fit_result['fold_neurometric'] = None
+                    fit_results.append(fit_result)
 
-            filenames.append(save_region_results(fit_results, pseudo_id, subject,
-                                                 eid, probe, region,
-                                                 N_units, output_path=output_path))
+                filenames.append(save_region_results(fit_results, pseudo_id, subject,
+                                                     eid, probe, region,
+                                                     N_units, output_path=output_path))
 
     return filenames
 
@@ -325,8 +328,8 @@ if __name__ == '__main__':
                                job_cpu=N_CORES, env_extra=[f'export OMP_NUM_THREADS={N_CORES}',
                                                            f'export MKL_NUM_THREADS={N_CORES}',
                                                            f'export OPENBLAS_NUM_THREADS={N_CORES}'])
-        #cluster.adapt(minimum_jobs=1, maximum_jobs=len(eids))
-        cluster.scale(len(eids) * N_PSEUDO // 10)
+        # cluster.adapt(minimum_jobs=1, maximum_jobs=len(eids))
+        cluster.scale(len(eids) * N_PSEUDO // N_PSEUDO_PER_JOB)
     client = Client(cluster)
     # todo verify the behavior of scatter
     if USE_IMPOSTER_SESSION:
@@ -335,11 +338,6 @@ if __name__ == '__main__':
     else:
         imposterdf_future = None
 
-
-    import time
-#        if i != 0 and i % 20 == 0:
-#            print('sleeping')
-#            time.sleep(45 * 60)  # wait 30min every 20 eids <- less than 500 jobs every 40mins
     one_future = client.scatter(ONE(mode='local'))
     filenames = []
     for i, eid in enumerate(eids):
@@ -347,9 +345,11 @@ if __name__ == '__main__':
             print(f"dud {eid}")
             continue
         print(f"{i}, session: {eid}")
-        for pseudo_id in range(N_PSEUDO + 1):
+        for job_id in range(N_JOBS_PER_SESSION + 1):
+            pseudo_ids = np.arange(job_id * N_PSEUDO_PER_JOB, (job_id + 1) * N_PSEUDO_PER_JOB)
+            pseudo_ids[pseudo_ids == 0] = -1
             fns = client.submit(fit_eid, eid=eid, sessdf=insdf,
-                                pseudo_id=-1 if pseudo_id == 0 else pseudo_id,
+                                pseudo_ids=pseudo_ids,
                                 nb_runs=N_RUNS,
                                 imposterdf=imposterdf_future,
                                 one=one_future)
