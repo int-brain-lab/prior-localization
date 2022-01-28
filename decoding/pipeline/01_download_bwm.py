@@ -66,8 +66,8 @@ for i, rec in insdf.iterrows():
         insdf['spike_sorting'][i] = ssl.collection
         one.load_object(ssl.eid, 'trials', collection='alf', download_only=True)
         one.load_object(ssl.eid, 'wheel', collection='alf', download_only=True)
-    except JSONDecodeError:
-        print('JSONDecodeError with eid {}'.format(rec.eid))
+    except Exception as e:
+        print(e)
         errors_pid.append(rec.eid)
         pass
 

@@ -9,7 +9,7 @@ from one.api import ONE
 from dask.distributed import Client, LocalCluster
 from dask_jobqueue import SLURMCluster
 from bbglm_sessfit import load_regressors, cache_regressors
-from .decoding.decoding_utils import query_sessions
+from decoding.decoding_utils import query_sessions
 
 
 @dask.delayed
@@ -35,7 +35,7 @@ MAX_LEN = 2.
 T_BEF = 0.6
 T_AFT = 0.6
 BINWIDTH = 0.02
-ABSWHEEL = False
+ABSWHEEL = True
 QC = True
 FORCE = True  # If load_spike_sorting_fast doesn't return _channels, use _channels function
 # End parameters
@@ -71,7 +71,7 @@ cluster = SLURMCluster(cores=N_CORES, memory='32GB', processes=1, queue="shared-
                        job_cpu=N_CORES, env_extra=[f'export OMP_NUM_THREADS={N_CORES}',
                                                    f'export MKL_NUM_THREADS={N_CORES}',
                                                    f'export OPENBLAS_NUM_THREADS={N_CORES}'])
-cluster.adapt(minimum_jobs=0, maximum_jobs=20)
+cluster.scale(20)
 client = Client(cluster)
 
 tmp_futures = [client.compute(future[3]) for future in dataset_futures]

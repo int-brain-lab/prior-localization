@@ -10,6 +10,7 @@ import models.utils as mut
 from datetime import date
 from pathlib import Path
 from models.expSmoothing_prevAction import expSmoothing_prevAction
+import dask.bag as db
 
 from one.api import ONE
 from brainbox.population.decode import get_spike_counts_in_bins
@@ -21,6 +22,7 @@ from decoding_stimulus_neurometric_fit import get_neurometric_parameters
 try:
     from dask_jobqueue import SLURMCluster
     from dask.distributed import Client, LocalCluster
+    import dask
 except:
     import warnings
 
@@ -56,7 +58,9 @@ MODEL = None  # expSmoothing_prevAction  # or dut.modeldispatcher.
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
-N_PSEUDO = 2
+N_PSEUDO = 100
+N_PSEUDO_PER_JOB = 20
+N_JOBS_PER_SESSION = N_PSEUDO // N_PSEUDO_PER_JOB
 N_RUNS = 10
 MIN_UNITS = 10
 MIN_BEHAV_TRIAS = 400  # default BWM setting
@@ -73,13 +77,13 @@ NORMALIZE_INPUT = False  # take out mean of the neural activity per unit across 
 NORMALIZE_OUTPUT = False  # take out mean of output to predict
 if NORMALIZE_INPUT or NORMALIZE_OUTPUT:
     warnings.warn('This feature has not been tested')
-USE_IMPOSTER_SESSION = True  # if false, it uses pseudosessions
+USE_IMPOSTER_SESSION = False  # if false, it uses pseudosessions
 
 BALANCED_WEIGHT = False  # seems to work better with BALANCED_WEIGHT=False
 HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])}
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
-ADD_TO_SAVING_PATH = 'fakeimposter-v2'
+ADD_TO_SAVING_PATH = 'pseudoSessions_unmergedProbes'
 
 # session to be excluded (by Olivier Winter)
 excludes = [
@@ -148,7 +152,7 @@ def save_region_results(fit_result, pseudo_id, subject, eid, probe, region, N,
     return probefolder.joinpath(fn)
 
 
-def fit_eid(eid, sessdf, imposterdf, pseudo_id=-1, nb_runs=10, single_region=SINGLE_REGION,
+def fit_eid(eid, sessdf, imposterdf, pseudo_ids=[-1], nb_runs=10, single_region=SINGLE_REGION,
             modelfit_path=DECODING_PATH.joinpath('results', 'behavioral'),
             output_path=DECODING_PATH.joinpath('results', 'neural'), one=None):
     """
@@ -165,7 +169,7 @@ def fit_eid(eid, sessdf, imposterdf, pseudo_id=-1, nb_runs=10, single_region=SIN
     one: ONE object -- this is not to be used with dask, this option is given for debugging purposes
     """
 
-    if pseudo_id == 0:
+    if 0 in pseudo_ids:
         raise ValueError('pseudo id can be -1 (actual session) or strictly greater than 0 (pseudo session)')
 
     one = ONE(mode='local') if one is None else one
@@ -206,126 +210,105 @@ def fit_eid(eid, sessdf, imposterdf, pseudo_id=-1, nb_runs=10, single_region=SIN
     if len(msub_tvec) <= MIN_BEHAV_TRIAS:
         return filenames
 
-    print(f'Working on eid and on pseudo_id: {eid}, {pseudo_id}')
-    across_probes = {'regions': [], 'clusters': [], 'times': [], 'qc_pass': []}
-    for i_probe, (_, ins) in tqdm(enumerate(df_insertions.iterrows()), desc='Probe: ', leave=False):
+    print(f'Working on eid : {eid}')
+    for i, ins in tqdm(df_insertions.iterrows(), desc='Probe: ', leave=False):
         probe = ins['probe']
         spike_sorting_path = Path(ins['session_path']).joinpath(ins['spike_sorting'])
         spikes = alfio.load_object(spike_sorting_path, 'spikes')
         clusters = pd.read_parquet(spike_sorting_path.joinpath('clusters.pqt'))
         beryl_reg = dut.remap_region(clusters.atlas_id, br=brainreg)
         qc_pass = (clusters['label'] >= QC_CRITERIA).values
-        across_probes['regions'].extend(beryl_reg)
-        across_probes['clusters'].extend(spikes.clusters if i_probe == 0 else
-                                         (spikes.clusters + max(across_probes['clusters']) + 1))
-        across_probes['times'].extend(spikes.times)
-        across_probes['qc_pass'].extend(qc_pass)
-    across_probes = {k: np.array(v) for k, v in across_probes.items()}
-    # warnings.filterwarnings('ignore')
-    if single_region:
-        regions = [[k] for k in np.unique(across_probes['regions'])]
-    else:
-        regions = [np.unique(across_probes['regions'])]
-    for region in tqdm(regions, desc='Region: ', leave=False):
-        reg_mask = np.isin(across_probes['regions'], region)
-        reg_clu_ids = np.argwhere(reg_mask & across_probes['qc_pass']).flatten()
-        N_units = len(reg_clu_ids)
-        if N_units < MIN_UNITS:
-            continue
-        # or get_spike_count_in_bins
-        if np.any(np.isnan(nb_trialsdf[ALIGN_TIME])):
-            # if this happens, verify scrub of NaN values in all align times before get_spike_counts_in_bins
-            raise ValueError('this should not happen')
-        intervals = np.vstack([nb_trialsdf[ALIGN_TIME] + TIME_WINDOW[0],
-                               nb_trialsdf[ALIGN_TIME] + TIME_WINDOW[1]]).T
-        spikemask = np.isin(across_probes['clusters'], reg_clu_ids)
-        regspikes = across_probes['times'][spikemask]
-        regclu = across_probes['clusters'][spikemask]
-        arg_sortedSpikeTimes = np.argsort(regspikes)
-        binned, _ = get_spike_counts_in_bins(regspikes[arg_sortedSpikeTimes],
-                                             regclu[arg_sortedSpikeTimes],
-                                             intervals)
-        msub_binned = binned.T
+        regions = np.unique(beryl_reg)
+        # warnings.filterwarnings('ignore')
+        for region in tqdm(regions, desc='Region: ', leave=False):
+            reg_mask = beryl_reg == region
+            reg_clu_ids = np.argwhere(reg_mask & qc_pass).flatten()
+            N_units = len(reg_clu_ids)
+            if N_units < MIN_UNITS:
+                continue
+            # or get_spike_count_in_bins
+            if np.any(np.isnan(nb_trialsdf[ALIGN_TIME])):
+                # if this happens, verify scrub of NaN values in all aign times before get_spike_counts_in_bins
+                raise ValueError('this should not happen')
+            intervals = np.vstack([nb_trialsdf[ALIGN_TIME] + TIME_WINDOW[0],
+                                   nb_trialsdf[ALIGN_TIME] + TIME_WINDOW[1]]).T
+            spikemask = np.isin(spikes.clusters, reg_clu_ids)
+            regspikes = spikes.times[spikemask]
+            regclu = spikes.clusters[spikemask]
+            binned, _ = get_spike_counts_in_bins(regspikes, regclu, intervals)
 
-        if len(msub_binned.shape) > 2:
-            raise ValueError('Multiple bins are being calculated per trial,'
-                             'may be due to floating point representation error.'
-                             'Check window.')
+            msub_binned = binned.T
 
-        if pseudo_id > 0:  # create pseudo session when necessary
-            if USE_IMPOSTER_SESSION:
-                pseudosess = dut.generate_imposter_session(imposterdf, eid, trialsdf)
-            else:
-                pseudosess = generate_pseudo_session(trialsdf)
+            if len(msub_binned.shape) > 2:
+                raise ValueError('Multiple bins are being calculated per trial,'
+                                 'may be due to floating point representation error.'
+                                 'Check window.')
 
-            msub_pseudo_tvec = dut.compute_target(TARGET, subject, subjeids, eid,
-                                                  modelfit_path, modeltype=MODEL,
-                                                  beh_data=pseudosess, one=one)[mask]
+            for pseudo_id in pseudo_ids:
+                if pseudo_id > 0:  # create pseudo session when necessary
+                    if USE_IMPOSTER_SESSION:
+                        pseudosess = dut.generate_imposter_session(imposterdf, eid, trialsdf)
+                    else:
+                        pseudosess = generate_pseudo_session(trialsdf)
 
-        if COMPUTE_NEUROMETRIC:  # compute prior for neurometric curve
-            trialsdf_neurometric = nb_trialsdf.reset_index() if (pseudo_id == -1) else \
-                pseudosess[mask].reset_index()
-            if MODEL is not None:
-                blockprob_neurometric = dut.compute_target('pLeft', subject, subjeids, eid, modelfit_path,
-                                                           modeltype=MODEL,
-                                                           beh_data=trialsdf if pseudo_id == -1 else pseudosess,
-                                                           one=one)
-                trialsdf_neurometric['blockprob_neurometric'] = np.greater_equal(blockprob_neurometric[mask],
-                                                                                 0.5).astype(int)
-            else:
-                blockprob_neurometric = trialsdf_neurometric['probabilityLeft'].replace(0.2, 0).replace(0.8, 1)
-                trialsdf_neurometric['blockprob_neurometric'] = blockprob_neurometric
+                    msub_pseudo_tvec = dut.compute_target(TARGET, subject, subjeids, eid,
+                                                          modelfit_path, modeltype=MODEL,
+                                                          beh_data=pseudosess, one=one)[mask]
 
-        fit_results = []
-        for i_run in range(nb_runs):
-            if pseudo_id == -1:
-                fit_result = dut.regress_target(msub_tvec, msub_binned, estimator,
-                                                estimator_kwargs=ESTIMATOR_KWARGS,
-                                                hyperparam_grid=HPARAM_GRID,
-                                                save_binned=SAVE_BINNED, shuffle=SHUFFLE,
-                                                balanced_weight=BALANCED_WEIGHT,
-                                                normalize_input=NORMALIZE_INPUT,
-                                                normalize_output=NORMALIZE_OUTPUT)
-            else:
-                fit_result = dut.regress_target(msub_pseudo_tvec, msub_binned, estimator,
-                                                estimator_kwargs=ESTIMATOR_KWARGS,
-                                                hyperparam_grid=HPARAM_GRID,
-                                                save_binned=SAVE_BINNED, shuffle=SHUFFLE,
-                                                balanced_weight=BALANCED_WEIGHT,
-                                                normalize_input=NORMALIZE_INPUT,
-                                                normalize_output=NORMALIZE_OUTPUT)
-            fit_result['mask'] = mask
-            fit_result['pseudo_id'] = pseudo_id
-            fit_result['run_id'] = i_run
-            # neurometric curve
-            if COMPUTE_NEUROMETRIC:
-                fit_result['full_neurometric'], fit_result['fold_neurometric'] = \
-                    get_neurometric_parameters(fit_result,
-                                               trialsdf=trialsdf_neurometric,
-                                               one=one,
-                                               compute_on_each_fold=COMPUTE_NEURO_ON_EACH_FOLD,
-                                               force_positive_neuro_slopes=FORCE_POSITIVE_NEURO_SLOPES)
-            else:
-                fit_result['full_neurometric'] = None
-                fit_result['fold_neurometric'] = None
-            fit_results.append(fit_result)
+                if COMPUTE_NEUROMETRIC:  # compute prior for neurometric curve
+                    trialsdf_neurometric = nb_trialsdf.reset_index() if (pseudo_id == -1) else \
+                        pseudosess[mask].reset_index()
+                    if MODEL is not None:
+                        blockprob_neurometric = dut.compute_target('pLeft', subject, subjeids, eid, modelfit_path,
+                                                                   modeltype=MODEL,
+                                                                   beh_data=trialsdf if pseudo_id == -1 else pseudosess,
+                                                                   one=one)
+                        trialsdf_neurometric['blockprob_neurometric'] = np.greater_equal(blockprob_neurometric[mask],
+                                                                                         0.5).astype(int)
+                    else:
+                        blockprob_neurometric = trialsdf_neurometric['probabilityLeft'].replace(0.2, 0).replace(0.8, 1)
+                        trialsdf_neurometric['blockprob_neurometric'] = blockprob_neurometric
 
-        filenames.append(save_region_results(fit_results, pseudo_id, subject,
-                                             eid, 'pulledProbes',
-                                             region[0] if single_region else 'allRegions',
-                                             N_units, output_path=output_path))
+                fit_results = []
+                for i_run in range(nb_runs):
+                    fit_result = dut.regress_target(msub_tvec if (pseudo_id == -1) else msub_pseudo_tvec,
+                                                    msub_binned, estimator,
+                                                    estimator_kwargs=ESTIMATOR_KWARGS,
+                                                    hyperparam_grid=HPARAM_GRID,
+                                                    save_binned=SAVE_BINNED, shuffle=SHUFFLE,
+                                                    balanced_weight=BALANCED_WEIGHT,
+                                                    normalize_input=NORMALIZE_INPUT,
+                                                    normalize_output=NORMALIZE_OUTPUT)
+                    fit_result['mask'] = mask
+                    fit_result['pseudo_id'] = pseudo_id
+                    fit_result['run_id'] = i_run
+                    # neurometric curve
+                    if COMPUTE_NEUROMETRIC:
+                        fit_result['full_neurometric'], fit_result['fold_neurometric'] = \
+                            get_neurometric_parameters(fit_result,
+                                                       trialsdf=trialsdf_neurometric,
+                                                       one=one,
+                                                       compute_on_each_fold=COMPUTE_NEURO_ON_EACH_FOLD,
+                                                       force_positive_neuro_slopes=FORCE_POSITIVE_NEURO_SLOPES)
+                    else:
+                        fit_result['full_neurometric'] = None
+                        fit_result['fold_neurometric'] = None
+                    fit_results.append(fit_result)
+
+                filenames.append(save_region_results(fit_results, pseudo_id, subject,
+                                                     eid, probe, region,
+                                                     N_units, output_path=output_path))
 
     return filenames
 
 
 if __name__ == '__main__':
-    from decode_prior import fit_eid, save_region_results
+    from decode_prior import *
 
     # import cached data
     insdf = pd.read_parquet(DECODING_PATH.joinpath('insertions.pqt'))
     insdf = insdf[insdf.spike_sorting != '']
     eids = insdf['eid'].unique()
-    imposterdf = pd.read_parquet(DECODING_PATH.joinpath('fake_imposterSessions.pqt'))
 
     # create necessary empty directories if not existing
     DECODING_PATH.joinpath('results').mkdir(exist_ok=True)
@@ -334,38 +317,42 @@ if __name__ == '__main__':
 
     # Generate cluster interface and map eids to workers via dask.distributed.Client
     if LOCAL:
-        cluster = LocalCluster(n_workers=4, threads_per_worker=2)
+        cluster = LocalCluster(n_workers=2, threads_per_worker=1)
     else:
-        N_CORES = 2
+        N_CORES = 8
         cluster = SLURMCluster(cores=N_CORES, memory='16GB', processes=1, queue="shared-cpu",
-                               walltime="01:15:00",
+                               walltime="10:00:00",
                                log_directory='/home/users/f/findling/ibl/prior-localization/decoding/dask-worker-logs',
                                interface='ib0',
-                               extra=["--lifetime", "60m", "--lifetime-stagger", "10m"],
+                               extra=["--lifetime", "24h", "--lifetime-stagger", "10m"],
                                job_cpu=N_CORES, env_extra=[f'export OMP_NUM_THREADS={N_CORES}',
                                                            f'export MKL_NUM_THREADS={N_CORES}',
                                                            f'export OPENBLAS_NUM_THREADS={N_CORES}'])
-        cluster.adapt(minimum_jobs=1, maximum_jobs=200)
+        # cluster.adapt(minimum_jobs=1, maximum_jobs=len(eids))
+        cluster.scale(len(eids) * N_PSEUDO // N_PSEUDO_PER_JOB)
     client = Client(cluster)
     # todo verify the behavior of scatter
-    imposterdf_future = client.scatter(imposterdf)
+    if USE_IMPOSTER_SESSION:
+        imposterdf = pd.read_parquet(DECODING_PATH.joinpath('imposterSessions_beforeRecordings.pqt'))
+        imposterdf_future = client.scatter(imposterdf)
+    else:
+        imposterdf_future = None
 
-    # debug
-    IMIN = 0
+    one_future = client.scatter(ONE(mode='local'))
     filenames = []
     for i, eid in enumerate(eids):
-        if (i < IMIN or eid in excludes or np.any(insdf[insdf['eid'] == eid]['spike_sorting'] == "")) or \
-                (USE_IMPOSTER_SESSION and eid not in imposterdf.eid.values):
+        if (eid in excludes or np.any(insdf[insdf['eid'] == eid]['spike_sorting'] == "")):
             print(f"dud {eid}")
             continue
         print(f"{i}, session: {eid}")
-        for pseudo_id in range(N_PSEUDO + 1):
-            fns = client.submit(fit_eid,
-                                eid=eid,
-                                sessdf=insdf,
-                                pseudo_id=-1 if pseudo_id == 0 else pseudo_id,
+        for job_id in range(N_JOBS_PER_SESSION + 1):
+            pseudo_ids = np.arange(job_id * N_PSEUDO_PER_JOB, (job_id + 1) * N_PSEUDO_PER_JOB)
+            pseudo_ids[pseudo_ids == 0] = -1
+            fns = client.submit(fit_eid, eid=eid, sessdf=insdf,
+                                pseudo_ids=pseudo_ids,
                                 nb_runs=N_RUNS,
-                                imposterdf=imposterdf_future)
+                                imposterdf=imposterdf_future,
+                                one=one_future)
             filenames.append(fns)
 
     # WAIT FOR COMPUTATION TO FINISH BEFORE MOVING ON
@@ -460,10 +447,22 @@ for i, failure in failures:
     print(i, failure.exception(), failure.key)
 print(len(failures))
 print(np.array(failures)[:,0])
-print(len([(i, x) for i, x in enumerate(filenames) if x.status == 'pending']))
+print(len([(i, x) for i, x in enumerate(filenames) if x.status == 'error']))
 import traceback
 tb = failure.traceback()
 traceback.print_tb(tb)
+print(len([(i, x) for i, x in enumerate(filenames) if x.status == 'pending']))
 """
 # You can also get the traceback from failure.traceback and print via `import traceback` and
 # traceback.print_tb()
+
+
+'''
+custom static plot
+fo = open(finished[418], 'rb') # 416, 418
+result = pickle.load(fo)
+fo.close()
+
+low_trace = np.vstack([result["fit"][k]['full_neurometric']['low_fit_trace'] for k in range(len(result["fit"]))])
+high_trace = np.vstack([result["fit"][k]['full_neurometric']['high_fit_trace'] for k in range(len(result["fit"]))])
+'''
