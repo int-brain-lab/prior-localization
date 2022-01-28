@@ -13,8 +13,18 @@ from brainbox.io.one import SpikeSortingLoader
 import decoding_utils as dut
 from decode_prior import SESS_CRITERION
 
-#DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding")
-DECODING_PATH = Path("/home/users/f/findling/ibl/prior-localization/decoding")
+try:
+    from dask_jobqueue import SLURMCluster
+    from dask.distributed import Client, LocalCluster
+except:
+    import warnings
+
+    warnings.warn('dask import failed')
+    pass
+
+DECODING_PATH = Path("/home/users/h/hubertf/int-brain-lab/prior-localization/decoding")
+# DECODING_PATH = Path("/home/users/f/findling/ibl/prior-localization/decoding")
+
 one = ONE()
 ba = AllenAtlas()
 
@@ -36,6 +46,7 @@ insdf['histology'] = ''
 
 errors_pid = []
 IMIN = 0
+
 for i, rec in insdf.iterrows():
     pid = rec['pid']
     if pid in excludes:
@@ -59,6 +70,7 @@ for i, rec in insdf.iterrows():
         print('JSONDecodeError with eid {}'.format(rec.eid))
         errors_pid.append(rec.eid)
         pass
+
 
 insdf.to_parquet(DECODING_PATH.joinpath('insertions.pqt'))
 

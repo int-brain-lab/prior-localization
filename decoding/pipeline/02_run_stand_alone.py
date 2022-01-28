@@ -8,7 +8,7 @@ from decode_prior import fit_eid
 import numpy as np
 import decoding_utils as dut
 
-DECODING_PATH = Path("/home/users/f/findling/ibl/prior-localization/decoding")
+DECODING_PATH = Path("/home/users/h/hubertf/int-brain-lab/decoding_results")
 # create necessary empty directories if not existing
 DECODING_PATH.joinpath('results').mkdir(exist_ok=True)
 DECODING_PATH.joinpath('results', 'behavioral').mkdir(exist_ok=True)
