@@ -42,7 +42,7 @@ strlut = {sklm.Lasso: "Lasso",
           sklm.LogisticRegression: "Logistic"}
 
 # %% Run param definitions
-LOCAL = True
+LOCAL = False
 if LOCAL:
     DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding")
 else:
