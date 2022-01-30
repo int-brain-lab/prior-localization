@@ -10,7 +10,7 @@ from models.expSmoothing_prevAction import expSmoothing_prevAction
 from models.expSmoothing_stimside import expSmoothing_stimside
 from models.biasedApproxBayesian import biased_ApproxBayesian
 from models.biasedBayesian import biased_Bayesian
-from models.optimalBayesian import optimal_Bayesian
+from models.utils import optimal_Bayesian
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import GridSearchCV, KFold
 from sklearn.linear_model._coordinate_descent import LinearModelCV
@@ -183,6 +183,21 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
     # check if is trained
     istrained, fullpath = check_bhv_fit_exists(subject, modeltype, eids_train, savepath)
 
+    # load test session is beh_data_test is None
+    if beh_data_test is None:
+        beh_data_test = mut.load_session(eid_test, one=one)
+
+    if target == 'signcont':
+        out = np.nan_to_num(beh_data_test['contrastLeft']) - \
+              np.nan_to_num(beh_data_test['contrastRight'])
+        return out
+    elif (target == 'pLeft') and (modeltype is None):
+        return np.array(beh_data_test['probabilityLeft'])
+    elif (target == 'pLeft') and (modeltype is optimal_Bayesian):  # bypass fitting and generate priors
+        side, stim, act, _ = mut.format_data(beh_data_test)
+        signal = optimal_Bayesian(side.values, stim, act.values)
+        return signal.numpy().squeeze()
+
     if (not istrained) and (target != 'signcont') and (modeltype is not None):
         datadict = {'stim_side': [], 'actions': [], 'stimuli': []}
         for eid in eids_train:
@@ -205,17 +220,6 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
         model = modeltype(savepath, eids_train, subject, actions=None, stimuli=None,
                           stim_side=None)
         model.load_or_train(loadpath=str(fullpath))
-
-    # load test session is beh_data_test is None
-    if beh_data_test is None:
-        beh_data_test = mut.load_session(eid_test, one=one)
-
-    if target == 'signcont':
-        out = np.nan_to_num(beh_data_test['contrastLeft']) - \
-              np.nan_to_num(beh_data_test['contrastRight'])
-        return out
-    elif (target == 'pLeft') and (modeltype is None):
-        return np.array(beh_data_test['probabilityLeft'])
 
     # compute signal
     stim_side, stimuli, actions, _ = mut.format_data(beh_data_test)

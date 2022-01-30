@@ -10,6 +10,7 @@ import models.utils as mut
 from datetime import date
 from pathlib import Path
 from models.expSmoothing_prevAction import expSmoothing_prevAction
+from models.utils import optimal_Bayesian
 import dask.bag as db
 
 from one.api import ONE
@@ -41,7 +42,7 @@ strlut = {sklm.Lasso: "Lasso",
           sklm.LogisticRegression: "Logistic"}
 
 # %% Run param definitions
-LOCAL = False
+LOCAL = True
 if LOCAL:
     DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding")
 else:
@@ -54,7 +55,7 @@ DATE = str(date.today())
 ALIGN_TIME = 'goCue_times'
 TARGET = 'signcont'  # 'signcont' or 'pLeft'
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
-MODEL = None  # expSmoothing_prevAction  # or dut.modeldispatcher.
+MODEL = optimal_Bayesian  # expSmoothing_prevAction  or None # or dut.modeldispatcher.
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
@@ -331,14 +332,14 @@ if __name__ == '__main__':
         # cluster.adapt(minimum_jobs=1, maximum_jobs=len(eids))
         cluster.scale(len(eids) * N_PSEUDO // N_PSEUDO_PER_JOB)
     client = Client(cluster)
-    # todo verify the behavior of scatter
     if USE_IMPOSTER_SESSION:
         imposterdf = pd.read_parquet(DECODING_PATH.joinpath('imposterSessions_beforeRecordings.pqt'))
         imposterdf_future = client.scatter(imposterdf)
     else:
         imposterdf_future = None
 
-    one_future = client.scatter(ONE(mode='local'))
+    one = ONE(mode='local')
+    one_future = client.scatter(one)
     filenames = []
     for i, eid in enumerate(eids):
         if (eid in excludes or np.any(insdf[insdf['eid'] == eid]['spike_sorting'] == "")):
