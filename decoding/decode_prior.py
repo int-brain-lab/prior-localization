@@ -110,8 +110,11 @@ if MODEL not in list(dut.modeldispatcher.keys()):
 if COMPUTE_NEUROMETRIC and TARGET != 'signcont':
     raise ValueError('the target should be signcont to compute neurometric curves')
 
-if len(BORDER_QUANTILES_NEUROMETRIC) < 1:
-    raise ValueError('BORDER_QUANTILES_NEUROMETRIC must be at least of 1')
+if len(BORDER_QUANTILES_NEUROMETRIC) == 0 and MODEL is not None:
+    raise ValueError('BORDER_QUANTILES_NEUROMETRIC must be at least of 1 when MODEL is specified')
+
+if len(BORDER_QUANTILES_NEUROMETRIC) != 0 and MODEL is None:
+    raise ValueError('BORDER_QUANTILES_NEUROMETRIC must be empty when MODEL is not specified - oracle pLeft used')
 
 fit_metadata = {
     'criterion': SESS_CRITERION,
