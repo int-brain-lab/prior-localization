@@ -68,10 +68,9 @@ MIN_BEHAV_TRIAS = 400  # default BWM setting
 MIN_RT = 0.08  # 0.08  # Float (s) or None
 SINGLE_REGION = True  # perform decoding on region-wise or whole brain analysis
 MERGED_PROBES = False  # merge probes before performing analysis
-if not SINGLE_REGION and not MERGED_PROBES:
-    raise ValueError('full probes analysis can only be done with merged probes')
 NO_UNBIAS = False
-SHUFFLE = True
+SHUFFLE = True  # interleaved cross validation
+BORDER_QUANTILES_NEUROMETRIC = [.5]  # [.3, .4, .5, .6, .7]
 COMPUTE_NEUROMETRIC = True if TARGET == 'signcont' else False
 FORCE_POSITIVE_NEURO_SLOPES = False
 # NEUROMETRIC_PRIOR_MODEL = expSmoothing_prevAction #'oracle'
@@ -99,6 +98,9 @@ excludes = [
 ]
 
 # ValueErrors and NotImplementedErrors
+if not SINGLE_REGION and not MERGED_PROBES:
+    raise ValueError('full probes analysis can only be done with merged probes')
+
 if TARGET not in ['signcont', 'pLeft']:
     raise NotImplementedError('this TARGET is not supported yet')
 
@@ -107,6 +109,9 @@ if MODEL not in list(dut.modeldispatcher.keys()):
 
 if COMPUTE_NEUROMETRIC and TARGET != 'signcont':
     raise ValueError('the target should be signcont to compute neurometric curves')
+
+if len(BORDER_QUANTILES_NEUROMETRIC) < 1:
+    raise ValueError('BORDER_QUANTILES_NEUROMETRIC must be at least of 1')
 
 fit_metadata = {
     'criterion': SESS_CRITERION,
@@ -156,7 +161,7 @@ def save_region_results(fit_result, pseudo_id, subject, eid, probe, region, N,
     return probefolder.joinpath(fn)
 
 
-def fit_eid(eid, sessdf, imposterdf, pseudo_ids=[-1], nb_runs=10, single_region=False, merged_probes=True,
+def fit_eid(eid, sessdf, imposterdf=None, pseudo_ids=[-1], nb_runs=10, single_region=False, merged_probes=False,
             modelfit_path=DECODING_PATH.joinpath('results', 'behavioral'),
             output_path=DECODING_PATH.joinpath('results', 'neural'), one=None):
     """
@@ -309,8 +314,13 @@ def fit_eid(eid, sessdf, imposterdf, pseudo_ids=[-1], nb_runs=10, single_region=
                                                                    modeltype=MODEL,
                                                                    beh_data=trialsdf if pseudo_id == -1 else pseudosess,
                                                                    one=one)
-                        trialsdf_neurometric['blockprob_neurometric'] = np.greater_equal(blockprob_neurometric[mask],
-                                                                                         0.5).astype(int)
+
+                        trialsdf_neurometric['blockprob_neurometric'] = np.stack([np.greater_equal(blockprob_neurometric
+                                                                                                   [mask], border)
+                                                                                 .astype(int)
+                                                                                  for border in
+                                                                                  BORDER_QUANTILES_NEUROMETRIC]).sum(0)
+
                     else:
                         blockprob_neurometric = trialsdf_neurometric['probabilityLeft'].replace(0.2, 0).replace(0.8, 1)
                         trialsdf_neurometric['blockprob_neurometric'] = blockprob_neurometric
@@ -366,7 +376,7 @@ if __name__ == '__main__':
         cluster = LocalCluster(n_workers=2, threads_per_worker=1)
     else:
         N_CORES = 8
-        cluster = SLURMCluster(cores=N_CORES, memory='16GB', processes=1, queue="shared-cpu",
+        cluster = SLURMCluster(cores=N_CORES, memory='32GB', processes=1, queue="shared-cpu",
                                walltime="10:00:00",
                                log_directory='/home/users/f/findling/ibl/prior-localization/decoding/dask-worker-logs',
                                interface='ib0',
@@ -374,9 +384,9 @@ if __name__ == '__main__':
                                job_cpu=N_CORES, env_extra=[f'export OMP_NUM_THREADS={N_CORES}',
                                                            f'export MKL_NUM_THREADS={N_CORES}',
                                                            f'export OPENBLAS_NUM_THREADS={N_CORES}'])
-        #cluster.adapt(minimum_jobs=1, maximum_jobs=len(eids))
+        #cluster.adapt(minimum_jobs=len(eids), maximum_jobs=len(eids) * N_JOBS_PER_SESSION // 4)
         cluster.scale(len(eids))
-    client = Client(cluster)
+    client = Client(cluster)  # verify you have at least 1 process before continuing (if not, you must wait)
     if USE_IMPOSTER_SESSION:
         imposterdf = pd.read_parquet(DECODING_PATH.joinpath('imposterSessions_beforeRecordings.pqt'))
         imposterdf_future = client.scatter(imposterdf)
@@ -386,7 +396,7 @@ if __name__ == '__main__':
     one = ONE(mode='local')
     one_future = client.scatter(one)
     filenames = []
-    for i, eid in enumerate(eids[:1]):
+    for i, eid in enumerate(eids):
         if (eid in excludes or np.any(insdf[insdf['eid'] == eid]['spike_sorting'] == "")):
             print(f"dud {eid}")
             continue
@@ -397,7 +407,10 @@ if __name__ == '__main__':
             fns = client.submit(fit_eid, eid=eid, sessdf=insdf,
                                 pseudo_ids=pseudo_ids,
                                 nb_runs=N_RUNS,
-                                imposterdf=imposterdf_future)
+                                imposterdf=imposterdf_future,
+                                single_region=SINGLE_REGION,
+                                merged_probes=MERGED_PROBES,
+                                one=one_future)
             filenames.append(fns)
 
     # WAIT FOR COMPUTATION TO FINISH BEFORE MOVING ON
@@ -492,11 +505,12 @@ for i, failure in failures:
     print(i, failure.exception(), failure.key)
 print(len(failures))
 print(np.array(failures)[:,0])
-print(len([(i, x) for i, x in enumerate(filenames) if x.status == 'error']))
 import traceback
 tb = failure.traceback()
 traceback.print_tb(tb)
+print(len([(i, x) for i, x in enumerate(filenames) if x.status == 'error']))
 print(len([(i, x) for i, x in enumerate(filenames) if x.status == 'pending']))
+print(len([(i, x) for i, x in enumerate(filenames) if x.status == 'finished']))
 """
 # You can also get the traceback from failure.traceback and print via `import traceback` and
 # traceback.print_tb()
