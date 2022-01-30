@@ -16,6 +16,7 @@ from sklearn.linear_model._coordinate_descent import LinearModelCV
 from sklearn.metrics import r2_score
 from sklearn.utils.class_weight import compute_sample_weight
 from tqdm import tqdm
+import torch
 
 def query_sessions(selection='all', one=None):
     '''

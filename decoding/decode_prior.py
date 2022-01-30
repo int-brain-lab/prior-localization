@@ -67,6 +67,9 @@ MIN_UNITS = 10
 MIN_BEHAV_TRIAS = 400  # default BWM setting
 MIN_RT = 0.08  # 0.08  # Float (s) or None
 SINGLE_REGION = True  # perform decoding on region-wise or whole brain analysis
+MERGED_PROBES = False  # merge probes before performing analysis
+if not SINGLE_REGION and not MERGED_PROBES:
+    raise ValueError('full probes analysis can only be done with merged probes')
 NO_UNBIAS = False
 SHUFFLE = True
 COMPUTE_NEUROMETRIC = True if TARGET == 'signcont' else False
@@ -153,7 +156,7 @@ def save_region_results(fit_result, pseudo_id, subject, eid, probe, region, N,
     return probefolder.joinpath(fn)
 
 
-def fit_eid(eid, sessdf, imposterdf, pseudo_ids=[-1], nb_runs=10, single_region=SINGLE_REGION,
+def fit_eid(eid, sessdf, imposterdf, pseudo_ids=[-1], nb_runs=10, single_region=False, merged_probes=True,
             modelfit_path=DECODING_PATH.joinpath('results', 'behavioral'),
             output_path=DECODING_PATH.joinpath('results', 'neural'), one=None):
     """
@@ -212,18 +215,50 @@ def fit_eid(eid, sessdf, imposterdf, pseudo_ids=[-1], nb_runs=10, single_region=
         return filenames
 
     print(f'Working on eid : {eid}')
-    for i, ins in tqdm(df_insertions.iterrows(), desc='Probe: ', leave=False):
+
+    if merged_probes:
+        across_probes = {'regions': [], 'clusters': [], 'times': [], 'qc_pass': []}
+        for i_probe, (_, ins) in tqdm(enumerate(df_insertions.iterrows()), desc='Probe: ', leave=False):
+            probe = ins['probe']
+            spike_sorting_path = Path(ins['session_path']).joinpath(ins['spike_sorting'])
+            spikes = alfio.load_object(spike_sorting_path, 'spikes')
+            clusters = pd.read_parquet(spike_sorting_path.joinpath('clusters.pqt'))
+            beryl_reg = dut.remap_region(clusters.atlas_id, br=brainreg)
+            qc_pass = (clusters['label'] >= QC_CRITERIA).values
+            across_probes['regions'].extend(beryl_reg)
+            across_probes['clusters'].extend(spikes.clusters if i_probe == 0 else
+                                             (spikes.clusters + max(across_probes['clusters']) + 1))
+            across_probes['times'].extend(spikes.times)
+            across_probes['qc_pass'].extend(qc_pass)
+        across_probes = {k: np.array(v) for k, v in across_probes.items()}
+        # warnings.filterwarnings('ignore')
+        if single_region:
+            regions = [[k] for k in np.unique(across_probes['regions'])]
+        else:
+            regions = [np.unique(across_probes['regions'])]
+        df_insertions_iterrows = pd.DataFrame.from_dict({'1': 'mergedProbes'},
+                                                        orient='index',
+                                                        columns=['probe']).iterrows()
+    else:
+        df_insertions_iterrows = df_insertions.iterrows()
+
+    for i, ins in tqdm(df_insertions_iterrows, desc='Probe: ', leave=False):
         probe = ins['probe']
-        spike_sorting_path = Path(ins['session_path']).joinpath(ins['spike_sorting'])
-        spikes = alfio.load_object(spike_sorting_path, 'spikes')
-        clusters = pd.read_parquet(spike_sorting_path.joinpath('clusters.pqt'))
-        beryl_reg = dut.remap_region(clusters.atlas_id, br=brainreg)
-        qc_pass = (clusters['label'] >= QC_CRITERIA).values
-        regions = np.unique(beryl_reg)
+        if not merged_probes:
+            spike_sorting_path = Path(ins['session_path']).joinpath(ins['spike_sorting'])
+            spikes = alfio.load_object(spike_sorting_path, 'spikes')
+            clusters = pd.read_parquet(spike_sorting_path.joinpath('clusters.pqt'))
+            beryl_reg = dut.remap_region(clusters.atlas_id, br=brainreg)
+            qc_pass = (clusters['label'] >= QC_CRITERIA).values
+            regions = np.unique(beryl_reg)
         # warnings.filterwarnings('ignore')
         for region in tqdm(regions, desc='Region: ', leave=False):
-            reg_mask = beryl_reg == region
-            reg_clu_ids = np.argwhere(reg_mask & qc_pass).flatten()
+            if merged_probes:
+                reg_mask = np.isin(across_probes['regions'], region)
+                reg_clu_ids = np.argwhere(reg_mask & across_probes['qc_pass']).flatten()
+            else:
+                reg_mask = beryl_reg == region
+                reg_clu_ids = np.argwhere(reg_mask & qc_pass).flatten()
             N_units = len(reg_clu_ids)
             if N_units < MIN_UNITS:
                 continue
@@ -233,10 +268,20 @@ def fit_eid(eid, sessdf, imposterdf, pseudo_ids=[-1], nb_runs=10, single_region=
                 raise ValueError('this should not happen')
             intervals = np.vstack([nb_trialsdf[ALIGN_TIME] + TIME_WINDOW[0],
                                    nb_trialsdf[ALIGN_TIME] + TIME_WINDOW[1]]).T
-            spikemask = np.isin(spikes.clusters, reg_clu_ids)
-            regspikes = spikes.times[spikemask]
-            regclu = spikes.clusters[spikemask]
-            binned, _ = get_spike_counts_in_bins(regspikes, regclu, intervals)
+
+            if merged_probes:
+                spikemask = np.isin(across_probes['clusters'], reg_clu_ids)
+                regspikes = across_probes['times'][spikemask]
+                regclu = across_probes['clusters'][spikemask]
+                arg_sortedSpikeTimes = np.argsort(regspikes)
+                binned, _ = get_spike_counts_in_bins(regspikes[arg_sortedSpikeTimes],
+                                                     regclu[arg_sortedSpikeTimes],
+                                                     intervals)
+            else:
+                spikemask = np.isin(spikes.clusters, reg_clu_ids)
+                regspikes = spikes.times[spikemask]
+                regclu = spikes.clusters[spikemask]
+                binned, _ = get_spike_counts_in_bins(regspikes, regclu, intervals)
 
             msub_binned = binned.T
 
@@ -296,8 +341,8 @@ def fit_eid(eid, sessdf, imposterdf, pseudo_ids=[-1], nb_runs=10, single_region=
                         fit_result['fold_neurometric'] = None
                     fit_results.append(fit_result)
 
-                filenames.append(save_region_results(fit_results, pseudo_id, subject,
-                                                     eid, probe, region,
+                filenames.append(save_region_results(fit_results, pseudo_id, subject, eid, probe,
+                                                     str(np.squeeze(region)) if single_region else 'allRegions',
                                                      N_units, output_path=output_path))
 
     return filenames
@@ -325,12 +370,12 @@ if __name__ == '__main__':
                                walltime="10:00:00",
                                log_directory='/home/users/f/findling/ibl/prior-localization/decoding/dask-worker-logs',
                                interface='ib0',
-                               extra=["--lifetime", "24h", "--lifetime-stagger", "10m"],
+                               extra=["--lifetime", "20h", "--lifetime-stagger", "10m"],
                                job_cpu=N_CORES, env_extra=[f'export OMP_NUM_THREADS={N_CORES}',
                                                            f'export MKL_NUM_THREADS={N_CORES}',
                                                            f'export OPENBLAS_NUM_THREADS={N_CORES}'])
-        # cluster.adapt(minimum_jobs=1, maximum_jobs=len(eids))
-        cluster.scale(len(eids) * N_PSEUDO // N_PSEUDO_PER_JOB)
+        #cluster.adapt(minimum_jobs=1, maximum_jobs=len(eids))
+        cluster.scale(len(eids))
     client = Client(cluster)
     if USE_IMPOSTER_SESSION:
         imposterdf = pd.read_parquet(DECODING_PATH.joinpath('imposterSessions_beforeRecordings.pqt'))
@@ -341,7 +386,7 @@ if __name__ == '__main__':
     one = ONE(mode='local')
     one_future = client.scatter(one)
     filenames = []
-    for i, eid in enumerate(eids):
+    for i, eid in enumerate(eids[:1]):
         if (eid in excludes or np.any(insdf[insdf['eid'] == eid]['spike_sorting'] == "")):
             print(f"dud {eid}")
             continue
@@ -352,8 +397,7 @@ if __name__ == '__main__':
             fns = client.submit(fit_eid, eid=eid, sessdf=insdf,
                                 pseudo_ids=pseudo_ids,
                                 nb_runs=N_RUNS,
-                                imposterdf=imposterdf_future,
-                                one=one_future)
+                                imposterdf=imposterdf_future)
             filenames.append(fns)
 
     # WAIT FOR COMPUTATION TO FINISH BEFORE MOVING ON
