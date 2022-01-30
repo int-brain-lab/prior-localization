@@ -10,7 +10,7 @@ import models.utils as mut
 from datetime import date
 from pathlib import Path
 from models.expSmoothing_prevAction import expSmoothing_prevAction
-from models.utils import optimal_Bayesian
+from decoding_utils import optimal_Bayesian
 import dask.bag as db
 
 from one.api import ONE

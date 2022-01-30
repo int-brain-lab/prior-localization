@@ -10,24 +10,12 @@ from models.expSmoothing_prevAction import expSmoothing_prevAction
 from models.expSmoothing_stimside import expSmoothing_stimside
 from models.biasedApproxBayesian import biased_ApproxBayesian
 from models.biasedBayesian import biased_Bayesian
-from models.utils import optimal_Bayesian
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import GridSearchCV, KFold
 from sklearn.linear_model._coordinate_descent import LinearModelCV
 from sklearn.metrics import r2_score
 from sklearn.utils.class_weight import compute_sample_weight
 from tqdm import tqdm
-
-possible_targets = ['prederr', 'signcont', 'pLeft']
-
-modeldispatcher = {expSmoothing_prevAction: 'expSmoothingPrevActions',
-                   expSmoothing_stimside: 'expSmoothingStimSides',
-                   biased_ApproxBayesian: 'biased_Approxbayesian',
-                   biased_Bayesian: 'biased_Bayesian',
-                   optimal_Bayesian: 'optimal_bayesian',
-                   None: 'oracle'
-                   }
-
 
 def query_sessions(selection='all', one=None):
     '''
@@ -509,3 +497,68 @@ def return_regions(eid, sessdf, QC_CRITERIA=1, NUM_UNITS=10):
                 probe_regions.append(region)
         my_regions[probe] = probe_regions
     return my_regions
+
+
+def optimal_Bayesian(act, stim, side):
+    '''
+    Generates the optimal prior
+    Params:
+        act (array of shape [nb_sessions, nb_trials]): action performed by the mice of shape
+        side (array of shape [nb_sessions, nb_trials]): stimulus side (-1 (right), 1 (left)) observed by the mice
+    Output:
+        prior (array of shape [nb_sessions, nb_chains, nb_trials]): prior for each chain and session
+    '''
+    act = torch.from_numpy(act)
+    side = torch.from_numpy(side)
+    lb, tau, ub, gamma = 20, 60, 100, 0.8
+    nb_blocklengths = 100
+    nb_typeblocks = 3
+    eps = torch.tensor(1e-15)
+
+    alpha = torch.zeros([act.shape[-1], nb_blocklengths, nb_typeblocks])
+    alpha[0, 0, 1] = 1
+    alpha = alpha.reshape(-1, nb_typeblocks * nb_blocklengths)
+    h = torch.zeros([nb_typeblocks * nb_blocklengths])
+
+    # build transition matrix
+    b = torch.zeros([nb_blocklengths, nb_typeblocks, nb_typeblocks])
+    b[1:][:, 0, 0], b[1:][:, 1, 1], b[1:][:, 2, 2] = 1, 1, 1  # case when l_t > 0
+    b[0][0][-1], b[0][-1][0], b[0][1][np.array([0, 2])] = 1, 1, 1. / 2  # case when l_t = 1
+    n = torch.arange(1, nb_blocklengths + 1)
+    ref = torch.exp(-n / tau) * (lb <= n) * (ub >= n)
+    torch.flip(ref.double(), (0,))
+    hazard = torch.cummax(ref / torch.flip(torch.cumsum(torch.flip(ref.double(), (0,)), 0) + eps, (0,)), 0)[0]
+    l = torch.cat((torch.unsqueeze(hazard, -1),
+                   torch.cat((torch.diag(1 - hazard[:-1]),
+                              torch.zeros(nb_blocklengths - 1)[None]),
+                             axis=0)), axis=-1)  # l_{t-1}, l_t
+    transition = eps + torch.transpose(l[:, :, None, None] * b[None], 1, 2).reshape(nb_typeblocks * nb_blocklengths, -1)
+
+    # likelihood
+    lks = torch.hstack([gamma * (side[:, None] == -1) + (1 - gamma) * (side[:, None] == 1),
+                        torch.ones_like(act[:, None]) * 1. / 2,
+                        gamma * (side[:, None] == 1) + (1 - gamma) * (side[:, None] == -1)])
+    to_update = torch.unsqueeze(torch.unsqueeze(act.not_equal(0), -1), -1) * 1
+
+    for i_trial in range(act.shape[-1]):
+        # save priors
+        if i_trial > 0:
+            alpha[i_trial] = torch.sum(torch.unsqueeze(h, -1) * transition, axis=0) * to_update[i_trial - 1] \
+                             + alpha[i_trial - 1] * (1 - to_update[i_trial - 1])
+        h = alpha[i_trial] * lks[i_trial].repeat(nb_blocklengths)
+        h = h / torch.unsqueeze(torch.sum(h, axis=-1), -1)
+
+    predictive = torch.sum(alpha.reshape(-1, nb_blocklengths, nb_typeblocks), 1)
+    Pis = predictive[:, 0] * gamma + predictive[:, 1] * 0.5 + predictive[:, 2] * (1 - gamma)
+
+    return 1 - Pis
+
+possible_targets = ['prederr', 'signcont', 'pLeft']
+
+modeldispatcher = {expSmoothing_prevAction: 'expSmoothingPrevActions',
+                   expSmoothing_stimside: 'expSmoothingStimSides',
+                   biased_ApproxBayesian: 'biased_Approxbayesian',
+                   biased_Bayesian: 'biased_Bayesian',
+                   optimal_Bayesian: 'optimal_bayesian',
+                   None: 'oracle'
+                   }
