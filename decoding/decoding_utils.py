@@ -302,14 +302,22 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
 
             idx_inner = np.arange(len(X_train))
             inner_kfold = KFold(n_splits=nFolds, shuffle=shuffle).split(idx_inner)
-
-            r2s = np.zeros([nFolds, len(hyperparam_grid['alpha'])])
+            
+            
+            
+            try:
+                hyperkey = list(hyperparam_grid.keys())
+                assert len(hyperkey)==1
+                hyperkey = hyperkey[0]
+            except AssertionError:
+                raise AssertionError('too many hyper parameters, only 1 allowed')
+            r2s = np.zeros([nFolds, len(hyperparam_grid[hyperkey])])
             for ifold, (train_inner, test_inner) in enumerate(inner_kfold):
                 X_train_inner, X_test_inner = X_train[train_inner], X_train[test_inner]
                 y_train_inner, y_test_inner = y_train[train_inner], y_train[test_inner]
 
-                for i_alpha, alpha in enumerate(hyperparam_grid['alpha']):
-                    estimator = estimatorObject(**{**estimator_kwargs, 'alpha': alpha})
+                for i_alpha, alpha in enumerate(hyperparam_grid[hyperkey]):
+                    estimator = estimatorObject(**{**estimator_kwargs, hyperkey: alpha})
                     if balanced_weight:
                         estimator.fit(X_train_inner, y_train_inner, sample_weight=compute_sample_weight("balanced",
                                                                                                     y=y_train_inner))
@@ -319,8 +327,8 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
                     r2s[ifold, i_alpha] = r2_score(y_test_inner, pred_test_inner)
 
             r2s_avg = r2s.mean(axis=0)
-            best_alpha = hyperparam_grid['alpha'][np.argmax(r2s_avg)]
-            clf = estimatorObject(**{**estimator_kwargs, 'alpha': best_alpha})
+            best_alpha = hyperparam_grid[hyperkey][np.argmax(r2s_avg)]
+            clf = estimatorObject(**{**estimator_kwargs, hyperkey: best_alpha})
             if balanced_weight:
                 clf.fit(X_train, y_train, sample_weight=compute_sample_weight("balanced", y=y_train))
             else:
@@ -344,7 +352,7 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
                 intercepts.append(clf.intercept_)
             else:
                 intercepts.append(None)
-            best_params.append({'alpha':best_alpha})
+            best_params.append({hyperkey:best_alpha})
 
     full_test_prediction = np.zeros(len(tvec))
     for k in range(nFolds):

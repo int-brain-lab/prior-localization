@@ -17,6 +17,7 @@ from pathlib import Path
 from datetime import date
 from one.api import ONE
 from models.expSmoothing_prevAction import expSmoothing_prevAction
+from models.optimalBayesian import optimal_Bayesian
 # from brainbox.singlecell import calculate_peths
 from brainbox.population.decode import get_spike_counts_in_bins
 from brainbox.task.closed_loop import generate_pseudo_session
@@ -56,9 +57,9 @@ OUTPUT_PATH = '/home/bensonb/IntBrainLab/prior-localization/decoding/results/dec
 #OUTPUT_PATH = '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding/results/decoding/'
 ALIGN_TIME = 'feedback_times'# 'feedback_times'
 TARGET = 'feedback'  # 'pLeft','prior','choice','feedback','signcont'
-TIME_WINDOW = (0, 0.1)  # (-0.6, -0.2), (0, 0.1)
-ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
-ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
+TIME_WINDOW = (0, 0.2)  # (-0.6, -0.2), (0, 0.1)
+ESTIMATOR = sklm.LogisticRegression #sklm.Lasso  # Must be in keys of strlut above
+ESTIMATOR_KWARGS = {'penalty': 'l1', 'solver':'saga', 'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
 N_PSEUDO = 0
 MIN_UNITS = 10
 MIN_BEHAV_TRIAS = 400
@@ -70,8 +71,11 @@ FORCE_POSITIVE_NEURO_SLOPES = False
 # Basically, quality metric on the stability of a single unit. Should have 1 metric per neuron
 QC_CRITERIA = 3/3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
 
-BALANCED_WEIGHT = False # seems to work better with BALANCED_WEIGHT=False
+BALANCED_WEIGHT = True # seems to work better with BALANCED_WEIGHT=False
 HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000])}
+ESTIMATORSTR = strlut[ESTIMATOR]  
+if ESTIMATORSTR == 'Logistic':
+    HPARAM_GRID = {'C': np.array([0.0001, 0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000])}
 DOUBLEDIP = False
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
@@ -86,8 +90,17 @@ if MODEL not in list(dut.modeldispatcher.keys()):
 
 if COMPUTE_NEUROMETRIC and TARGET != 'signcont':
     raise ValueError('the target should be signcont to compute neurometric curves')
-
-ESTIMATORSTR = strlut[ESTIMATOR]
+ 
+if ESTIMATORSTR == 'Logistic' and TARGET == 'choice':
+    MASK_DATA = lambda x: (np.array(x)==-1)|(np.array(x)==1)
+    TRANSFORM_DATA = lambda x: np.array((x+1)/2, dtype=int)
+elif ESTIMATORSTR == 'Logistic' and TARGET == 'feedback':
+    MASK_DATA = lambda x: (np.array(x)==-1)|(np.array(x)==1)
+    TRANSFORM_DATA = lambda x: np.array((x+1)/2, dtype=int)
+else:
+    MASK_DATA = lambda x: (np.array(x)==np.array(x))
+    TRANSFORM_DATA = lambda x: x
+    
 fit_metadata = {
     'criterion': SESS_CRITERION,
     'target': TARGET,
@@ -162,15 +175,16 @@ def fit_eid(eid, sessdf):
         print('Model not fit.')
         tvec = dut.compute_target(TARGET, subject, subjeids, eid, MODELFIT_PATH,
                                   modeltype=MODEL, one=one)
-
+    
     try:
         trialsdf = bbone.load_trials_df(eid, one=one, addtl_types=['firstMovement_times'])
         if len(trialsdf) != len(tvec):
             raise IndexError
     except IndexError:
         raise IndexError('Problem in the dimensions of dataframe of session')
-    trialsdf['react_times'] = trialsdf['firstMovement_times'] - trialsdf[ALIGN_TIME]
+    trialsdf['react_times'] = trialsdf['firstMovement_times'] - trialsdf['goCue_times']
     mask = trialsdf[ALIGN_TIME].notna()
+    mask = mask & MASK_DATA(tvec)
     if NO_UNBIAS:
         mask = mask & (trialsdf.probabilityLeft != 0.5).values
     if MIN_RT is not None:
@@ -178,6 +192,8 @@ def fit_eid(eid, sessdf):
 
     nb_trialsdf = trialsdf[mask]
     msub_tvec = tvec[mask]
+    msub_tvec = TRANSFORM_DATA(msub_tvec)
+    
 
     # doubledipping
     if DOUBLEDIP:
@@ -318,9 +334,8 @@ if __name__ == '__main__':
                                                            f'export MKL_NUM_THREADS={N_CORES}',
                                                            f'export OPENBLAS_NUM_THREADS={N_CORES}'])
         cluster.adapt(minimum_jobs=0, maximum_jobs=80)
-    else:
-        cluster = LocalCluster()
-    client = Client(cluster)
+        client = Client(cluster)
+    
 
     import time
     filenames = []
