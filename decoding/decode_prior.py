@@ -59,8 +59,8 @@ MODEL = optimal_Bayesian  # expSmoothing_prevAction  or None # or dut.modeldispa
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
-N_PSEUDO = 100
-N_PSEUDO_PER_JOB = 20
+N_PSEUDO = 150
+N_PSEUDO_PER_JOB = 50
 N_JOBS_PER_SESSION = N_PSEUDO // N_PSEUDO_PER_JOB
 N_RUNS = 10
 MIN_UNITS = 10
@@ -82,7 +82,7 @@ if NORMALIZE_INPUT or NORMALIZE_OUTPUT:
     warnings.warn('This feature has not been tested')
 USE_IMPOSTER_SESSION = False  # if false, it uses pseudosessions
 
-BALANCED_WEIGHT = False  # seems to work better with BALANCED_WEIGHT=False
+BALANCED_WEIGHT = True  # seems to work better with BALANCED_WEIGHT=False
 HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])}
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
@@ -378,18 +378,20 @@ if __name__ == '__main__':
     if LOCAL:
         cluster = LocalCluster(n_workers=2, threads_per_worker=1)
     else:
-        N_CORES = 8
-        cluster = SLURMCluster(cores=N_CORES, memory='32GB', processes=1, queue="shared-cpu",
-                               walltime="10:00:00",
+        N_CORES = 16
+        cluster = SLURMCluster(cores=N_CORES, memory='48GB', processes=1, queue="shared-cpu",
+                               walltime="12:00:00",
                                log_directory='/home/users/f/findling/ibl/prior-localization/decoding/dask-worker-logs',
                                interface='ib0',
-                               extra=["--lifetime", "20h", "--lifetime-stagger", "10m"],
+                               extra=["--time", "12h", "--lifetime", "20h", "--lifetime-stagger", "10m"],
                                job_cpu=N_CORES, env_extra=[f'export OMP_NUM_THREADS={N_CORES}',
                                                            f'export MKL_NUM_THREADS={N_CORES}',
                                                            f'export OPENBLAS_NUM_THREADS={N_CORES}'])
-        #cluster.adapt(minimum_jobs=len(eids), maximum_jobs=len(eids) * N_JOBS_PER_SESSION // 4)
-        cluster.scale(len(eids))
-    client = Client(cluster)  # verify you have at least 1 process before continuing (if not, you must wait)
+        # cluster.adapt(minimum_jobs=len(eids), maximum_jobs=len(eids) * N_JOBS_PER_SESSION // 4)
+        cluster.scale(len(eids) * N_JOBS_PER_SESSION)
+    client = Client(cluster)
+    # verify you have at least 1 process before continuing (if not, you must wait that there is a process in cluster
+    # and then relaunch client = Client(cluster)
     if USE_IMPOSTER_SESSION:
         imposterdf = pd.read_parquet(DECODING_PATH.joinpath('imposterSessions_beforeRecordings.pqt'))
         imposterdf_future = client.scatter(imposterdf)
@@ -404,9 +406,10 @@ if __name__ == '__main__':
             print(f"dud {eid}")
             continue
         print(f"{i}, session: {eid}")
-        for job_id in range(N_JOBS_PER_SESSION + 1):
-            pseudo_ids = np.arange(job_id * N_PSEUDO_PER_JOB, (job_id + 1) * N_PSEUDO_PER_JOB)
-            pseudo_ids[pseudo_ids == 0] = -1
+        for job_id in range(N_JOBS_PER_SESSION):
+            pseudo_ids = np.arange(job_id * N_PSEUDO_PER_JOB, (job_id + 1) * N_PSEUDO_PER_JOB) + 1
+            if 1 in pseudo_ids:
+                pseudo_ids = np.concatenate((-np.ones(1), pseudo_ids)).astype('int64')
             fns = client.submit(fit_eid, eid=eid, sessdf=insdf,
                                 pseudo_ids=pseudo_ids,
                                 nb_runs=N_RUNS,
@@ -511,8 +514,8 @@ print(np.array(failures)[:,0])
 import traceback
 tb = failure.traceback()
 traceback.print_tb(tb)
+print(len([(i, x) for i, x in enumerate(filenames) if x.status == 'cancelled']))
 print(len([(i, x) for i, x in enumerate(filenames) if x.status == 'error']))
-print(len([(i, x) for i, x in enumerate(filenames) if x.status == 'pending']))
 print(len([(i, x) for i, x in enumerate(filenames) if x.status == 'finished']))
 """
 # You can also get the traceback from failure.traceback and print via `import traceback` and
