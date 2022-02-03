@@ -16,6 +16,7 @@ import brainbox.modeling.design_matrix as dm
 import brainbox.modeling.utils as mut
 import brainbox.io.one as bbone
 import brainbox.metrics.single_units as bbqc
+from tqdm import tqdm
 from one.api import ONE
 from pathlib import Path
 from datetime import datetime as dt
@@ -290,7 +291,7 @@ def fit_stepwise(design, spk_t, spk_clu, binwidth, model, estimator, n_folds=5, 
     nglm = model(design, spk_t, spk_clu, binwidth=binwidth, estimator=estimator)
     splitter = KFold(n_folds, shuffle=not contiguous)
     sequences, scores, splits = [], [], []
-    for test, train in splitter.split(trials_idx):
+    for test, train in tqdm(splitter.split(trials_idx), desc='Fold', leave=False):
         nglm.traininds = train
         sfs = mut.SequentialSelector(nglm)
         sfs.fit()

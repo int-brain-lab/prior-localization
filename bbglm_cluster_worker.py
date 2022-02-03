@@ -41,3 +41,6 @@ if __name__ == '__main__':
                                args.fitdate)
     print('Fitting completed successfully!')
     print(outputfn)
+# f'export OMP_NUM_THREADS={N_CORES}',
+# f'export MKL_NUM_THREADS={N_CORES}',
+# f'export OPENBLAS_NUM_THREADS={N_CORES}'
