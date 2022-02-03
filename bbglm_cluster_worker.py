@@ -19,10 +19,10 @@ def fit_save_inputs(subject, eid, probes, eidfn, subjeids, params, t_before, fit
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Cluster GLM fitter')
-    parser.add_argument('datafile', dtype=Path, help='Input file (parquet pandas df) \
+    parser.add_argument('datafile', type=Path, help='Input file (parquet pandas df) \
                         containing inputs to each worker')
-    parser.add_argument('paramsfile', dtype=Path, help='Parameters for model fitting for worker')
-    parser.add_argument('index', dtype=int, help='Index in inputfile for this worker to \
+    parser.add_argument('paramsfile', type=Path, help='Parameters for model fitting for worker')
+    parser.add_argument('index', type=int, help='Index in inputfile for this worker to \
                         process/save')
     parser.add_argument('fitdate', help='Date of fit for output file')
     args = parser.parse_args()
@@ -41,3 +41,7 @@ if __name__ == '__main__':
                                args.fitdate)
     print('Fitting completed successfully!')
     print(outputfn)
+
+
+Parameters file located at: /home/gercek/scratch/results/glms/2022-02-03_glm_fit_pars.pkl
+Dataset file used: /home/gercek/scratch/glm_cache/2022-01-19_dataset_metadata.pkl
