@@ -6,10 +6,10 @@ from params import GLM_CACHE
 from pathlib import Path
 from datetime import datetime as dt
 from one.api import ONE
-from dask.distributed import Client, LocalCluster
+from dask.distributed import Client
 from dask_jobqueue import SLURMCluster
 from bbglm_sessfit import load_regressors, cache_regressors
-from decoding.decoding_utils import query_sessions
+from functions.decoding_utils import query_sessions
 
 
 @dask.delayed

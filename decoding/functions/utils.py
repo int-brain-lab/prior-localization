@@ -17,6 +17,7 @@ from sklearn.metrics import r2_score
 from sklearn.utils.class_weight import compute_sample_weight
 from tqdm import tqdm
 import torch
+import pickle
 
 def query_sessions(selection='all', one=None):
     '''
@@ -499,6 +500,24 @@ def return_regions(eid, sessdf, QC_CRITERIA=1, NUM_UNITS=10):
         my_regions[probe] = probe_regions
     return my_regions
 
+# %% Define helper functions for dask workers to use
+def save_region_results(fit_result, pseudo_id, subject, eid, probe, region, N,
+                        output_path, time_window, today):
+    subjectfolder = Path(output_path).joinpath(subject)
+    eidfolder = subjectfolder.joinpath(eid)
+    probefolder = eidfolder.joinpath(probe)
+    for folder in [subjectfolder, eidfolder, probefolder]:
+        if not os.path.exists(folder):
+            os.mkdir(folder)
+    start_tw, end_tw = time_window
+    fn = '_'.join([today, region, 'timeWindow', str(start_tw).replace('.', '_'), str(end_tw).replace('.', '_'),
+                   'pseudo_id', str(pseudo_id)]) + '.pkl'
+    fw = open(probefolder.joinpath(fn), 'wb')
+    outdict = {'fit': fit_result, 'pseudo_id': pseudo_id,
+               'subject': subject, 'eid': eid, 'probe': probe, 'region': region, 'N_units': N}
+    pickle.dump(outdict, fw)
+    fw.close()
+    return probefolder.joinpath(fn)
 
 def optimal_Bayesian(act, stim, side):
     '''

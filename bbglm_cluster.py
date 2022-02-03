@@ -15,7 +15,7 @@ from brainbox.task.closed_loop import generate_pseudo_session
 from bbglm_sessfit import fit_stepwise, generate_design
 from params import BEH_MOD_PATH, GLM_FIT_PATH, GLM_CACHE
 sys.path.append(Path(__file__).joinpath('decoding'))
-from decoding.decoding_utils import compute_target, query_sessions  # noqa
+from decoding.functions.utils import compute_target, query_sessions  # noqa
 
 
 def filter_nan(trialsdf):
@@ -87,6 +87,7 @@ if __name__ == "__main__":
     import brainbox.modeling.utils as mut
     import brainbox.modeling.linear as lm
     import sklearn.linear_model as skl
+    import cuml.linear_model as cml
     from sklearn.model_selection import GridSearchCV
 
     # Model parameters
@@ -113,7 +114,7 @@ if __name__ == "__main__":
         'wheel': mut.raised_cosine(0.3, 3, tmp_binf),
         'fmove': mut.raised_cosine(0.2, 3, tmp_binf),
     }
-    params['estimator'] = GridSearchCV(skl.Ridge(), params['alpha_grid'])
+    params['estimator'] = GridSearchCV(cml.Ridge(), params['alpha_grid'])
 
     currdate = str(date.today())
     # currdate = '2021-05-04'
