@@ -41,7 +41,3 @@ if __name__ == '__main__':
                                args.fitdate)
     print('Fitting completed successfully!')
     print(outputfn)
-
-
-Parameters file located at: /home/gercek/scratch/results/glms/2022-02-03_glm_fit_pars.pkl
-Dataset file used: /home/gercek/scratch/glm_cache/2022-01-19_dataset_metadata.pkl
