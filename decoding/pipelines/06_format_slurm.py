@@ -1,5 +1,34 @@
 import pandas as pd
 import pickle
+from functions.utils import return_path
+import pandas as pd
+import sys
+import glob
+import os
+from settings.settings import *
+
+# import cached data
+insdf = pd.read_parquet(DECODING_PATH.joinpath('insertions.pqt'))
+insdf = insdf[insdf.spike_sorting != '']
+eids = insdf['eid'].unique()
+
+kwargs = {'imposterdf': None, 'nb_runs': N_RUNS, 'single_region': SINGLE_REGION, 'merged_probes': MERGED_PROBES,
+          'modelfit_path': DECODING_PATH.joinpath('results', 'behavioral'),
+          'output_path': DECODING_PATH.joinpath('results', 'neural'), 'one': None,
+          'estimator_kwargs': ESTIMATOR_KWARGS, 'hyperparam_grid': HPARAM_GRID,
+          'save_binned': SAVE_BINNED, 'shuffle': SHUFFLE, 'balanced_weight': BALANCED_WEIGHT,
+          'normalize_input': NORMALIZE_INPUT, 'normalize_output': NORMALIZE_OUTPUT,
+          'compute_on_each_fold': COMPUTE_NEURO_ON_EACH_FOLD,
+          'force_positive_neuro_slopes': FORCE_POSITIVE_NEURO_SLOPES,
+          'estimator': ESTIMATOR, 'target': TARGET, 'model': MODEL, 'align_time': ALIGN_TIME,
+          'no_unbias': NO_UNBIAS, 'min_rt': MIN_RT, 'min_behav_trials': MIN_BEHAV_TRIAS,
+          'qc_criteria': QC_CRITERIA, 'min_units': MIN_UNITS, 'time_window': TIME_WINDOW,
+          'use_imposter_session': USE_IMPOSTER_SESSION, 'compute_neurometric': COMPUTE_NEUROMETRIC,
+          'border_quantiles_neurometric': BORDER_QUANTILES_NEUROMETRIC, 'today': DATE
+          }
+
+date = '2022-02-03'
+finished = glob.glob(str(DECODING_PATH.joinpath("results", "neural", "*", "*", "*", "%s*" % date)))
 
 indexers = ['subject', 'eid', 'probe', 'region']
 indexers_neurometric = ['low_slope', 'high_slope', 'low_range', 'high_range', 'shift', 'mean_range', 'mean_slope']
