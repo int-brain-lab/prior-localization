@@ -1,6 +1,6 @@
 import pandas as pd
 import pickle
-from functions.utils import return_path
+import functions.utils as dut
 import pandas as pd
 import sys
 import glob
@@ -70,7 +70,8 @@ estimatorstr = strlut[ESTIMATOR]
 start_tw, end_tw = TIME_WINDOW
 fn = str(DECODING_PATH.joinpath('results', 'neural', '_'.join([DATE, 'decode', TARGET,
                                                                dut.modeldispatcher[MODEL] if TARGET in ['prior',
-                                                                                                        'prederr'] else 'task',
+                                                                                                        'prederr']
+                                                               else 'task',
                                                                estimatorstr, 'align', ALIGN_TIME, str(N_PSEUDO),
                                                                'pseudosessions',
                                                                'regionWise' if SINGLE_REGION else 'allProbes',
