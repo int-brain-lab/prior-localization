@@ -13,6 +13,7 @@ import pickle
 import numpy as np
 import pandas as pd
 import brainbox.modeling.design_matrix as dm
+import brainbox.modeling.utils as mut
 import brainbox.io.one as bbone
 import brainbox.metrics.single_units as bbqc
 from tqdm import tqdm
