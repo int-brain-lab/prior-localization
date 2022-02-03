@@ -4,14 +4,13 @@ We compute clusters locations and metrics within the clusters objects and save i
 The output is a pandas dataframe of insertions, containing eids, pids, subjects, and the location of
 the cached datasets on disk for future loading
 """
-from json import JSONDecodeError
 from pathlib import Path
 from one.api import ONE
 from ibllib.atlas import AllenAtlas
 from brainbox.io.one import SpikeSortingLoader
 
-import decoding_utils as dut
-from decode_prior import SESS_CRITERION
+from functions import decoding_utils as dut
+from functions.decode_prior import SESS_CRITERION
 
 #DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding")
 DECODING_PATH = Path("/home/users/f/findling/scratch")
