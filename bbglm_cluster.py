@@ -150,20 +150,8 @@ if __name__ == "__main__":
         outputfn = dsave(subject, eid, sessfit, params, probes, eidfn, sclureg, scluqc, currdate)
         data_fns.append(outputfn)
 
-    N_CORES = 8
-    cluster = SLURMCluster(cores=N_CORES, memory='12GB', processes=1, queue="shared-cpu",
-                           walltime="02:10:00",
-                           log_directory='/home/gercek/dask-worker-logs',
-                           interface='ib0',
-                           extra=["--lifetime", "2h", "--lifetime-stagger", "10m"],
-                           job_cpu=N_CORES, env_extra=[f'export OMP_NUM_THREADS={N_CORES}',
-                                                       f'export MKL_NUM_THREADS={N_CORES}',
-                                                       f'export OPENBLAS_NUM_THREADS={N_CORES}'])
-    cluster.scale(len(data_fns) * 2 // 3)
-    client = Client(cluster)
-    futures = client.compute(data_fns)
-
-    filenames = [x.result() for x in futures if x.status == 'finished']
+    # Process files
+    filenames = [x.result() for x in futures if x.status == 'finished']  # TODO: use os.listdir
     sessdfs = []
     for fitname in filenames:
         with open(fitname, 'rb') as fo:
