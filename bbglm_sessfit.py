@@ -13,7 +13,6 @@ import pickle
 import numpy as np
 import pandas as pd
 import brainbox.modeling.design_matrix as dm
-import brainbox.modeling.utils as mut
 import brainbox.io.one as bbone
 import brainbox.metrics.single_units as bbqc
 from one.api import ONE
@@ -310,7 +309,7 @@ if __name__ == "__main__":
     import sys
     import brainbox.modeling.utils as mut
     sys.path.append(Path(__file__).parent.joinpath('decoding'))
-    from decoding.decoding_utils import compute_target, query_sessions
+    from functions.decoding_utils import compute_target, query_sessions
 
     eid = '5157810e-0fff-4bcf-b19d-32d4e39c7dfc'
     probe = 'probe00'

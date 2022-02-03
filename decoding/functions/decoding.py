@@ -1,17 +1,16 @@
-import pickle
 import numpy as np
 import pandas as pd
-import decoding_utils as dut
+import functions.utils as dut
 import brainbox.io.one as bbone
 import models.utils as mut
 from pathlib import Path
-from decoding_utils import save_region_results
+from functions.utils import save_region_results
 from one.api import ONE
 from brainbox.population.decode import get_spike_counts_in_bins
 from brainbox.task.closed_loop import generate_pseudo_session
 import one.alf.io as alfio
-from decoding_stimulus_neurometric_fit import get_neurometric_parameters
-
+from functions.neurometric import get_neurometric_parameters
+from tqdm import tqdm
 
 def fit_eid(eid, sessdf, pseudo_ids=[-1], **kwargs):
     """
@@ -147,12 +146,12 @@ def fit_eid(eid, sessdf, pseudo_ids=[-1], **kwargs):
             for pseudo_id in pseudo_ids:
                 if pseudo_id > 0:  # create pseudo session when necessary
                     if kwargs['use_imposter_session']:
-                        pseudosess = dut.generate_imposter_session(imposterdf, eid, trialsdf)
+                        pseudosess = dut.generate_imposter_session(kwargs['imposterdf'], eid, trialsdf)
                     else:
                         pseudosess = generate_pseudo_session(trialsdf)
 
-                    msub_pseudo_tvec = dut.compute_target(target, subject, subjeids, eid,
-                                                          modelfit_path, modeltype=model,
+                    msub_pseudo_tvec = dut.compute_target(kwargs['target'], subject, subjeids, eid,
+                                                          kwargs['modelfit_path'], modeltype=kwargs['model'],
                                                           beh_data=pseudosess, one=one)[mask]
 
                 if kwargs['compute_neurometric']:  # compute prior for neurometric curve

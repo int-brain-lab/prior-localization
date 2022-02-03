@@ -17,9 +17,9 @@ strlut = {sklm.Lasso: "Lasso",
           sklm.LogisticRegression: "Logistic"}
 
 # %% Run param definitions
-LOCAL = True
+LOCAL = False
 if LOCAL:
-    DECODING_PATH = Path("/")
+    DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding/")
 else:
     DECODING_PATH = Path("/home/users/f/findling/scratch/")
 
@@ -34,8 +34,8 @@ MODEL = dut.optimal_Bayesian  # expSmoothing_prevAction  or None # or dut.modeld
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
-N_PSEUDO = 1
-N_PSEUDO_PER_JOB = 1
+N_PSEUDO = 100
+N_PSEUDO_PER_JOB = 10
 N_JOBS_PER_SESSION = N_PSEUDO // N_PSEUDO_PER_JOB
 N_RUNS = 10
 MIN_UNITS = 10

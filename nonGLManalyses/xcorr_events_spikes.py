@@ -123,7 +123,7 @@ def heatmap_xcorr(corrarr, lagvals, ax=None, norm=True):
 
 if __name__ == "__main__":
     import dask
-    from ..decoding.decoding_utils import query_sessions
+    from functions.decoding_utils import query_sessions
     from dask.distributed import Client
     from dask_jobqueue import SLURMCluster
 
