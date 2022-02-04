@@ -2,10 +2,7 @@ from pathlib import Path
 import pandas as pd
 from one.api import ONE
 import brainbox.io.one as bbone
-import numpy as np
-from decode_prior import MIN_BEHAV_TRIAS
 from brainbox.task.closed_loop import generate_pseudo_session
-from models import utils as mut
 
 FAKE_IMPOSTER_SESSION = False  # only here for debugging
 GENERATE_FROM_EPHYS = False  # the number of ephys session template is too small

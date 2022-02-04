@@ -10,23 +10,15 @@ from models.expSmoothing_prevAction import expSmoothing_prevAction
 from models.expSmoothing_stimside import expSmoothing_stimside
 from models.biasedApproxBayesian import biased_ApproxBayesian
 from models.biasedBayesian import biased_Bayesian
-from models.optimalBayesian import optimal_Bayesian
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import GridSearchCV, KFold
 from sklearn.linear_model._coordinate_descent import LinearModelCV
 from sklearn.metrics import r2_score
 from sklearn.utils.class_weight import compute_sample_weight
 from tqdm import tqdm
-
-possible_targets = ['prederr', 'signcont', 'pLeft']
-
-modeldispatcher = {expSmoothing_prevAction: 'expSmoothingPrevActions',
-                   expSmoothing_stimside: 'expSmoothingStimSides',
-                   biased_ApproxBayesian: 'biased_Approxbayesian',
-                   biased_Bayesian: 'biased_Bayesian',
-                   optimal_Bayesian: 'optimal_bayesian',
-                   None: 'oracle'
-                   }
+import torch
+import pickle
+import one.alf.io as alfio
 
 
 def query_sessions(selection='all', one=None):
@@ -183,6 +175,21 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
     # check if is trained
     istrained, fullpath = check_bhv_fit_exists(subject, modeltype, eids_train, savepath)
 
+    # load test session is beh_data_test is None
+    if beh_data_test is None:
+        beh_data_test = mut.load_session(eid_test, one=one)
+
+    if target == 'signcont':
+        out = np.nan_to_num(beh_data_test['contrastLeft']) - \
+              np.nan_to_num(beh_data_test['contrastRight'])
+        return out
+    elif (target == 'pLeft') and (modeltype is None):
+        return np.array(beh_data_test['probabilityLeft'])
+    elif (target == 'pLeft') and (modeltype is optimal_Bayesian):  # bypass fitting and generate priors
+        side, stim, act, _ = mut.format_data(beh_data_test)
+        signal = optimal_Bayesian(side.values, stim, act.values)
+        return signal.numpy().squeeze()
+
     if (not istrained) and (target != 'signcont') and (modeltype is not None):
         datadict = {'stim_side': [], 'actions': [], 'stimuli': []}
         for eid in eids_train:
@@ -205,17 +212,6 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
         model = modeltype(savepath, eids_train, subject, actions=None, stimuli=None,
                           stim_side=None)
         model.load_or_train(loadpath=str(fullpath))
-
-    # load test session is beh_data_test is None
-    if beh_data_test is None:
-        beh_data_test = mut.load_session(eid_test, one=one)
-
-    if target == 'signcont':
-        out = np.nan_to_num(beh_data_test['contrastLeft']) - \
-              np.nan_to_num(beh_data_test['contrastRight'])
-        return out
-    elif (target == 'pLeft') and (modeltype is None):
-        return np.array(beh_data_test['probabilityLeft'])
 
     # compute signal
     stim_side, stimuli, actions, _ = mut.format_data(beh_data_test)
@@ -505,3 +501,162 @@ def return_regions(eid, sessdf, QC_CRITERIA=1, NUM_UNITS=10):
                 probe_regions.append(region)
         my_regions[probe] = probe_regions
     return my_regions
+
+
+# %% Define helper functions for dask workers to use
+def save_region_results(fit_result, pseudo_id, subject, eid, probe, region, N,
+                        output_path, time_window, today, compute=True):
+    subjectfolder = Path(output_path).joinpath(subject)
+    eidfolder = subjectfolder.joinpath(eid)
+    probefolder = eidfolder.joinpath(probe)
+    start_tw, end_tw = time_window
+    fn = '_'.join([today, region, 'timeWindow', str(start_tw).replace('.', '_'), str(end_tw).replace('.', '_'),
+                   'pseudo_id', str(pseudo_id)]) + '.pkl'
+    if not compute:
+        return probefolder.joinpath(fn)
+    for folder in [subjectfolder, eidfolder, probefolder]:
+        if not os.path.exists(folder):
+            os.mkdir(folder)
+    outdict = {'fit': fit_result, 'pseudo_id': pseudo_id,
+               'subject': subject, 'eid': eid, 'probe': probe, 'region': region, 'N_units': N}
+    fw = open(probefolder.joinpath(fn), 'wb')
+    pickle.dump(outdict, fw)
+    fw.close()
+    return probefolder.joinpath(fn)
+
+
+def optimal_Bayesian(act, stim, side):
+    '''
+    Generates the optimal prior
+    Params:
+        act (array of shape [nb_sessions, nb_trials]): action performed by the mice of shape
+        side (array of shape [nb_sessions, nb_trials]): stimulus side (-1 (right), 1 (left)) observed by the mice
+    Output:
+        prior (array of shape [nb_sessions, nb_chains, nb_trials]): prior for each chain and session
+    '''
+    act = torch.from_numpy(act)
+    side = torch.from_numpy(side)
+    lb, tau, ub, gamma = 20, 60, 100, 0.8
+    nb_blocklengths = 100
+    nb_typeblocks = 3
+    eps = torch.tensor(1e-15)
+
+    alpha = torch.zeros([act.shape[-1], nb_blocklengths, nb_typeblocks])
+    alpha[0, 0, 1] = 1
+    alpha = alpha.reshape(-1, nb_typeblocks * nb_blocklengths)
+    h = torch.zeros([nb_typeblocks * nb_blocklengths])
+
+    # build transition matrix
+    b = torch.zeros([nb_blocklengths, nb_typeblocks, nb_typeblocks])
+    b[1:][:, 0, 0], b[1:][:, 1, 1], b[1:][:, 2, 2] = 1, 1, 1  # case when l_t > 0
+    b[0][0][-1], b[0][-1][0], b[0][1][np.array([0, 2])] = 1, 1, 1. / 2  # case when l_t = 1
+    n = torch.arange(1, nb_blocklengths + 1)
+    ref = torch.exp(-n / tau) * (lb <= n) * (ub >= n)
+    torch.flip(ref.double(), (0,))
+    hazard = torch.cummax(ref / torch.flip(torch.cumsum(torch.flip(ref.double(), (0,)), 0) + eps, (0,)), 0)[0]
+    l = torch.cat((torch.unsqueeze(hazard, -1),
+                   torch.cat((torch.diag(1 - hazard[:-1]),
+                              torch.zeros(nb_blocklengths - 1)[None]),
+                             axis=0)), axis=-1)  # l_{t-1}, l_t
+    transition = eps + torch.transpose(l[:, :, None, None] * b[None], 1, 2).reshape(nb_typeblocks * nb_blocklengths, -1)
+
+    # likelihood
+    lks = torch.hstack([gamma * (side[:, None] == -1) + (1 - gamma) * (side[:, None] == 1),
+                        torch.ones_like(act[:, None]) * 1. / 2,
+                        gamma * (side[:, None] == 1) + (1 - gamma) * (side[:, None] == -1)])
+    to_update = torch.unsqueeze(torch.unsqueeze(act.not_equal(0), -1), -1) * 1
+
+    for i_trial in range(act.shape[-1]):
+        # save priors
+        if i_trial > 0:
+            alpha[i_trial] = torch.sum(torch.unsqueeze(h, -1) * transition, axis=0) * to_update[i_trial - 1] \
+                             + alpha[i_trial - 1] * (1 - to_update[i_trial - 1])
+        h = alpha[i_trial] * lks[i_trial].repeat(nb_blocklengths)
+        h = h / torch.unsqueeze(torch.sum(h, axis=-1), -1)
+
+    predictive = torch.sum(alpha.reshape(-1, nb_blocklengths, nb_typeblocks), 1)
+    Pis = predictive[:, 0] * gamma + predictive[:, 1] * 0.5 + predictive[:, 2] * (1 - gamma)
+
+    return 1 - Pis
+
+
+def return_path(eid, sessdf, pseudo_ids=[-1], **kwargs):
+    """
+    Parameters
+    ----------
+    single_region: Bool, decoding using region wise or pulled over regions
+    eid: eid of session
+    sessdf: dataframe of session eid
+    pseudo_id: whether to compute a pseudosession or not. if pseudo_id=-1, the true session is considered.
+    can not be 0
+    nb_runs: nb of independent runs performed. this was added after consequent variability was observed across runs.
+    modelfit_path: outputs of behavioral fits
+    output_path: outputs of decoding fits
+    one: ONE object -- this is not to be used with dask, this option is given for debugging purposes
+    """
+
+    df_insertions = sessdf.loc[sessdf['eid'] == eid]
+    subject = df_insertions['subject'].to_numpy()[0]
+    brainreg = BrainRegions()
+
+    filenames = []
+    if kwargs['merged_probes']:
+        across_probes = {'regions': [], 'clusters': [], 'times': [], 'qc_pass': []}
+        for _, ins in df_insertions.iterrows():
+            spike_sorting_path = Path(ins['session_path']).joinpath(ins['spike_sorting'])
+            clusters = pd.read_parquet(spike_sorting_path.joinpath('clusters.pqt'))
+            beryl_reg = remap_region(clusters.atlas_id, br=brainreg)
+            qc_pass = (clusters['label'] >= kwargs['qc_criteria']).values
+            across_probes['regions'].extend(beryl_reg)
+            across_probes['qc_pass'].extend(qc_pass)
+        across_probes = {k: np.array(v) for k, v in across_probes.items()}
+        # warnings.filterwarnings('ignore')
+        if kwargs['single_region']:
+            regions = [[k] for k in np.unique(across_probes['regions'])]
+        else:
+            regions = [np.unique(across_probes['regions'])]
+        df_insertions_iterrows = pd.DataFrame.from_dict({'1': 'mergedProbes'},
+                                                        orient='index',
+                                                        columns=['probe']).iterrows()
+    else:
+        df_insertions_iterrows = df_insertions.iterrows()
+
+    for i, ins in df_insertions_iterrows:
+        probe = ins['probe']
+        if not kwargs['merged_probes']:
+            spike_sorting_path = Path(ins['session_path']).joinpath(ins['spike_sorting'])
+            clusters = pd.read_parquet(spike_sorting_path.joinpath('clusters.pqt'))
+            beryl_reg = remap_region(clusters.atlas_id, br=brainreg)
+            qc_pass = (clusters['label'] >= kwargs['qc_criteria']).values
+            regions = np.unique(beryl_reg)
+        for region in regions:
+            if kwargs['merged_probes']:
+                reg_mask = np.isin(across_probes['regions'], region)
+                reg_clu_ids = np.argwhere(reg_mask & across_probes['qc_pass']).flatten()
+            else:
+                reg_mask = beryl_reg == region
+                reg_clu_ids = np.argwhere(reg_mask & qc_pass).flatten()
+            N_units = len(reg_clu_ids)
+            if N_units < kwargs['min_units']:
+                continue
+
+            for pseudo_id in pseudo_ids:
+                filenames.append(save_region_results(None, pseudo_id, subject, eid, probe,
+                                                     str(np.squeeze(region)) if kwargs[
+                                                         'single_region'] else 'allRegions',
+                                                     N_units, output_path=kwargs['output_path'],
+                                                     time_window=kwargs['time_window'],
+                                                     today=kwargs['today'],
+                                                     compute=False))
+    return filenames
+
+
+possible_targets = ['prederr', 'signcont', 'pLeft']
+
+modeldispatcher = {expSmoothing_prevAction: 'expSmoothingPrevActions',
+                   expSmoothing_stimside: 'expSmoothingStimSides',
+                   biased_ApproxBayesian: 'biased_Approxbayesian',
+                   biased_Bayesian: 'biased_Bayesian',
+                   optimal_Bayesian: 'optimal_bayesian',
+                   None: 'oracle'
+                   }

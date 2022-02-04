@@ -15,7 +15,7 @@ from brainbox.task.closed_loop import generate_pseudo_session
 from bbglm_sessfit import fit_stepwise, generate_design
 from params import BEH_MOD_PATH, GLM_FIT_PATH, GLM_CACHE
 sys.path.append(Path(__file__).joinpath('decoding'))
-from decoding.decoding_utils import compute_target, query_sessions  # noqa
+from decoding.functions.utils import compute_target, query_sessions  # noqa
 
 
 def filter_nan(trialsdf):
@@ -84,12 +84,10 @@ def _create_sub_sess_path(parent, subject, session):
 
 
 if __name__ == "__main__":
-    import dask
     import brainbox.modeling.utils as mut
     import brainbox.modeling.linear as lm
     import sklearn.linear_model as skl
-    from dask.distributed import Client
-    from dask_jobqueue import SLURMCluster
+    import cuml.linear_model as cml
     from sklearn.model_selection import GridSearchCV
 
     # Model parameters
@@ -116,54 +114,28 @@ if __name__ == "__main__":
         'wheel': mut.raised_cosine(0.3, 3, tmp_binf),
         'fmove': mut.raised_cosine(0.2, 3, tmp_binf),
     }
-    params['estimator'] = GridSearchCV(skl.Ridge(), params['alpha_grid'])
+    params['estimator'] = GridSearchCV(cml.Ridge(), params['alpha_grid'])
 
     currdate = str(date.today())
     # currdate = '2021-05-04'
 
+    parpath = Path(GLM_FIT_PATH).joinpath(f'{currdate}_glm_fit_pars.pkl')
+    datapath = Path(GLM_CACHE).joinpath(params['dataset_fn'])
+    with open(parpath, 'wb') as fw:
+        pickle.dump(params, fw)
+    print("Parameters file located at:", parpath)
+    print("Dataset file used:", datapath)
+
     sessions = query_sessions('resolved-behavior').set_index(['subject', 'eid'])
-    with open(Path(GLM_CACHE).joinpath(params['dataset_fn']), 'rb') as fo:
+    with open(datapath, 'rb') as fo:
         dataset = pickle.load(fo)
     dataset_params = dataset['params']
     dataset_fns = dataset['dataset_filenames']
 
-    # Define delayed versions of the fit functions for use in dask
-    dload = dask.delayed(get_cached_regressors, nout=5)
-    dprior = dask.delayed(compute_target)
-    dfilter = dask.delayed(filter_nan)
-    dselect_prior = dask.delayed(lambda arr, idx: arr[idx])
-    ddesign = dask.delayed(generate_design)
-    dpseudo = dask.delayed(generate_pseudo_session)
-    dfit = dask.delayed(fit_stepwise)
-    dsave = dask.delayed(save_stepwise)
 
-    data_fns = []
-    for i, (subject, eid, probes, metafn, eidfn) in dataset_fns.iterrows():
-        subjeids = sessions.xs(subject, level='subject').index.unique().to_list()
-        stdf, sspkt, sspkclu, sclureg, scluqc = dload(eidfn)
-        stdf_nona = dfilter(stdf)
-        sessfullprior = dprior('pLeft', subject, subjeids, eid, Path(BEH_MOD_PATH))
-        sessprior = dselect_prior(sessfullprior, stdf_nona.index)
-        sessdesign = ddesign(stdf_nona, sessprior, dataset_params['t_before'],
-                             **params)
-        sessfit = dfit(sessdesign, sspkt, sspkclu, **params)
-        outputfn = dsave(subject, eid, sessfit, params, probes, eidfn, sclureg, scluqc, currdate)
-        data_fns.append(outputfn)
 
-    N_CORES = 8
-    cluster = SLURMCluster(cores=N_CORES, memory='12GB', processes=1, queue="shared-cpu",
-                           walltime="02:10:00",
-                           log_directory='/home/gercek/dask-worker-logs',
-                           interface='ib0',
-                           extra=["--lifetime", "2h", "--lifetime-stagger", "10m"],
-                           job_cpu=N_CORES, env_extra=[f'export OMP_NUM_THREADS={N_CORES}',
-                                                       f'export MKL_NUM_THREADS={N_CORES}',
-                                                       f'export OPENBLAS_NUM_THREADS={N_CORES}'])
-    cluster.scale(len(data_fns) * 2 // 3)
-    client = Client(cluster)
-    futures = client.compute(data_fns)
-
-    filenames = [x.result() for x in futures if x.status == 'finished']
+    # Process files after fitting
+    filenames = [x.result() for x in futures if x.status == 'finished']  # TODO: use os.listdir
     sessdfs = []
     for fitname in filenames:
         with open(fitname, 'rb') as fo:

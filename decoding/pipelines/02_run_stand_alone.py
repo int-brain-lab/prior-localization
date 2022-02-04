@@ -4,9 +4,8 @@ The analysis tools load the downloaded and cached version of the data.
 """
 from pathlib import Path
 import pandas as pd
-from decode_prior import fit_eid
 import numpy as np
-import decoding_utils as dut
+from functions import decoding_utils as dut
 
 DECODING_PATH = Path("/home/users/h/hubertf/int-brain-lab/decoding_results")
 # create necessary empty directories if not existing
