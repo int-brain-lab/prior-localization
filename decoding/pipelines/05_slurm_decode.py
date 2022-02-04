@@ -1,8 +1,8 @@
 import pandas as pd
 import sys
-import os
 from settings.settings import *
 from functions.decoding import fit_eid
+import numpy as np
 
 try:
     index = int(sys.argv[1]) - 1

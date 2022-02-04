@@ -45,7 +45,7 @@ SINGLE_REGION = True  # perform decoding on region-wise or whole brain analysis
 MERGED_PROBES = False  # merge probes before performing analysis
 NO_UNBIAS = False
 SHUFFLE = True  # interleaved cross validation
-BORDER_QUANTILES_NEUROMETRIC = [.5]  # [.3, .4, .5, .6, .7]
+BORDER_QUANTILES_NEUROMETRIC = [.4, .6]  # [.3, .4, .5, .6, .7]
 COMPUTE_NEUROMETRIC = True if TARGET == 'signcont' else False
 FORCE_POSITIVE_NEURO_SLOPES = False
 # NEUROMETRIC_PRIOR_MODEL = expSmoothing_prevAction #'oracle'
