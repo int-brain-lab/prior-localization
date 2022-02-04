@@ -29,7 +29,7 @@ kwargs = {'imposterdf': None, 'nb_runs': N_RUNS, 'single_region': SINGLE_REGION,
           'border_quantiles_neurometric': BORDER_QUANTILES_NEUROMETRIC, 'today': DATE
           }
 
-date = '2022-02-03'
+date = '2022-02-04'
 finished = glob.glob(str(DECODING_PATH.joinpath("results", "neural", "*", "*", "*", "*%s*" % date)))
 
 indexers = ['subject', 'eid', 'probe', 'region']
