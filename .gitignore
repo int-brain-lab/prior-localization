@@ -1,3 +1,6 @@
+legacy
+.gitignore
+.gitignore
 dj_local_conf.json
 .DS_Store
 /.vscode/
