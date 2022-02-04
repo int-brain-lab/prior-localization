@@ -1,3 +1,4 @@
+
 import os
 import pickle
 import logging
@@ -16,7 +17,6 @@ from one.api import ONE
 from brainbox.population.decode import get_spike_counts_in_bins
 from brainbox.task.closed_loop import generate_pseudo_session
 import one.alf.io as alfio
-
 from decoding_stimulus_neurometric_fit import get_neurometric_parameters
 
 try:
