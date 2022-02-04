@@ -12,19 +12,8 @@ from brainbox.io.one import SpikeSortingLoader
 from functions import decoding_utils as dut
 from functions.decode_prior import SESS_CRITERION
 
-try:
-    from dask_jobqueue import SLURMCluster
-    from dask.distributed import Client, LocalCluster
-except:
-    import warnings
-
-    warnings.warn('dask import failed')
-    pass
-
-DECODING_PATH = Path('C:/Users/fphub\Documents/int-brain-lab/prior-localization/decoding')
-# DECODING_PATH = Path("/home/users/h/hubertf/int-brain-lab/prior-localization/decoding")
-# DECODING_PATH = Path("/home/users/f/findling/ibl/prior-localization/decoding")
-
+#DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding")
+DECODING_PATH = Path("/home/users/f/findling/scratch")
 one = ONE()
 ba = AllenAtlas()
 
@@ -46,27 +35,10 @@ insdf['histology'] = ''
 
 errors_pid = []
 IMIN = 0
-
-###### if I only care about V1 sessions #######
-# get all eid with region corresponding to primary visual cortex
-df = pd.read_parquet('C:/Users/fphub/Documents/int-brain-lab/decoding_results/decoding_results2022-01-10_decode_signcont_task_Lasso_align_goCue_times_2_pseudosessions_timeWindow_0_0_1.parquet')# '/home/users/h/hubertf/int-brain-lab/decoding_results/2022-01-11_decode_prior_expSmoothingPrevActions_Lasso_align_goCue_times_2_pseudosessions_timeWindow_0_0_1.parquet')
-df_sess_reg = df[df['fold'] == -1]
-region = 'VISp'
-V1_mask = df_sess_reg.index.get_level_values(3).str.startswith((region))
-df_sess_reg_V1 = df_sess_reg[V1_mask]
-V1_eids = df_sess_reg_V1.index.unique('eid')
-print("number of sessions with primary visual cortex recordings : ",len(V1_eids))
-################################################
-
 for i, rec in insdf.iterrows():
     pid = rec['pid']
-    eid = rec['eid']
     if pid in excludes:
         continue
-    if eid not in V1_eids:
-        continue
-    else:
-        print(i)
     if i < IMIN:
         continue
     print(i, pid)
@@ -87,8 +59,7 @@ for i, rec in insdf.iterrows():
         errors_pid.append(rec.eid)
         pass
 
-
-insdf.to_parquet(DECODING_PATH.joinpath('insertions_V1.pqt'))
+insdf.to_parquet(DECODING_PATH.joinpath('insertions.pqt'))
 
 print('\n')
 print('errors')
