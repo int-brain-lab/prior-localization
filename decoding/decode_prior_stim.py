@@ -1,6 +1,6 @@
 import sys                                                                                                              
-MODELS_PATH = '/home/bensonb/IntBrainLab/behavior_models/'                                                   
-# MODELS_PATH = '/home/users/bensonb/international-brain-lab/behavior_models'
+# MODELS_PATH = '/home/bensonb/IntBrainLab/behavior_models/'                                                   
+MODELS_PATH = '/home/users/bensonb/international-brain-lab/behavior_models'
 if not MODELS_PATH in sys.path:                                                                              
      sys.path.insert(0, MODELS_PATH)
      
@@ -55,11 +55,11 @@ MODELFIT_PATH = '/home/bensonb/IntBrainLab/prior-localization/decoding/results/b
 OUTPUT_PATH = '/home/bensonb/IntBrainLab/prior-localization/decoding/results/decoding/'
 #MODELFIT_PATH = '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding/results/behavior/'
 #OUTPUT_PATH = '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding/results/decoding/'
-ALIGN_TIME = 'feedback_times'# 'feedback_times'
-TARGET = 'feedback'  # 'pLeft','prior','choice','feedback','signcont'
-TIME_WINDOW = (0, 0.2)  # (-0.6, -0.2), (0, 0.1)
-ESTIMATOR = sklm.LogisticRegression #sklm.Lasso  # Must be in keys of strlut above
-ESTIMATOR_KWARGS = {'penalty': 'l1', 'solver':'saga', 'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
+ALIGN_TIME = 'goCue_times'# 'goCue_times' 'feedback_times' 'firstMovement_times'
+TARGET = 'signcont'  # 'pLeft','prior','choice','feedback','signcont'
+TIME_WINDOW = (0, 0.1)  # (-0.6, -0.2), (0, 0.1)
+ESTIMATOR = sklm.Lasso #sklm.Lasso  # Must be in keys of strlut above
+ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}#'penalty': 'l1', 'solver':'saga', 
 N_PSEUDO = 0
 MIN_UNITS = 10
 MIN_BEHAV_TRIAS = 400
@@ -71,7 +71,7 @@ FORCE_POSITIVE_NEURO_SLOPES = False
 # Basically, quality metric on the stability of a single unit. Should have 1 metric per neuron
 QC_CRITERIA = 3/3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
 
-BALANCED_WEIGHT = True # seems to work better with BALANCED_WEIGHT=False
+BALANCED_WEIGHT = False # seems to work better with BALANCED_WEIGHT=False
 HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000])}
 ESTIMATORSTR = strlut[ESTIMATOR]  
 if ESTIMATORSTR == 'Logistic':
@@ -79,7 +79,7 @@ if ESTIMATORSTR == 'Logistic':
 DOUBLEDIP = False
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
-ADD_TO_SAVING_PATH = '20eidV0'
+ADD_TO_SAVING_PATH = 'clusterV0'#'20eidV0'
 
 # ValueErrors and NotImplementedErrors
 if TARGET not in ['prior','signcont', 'pLeft','choice','feedback']:
@@ -324,15 +324,15 @@ if __name__ == '__main__':
     sessdf = dut.query_sessions(selection=SESS_CRITERION)
     sessdf = sessdf.sort_values('subject').set_index(['subject', 'eid'])
     if False:
-        N_CORES = 2
-        cluster = SLURMCluster(cores=N_CORES, memory='16GB', processes=1, queue="shared-cpu", # modify queue for Sherlock, Partition name from squeue
-                               walltime="01:15:00",
-                               log_directory='/home/bensonb/IntBrainLab/prior-localization/decoding/dask-worker-logs',
-                               interface='ib0',
-                               extra=["--lifetime", "60m", "--lifetime-stagger", "10m"],
-                               job_cpu=N_CORES, env_extra=[f'export OMP_NUM_THREADS={N_CORES}',
-                                                           f'export MKL_NUM_THREADS={N_CORES}',
-                                                           f'export OPENBLAS_NUM_THREADS={N_CORES}'])
+        N_CORES = 10
+        cluster = SLURMCluster(cores=N_CORES, memory='16GB', processes=10, queue="normal", # modify queue for Sherlock, Partition name from squeue
+                       walltime="01:15:00",
+                       log_directory='/home/users/bensonb/international-brain-lab/prior-localization/decoding/dask-worker-logs',
+                       interface='ib0',
+                       extra=["--lifetime", "60m", "--lifetime-stagger", "10m"],
+                       job_cpu=N_CORES, env_extra=[f'export OMP_NUM_THREADS={N_CORES}',
+                                                   f'export MKL_NUM_THREADS={N_CORES}',
+                                                   f'export OPENBLAS_NUM_THREADS={N_CORES}'])
         cluster.adapt(minimum_jobs=0, maximum_jobs=80)
         client = Client(cluster)
     
@@ -354,8 +354,8 @@ if __name__ == '__main__':
                 '85dc2ebd-8aaf-46b0-9284-a197aee8b16f', '15f742e1-1043-45c9-9504-f1e8a53c1744']
     for eid in sessdf_eids:
         
-        # fns = client.submit(fit_eid, eid, sessdf)
-        fns = fit_eid(eid,sessdf)
+        fns = client.submit(fit_eid, eid, sessdf)
+        # fns = fit_eid(eid,sessdf)
         filenames.append(fns)
         # assert False
 
