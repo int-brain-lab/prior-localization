@@ -16,6 +16,9 @@ import sys
 PLOTUTILS_PATH = '/home/bensonb/IntBrainLab/paper-brain-wide-map/decoding/'
 if not PLOTUTILS_PATH in sys.path:
     sys.path.insert(0, PLOTUTILS_PATH)
+PLOTUTILS_PATH = '/home/users/bensonb/international-brain-lab/paper-brain-wide-map/decoding/' # for cluster
+if not PLOTUTILS_PATH in sys.path:
+    sys.path.insert(0, PLOTUTILS_PATH)
 from utils import plot_scalar_on_slice
 
 def plot_decoding_results(acronyms, values, filename, 
