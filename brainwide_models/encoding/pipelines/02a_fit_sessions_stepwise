@@ -1,9 +1,3 @@
-"""
-Script to use new neuralGLM object from brainbox rather than complicated matlab calls
-
-Berk, May 2020
-"""
-
 import pickle
 import os
 import sys
@@ -12,7 +6,7 @@ import numpy as np
 from datetime import date
 from pathlib import Path
 from brainbox.task.closed_loop import generate_pseudo_session
-from brainwide_models.encoding.design import fit_stepwise, generate_design
+from bbglm_sessfit import fit_stepwise, generate_design
 from params import BEH_MOD_PATH, GLM_FIT_PATH, GLM_CACHE
 sys.path.append(Path(__file__).joinpath('decoding'))
 from decoding.functions.utils import compute_target, query_sessions  # noqa
@@ -114,46 +108,50 @@ def label_cerebellum(acronym, brainregions=BrainRegions()):
         return False
 
 
-import argparse
-import pickle
-import bbglm_cluster as bc
-from pathlib import Path
-from params import BEH_MOD_PATH
+if __name__ == "__main__":
+    import brainbox.modeling.utils as mut
+    import brainbox.modeling.linear as lm
+    import sklearn.linear_model as skl
+    from sklearn.model_selection import GridSearchCV
 
+    # Model parameters
+    def tmp_binf(t):
+        return np.ceil(t / params['binwidth']).astype(int)
 
-def fit_save_inputs(subject, eid, probes, eidfn, subjeids, params, t_before, fitdate):
-    stdf, sspkt, sspkclu, sclureg, scluqc = bc.get_cached_regressors(eidfn)
-    stdf_nona = bc.filter_nan(stdf)
-    sessfullprior = bc.compute_target('pLeft', subject, subjeids, eid, Path(BEH_MOD_PATH))
-    sessprior = sessfullprior[stdf_nona.index]
-    sessdesign = bc.generate_design(stdf_nona, sessprior, t_before, **params)
-    sessfit = bc.fit_stepwise(sessdesign, sspkt, sspkclu, **params)
-    outputfn = bc.save_stepwise(subject, eid, sessfit, params, probes, eidfn, sclureg, scluqc,
-                                fitdate)
-    return outputfn
+    params = {
+        'binwidth': 0.02,
+        'iti_prior': [-0.4, -0.1],
+        'fmove_offset': -0.2,
+        'wheel_offset': -0.3,
+        'contnorm': 5.,
+        'reduce_wheel_dim': True,
+        'dataset_fn': '2022-01-19_dataset_metadata.pkl',
+        'model': lm.LinearGLM,
+        'alpha_grid': {'alpha': np.logspace(-2, 1.5, 50)},
+        'contiguous': False,
+        # 'n_pseudo': 100,
+    }
 
+    params['bases'] = {
+        'stim': mut.raised_cosine(0.4, 5, tmp_binf),
+        'feedback': mut.raised_cosine(0.4, 5, tmp_binf),
+        'wheel': mut.raised_cosine(0.3, 3, tmp_binf),
+        'fmove': mut.raised_cosine(0.2, 3, tmp_binf),
+    }
+    params['estimator'] = GridSearchCV(skl.Ridge(), params['alpha_grid'])
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Cluster GLM fitter')
-    parser.add_argument('datafile', type=Path, help='Input file (parquet pandas df) \
-                        containing inputs to each worker')
-    parser.add_argument('paramsfile', type=Path, help='Parameters for model fitting for worker')
-    parser.add_argument('index', type=int, help='Index in inputfile for this worker to \
-                        process/save')
-    parser.add_argument('fitdate', help='Date of fit for output file')
-    args = parser.parse_args()
+    currdate = str(date.today())
+    # currdate = '2021-05-04'
 
-    with open(args.datafile, 'rb') as fo:
+    parpath = Path(GLM_FIT_PATH).joinpath(f'{currdate}_glm_fit_pars.pkl')
+    datapath = Path(GLM_CACHE).joinpath(params['dataset_fn'])
+    with open(parpath, 'wb') as fw:
+        pickle.dump(params, fw)
+    print("Parameters file located at:", parpath)
+    print("Dataset file used:", datapath)
+
+    sessions = query_sessions('resolved-behavior').set_index(['subject', 'eid'])
+    with open(datapath, 'rb') as fo:
         dataset = pickle.load(fo)
-    with open(args.paramsfile, 'rb') as fo:
-        params = pickle.load(fo)
-    t_before = dataset['params']['t_before']
+    dataset_params = dataset['params']
     dataset_fns = dataset['dataset_filenames']
-
-    subject, eid, probes, metafn, eidfn = dataset_fns.loc[args.index]
-    subjeids = list(dataset_fns[dataset_fns.subject == subject].eid.unique())
-
-    outputfn = fit_save_inputs(subject, eid, probes, eidfn, subjeids, params, t_before,
-                               args.fitdate)
-    print('Fitting completed successfully!')
-    print(outputfn)
