@@ -2,18 +2,21 @@
 Utility functions for the prior-localization repository
 """
 # Standard library
+import logging
 from pathlib import Path
 
 # Third party libraries
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
 # IBL libraries
 import brainbox.io.one as bbone
 from ibllib.atlas import BrainRegions
 from iblutil.numerical import ismember
 from one.api import ONE
-from one.alf.exceptions import ALFObjectNotFound
+
+_logger = logging.getLogger('enc-dec')
 
 
 def query_sessions(selection='all', one=None):
@@ -79,7 +82,7 @@ def query_sessions(selection='all', one=None):
     return retdf
 
 
-def get_impostor_df(subject, one, ephys_only=False, tdf_kwargs={}):
+def get_impostor_df(subject, one, ephys_only=False, tdf_kwargs={}, progress=False):
     """
     Produce an impostor DF for a given subject, i.e. a dataframe which joins all trials from
     ephys sessions for that mouse. Will have an additional column listing the source EID of each
@@ -103,27 +106,18 @@ def get_impostor_df(subject, one, ephys_only=False, tdf_kwargs={}):
                              'session__subject__nickname__icontains,'
                              f'{subject},'
                              'session__task_protocol__icontains,'
-                             '_iblrig_tasks_ephysChoiceWorld')
-    if not ephys_only:
-        bhsessions = one.alyx.rest('insertions',
-                                   'list',
-                                   django='session__project__name__icontains,'
-                                   'ibl_neuropixel_brainwide_01,'
-                                   'session__subject__nickname__icontains,'
-                                   f'{subject},'
-                                   'session__task_protocol__icontains,'
-                                   '_iblrig_tasks_biasChoiceWorld')
-    else:
-        bhsessions = []
+                             '_iblrig_tasks_ephysChoiceWorld,'
+                             'session__qc__lt,50,'
+                             'session__extended_qc__behavior,1')
     eids = [item['session_info']['id'] for item in sessions]
-    eids.extend([item['session_info']['id'] for item in bhsessions])
     dfs = []
     timing_vars = ['feedback_times', 'goCue_times', 'stimOn_times', 'trial_start', 'trial_end']
     t_last = 0
-    for eid in eids:
+    for eid in tqdm(eids, desc='Eid :', leave=False, disable=not progress):
         try:
             tmpdf = bbone.load_trials_df(eid, one=one, **tdf_kwargs)
-        except ALFObjectNotFound:
+        except Exception as e:
+            _logger.warning(f'eid {eid} df load failed with exception {e}.')
             continue
         tmpdf[timing_vars] += t_last
         tmpdf['orig_eid'] = eid

@@ -1,16 +1,19 @@
-import brainbox.io.one as bbone
+# Third party libraries
 import matplotlib
 import matplotlib.pyplot as plt
 import models.utils as mut
 import numpy as np
 import seaborn as sns
+from models.expSmoothing_prevAction import expSmoothing_prevAction as exp_prevAct
+from scipy.stats import norm
+from sklearn.decomposition import PCA
+
+# IBL libraries
+import brainbox.io.one as bbone
 from brainbox.plot import peri_event_time_histogram
 from brainbox.singlecell import calculate_peths
 from ibllib.atlas import AllenAtlas
-from models.expSmoothing_prevAction import expSmoothing_prevAction as exp_prevAct
 from one.api import ONE
-from scipy.stats import norm
-from sklearn.decomposition import PCA
 
 
 def fit_exp_prev_act(session_id, one=None):

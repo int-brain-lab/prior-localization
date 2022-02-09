@@ -1,3 +1,4 @@
+# Standard library
 import hashlib
 import logging
 import os
@@ -6,16 +7,20 @@ import re
 from datetime import datetime as dt
 from pathlib import Path
 
-import brainbox.io.one as bbone
-import brainbox.metrics.single_units as bbqc
+# Third party libraries
 import dask
 import numpy as np
 import pandas as pd
 from dask.distributed import Client
 from dask_jobqueue import SLURMCluster
+
+# IBL libraries
+import brainbox.io.one as bbone
+import brainbox.metrics.single_units as bbqc
 from one.api import ONE
 from params import GLM_CACHE
 
+# Brainwide repo imports
 from ...utils import query_sessions
 
 _logger = logging.getLogger('enc-dec')

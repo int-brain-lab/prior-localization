@@ -1,3 +1,12 @@
+# Third party libraries
+import numpy as np
+import pandas as pd
+
+# IBL libraries
+from ibllib.atlas import BrainRegions
+from iblutil.numerical import ismember
+
+
 def compute_deltas(scores):
     outdf = pd.DataFrame(np.zeros_like(scores), index=scores.index, columns=scores.columns)
     for i in scores.columns:  # Change this for diff num covs
@@ -5,7 +14,7 @@ def compute_deltas(scores):
             diff = scores[i] - scores[i - 1]
         else:
             diff = scores[i]
-        outdf [i] = diff
+        outdf[i] = diff
     return outdf
 
 
