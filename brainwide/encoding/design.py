@@ -140,3 +140,29 @@ def generate_design(trialsdf,
 
     print('Condition of design matrix:', np.linalg.cond(design.dm))
     return design
+
+
+def sample_impostor(impdf, target_length):
+    """
+    Samples an impostor session below given length from a import dataframe file provided
+
+    Parameters
+    ----------
+    impdf : pandas.DataFrame
+        The impostor dataframe to sample from, consisting of many trials in relative time. This
+        means that the trial_start column must be all zeros, and each other timing column is time
+        relative to trial start.
+    target_length : float
+        The session length to sample from the impostor dataframe, usually the length of your data
+
+    Returns
+    -------
+    pandas.DataFrame
+        Dataframe containing impostor trials along with the information per trial
+    """
+    rng = np.random.default_rng()
+    startind = rng.random.choice(impdf.index, size=1)
+    rolldf = impdf.reindex(np.roll(impdf.index, -startind)).reset_index(drop=True)
+    dursum = rolldf['duration'].cumsum().values
+    endind = np.argwhere(dursum < target_length).flat[-1]
+    return rolldf.loc[:endind]
