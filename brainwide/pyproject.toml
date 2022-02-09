@@ -10,4 +10,3 @@ import_heading_localfolder = "Brainwide repo imports"
 based_on_style = "google"
 column_limit = 99
 split_before_dot = true
-

@@ -21,7 +21,7 @@ from one.api import ONE
 from params import GLM_CACHE
 
 # Brainwide repo imports
-from ...utils import query_sessions
+from brainwide.utils import query_sessions, get_impostor_df
 
 _logger = logging.getLogger('enc-dec')
 
@@ -196,6 +196,7 @@ T_AFT = 0.6
 BINWIDTH = 0.02
 ABSWHEEL = True
 QC = True
+EPHYS_IMPOSTOR = False
 FORCE = True  # If load_spike_sorting_fast doesn't return _channels, use _channels function
 # End parameters
 
@@ -242,6 +243,14 @@ cluster.scale(20)
 client = Client(cluster)
 
 tmp_futures = [client.compute(future[3]) for future in dataset_futures]
+impostor_df = get_impostor_df(
+    '',
+    one,
+    ephys=EPHYS_IMPOSTOR,
+    tdf_kwargs={k: v for k, v in params if k not in ['resolved_alignment', 'ret_qc']},
+    ret_template=True)
+
+# Run below code AFTER futures have finished!
 dataset = [{
     'subject': x[0],
     'eid': x[1],
