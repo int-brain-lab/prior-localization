@@ -8,6 +8,7 @@
 #SBATCH --mem=16GB
  
 # run one task which use all the cpus of the node
+source /home/gercek/mambaforge/bin/activate
 conda activate iblenv
 python /home/gercek/Projects/prior-localization/bbglm_cluster_worker.py \
  /home/gercek/scratch/glm_cache/2022-01-19_dataset_metadata.pkl \ # Dataset file name
