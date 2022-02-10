@@ -47,30 +47,30 @@ strlut = {sklm.Lasso: 'Lasso',
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
 SESS_CRITERION = 'aligned-behavior'  # aligned and behavior
-MODEL = optimal_Bayesian  # None or expSmoothing_prevAction or dut.modeldispatcher
+MODEL = None  # None or expSmoothing_prevAction or dut.modeldispatcher
 DATE = str(date.today())
 MODELFIT_PATH = os.path.join(SCRATCH,'international-brain-lab/prior-localization/behavior/')
 OUTPUT_PATH = os.path.join(SCRATCH,'international-brain-lab/prior-localization/decoding/')
-CACHE_DIR_DEFAULT = os.path.join(SCRATCH,'Downloads/ONE/cache_dir/')
 
-#MODELFIT_PATH = '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding/results/behavior/'
-#OUTPUT_PATH = '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding/results/decoding/'
+TARGET = 'pLeft'  # 'pLeft','prior','choice','feedback','signcont'
+DECODING_FEATURES = ['neurons', 'signcont'] # non-empty subset of the following: 'neurons','pLeft','choice','feedback','signcont'
 ALIGN_TIME = 'goCue_times'# 'feedback_times'
-TARGET = 'prior'  # 'pLeft','prior','choice','feedback','signcont'
 TIME_WINDOW = (-0.6, -0.2)  # (-0.6, -0.2), (0, 0.1)
-ESTIMATOR = sklm.Lasso #sklm.LogisticRegression #sklm.Lasso  # Must be in keys of strlut above
-ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}#'penalty': 'l1', 'solver':'saga', 
-N_PSEUDO = 0
 MIN_UNITS = 10
 MIN_BEHAV_TRIAS = 400
 MIN_RT = 0.08  # 0.08  # Float (s) or None
+# Basically, quality metric on the stability of a single unit. Should have 1 metric per neuron
+QC_CRITERIA = 3/3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
+
+# decoder and null distribution
+ESTIMATOR = sklm.LogisticRegression #sklm.Lasso  # Must be in keys of strlut above
+ESTIMATOR_KWARGS = {'penalty': 'l1', 'solver':'saga', 'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}#'penalty': 'l1', 'solver':'saga', 
+N_PSEUDO = 10
+
 NO_UNBIAS = False
 SHUFFLE = True
 COMPUTE_NEUROMETRIC = False #True if TARGET == 'signcont' else False
 FORCE_POSITIVE_NEURO_SLOPES = False
-# Basically, quality metric on the stability of a single unit. Should have 1 metric per neuron
-QC_CRITERIA = 3/3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
-
 BALANCED_WEIGHT = True # seems to work better with BALANCED_WEIGHT=False
 HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000])}
 ESTIMATORSTR = strlut[ESTIMATOR]  
@@ -82,7 +82,7 @@ COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times s
 ADD_TO_SAVING_PATH = '20eidV0'
 
 # ValueErrors and NotImplementedErrors
-if TARGET not in ['prior','signcont', 'pLeft','choice','feedback']:
+if TARGET not in ['prior','signcont','pLeft','choice','feedback']:
     raise NotImplementedError('this TARGET is not supported or stable yet')
 
 if MODEL not in list(dut.modeldispatcher.keys()):
@@ -104,6 +104,7 @@ else:
 fit_metadata = {
     'criterion': SESS_CRITERION,
     'target': TARGET,
+    'decoding_features': DECODING_FEATURES,
     'model_type': dut.modeldispatcher[MODEL],
     'modelfit_path': MODELFIT_PATH,
     'output_path': OUTPUT_PATH,
@@ -143,6 +144,7 @@ def save_region_results(fit_result, pseudo_results,
     fn = '_'.join([DATE, region,
                    'decode', TARGET,
                    dut.modeldispatcher[MODEL] if TARGET in ['prior', 'prederr'] else 'task',
+                   'features', *DECODING_FEATURES,
                    ESTIMATORSTR, 'align', ALIGN_TIME, 
                    str(N_PSEUDO), 'pseudosessions',
                    'timeWindow', 
@@ -175,6 +177,12 @@ def fit_eid(eid, sessdf):
         print('Model not fit.')
         tvec = dut.compute_target(TARGET, subject, subjeids, eid, MODELFIT_PATH,
                                   modeltype=MODEL, one=one)
+        
+    nonneuron_features = [feature for feature in DECODING_FEATURES if not (feature=='neurons')]
+    
+    fvecs = [dut.compute_target(feature, subject, subjeids, eid, MODELFIT_PATH,
+                              modeltype=MODEL, beh_data=behavior_data,
+                              one=one) for feature in nonneuron_features]
     
     try:
         trialsdf = bbone.load_trials_df(eid, one=one, addtl_types=['firstMovement_times'])
@@ -193,6 +201,7 @@ def fit_eid(eid, sessdf):
     nb_trialsdf = trialsdf[mask]
     msub_tvec = tvec[mask]
     msub_tvec = TRANSFORM_DATA(msub_tvec)
+    fvecs = [fvec[mask] for fvec in fvecs]
     
 
     # doubledipping
@@ -250,9 +259,24 @@ def fit_eid(eid, sessdf):
             spikemask = np.isin(spikes[probe].clusters, reg_clu_ids)
             regspikes = spikes[probe].times[spikemask]
             regclu = spikes[probe].clusters[spikemask]
-            binned, _ = get_spike_counts_in_bins(regspikes, regclu,
+            
+            binned_neurons, _ = get_spike_counts_in_bins(regspikes, regclu,
                                                  intervals)
-
+            
+            # construct features used for decoding:
+            #   often neural activity in the shape (n_neurons, n_trials), but
+            #   can include additional features according to DECODING_FEATURES
+            if 'neurons' in DECODING_FEATURES:
+                all_features = [binned_neurons[i,:] for i in range(binned_neurons.shape[0])]
+            else:
+                all_features = []
+            for fvec in fvecs:
+                all_features.append(fvec)
+            try:
+                binned = np.vstack(all_features)
+            except ValueError:
+                raise ValueError('decoding features may have different lengths')
+            
             # doubledipping
             msub_binned = binned.T
             if DOUBLEDIP:
