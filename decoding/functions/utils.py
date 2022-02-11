@@ -19,6 +19,7 @@ from tqdm import tqdm
 import torch
 import pickle
 import one.alf.io as alfio
+import openturns
 
 
 def query_sessions(selection='all', one=None):
@@ -187,7 +188,10 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
         return np.array(beh_data_test['probabilityLeft'])
     elif (target == 'pLeft') and (modeltype is optimal_Bayesian):  # bypass fitting and generate priors
         side, stim, act, _ = mut.format_data(beh_data_test)
-        signal = optimal_Bayesian(side.values, stim, act.values)
+        if isinstance(side, np.ndarray) and isinstance(act, np.ndarray):
+            signal = optimal_Bayesian(side, stim, act)
+        else:
+            signal = optimal_Bayesian(side.values, stim, act.values)
         return signal.numpy().squeeze()
 
     if (not istrained) and (target != 'signcont') and (modeltype is not None):
@@ -282,7 +286,7 @@ def compute_target(target, subject, eids_train, eid_test, savepath,
     return tvec
 
 
-def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
+def regress_target(tvec, binned, estimatorObject, estimator_kwargs, continuous_target=True,
                    hyperparam_grid=None, test_prop=0.2, nFolds=5, save_binned=False,
                    verbose=False, shuffle=True, outer_cv=True, balanced_weight=False,
                    normalize_input=False, normalize_output=False):
@@ -379,8 +383,8 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
                 for i_alpha, alpha in enumerate(hyperparam_grid['alpha']):
                     estimator = estimatorObject(**{**estimator_kwargs, 'alpha': alpha})
                     if balanced_weight:
-                        estimator.fit(X_train_inner, y_train_inner, sample_weight=compute_sample_weight("balanced",
-                                                                                                        y=y_train_inner))
+                        estimator.fit(X_train_inner, y_train_inner,
+                                      sample_weight=balanced_weighting(vec=y_train_inner, continuous=continuous_target))
                     else:
                         estimator.fit(X_train_inner, y_train_inner)
                     pred_test_inner = estimator.predict(X_test_inner) + mean_y_train_inner
@@ -397,7 +401,7 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
             y_train = y_train - mean_y_train
 
             if balanced_weight:
-                clf.fit(X_train, y_train, sample_weight=compute_sample_weight("balanced", y=y_train))
+                clf.fit(X_train, y_train, sample_weight=balanced_weighting(vec=y_train, continuous=continuous_target))
             else:
                 clf.fit(X_train, y_train)
 
@@ -481,6 +485,23 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
     return outdict
 
 
+def balanced_weighting(vec, continuous=True):
+    # https://openturns.github.io/openturns/latest/user_manual/_generated/openturns.KernelSmoothing.html?highlight=kernel%20smoothing
+    # This plug-in method for bandwidth estimation is based on the solve-the-equation rule from (Sheather, Jones, 1991).
+    if continuous:
+        factory = openturns.KernelSmoothing()
+        sample = openturns.Sample(vec[:, None])
+        bandwidth = factory.computePluginBandwidth(sample)
+        distribution = factory.build(sample, bandwidth)
+        proposal_weights = np.array(distribution.computePDF(sample)).squeeze()
+        balanced_weight = np.ones(vec.size) / proposal_weights
+        #  plt.hist(y_train_inner[:, None], density=True)
+        #  plt.plot(sample, proposal_weights, '+')
+    else:
+        balanced_weight = compute_sample_weight("balanced", y=vec)
+    return balanced_weight
+
+
 def return_regions(eid, sessdf, QC_CRITERIA=1, NUM_UNITS=10):
     df_insertions = sessdf.loc[sessdf['eid'] == eid]
     brainreg = BrainRegions()
@@ -505,15 +526,14 @@ def return_regions(eid, sessdf, QC_CRITERIA=1, NUM_UNITS=10):
 
 # %% Define helper functions for dask workers to use
 def save_region_results(fit_result, pseudo_id, subject, eid, probe, region, N,
-                        output_path, time_window, today, compute=True):
+                        output_path, time_window, today, target, add_to_saving_path):
     subjectfolder = Path(output_path).joinpath(subject)
     eidfolder = subjectfolder.joinpath(eid)
     probefolder = eidfolder.joinpath(probe)
     start_tw, end_tw = time_window
-    fn = '_'.join([today, region, 'timeWindow', str(start_tw).replace('.', '_'), str(end_tw).replace('.', '_'),
-                   'pseudo_id', str(pseudo_id)]) + '.pkl'
-    if not compute:
-        return probefolder.joinpath(fn)
+    fn = '_'.join([today, region, 'target', target,
+                   'timeWindow', str(start_tw).replace('.', '_'), str(end_tw).replace('.', '_'),
+                   'pseudo_id', str(pseudo_id), add_to_saving_path]) + '.pkl'
     for folder in [subjectfolder, eidfolder, probefolder]:
         if not os.path.exists(folder):
             os.mkdir(folder)

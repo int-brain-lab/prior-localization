@@ -179,6 +179,7 @@ def fit_eid(eid, sessdf, pseudo_ids=[-1], **kwargs):
                 for i_run in range(kwargs['nb_runs']):
                     fit_result = dut.regress_target(msub_tvec if (pseudo_id == -1) else msub_pseudo_tvec,
                                                     msub_binned, kwargs['estimator'],
+                                                    continuous_target=kwargs['continuous_target'],
                                                     estimator_kwargs=kwargs['estimator_kwargs'],
                                                     hyperparam_grid=kwargs['hyperparam_grid'],
                                                     save_binned=kwargs['save_binned'], shuffle=kwargs['shuffle'],
@@ -186,6 +187,7 @@ def fit_eid(eid, sessdf, pseudo_ids=[-1], **kwargs):
                                                     normalize_input=kwargs['normalize_input'],
                                                     normalize_output=kwargs['normalize_output'])
                     fit_result['mask'] = mask
+                    fit_result['df'] = trialsdf if pseudo_id == -1 else pseudosess
                     fit_result['pseudo_id'] = pseudo_id
                     fit_result['run_id'] = i_run
                     # neurometric curve
@@ -205,6 +207,8 @@ def fit_eid(eid, sessdf, pseudo_ids=[-1], **kwargs):
                                                      str(np.squeeze(region)) if kwargs['single_region'] else 'allRegions',
                                                      N_units, output_path=kwargs['output_path'],
                                                      time_window=kwargs['time_window'],
-                                                     today=kwargs['today']))
+                                                     today=kwargs['today'],
+                                                     target=kwargs['target'],
+                                                     add_to_saving_path=kwargs['add_to_saving_path']))
 
     return filenames
