@@ -7,6 +7,7 @@ Berk, May 2020
 # Third party libraries
 import numpy as np
 import pandas as pd
+from scipy.stats import norm
 
 # IBL libraries
 import brainbox.modeling.design_matrix as dm
@@ -142,7 +143,13 @@ def generate_design(trialsdf,
     return design
 
 
-def sample_impostor(impdf, target_length):
+def sample_impostor(impdf,
+                    target_length,
+                    timing_vars=[
+                        'stimOn_times', 'goCue_times',
+                        'firstMovement_times', 'feedback_times',
+                        'trial_end'],
+                    iti_generator=norm(loc=0.5, scale=0.2)):
     """
     Samples an impostor session below given length from a import dataframe file provided
 
@@ -154,15 +161,37 @@ def sample_impostor(impdf, target_length):
         relative to trial start.
     target_length : float
         The session length to sample from the impostor dataframe, usually the length of your data
+    timing_vars : list of str
+        Column names in impdf which are timing variables, and therefore must be adjusted to reflect
+        position relative to one another in time.
+    iti_generator : scip.stats.rv_continuous subclass instance
+        Distribution used to generate the inter-trial intervals for the sampled dataframe. Must
+        have an .rvs method taking a size= argument.
 
     Returns
     -------
     pandas.DataFrame
         Dataframe containing impostor trials along with the information per trial
     """
+    # Impostor dataframe subsampling
     rng = np.random.default_rng()
-    startind = rng.random.choice(impdf.index, size=1)
+    # Choose a random starting point in the main impostor df and roll to start there
+    startind = rng.choice(impdf.index, size=1)
     rolldf = impdf.reindex(np.roll(impdf.index, -startind)).reset_index(drop=True)
+    # Compute cumulative sum of trial durations and find last trial under our target length
     dursum = rolldf['duration'].cumsum().values
     endind = np.argwhere(dursum < target_length).flat[-1]
-    return rolldf.loc[:endind]
+    sampledf = rolldf.loc[:endind].copy()  # subsample our rolled df to the number of trials
+
+    # Generate synthetic ITIs between start and end of trials. This will put our subsampled df
+    # over the target length again, but it's still more efficient than computing N_master_trials
+    # random ITIs and cumsum.
+    iti = iti_generator.rvs(size=endind + 1)
+    iti[iti < 0] = 0
+    endings = sampledf['trial_end'].reindex(np.roll(sampledf.index, 1)).reset_index(drop=True)
+    endings.at[0] = 0
+    endings = endings + iti
+    endlast = endings.cumsum()
+
+    sampledf.loc[:, timing_vars] = sampledf.loc[:, timing_vars].add(endlast, axis=0)
+    return sampledf.drop(columns=['orig_eid', 'duration'])
