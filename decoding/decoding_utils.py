@@ -31,6 +31,28 @@ modeldispatcher = {expSmoothing_prevAction: 'expSmoothingPrevActions',
 # Loading data and input utilities
 
 
+def decoding_details(TARGET,MODEL,
+                     DECODING_FEATURES,ESTIMATORSTR,
+                     ALIGN_TIME,N_PSEUDO,TIME_WINDOW,
+                     ADD_TO_SAVING_PATH):
+    '''
+    MODEL must be in modeldispatcher in decoding_utils
+    '''
+    
+    start_tw, end_tw = TIME_WINDOW
+    
+    details = '_'.join(['decode', TARGET,
+                   modeldispatcher[MODEL] if TARGET in ['prior', 'prederr'] else 'task',
+                   'features', *DECODING_FEATURES,
+                   ESTIMATORSTR, 'align', ALIGN_TIME, 
+                   str(N_PSEUDO), 'pseudosessions',
+                   'timeWindow', 
+                   str(start_tw).replace('.', '_'), 
+                   str(end_tw).replace('.', '_'),
+                   ADD_TO_SAVING_PATH])
+    return details
+
+
 def query_sessions(selection='all'):
     '''
     Filters sessions on some canonical filters

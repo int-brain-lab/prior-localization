@@ -53,7 +53,7 @@ MODELFIT_PATH = os.path.join(SCRATCH,'international-brain-lab/prior-localization
 OUTPUT_PATH = os.path.join(SCRATCH,'international-brain-lab/prior-localization/decoding/')
 
 TARGET = 'pLeft'  # 'pLeft','prior','choice','feedback','signcont'
-DECODING_FEATURES = ['neurons', 'signcont'] # non-empty subset of the following: 'neurons','pLeft','choice','feedback','signcont'
+DECODING_FEATURES = ['neurons'] # non-empty subset of the following: 'neurons','pLeft','choice','feedback','signcont'
 ALIGN_TIME = 'goCue_times'# 'feedback_times'
 TIME_WINDOW = (-0.6, -0.2)  # (-0.6, -0.2), (0, 0.1)
 MIN_UNITS = 10
@@ -94,6 +94,9 @@ if COMPUTE_NEUROMETRIC and TARGET != 'signcont':
 if ESTIMATORSTR == 'Logistic' and TARGET == 'choice':
     MASK_DATA = lambda x: (np.array(x)==-1)|(np.array(x)==1)
     TRANSFORM_DATA = lambda x: np.array((x+1)/2, dtype=int)
+elif ESTIMATORSTR == 'Logistic' and TARGET == 'pLeft':
+    MASK_DATA = lambda x: (np.array(x)==0.2)|(np.array(x)==0.8)
+    TRANSFORM_DATA = lambda x: np.array((x-0.2)/0.6, dtype=int)
 elif ESTIMATORSTR == 'Logistic' and TARGET == 'feedback':
     MASK_DATA = lambda x: (np.array(x)==-1)|(np.array(x)==1)
     TRANSFORM_DATA = lambda x: np.array((x+1)/2, dtype=int)
@@ -127,7 +130,9 @@ fit_metadata = {
 }
 
 
-# %% Define helper functions for dask workers to use
+# %% Define helper functions
+    
+
 def save_region_results(fit_result, pseudo_results, 
                         subject, eid, probe, region, N):#
     subjectfolder = Path(OUTPUT_PATH).joinpath(subject)
@@ -136,20 +141,11 @@ def save_region_results(fit_result, pseudo_results,
     for folder in [subjectfolder, eidfolder, probefolder]:
         if not os.path.exists(folder):
             os.mkdir(folder)
-    start_tw, end_tw = TIME_WINDOW
-    # fn = '_'.join([DATE, region, 
-    #                'timeWindow', 
-    #                str(start_tw).replace('.', '_'), 
-    #                str(end_tw).replace('.', '_')]) + '.pkl'
-    fn = '_'.join([DATE, region,
-                   'decode', TARGET,
-                   dut.modeldispatcher[MODEL] if TARGET in ['prior', 'prederr'] else 'task',
-                   'features', *DECODING_FEATURES,
-                   ESTIMATORSTR, 'align', ALIGN_TIME, 
-                   str(N_PSEUDO), 'pseudosessions',
-                   'timeWindow', 
-                   str(start_tw).replace('.', '_'), 
-                   str(end_tw).replace('.', '_')]) + '_' + ADD_TO_SAVING_PATH + '.pkl'
+    
+    fn = '_'.join([DATE, region, dut.decoding_details(TARGET,MODEL,
+                                 DECODING_FEATURES,ESTIMATORSTR,
+                                 ALIGN_TIME,N_PSEUDO,TIME_WINDOW,
+                                 ADD_TO_SAVING_PATH)]) + '.pkl'
     fw = open(probefolder.joinpath(fn), 'wb')
     outdict = {'fit': fit_result, 'pseudosessions': pseudo_results,
                'subject': subject, 'eid': eid, 'probe': probe, 'region': region, 'N_units': N}
@@ -199,8 +195,7 @@ def fit_eid(eid, sessdf):
         mask = mask & (~(trialsdf.react_times < MIN_RT)).values
 
     nb_trialsdf = trialsdf[mask]
-    msub_tvec = tvec[mask]
-    msub_tvec = TRANSFORM_DATA(msub_tvec)
+    msub_tvec = TRANSFORM_DATA(tvec[mask])
     fvecs = [fvec[mask] for fvec in fvecs]
     
 
@@ -308,9 +303,10 @@ def fit_eid(eid, sessdf):
             pseudo_results = []
             for _ in tqdm(range(N_PSEUDO), desc='Pseudo num: ', leave=False):
                 pseudosess = generate_pseudo_session(trialsdf)
-                msub_pseudo_tvec = dut.compute_target(TARGET, subject, subjeids, eid,
+                pseudo_tvec = dut.compute_target(TARGET, subject, subjeids, eid,
                                                       MODELFIT_PATH, modeltype=MODEL,
-                                                      beh_data=pseudosess, one=one)[mask]
+                                                      beh_data=pseudosess, one=one)
+                msub_pseudo_tvec = TRANSFORM_DATA(pseudo_tvec[mask])   
                 # doubledipping
                 if DOUBLEDIP:
                     msub_pseudo_tvec = msub_pseudo_tvec - np.mean(msub_pseudo_tvec)
