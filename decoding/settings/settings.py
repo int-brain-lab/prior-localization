@@ -17,7 +17,7 @@ strlut = {sklm.Lasso: "Lasso",
           sklm.LogisticRegression: "Logistic"}
 
 # %% Run param definitions
-LOCAL = True
+LOCAL = False
 if LOCAL:
     DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding/")
 else:
@@ -116,5 +116,7 @@ fit_metadata = {
     'normalize_output': NORMALIZE_OUTPUT,
     'normalize_input': NORMALIZE_INPUT,
     'single_region': SINGLE_REGION,
-    'use_imposter_session': USE_IMPOSTER_SESSION
+    'use_imposter_session': USE_IMPOSTER_SESSION,
+    'continuous_target': CONTINUOUS_TARGET,
+
 }
