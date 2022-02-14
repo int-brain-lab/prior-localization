@@ -73,7 +73,7 @@ def fit_save_inputs(subject,
         sessfullprior = compute_target('pLeft', subject, subjeids, eid, Path(BEH_MOD_PATH))
         sessprior = sessfullprior[stdf_nona.index]
     else:
-        sessprior = stdf_nona['probablityLeft']
+        sessprior = stdf_nona['probabilityLeft']
     sessdesign = generate_design(stdf_nona, sessprior, t_before, **params)
     sessfit = fit_stepwise(sessdesign, sspkt, sspkclu, **params)
     outputfn = save_stepwise(subject, eid, sessfit, params, probes, eidfn, sclureg, scluqc,
