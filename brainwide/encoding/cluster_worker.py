@@ -58,11 +58,22 @@ def save_stepwise(subject, session_id, fitout, params, probes, input_fn, clu_reg
     return fn
 
 
-def fit_save_inputs(subject, eid, probes, eidfn, subjeids, params, t_before, fitdate):
+def fit_save_inputs(subject,
+                    eid,
+                    probes,
+                    eidfn,
+                    subjeids,
+                    params,
+                    t_before,
+                    fitdate,
+                    prior_estimate=False):
     stdf, sspkt, sspkclu, sclureg, scluqc = get_cached_regressors(eidfn)
     stdf_nona = filter_nan(stdf)
-    sessfullprior = compute_target('pLeft', subject, subjeids, eid, Path(BEH_MOD_PATH))
-    sessprior = sessfullprior[stdf_nona.index]
+    if prior_estimate:
+        sessfullprior = compute_target('pLeft', subject, subjeids, eid, Path(BEH_MOD_PATH))
+        sessprior = sessfullprior[stdf_nona.index]
+    else:
+        sessprior = stdf_nona['probablityLeft']
     sessdesign = generate_design(stdf_nona, sessprior, t_before, **params)
     sessfit = fit_stepwise(sessdesign, sspkt, sspkclu, **params)
     outputfn = save_stepwise(subject, eid, sessfit, params, probes, eidfn, sclureg, scluqc,
@@ -79,8 +90,8 @@ if __name__ == '__main__':
     parser.add_argument('paramsfile', type=Path, help='Parameters for model fitting for worker')
     parser.add_argument('index',
                         type=int,
-                        help='Index in inputfile for this worker to \
-                        process/save')
+                        help='Index in inputfile for this worker to '
+                        'process/save')
     parser.add_argument('fitdate', help='Date of fit for output file')
     args = parser.parse_args()
 
@@ -95,6 +106,6 @@ if __name__ == '__main__':
     subjeids = list(dataset_fns[dataset_fns.subject == subject].eid.unique())
 
     outputfn = fit_save_inputs(subject, eid, probes, eidfn, subjeids, params, t_before,
-                               args.fitdate)
+                               args.fitdate, prior_estimate=params['prior_estimate'])
     print('Fitting completed successfully!')
     print(outputfn)

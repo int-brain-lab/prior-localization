@@ -16,7 +16,7 @@ from ibllib.atlas import BrainRegions
 from iblutil.numerical import ismember
 from one.api import ONE
 
-_logger = logging.getLogger('enc-dec')
+_logger = logging.getLogger('brainwide')
 
 
 def query_sessions(selection='all', one=None):

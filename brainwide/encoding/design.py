@@ -4,6 +4,9 @@ Script to use new neuralGLM object from brainbox rather than complicated matlab 
 Berk, May 2020
 """
 
+# Standard library
+import logging
+
 # Third party libraries
 import numpy as np
 import pandas as pd
@@ -11,6 +14,8 @@ from scipy.stats import norm
 
 # IBL libraries
 import brainbox.modeling.design_matrix as dm
+
+_logger = logging.getLogger('brainwide')
 
 
 def generate_design(trialsdf,
@@ -47,6 +52,9 @@ def generate_design(trialsdf,
     binwidth : float, optional
         Size of bins to use for design matrix, in seconds, by default 0.02
     """
+    if len(kwargs) > 0:
+        _logger.info(f"keys {kwargs.keys()} were not used in generate_design,"
+                     " despite being passed.")
     trialsdf['adj_contrastL'] = np.tanh(contnorm * trialsdf['contrastLeft']) / np.tanh(contnorm)
     trialsdf['adj_contrastR'] = np.tanh(contnorm * trialsdf['contrastRight']) / np.tanh(contnorm)
     trialsdf['prior'] = prior

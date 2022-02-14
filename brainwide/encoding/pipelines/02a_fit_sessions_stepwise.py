@@ -49,6 +49,7 @@ params = {
         'alpha': np.logspace(-2, 1.5, 50)
     },
     'contiguous': False,
+    'prior_estimate': False,
 }
 
 # Estimator relies on alpha grid in case of GridSearchCV, needs to be defined after main params

@@ -23,7 +23,7 @@ from params import GLM_CACHE
 # Brainwide repo imports
 from brainwide.utils import query_sessions, get_impostor_df
 
-_logger = logging.getLogger('enc-dec')
+_logger = logging.getLogger('brainwide')
 
 
 def load_regressors(session_id,
