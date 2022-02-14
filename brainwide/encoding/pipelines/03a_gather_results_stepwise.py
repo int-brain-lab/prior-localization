@@ -67,7 +67,7 @@ if __name__ == "__main__":
         params = pickle.load(fo)
     datapath = Path(GLM_CACHE).joinpath(params['dataset_fn'])
     with open(datapath, 'rb') as fo:
-        dataset = pickle.load(datapath)
+        dataset = pickle.load(fo)
 
     filenames = []
     for subj in os.listdir(Path(GLM_FIT_PATH)):
