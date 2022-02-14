@@ -18,7 +18,7 @@ from brainwide.params import GLM_CACHE, GLM_FIT_PATH
 from brainwide.utils import make_batch_slurm
 
 # SLURM params
-BATCHFILE = '/home/berk/bwm_stepwise_glm.sh'
+BATCHFILE = '/home/gercek/bwm_stepwise_glm.sh'
 JOBNAME = 'bwm_GLMs'
 PARTITION = 'shared-cpu'
 TIME = '06:30:00'
