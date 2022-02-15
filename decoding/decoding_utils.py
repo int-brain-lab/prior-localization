@@ -32,8 +32,10 @@ modeldispatcher = {expSmoothing_prevAction: 'expSmoothingPrevActions',
 
 
 def decoding_details(TARGET,MODEL,
-                     DECODING_FEATURES,ESTIMATORSTR,
-                     ALIGN_TIME,N_PSEUDO,TIME_WINDOW,
+                     ESTIMATORSTR,
+                     ALIGN_TIME,
+                     CONTROL_FEATURES,
+                     N_PSEUDO,TIME_WINDOW,
                      ADD_TO_SAVING_PATH):
     '''
     MODEL must be in modeldispatcher in decoding_utils
@@ -43,9 +45,10 @@ def decoding_details(TARGET,MODEL,
     
     details = '_'.join(['decode', TARGET,
                    modeldispatcher[MODEL] if TARGET in ['prior', 'prederr'] else 'task',
-                   'features', *DECODING_FEATURES,
-                   ESTIMATORSTR, 'align', ALIGN_TIME, 
+                   ESTIMATORSTR, 
+                   'control', *CONTROL_FEATURES,
                    str(N_PSEUDO), 'pseudosessions',
+                   'align', ALIGN_TIME, 
                    'timeWindow', 
                    str(start_tw).replace('.', '_'), 
                    str(end_tw).replace('.', '_'),
@@ -250,7 +253,7 @@ def compute_target(target, subject, eids_train, eid_test, savepath,
 
 def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
                    hyperparam_grid=None, test_prop=0.2, nFolds=5, save_binned=False,
-                   verbose=False, shuffle=True, outer_cv=True, balanced_weight=False):
+                   verbose=False, shuffle=True, outer_cv=True, balanced_weight=False, control_features=[]):
     """
     Regresses binned neural activity against a target, using a provided sklearn estimator
 

@@ -53,7 +53,7 @@ MODELFIT_PATH = os.path.join(SCRATCH,'international-brain-lab/prior-localization
 OUTPUT_PATH = os.path.join(SCRATCH,'international-brain-lab/prior-localization/decoding/')
 
 TARGET = 'pLeft'  # 'pLeft','prior','choice','feedback','signcont'
-DECODING_FEATURES = ['neurons'] # non-empty subset of the following: 'neurons','pLeft','choice','feedback','signcont'
+CONTROL_FEATURES = ['signcont'] # subset of the following including empty: 'pLeft','choice','feedback','signcont'
 ALIGN_TIME = 'goCue_times'# 'feedback_times'
 TIME_WINDOW = (-0.6, -0.2)  # (-0.6, -0.2), (0, 0.1)
 MIN_UNITS = 10
@@ -65,7 +65,7 @@ QC_CRITERIA = 3/3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
 # decoder and null distribution
 ESTIMATOR = sklm.LogisticRegression #sklm.Lasso  # Must be in keys of strlut above
 ESTIMATOR_KWARGS = {'penalty': 'l1', 'solver':'saga', 'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}#'penalty': 'l1', 'solver':'saga', 
-N_PSEUDO = 10
+N_PSEUDO = 1
 
 NO_UNBIAS = False
 SHUFFLE = True
@@ -107,7 +107,7 @@ else:
 fit_metadata = {
     'criterion': SESS_CRITERION,
     'target': TARGET,
-    'decoding_features': DECODING_FEATURES,
+    'control_features': CONTROL_FEATURES,
     'model_type': dut.modeldispatcher[MODEL],
     'modelfit_path': MODELFIT_PATH,
     'output_path': OUTPUT_PATH,
@@ -135,17 +135,20 @@ fit_metadata = {
 
 def save_region_results(fit_result, pseudo_results, 
                         subject, eid, probe, region, N):#
-    subjectfolder = Path(OUTPUT_PATH).joinpath(subject)
+    decodingdetailsfolder = Path(OUTPUT_PATH).joinpath(dut.decoding_details(TARGET,MODEL,
+                                                      ESTIMATORSTR,
+                                                      ALIGN_TIME,
+                                                      CONTROL_FEATURES,
+                                                      N_PSEUDO,TIME_WINDOW,
+                                                      ADD_TO_SAVING_PATH))
+    subjectfolder = decodingdetailsfolder.joinpath(subject)
     eidfolder = subjectfolder.joinpath(eid)
     probefolder = eidfolder.joinpath(probe)
     for folder in [subjectfolder, eidfolder, probefolder]:
         if not os.path.exists(folder):
             os.mkdir(folder)
     
-    fn = '_'.join([DATE, region, dut.decoding_details(TARGET,MODEL,
-                                 DECODING_FEATURES,ESTIMATORSTR,
-                                 ALIGN_TIME,N_PSEUDO,TIME_WINDOW,
-                                 ADD_TO_SAVING_PATH)]) + '.pkl'
+    fn = '_'.join([DATE, region]) + '.pkl'
     fw = open(probefolder.joinpath(fn), 'wb')
     outdict = {'fit': fit_result, 'pseudosessions': pseudo_results,
                'subject': subject, 'eid': eid, 'probe': probe, 'region': region, 'N_units': N}
@@ -173,12 +176,10 @@ def fit_eid(eid, sessdf):
         print('Model not fit.')
         tvec = dut.compute_target(TARGET, subject, subjeids, eid, MODELFIT_PATH,
                                   modeltype=MODEL, one=one)
-        
-    nonneuron_features = [feature for feature in DECODING_FEATURES if not (feature=='neurons')]
     
     fvecs = [dut.compute_target(feature, subject, subjeids, eid, MODELFIT_PATH,
                               modeltype=MODEL, beh_data=behavior_data,
-                              one=one) for feature in nonneuron_features]
+                              one=one) for feature in CONTROL_FEATURES]
     
     try:
         trialsdf = bbone.load_trials_df(eid, one=one, addtl_types=['firstMovement_times'])
@@ -261,12 +262,9 @@ def fit_eid(eid, sessdf):
             # construct features used for decoding:
             #   often neural activity in the shape (n_neurons, n_trials), but
             #   can include additional features according to DECODING_FEATURES
-            if 'neurons' in DECODING_FEATURES:
-                all_features = [binned_neurons[i,:] for i in range(binned_neurons.shape[0])]
-            else:
-                all_features = []
-            for fvec in fvecs:
-                all_features.append(fvec)
+            all_features = [binned_neurons[i,:] for i in range(binned_neurons.shape[0])]
+#             for fvec in fvecs:
+#                 all_features.append(fvec)
             try:
                 binned = np.vstack(all_features)
             except ValueError:
@@ -285,7 +283,8 @@ def fit_eid(eid, sessdf):
                                             estimator_kwargs=ESTIMATOR_KWARGS,
                                             hyperparam_grid=HPARAM_GRID,
                                             save_binned=SAVE_BINNED, shuffle=SHUFFLE,
-                                            balanced_weight=BALANCED_WEIGHT)
+                                            balanced_weight=BALANCED_WEIGHT,
+                                            control_features=fvecs)
 
             fit_result['mask'] = mask
             fit_result['pLeft_vec'] = pLeft_vec
