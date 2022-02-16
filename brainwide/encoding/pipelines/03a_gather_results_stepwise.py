@@ -114,8 +114,8 @@ if __name__ == "__main__":
     grpby = masterscores.groupby('acronym')
     masterscores['reg_id'] = grpby.acronym.transform(lambda g: get_id(g.unique()[0], br))
     masterscores['beryl_acr'] = grpby.reg_id.transform(lambda g: remap(g, br=br))
-    masterscores['cerebellum'] = grpby.acronym.transform(lambda g: label_cerebellum(g.unique()[0],
-                                                                                    br))
+    masterscores['cerebellum'] = grpby.acronym.transform(
+        lambda g: label_cerebellum(g.unique()[0], br))
     masterscores['region'] = masterscores['beryl_acr']
     masterscores['name'] = grpby.region.transform(lambda g: get_name(g.unique()[0], br))
 

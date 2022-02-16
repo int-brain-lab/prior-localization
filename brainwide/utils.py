@@ -82,7 +82,12 @@ def query_sessions(selection='all', one=None):
     return retdf
 
 
-def get_impostor_df(subject, one, ephys=False, tdf_kwargs={}, progress=False, ret_template=False,
+def get_impostor_df(subject,
+                    one,
+                    ephys=False,
+                    tdf_kwargs={},
+                    progress=False,
+                    ret_template=False,
                     max_sess=10000):
     """
     Produce an impostor DF for a given subject, i.e. a dataframe which joins all trials from
@@ -173,6 +178,18 @@ def sessions_with_region(acronym, one=None):
     sessinfo = [i['session'] for i in traj]
     probes = np.array([i['probe_name'] for i in traj])
     return eids, sessinfo, probes
+
+
+def melt_masterscores_stepwise(masterscores, n_cov):
+    tmp_master = masterscores.reset_index()
+    rawpoints = tmp_master.melt(value_vars=(vv := [f'{i}cov_diff' for i in range(1, n_cov + 1)]),
+                                id_vars=tmp_master.columns.difference(vv))
+    rawpoints['covname'] = rawpoints.apply(lambda x: x[str(int(x.variable[0])) + 'cov_name'],
+                                           axis=1)
+    rawpoints['position'] = rawpoints.apply(lambda x: int(x.variable[0]), axis=1)
+    rawpoints = rawpoints.drop(columns=[f'{i}cov_name' for i in range(1, n_cov + 1)])
+    rawpoints['percentile'] = rawpoints.groupby(['covname', 'region']).value.rank(pct=True)
+    return rawpoints
 
 
 def make_batch_slurm(filename,
