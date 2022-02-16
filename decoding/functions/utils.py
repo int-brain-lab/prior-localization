@@ -20,6 +20,7 @@ import torch
 import pickle
 import one.alf.io as alfio
 import openturns
+from brainbox.task.closed_loop import generate_pseudo_blocks, _draw_position, _draw_contrast
 
 
 def query_sessions(selection='all', one=None):
@@ -73,6 +74,36 @@ def query_sessions(selection='all', one=None):
     retdf = pd.DataFrame({'subject': all_subjects, 'eid': all_eids, 'probe': all_probes, 'pid': all_pids})
     retdf.sort_values('subject', inplace=True)
     return retdf
+
+
+def get_target_pLeft(nb_trials, nb_sessions, take_out_unbiased, bin_size_kde):
+    contrast_set = np.array([0., 0.0625, 0.125, 0.25, 1])
+    target_pLeft = []
+    for _ in np.arange(nb_sessions):
+        pseudo_trials = pd.DataFrame()
+        pseudo_trials['probabilityLeft'] = generate_pseudo_blocks(nb_trials)
+        for i in range(pseudo_trials.shape[0]):
+            position = _draw_position([-1, 1], pseudo_trials['probabilityLeft'][i])
+            contrast = _draw_contrast(contrast_set, 'uniform')
+            if position == -1:
+                pseudo_trials.loc[i, 'contrastLeft'] = contrast
+            elif position == 1:
+                pseudo_trials.loc[i, 'contrastRight'] = contrast
+            pseudo_trials.loc[i, 'stim_side'] = position
+        pseudo_trials['signed_contrast'] = pseudo_trials['contrastRight']
+        pseudo_trials.loc[pseudo_trials['signed_contrast'].isnull(),
+                          'signed_contrast'] = -pseudo_trials['contrastLeft']
+        pseudo_trials['choice'] = 1  # choice padding
+        side, stim, act, _ = mut.format_data(pseudo_trials)
+        msub_pseudo_tvec = optimal_Bayesian(act.values, stim, side.values)
+        if take_out_unbiased:
+            target_pLeft.append(msub_pseudo_tvec[(pseudo_trials.probabilityLeft != 0.5).values])
+        else:
+            target_pLeft.append(msub_pseudo_tvec)
+    target_pLeft = np.concatenate(target_pLeft)
+    target_pLeft = np.concatenate([target_pLeft, 1 - target_pLeft])
+    out = np.histogram(target_pLeft, bins=np.arange(0, 1, bin_size_kde) + bin_size_kde/2., density=True)
+    return out, target_pLeft
 
 
 def check_bhv_fit_exists(subject, model, eids, resultpath):
@@ -189,9 +220,9 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
     elif (target == 'pLeft') and (modeltype is optimal_Bayesian):  # bypass fitting and generate priors
         side, stim, act, _ = mut.format_data(beh_data_test)
         if isinstance(side, np.ndarray) and isinstance(act, np.ndarray):
-            signal = optimal_Bayesian(side, stim, act)
+            signal = optimal_Bayesian(act, stim, side)
         else:
-            signal = optimal_Bayesian(side.values, stim, act.values)
+            signal = optimal_Bayesian(act.values, stim, side.values)
         return signal.numpy().squeeze()
 
     if (not istrained) and (target != 'signcont') and (modeltype is not None):
@@ -286,8 +317,8 @@ def compute_target(target, subject, eids_train, eid_test, savepath,
     return tvec
 
 
-def regress_target(tvec, binned, estimatorObject, estimator_kwargs, continuous_target=True,
-                   hyperparam_grid=None, test_prop=0.2, nFolds=5, save_binned=False,
+def regress_target(tvec, binned, estimatorObject, estimator_kwargs, use_openturns, target_distribution, bin_size_kde,
+                   continuous_target=True, hyperparam_grid=None, test_prop=0.2, nFolds=5, save_binned=False,
                    verbose=False, shuffle=True, outer_cv=True, balanced_weight=False,
                    normalize_input=False, normalize_output=False):
     """
@@ -384,7 +415,11 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs, continuous_t
                     estimator = estimatorObject(**{**estimator_kwargs, 'alpha': alpha})
                     if balanced_weight:
                         estimator.fit(X_train_inner, y_train_inner,
-                                      sample_weight=balanced_weighting(vec=y_train_inner, continuous=continuous_target))
+                                      sample_weight=balanced_weighting(vec=y_train_inner,
+                                                                       continuous=continuous_target,
+                                                                       use_openturns=use_openturns,
+                                                                       bin_size_kde=bin_size_kde,
+                                                                       target_distribution=target_distribution))
                     else:
                         estimator.fit(X_train_inner, y_train_inner)
                     pred_test_inner = estimator.predict(X_test_inner) + mean_y_train_inner
@@ -401,7 +436,11 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs, continuous_t
             y_train = y_train - mean_y_train
 
             if balanced_weight:
-                clf.fit(X_train, y_train, sample_weight=balanced_weighting(vec=y_train, continuous=continuous_target))
+                clf.fit(X_train, y_train, sample_weight=balanced_weighting(vec=y_train,
+                                                                           continuous=continuous_target,
+                                                                           use_openturns=use_openturns,
+                                                                           bin_size_kde=bin_size_kde,
+                                                                           target_distribution=target_distribution))
             else:
                 clf.fit(X_train, y_train)
 
@@ -485,16 +524,24 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs, continuous_t
     return outdict
 
 
-def balanced_weighting(vec, continuous=True):
+def pdf_from_histogram(x, out):
+    return out[0][(x[:, None] > out[1][None]).sum(axis=-1) - 1]
+
+
+def balanced_weighting(vec, continuous, use_openturns, bin_size_kde, target_distribution):
     # https://openturns.github.io/openturns/latest/user_manual/_generated/openturns.KernelSmoothing.html?highlight=kernel%20smoothing
     # This plug-in method for bandwidth estimation is based on the solve-the-equation rule from (Sheather, Jones, 1991).
     if continuous:
-        factory = openturns.KernelSmoothing()
-        sample = openturns.Sample(vec[:, None])
-        bandwidth = factory.computePluginBandwidth(sample)
-        distribution = factory.build(sample, bandwidth)
-        proposal_weights = np.array(distribution.computePDF(sample)).squeeze()
-        balanced_weight = np.ones(vec.size) / proposal_weights
+        if use_openturns:
+            factory = openturns.KernelSmoothing()
+            sample = openturns.Sample(vec[:, None])
+            bandwidth = factory.computePluginBandwidth(sample)
+            distribution = factory.build(sample, bandwidth)
+            proposal_weights = np.array(distribution.computePDF(sample)).squeeze()
+            balanced_weight = np.ones(vec.size) / proposal_weights
+        else:
+            emp_distribution = np.histogram(vec, bins=np.arange(0, 1, bin_size_kde) + bin_size_kde/2, density=True)
+            balanced_weight = pdf_from_histogram(vec, target_distribution)/pdf_from_histogram(vec, emp_distribution)
         #  plt.hist(y_train_inner[:, None], density=True)
         #  plt.plot(sample, proposal_weights, '+')
     else:

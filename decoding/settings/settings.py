@@ -17,7 +17,7 @@ strlut = {sklm.Lasso: "Lasso",
           sklm.LogisticRegression: "Logistic"}
 
 # %% Run param definitions
-LOCAL = False
+LOCAL = True
 if LOCAL:
     DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding/")
 else:
@@ -44,7 +44,7 @@ MIN_BEHAV_TRIAS = 400  # default BWM setting
 MIN_RT = 0.08  # 0.08  # Float (s) or None
 SINGLE_REGION = False  # perform decoding on region-wise or whole brain analysis
 MERGED_PROBES = True  # merge probes before performing analysis
-NO_UNBIAS = False
+NO_UNBIAS = False  # take out unbiased trials
 SHUFFLE = True  # interleaved cross validation
 BORDER_QUANTILES_NEUROMETRIC = [.3, .7]  # [.3, .4, .5, .6, .7]
 COMPUTE_NEUROMETRIC = True if TARGET == 'signcont' else False
@@ -59,10 +59,13 @@ if NORMALIZE_INPUT or NORMALIZE_OUTPUT:
 USE_IMPOSTER_SESSION = False  # if false, it uses pseudosessions
 
 BALANCED_WEIGHT = True  # seems to work better with BALANCED_WEIGHT=False, but putting True is important
+USE_OPENTURNS = False  # uses openturns to perform kernel density estimation
+BIN_SIZE_KDE = 0.05  # size of the kde bin
 HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])}
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
 ADD_TO_SAVING_PATH = 'pseudoSessions_mergedProbes_wholeBrain'
+
 
 # session to be excluded (by Olivier Winter)
 excludes = [
@@ -118,5 +121,6 @@ fit_metadata = {
     'single_region': SINGLE_REGION,
     'use_imposter_session': USE_IMPOSTER_SESSION,
     'continuous_target': CONTINUOUS_TARGET,
-
+    'use_openturns': USE_OPENTURNS,
+    'bin_size_kde': BIN_SIZE_KDE
 }
