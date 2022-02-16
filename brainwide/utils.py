@@ -180,10 +180,10 @@ def sessions_with_region(acronym, one=None):
     return eids, sessinfo, probes
 
 
-def melt_masterscores_stepwise(masterscores, n_cov):
+def melt_masterscores_stepwise(masterscores, n_cov, exclude_cols=[]):
     tmp_master = masterscores.reset_index()
     rawpoints = tmp_master.melt(value_vars=(vv := [f'{i}cov_diff' for i in range(1, n_cov + 1)]),
-                                id_vars=tmp_master.columns.difference(vv))
+                                id_vars=tmp_master.columns.difference([*vv, *exclude_cols]))
     rawpoints['covname'] = rawpoints.apply(lambda x: x[str(int(x.variable[0])) + 'cov_name'],
                                            axis=1)
     rawpoints['position'] = rawpoints.apply(lambda x: int(x.variable[0]), axis=1)
