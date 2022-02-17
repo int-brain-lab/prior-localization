@@ -53,7 +53,7 @@ MODELFIT_PATH = os.path.join(SCRATCH,'international-brain-lab/prior-localization
 OUTPUT_PATH = os.path.join(SCRATCH,'international-brain-lab/prior-localization/decoding/')
 
 TARGET = 'pLeft'  # 'pLeft','prior','choice','feedback','signcont'
-CONTROL_FEATURES = ['signcont'] # subset of the following including empty: 'pLeft','choice','feedback','signcont'
+CONTROL_FEATURES = [] # subset of the following including empty: 'pLeft','choice','feedback','signcont'
 ALIGN_TIME = 'goCue_times'# 'feedback_times'
 TIME_WINDOW = (-0.6, -0.2)  # (-0.6, -0.2), (0, 0.1)
 MIN_UNITS = 10
@@ -65,7 +65,7 @@ QC_CRITERIA = 3/3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
 # decoder and null distribution
 ESTIMATOR = sklm.LogisticRegression #sklm.Lasso  # Must be in keys of strlut above
 ESTIMATOR_KWARGS = {'penalty': 'l1', 'solver':'saga', 'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}#'penalty': 'l1', 'solver':'saga', 
-N_PSEUDO = 1
+N_PSEUDO = 100
 
 NO_UNBIAS = False
 SHUFFLE = True
@@ -144,7 +144,7 @@ def save_region_results(fit_result, pseudo_results,
     subjectfolder = decodingdetailsfolder.joinpath(subject)
     eidfolder = subjectfolder.joinpath(eid)
     probefolder = eidfolder.joinpath(probe)
-    for folder in [subjectfolder, eidfolder, probefolder]:
+    for folder in [decodingdetailsfolder, subjectfolder, eidfolder, probefolder]:
         if not os.path.exists(folder):
             os.mkdir(folder)
     
