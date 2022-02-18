@@ -154,10 +154,12 @@ def generate_design(trialsdf,
 def sample_impostor(impdf,
                     target_length,
                     timing_vars=[
-                        'stimOn_times', 'goCue_times',
-                        'firstMovement_times', 'feedback_times',
-                        'trial_end'],
-                    iti_generator=norm(loc=0.5, scale=0.2)):
+                        'stimOn_times', 'goCue_times', 'firstMovement_times', 'feedback_times',
+                        'trial_start', 'trial_end'
+                    ],
+                    iti_generator=norm(loc=0.5, scale=0.2),
+                    verif_binwidth=None,
+                    maxeps_corr=1e-9):
     """
     Samples an impostor session below given length from a import dataframe file provided
 
@@ -202,4 +204,30 @@ def sample_impostor(impdf,
     endlast = endings.cumsum()
 
     sampledf.loc[:, timing_vars] = sampledf.loc[:, timing_vars].add(endlast, axis=0)
-    return sampledf.drop(columns=['orig_eid', 'duration'])
+    sampledf.drop(columns=['orig_eid', 'duration'], inplace=True)
+
+    # Because floating point math is hell and I have been condemned to damnation
+    if verif_binwidth is not None:
+        if not isinstance(verif_binwidth, float):
+            _logger.warning("Verification binwidth for sample_impostor wasn't a float. Ignoring.")
+        else:
+
+            def binf(t):
+                return np.ceil(t / verif_binwidth).astype(int)
+
+            sampledf['newdur'] = sampledf['trial_end'] - sampledf['trial_start']
+            diffs = sampledf.apply(lambda row: binf(row.newdur) - row.wheel_velocity.shape[0],
+                                   axis=1)
+            badinds = diffs.index[diffs != 0]
+            if np.any(diffs.abs() > 1):
+                raise IndexError('Error in wheel velocity vs trial duration during sampling.')
+            for idx in badinds:
+                direction = diffs.loc[idx]
+                offset = -1 if direction < 0 else 0
+                target = (sampledf.loc[idx].wheel_velocity.shape[0] + offset) * verif_binwidth
+                eps = sampledf.newdur.loc[idx] - target
+                _logger.info(f'Trial {idx} trail_end offset by {eps} due to mismatch of same size')
+                if eps < maxeps_corr:
+                    sampledf.loc[idx, 'trial_end'] += -(eps + direction * maxeps_corr)
+        sampledf.drop(columns=['newdur'], inplace=True)
+    return sampledf
