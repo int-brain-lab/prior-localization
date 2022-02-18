@@ -230,4 +230,7 @@ def sample_impostor(impdf,
                 if eps < maxeps_corr:
                     sampledf.loc[idx, 'trial_end'] += -(eps + direction * maxeps_corr)
         sampledf.drop(columns=['newdur'], inplace=True)
-    return sampledf
+    # Finally, remove all those trials where we have exceeded the target limit thanks to the
+    # ITI sampling
+    maxind = np.searchsorted(sampledf.trial_end, target_length)
+    return sampledf.iloc[:maxind + 1]
