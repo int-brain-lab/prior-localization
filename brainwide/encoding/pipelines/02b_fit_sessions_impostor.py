@@ -52,6 +52,7 @@ params = {
     'contiguous': False,
     'impostor': True,
     'prior_estimate': False,
+    'n_impostors': 300,
 }
 
 # Estimator relies on alpha grid in case of GridSearchCV, needs to be defined after main params
@@ -64,6 +65,7 @@ params['bases'] = {
 }
 
 params['estimator'] = GridSearchCV(skl.Ridge(), params['alpha_grid'])
+params['verif_binwidth'] = params['binwidth']
 
 # Output parameters file for workers
 currdate = str(date.today())
