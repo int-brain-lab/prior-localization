@@ -6,10 +6,9 @@ from tqdm import tqdm
 # IBL libraries
 import neurencoding.utils as mut
 
-from brainwide.decoding.functions.utils import compute_target
-
 # Brainwide repo imports
-from .design import sample_impostor, generate_design
+from .design import generate_design, sample_impostor
+from brainwide.decoding.functions.utils import compute_target
 
 
 def fit(design, spk_t, spk_clu, binwidth, model, estimator, n_folds=5, contiguous=False, **kwargs):

@@ -18,8 +18,8 @@ from brainwide.params import GLM_CACHE, GLM_FIT_PATH
 from brainwide.utils import make_batch_slurm
 
 # SLURM params
-BATCHFILE = '/home/berk/bwm_stepwise_glm.sh'
-JOBNAME = 'bwm_GLMs'
+BATCHFILE = '/home/berk/bwm_impostor_glm.sh'
+JOBNAME = 'bwm_GLMs_impostor'
 PARTITION = 'shared-cpu'
 TIME = '06:30:00'
 CONDAPATH = Path('/home/gercek/mambaforge/')
@@ -50,6 +50,7 @@ params = {
         'alpha': np.logspace(-2, 1.5, 50)
     },
     'contiguous': False,
+    'impostor': True,
 }
 
 # Estimator relies on alpha grid in case of GridSearchCV, needs to be defined after main params
@@ -67,6 +68,7 @@ params['estimator'] = GridSearchCV(skl.Ridge(), params['alpha_grid'])
 currdate = str(date.today())
 parpath = Path(GLM_FIT_PATH).joinpath(f'{currdate}_glm_fit_pars.pkl')
 datapath = Path(GLM_CACHE).joinpath(params['dataset_fn'])
+impostorpath = Path(GLM_CACHE).joinpath(params['impostor_fn'])
 with open(parpath, 'wb') as fw:
     pickle.dump(params, fw)
 with open(datapath, 'rb') as fo:
@@ -86,7 +88,11 @@ make_batch_slurm(BATCHFILE,
                  cores_per_job=JOB_CORES,
                  memory=MEM,
                  array_size=f'1-{njobs}',
-                 f_args=[str(datapath), str(parpath), r'${SLURM_ARRAY_TASK_ID}', currdate])
+                 f_args=[
+                     str(datapath), str(parpath),
+                     r'${SLURM_ARRAY_TASK_ID}', currdate,
+                     '--impostor', str(impostorpath)
+                 ])
 
 # If SUBMIT_BATCH, then actually execute the batch job
 if SUBMIT_BATCH:
