@@ -5,9 +5,9 @@ from numpy.random import normal, uniform
 from scipy.interpolate import interp1d
 
 # IBL libraries
-import brainbox.modeling.linear as lm
-import brainbox.modeling.utils as mut
-from brainbox.modeling.design_matrix import convbasis
+import neurencoding.linear as lm
+import neurencoding.utils as mut
+from neurencoding.design_matrix import convbasis
 
 rng = np.random.default_rng(seed=0b01101001 + 0b01100010 + 0b01101100)
 
@@ -303,7 +303,7 @@ if __name__ == "__main__":
     from tqdm import tqdm
 
     # IBL libraries
-    from brainbox.modeling import glm
+    from neurencoding import glm
 
     linear = True
     rawobservations = True

@@ -10,8 +10,8 @@ import sklearn.linear_model as skl
 from sklearn.model_selection import GridSearchCV
 
 # IBL libraries
-import brainbox.modeling.linear as lm
-import brainbox.modeling.utils as mut
+import neurencoding.linear as lm
+import neurencoding.utils as mut
 
 # Brainwide repo imports
 from brainwide.params import GLM_CACHE, GLM_FIT_PATH
