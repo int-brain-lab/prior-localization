@@ -51,6 +51,7 @@ params = {
     },
     'contiguous': False,
     'impostor': True,
+    'prior_estimate': False,
 }
 
 # Estimator relies on alpha grid in case of GridSearchCV, needs to be defined after main params
