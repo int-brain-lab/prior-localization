@@ -13,7 +13,7 @@ import pandas as pd
 from scipy.stats import norm
 
 # IBL libraries
-import brainbox.modeling.design_matrix as dm
+import neurencoding.design_matrix as dm
 
 _logger = logging.getLogger('brainwide')
 
@@ -159,7 +159,8 @@ def sample_impostor(impdf,
                     ],
                     iti_generator=norm(loc=0.5, scale=0.2),
                     verif_binwidth=None,
-                    maxeps_corr=1e-9):
+                    maxeps_corr=1e-9,
+                    **kwargs):
     """
     Samples an impostor session below given length from a import dataframe file provided
 

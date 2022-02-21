@@ -12,11 +12,12 @@ from pathlib import Path
 
 # Third party libraries
 import numpy as np
+import pandas as pd
 
 # Brainwide repo imports
 from brainwide.decoding.functions.utils import compute_target
 from brainwide.encoding.design import generate_design
-from brainwide.encoding.fit import fit_stepwise
+from brainwide.encoding.fit import fit_stepwise, fit_impostor
 from brainwide.params import BEH_MOD_PATH, GLM_FIT_PATH
 
 
@@ -58,15 +59,37 @@ def save_stepwise(subject, session_id, fitout, params, probes, input_fn, clu_reg
     return fn
 
 
-def fit_save_inputs(subject,
-                    eid,
-                    probes,
-                    eidfn,
-                    subjeids,
-                    params,
-                    t_before,
-                    fitdate,
-                    prior_estimate=False):
+def save_impostor(subject, session_id, sessfit, nullfits, params, probes, input_fn, clu_reg,
+                  clu_qc, fitdate):
+    sesspath = _create_sub_sess_path(GLM_FIT_PATH, subject, session_id)
+    fn = sesspath.joinpath(f'{fitdate}_impostor_regression.pkl')
+    outdict = {
+        'params': params,
+        'probes': probes,
+        'model_input_fn': input_fn,
+        'clu_regions': clu_reg,
+        'clu_qc': clu_qc,
+        'fitdata': sessfit,
+        'nullfits': nullfits,
+    }
+    with open(fn, 'wb') as fw:
+        pickle.dump(outdict, fw)
+    return fn
+
+
+def fit_save_inputs(
+    subject,
+    eid,
+    probes,
+    eidfn,
+    subjeids,
+    params,
+    t_before,
+    fitdate,
+    impostors,
+    impostor_path=None,
+    prior_estimate=False,
+):
     stdf, sspkt, sspkclu, sclureg, scluqc = get_cached_regressors(eidfn)
     stdf_nona = filter_nan(stdf)
     if prior_estimate:
@@ -75,9 +98,20 @@ def fit_save_inputs(subject,
     else:
         sessprior = stdf_nona['probabilityLeft']
     sessdesign = generate_design(stdf_nona, sessprior, t_before, **params)
-    sessfit = fit_stepwise(sessdesign, sspkt, sspkclu, **params)
-    outputfn = save_stepwise(subject, eid, sessfit, params, probes, eidfn, sclureg, scluqc,
-                             fitdate)
+    if not impostors:
+        sessfit = fit_stepwise(sessdesign, sspkt, sspkclu, **params)
+        outputfn = save_stepwise(subject, eid, sessfit, params, probes, eidfn, sclureg, scluqc,
+                                 fitdate)
+    else:
+        impdf = filter_nan(pd.read_pickle(impostor_path))
+        sessfit, nullfits = fit_impostor(sessdesign,
+                                         impdf,
+                                         sspkt,
+                                         sspkclu,
+                                         t_before=t_before,
+                                         **params)
+        outputfn = save_impostor(subject, eid, sessfit, nullfits, params, probes, eidfn, sclureg,
+                                 scluqc, fitdate)
     return outputfn
 
 
@@ -93,6 +127,7 @@ if __name__ == '__main__':
                         help='Index in inputfile for this worker to '
                         'process/save')
     parser.add_argument('fitdate', help='Date of fit for output file')
+    parser.add_argument('--impostor_path', type=Path, help='Path to main impostor df file')
     args = parser.parse_args()
 
     with open(args.datafile, 'rb') as fo:
@@ -105,7 +140,16 @@ if __name__ == '__main__':
     subject, eid, probes, metafn, eidfn = dataset_fns.loc[args.index]
     subjeids = list(dataset_fns[dataset_fns.subject == subject].eid.unique())
 
-    outputfn = fit_save_inputs(subject, eid, probes, eidfn, subjeids, params, t_before,
-                               args.fitdate, prior_estimate=params['prior_estimate'])
+    outputfn = fit_save_inputs(subject,
+                               eid,
+                               probes,
+                               eidfn,
+                               subjeids,
+                               params,
+                               t_before,
+                               args.fitdate,
+                               params['impostor'],
+                               impostor_path=args.impostor_path,
+                               prior_estimate=params['prior_estimate'])
     print('Fitting completed successfully!')
     print(outputfn)

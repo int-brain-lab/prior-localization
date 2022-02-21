@@ -4,7 +4,7 @@ from sklearn.model_selection import GridSearchCV, KFold
 from tqdm import tqdm
 
 # IBL libraries
-import brainbox.modeling.utils as mut
+import neurencoding.utils as mut
 
 from brainwide.decoding.functions.utils import compute_target
 
@@ -64,29 +64,30 @@ def fit_stepwise(design,
     return outdict
 
 
-def fit_pseudo(design,
-               impdf,
-               spk_t,
-               spk_clu,
-               binwidth,
-               model,
-               estimator,
-               n_pseudo=100,
-               n_folds=5,
-               contiguous=False,
-               prior_estimate=False,
-               **kwargs):
+def fit_impostor(design,
+                 impdf,
+                 spk_t,
+                 spk_clu,
+                 binwidth,
+                 model,
+                 estimator,
+                 t_before,
+                 n_impostors=100,
+                 n_folds=5,
+                 contiguous=False,
+                 prior_estimate=False,
+                 **kwargs):
     data_fit = fit(design, spk_t, spk_clu, binwidth, model, estimator, n_folds, contiguous)
 
     target_length = design.base_df.trial_end.max()
     null_fits = []
-    for _ in range(n_pseudo):
-        sampledf = sample_impostor(impdf, target_length)
+    for _ in range(n_impostors):
+        sampledf = sample_impostor(impdf, target_length, **kwargs)
         if prior_estimate:
             prior = compute_target('pLeft', beh_data=sampledf, **kwargs)
         else:
             prior = sampledf['probabilityLeft']
-        pdesign = generate_design(sampledf, prior, **kwargs)
+        pdesign = generate_design(sampledf, prior, t_before, **kwargs)
         pfit = fit(pdesign, spk_t, spk_clu, binwidth, model, estimator, n_folds, contiguous)
         null_fits.append(pfit)
     return data_fit, null_fits
