@@ -80,13 +80,16 @@ def fit_impostor(design,
 
     target_length = design.base_df.trial_end.max()
     null_fits = []
-    for _ in range(n_impostors):
+    while len(null_fits) < n_impostors:
         sampledf = sample_impostor(impdf, target_length, **kwargs)
         if prior_estimate:
             prior = compute_target('pLeft', beh_data=sampledf, **kwargs)
         else:
             prior = sampledf['probabilityLeft']
-        pdesign = generate_design(sampledf, prior, t_before, **kwargs)
+        try:
+            pdesign = generate_design(sampledf, prior, t_before, **kwargs)
+        except IndexError:
+            continue
         pfit = fit(pdesign, spk_t, spk_clu, binwidth, model, estimator, n_folds, contiguous)
         null_fits.append(pfit)
     return data_fit, null_fits
