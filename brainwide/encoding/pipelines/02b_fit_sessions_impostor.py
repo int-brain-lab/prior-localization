@@ -47,7 +47,7 @@ params = {
     'impostor_fn': '2022-01-19_impostor_df.pkl',
     'model': lm.LinearGLM,
     'alpha_grid': {
-        'alpha': np.logspace(-2, 1.5, 50)
+        'alpha': np.logspace(-2, 1.5, 25)
     },
     'contiguous': False,
     'impostor': True,
