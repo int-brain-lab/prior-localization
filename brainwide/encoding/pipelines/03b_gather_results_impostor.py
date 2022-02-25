@@ -144,6 +144,8 @@ if __name__ == '__main__':
         darrays = generate_da_dict(filename, n_impostors, n_folds, regmap)
         for k in darrays:
             fdata[k].extend(darrays[k])
+    fdata['params'] = params
+    fdata['dataset'] = dataset
 
     with open(Path(GLM_FIT_PATH).joinpath(f'{FITDATE}_impostor_fit.pkl'), 'wb') as fw:
         pickle.dump(fdata, fw)
