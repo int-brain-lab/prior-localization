@@ -13,6 +13,7 @@ from ibllib.atlas import AllenAtlas
 ba=AllenAtlas()
 
 import sys
+import os
 PLOTUTILS_PATH = '/home/bensonb/IntBrainLab/paper-brain-wide-map/decoding/'
 if not PLOTUTILS_PATH in sys.path:
     sys.path.insert(0, PLOTUTILS_PATH)
@@ -23,15 +24,17 @@ from utils import plot_scalar_on_slice
 
 def plot_decoding_results(acronyms, values, filename, 
                 FILE_PATH='/home/bensonb/IntBrainLab/prior-localization/decoding_figures/',
-                cmap='viridis'):
+                cmap='viridis',
+                MIN_ZERO=True):
     PLOT_TITLE = ''
-    SAVE_PATH = FILE_PATH + filename
+    SAVE_PATH = os.path.join(FILE_PATH, filename)
     # cmap = 'viridis'#'purples','blues','greens','oranges','reds'
     
     extend=None
-    if np.min(values) < 0:
-        extend = 'min'
-    values = np.maximum(values,0)
+    if MIN_ZERO:
+        if np.min(values) < 0:
+            extend = 'min'
+        values = np.maximum(values,0)
     
     fig, axes = plt.subplots(2,2)
         

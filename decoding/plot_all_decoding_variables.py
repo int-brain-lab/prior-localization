@@ -22,12 +22,11 @@ def get_saved_data(results,result_index,
     eid = results.loc[result_index,'eid']
     probe = results.loc[result_index,'probe']
     region = results.loc[result_index,'region']
-    data_df = pd.read_pickle(RESULTS_PATH + 
-                             subject + '/' + 
-                             eid + '/' + 
-                             probe + '/' + 
-                             ('_'.join([RESULTS_DATE, region, SAVE_DETAILS])) +
-                             '.pkl')
+    data_df = pd.read_pickle(os.path.join(RESULTS_PATH,
+                             subject,
+                             eid,
+                             probe,
+                             ('_'.join([RESULTS_DATE, region]))+'.pkl'))
     datafit_df = data_df['fit']
     preds = np.concatenate(datafit_df['predictions_test'])
     inds = np.concatenate(datafit_df['idxes_test'])
@@ -766,13 +765,15 @@ plt.show()
 # plt.savefig('/home/bensonb/IntBrainLab/prior-localization/decoding_figures/prior_example_ZI_3663d82b-f197-4e8b-b299-7b803a155b84_probe01.png',dpi=600)
 # plt.show()
 
-VARIABLE_FOLDER = 'prior/'
+VARIABLE_FOLDER = 'block/'
 if not os.path.isdir(FIGURE_PATH + VARIABLE_FOLDER):
     os.mkdir(FIGURE_PATH + VARIABLE_FOLDER)
-RESULTS_DATE = '2022-01-27'
-SAVE_DETAILS = 'decode_prior_expSmoothingPrevActions_Lasso_align_goCue_times_0_pseudosessions_timeWindow_-0_6_-0_2_alleidV0'
+RESULTS_PATH = os.path.join(RESULTS_PATH,
+    'decode_pLeft_task_Logistic_control_100_pseudosessions_align_goCue_times_timeWindow_-0_6_-0_2_eidall_AdjustFeatures')
+RESULTS_DATE = '2022-02-17'
+SAVE_DETAILS = ''
+FILE_PATH = RESULTS_PATH + ('_'.join([RESULTS_DATE, 'results'])) + '.parquet'
 
-FILE_PATH = RESULTS_PATH + ('_'.join([RESULTS_DATE, SAVE_DETAILS])) + '.parquet'
 results = pd.read_parquet(FILE_PATH).reset_index()
 results = results.loc[results.loc[:,'fold']==-1]
 acronyms = np.array(results['region'])
