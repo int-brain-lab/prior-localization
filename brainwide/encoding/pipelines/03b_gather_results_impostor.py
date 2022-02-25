@@ -1,10 +1,12 @@
 # Standard library
 from collections import defaultdict
+from functools import cache
 
 # Third party libraries
 import numpy as np
 import pandas as pd
 import xarray as xr
+from tqdm import tqdm
 
 # IBL libraries
 from ibllib.atlas import BrainRegions
@@ -92,7 +94,7 @@ def make_multiindex(datafile, eid, reg_map, df):
         [
             np.array([eid] * len(df)),
             df.index,
-            reg_map(datafile['clu_regions'][df.index]),
+            np.array([reg_map(id) for id in datafile['clu_regions'][df.index]]).flatten(),
         ],
         names=['eid', 'clu_id', 'region'],
     )
@@ -109,7 +111,7 @@ if __name__ == '__main__':
     # Brainwide repo imports
     from brainwide.params import GLM_CACHE, GLM_FIT_PATH
 
-    FITDATE = '2022-02-21'  # Date on which fit was run
+    FITDATE = '2022-02-24'  # Date on which fit was run
 
     parpath = Path(GLM_FIT_PATH).joinpath(f'{FITDATE}_glm_fit_pars.pkl')
     with open(parpath, 'rb') as fo:
@@ -135,15 +137,16 @@ if __name__ == '__main__':
 
     br = BrainRegions()
 
+    @cache
     def regmap(acr):
         ids = get_id(acr)
         return remap(ids, br=br)
 
     fdata = defaultdict(list)
-    for filename in filenames:
+    for filename in tqdm(filenames):
         darrays = generate_da_dict(filename, n_impostors, n_folds, regmap)
         for k in darrays:
-            fdata[k].extend(darrays[k])
+            fdata[k].append(darrays[k])
     fdata['params'] = params
     fdata['dataset'] = dataset
 
