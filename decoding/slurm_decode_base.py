@@ -7,7 +7,7 @@ if not MODELS_PATH in sys.path:
 DECODING_PATH = '/home/users/bensonb/international-brain-lab/prior-localization/decoding'
 if not DECODING_PATH in sys.path:                                                                              
      sys.path.insert(0, DECODING_PATH)
-SCRATCH = os.environ['SCRATCH']
+GROUP_HOME = os.environ['GROUP_HOME']
 
 import pickle
 import logging
@@ -49,13 +49,13 @@ strlut = {sklm.Lasso: 'Lasso',
 SESS_CRITERION = 'aligned-behavior'  # aligned and behavior
 MODEL = None  # None or expSmoothing_prevAction or dut.modeldispatcher
 DATE = str(date.today())
-MODELFIT_PATH = os.path.join(SCRATCH,'international-brain-lab/prior-localization/behavior/')
-OUTPUT_PATH = os.path.join(SCRATCH,'international-brain-lab/prior-localization/decoding/')
+MODELFIT_PATH = os.path.join(GROUP_HOME,'bensonb/international-brain-lab/prior-localization/behavior/')
+OUTPUT_PATH = os.path.join(GROUP_HOME,'bensonb/international-brain-lab/prior-localization/decoding/')
 
-TARGET = 'pLeft'  # 'pLeft','prior','choice','feedback','signcont'
+TARGET = 'signcont'  # 'pLeft','prior','choice','feedback','signcont'
 CONTROL_FEATURES = [] # subset of the following including empty: 'pLeft','choice','feedback','signcont'
 ALIGN_TIME = 'goCue_times'# 'feedback_times'
-TIME_WINDOW = (-0.6, -0.2)  # (-0.6, -0.2), (0, 0.1)
+TIME_WINDOW = (0, 0.1)  # (-0.6, -0.2), (0, 0.1)
 MIN_UNITS = 10
 MIN_BEHAV_TRIAS = 400
 MIN_RT = 0.08  # 0.08  # Float (s) or None
@@ -63,8 +63,8 @@ MIN_RT = 0.08  # 0.08  # Float (s) or None
 QC_CRITERIA = 3/3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
 
 # decoder and null distribution
-ESTIMATOR = sklm.LogisticRegression #sklm.Lasso  # Must be in keys of strlut above
-ESTIMATOR_KWARGS = {'penalty': 'l1', 'solver':'saga', 'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}#'penalty': 'l1', 'solver':'saga', 
+ESTIMATOR = sklm.Lasso #sklm.LogisticRegression #sklm.Lasso  # Must be in keys of strlut above
+ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}#'penalty': 'l1', 'solver':'saga', (used for logistic regression)
 N_PSEUDO = 100
 
 NO_UNBIAS = False
