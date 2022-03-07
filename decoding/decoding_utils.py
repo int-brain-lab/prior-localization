@@ -14,7 +14,8 @@ from models.optimalBayesian import optimal_Bayesian
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import GridSearchCV, KFold
 from sklearn.linear_model._coordinate_descent import LinearModelCV
-from sklearn.metrics import r2_score
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import r2_score, accuracy_score
 from sklearn.utils.class_weight import compute_sample_weight
 
 possible_targets = ['prior', 'prederr', 'signcont', 'pLeft',
@@ -253,7 +254,10 @@ def compute_target(target, subject, eids_train, eid_test, savepath,
 
 def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
                    hyperparam_grid=None, test_prop=0.2, nFolds=5, save_binned=False,
-                   verbose=False, shuffle=True, outer_cv=True, balanced_weight=False, control_features=[]):
+                   verbose=False, shuffle=True, outer_cv=True, 
+                   balanced_weight=False, 
+                   control_features=[],
+                   SCORE='r2'):
     """
     Regresses binned neural activity against a target, using a provided sklearn estimator
 
@@ -285,6 +289,9 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
         and what the neighbor down the street said to it the other day.
     outer_cv: bool
         Perform outer cross validation such that the testing spans the entire dataset
+    SCORE: str
+        metric used to quantify regression performance.
+        used to choose the best hyper parameters during cross validation. 
     Returns
     -------
     dict
@@ -297,8 +304,17 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
             - Input regressors (optional, see binned argument)
     """
     # initialize outputs
-    Rsquareds_test, Rsquareds_train, weights, intercepts = [], [], [], []
+    Scores_test, Scores_train, weights, intercepts = [], [], [], []
     predictions, predictions_test, idxes_test, idxes_train, best_params = [], [], [], [], []
+    # if isinstance(estimatorObject, LogisticRegression):
+    #     probabilities, probabilities_test = [], []
+    if SCORE == 'accuracy':
+        current_score = lambda *args: accuracy_score(*args)
+    elif SCORE == 'r2':
+        current_score = lambda *args: r2_score(*args)
+    else:
+        raise TypeError('SCORE must be accuracy or r2, \
+                        others are not implemented')
 
     # train / test split
     # Split the dataset in two equal parts
@@ -328,15 +344,13 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
             idx_inner = np.arange(len(X_train))
             inner_kfold = KFold(n_splits=nFolds, shuffle=shuffle).split(idx_inner)
             
-            
-            
             try:
                 hyperkey = list(hyperparam_grid.keys())
                 assert len(hyperkey)==1
                 hyperkey = hyperkey[0]
             except AssertionError:
                 raise AssertionError('too many hyper parameters, only 1 allowed')
-            r2s = np.zeros([nFolds, len(hyperparam_grid[hyperkey])])
+            scores = np.zeros([nFolds, len(hyperparam_grid[hyperkey])])
             for ifold, (train_inner, test_inner) in enumerate(inner_kfold):
                 X_train_inner, X_test_inner = X_train[train_inner], X_train[test_inner]
                 y_train_inner, y_test_inner = y_train[train_inner], y_train[test_inner]
@@ -349,23 +363,24 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
                     else:
                         estimator.fit(X_train_inner, y_train_inner)
                     pred_test_inner = estimator.predict(X_test_inner)
-                    r2s[ifold, i_alpha] = r2_score(y_test_inner, pred_test_inner)
+                    scores[ifold, i_alpha] = current_score(y_test_inner, pred_test_inner)
+                        
 
-            r2s_avg = r2s.mean(axis=0)
-            best_alpha = hyperparam_grid[hyperkey][np.argmax(r2s_avg)]
+            scores_avg = scores.mean(axis=0)
+            best_alpha = hyperparam_grid[hyperkey][np.argmax(scores_avg)]
             clf = estimatorObject(**{**estimator_kwargs, hyperkey: best_alpha})
             if balanced_weight:
                 clf.fit(X_train, y_train, sample_weight=compute_sample_weight("balanced", y=y_train))
             else:
                 clf.fit(X_train, y_train)
 
-            # compute R2 on the train data
+            # compute score on the train data
             y_pred_train = clf.predict(X_train)
-            Rsquareds_train.append(r2_score(y_train, y_pred_train))
+            Scores_train.append(current_score(y_train, y_pred_train))
 
-            # compute R2 on held-out data
+            # compute score on held-out data
             y_true, y_pred = y_test, clf.predict(X_test)
-            Rsquareds_test.append(r2_score(y_true, y_pred))
+            Scores_test.append(current_score(y_true, y_pred))
 
             # prediction, target, idxes_test, idxes_train
             predictions.append(clf.predict(binned))
@@ -384,9 +399,9 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
         full_test_prediction[idxes_test[k]] = predictions_test[k]
 
     outdict = dict()
-    outdict['Rsquared_test_full'] = r2_score(tvec, full_test_prediction)
-    outdict['Rsquareds_train'] = Rsquareds_train
-    outdict['Rsquareds_test'] = Rsquareds_test
+    outdict['Score_test_full'] = current_score(tvec, full_test_prediction)
+    outdict['Scores_train'] = Scores_train
+    outdict['Scores_test'] = Scores_test
     outdict['weights'] = weights
     outdict['intercepts'] = intercepts
     outdict['target'] = tvec
@@ -398,6 +413,9 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
     outdict['nFolds'] = nFolds
     if save_binned:
         outdict['regressors'] = binned
+    # if isin:
+    #     outdict['predictions_continuous'] = predictions_continuous
+    #     outdict['predictions_continuous_test'] = predictions_continuous_test
 
     # logging
     if verbose:
@@ -421,7 +439,7 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
 
         print("\n", "Detailed classification report:", "\n")
         print("The model is trained on the full (train + validation) set.")
-        print("\n", "Rsquare on held-out test data: {}".format(np.round(Rsquareds_test, 3)), "\n")
+        print("\n", "Score on held-out test data: {}".format(np.round(Scores_test, 3)), "\n")
 
         '''
         import pickle
@@ -429,9 +447,9 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
         outdict_verbose['binned_activity'] = binned
         outdict_verbose['labels'] = tvec
         outdict_verbose['pred_train'] = y_pred_train
-        outdict_verbose['R2_train'] = Rsquareds_train
+        outdict_verbose['Score_train'] = Scores_train
         outdict_verbose['pred_test'] = y_pred
-        outdict_verbose['R2_test'] = Rsquareds_test
+        outdict_verbose['Score_test'] = Scores_test
         outdict_verbose['regul_term'] = clf.best_params_
         pickle.dump(outdict_verbose, open('eid_{}_sanity.pkl'.format(eid), 'wb'))
         '''

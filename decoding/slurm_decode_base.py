@@ -63,8 +63,9 @@ MIN_RT = 0.08  # 0.08  # Float (s) or None
 QC_CRITERIA = 3/3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
 
 # decoder and null distribution
-ESTIMATOR = sklm.Lasso #sklm.LogisticRegression #sklm.Lasso  # Must be in keys of strlut above
-ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}#'penalty': 'l1', 'solver':'saga', (used for logistic regression)
+ESTIMATOR = sklm.LogisticRegression #sklm.Lasso  # Must be in keys of strlut above
+ESTIMATOR_KWARGS = {'penalty': 'l1', 'solver':'saga', 'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}#'penalty': 'l1', 'solver':'saga', 
+SCORE = 'r2' #r2 or accuracyb
 N_PSEUDO = 100
 
 NO_UNBIAS = False
@@ -109,6 +110,7 @@ fit_metadata = {
     'target': TARGET,
     'control_features': CONTROL_FEATURES,
     'model_type': dut.modeldispatcher[MODEL],
+    'model_score': SCORE,
     'modelfit_path': MODELFIT_PATH,
     'output_path': OUTPUT_PATH,
     'align_time': ALIGN_TIME,
@@ -284,7 +286,8 @@ def fit_eid(eid, sessdf):
                                             hyperparam_grid=HPARAM_GRID,
                                             save_binned=SAVE_BINNED, shuffle=SHUFFLE,
                                             balanced_weight=BALANCED_WEIGHT,
-                                            control_features=fvecs)
+                                            control_features=fvecs,
+                                            SCORE=SCORE)
 
             fit_result['mask'] = mask
             fit_result['pLeft_vec'] = pLeft_vec
@@ -314,7 +317,8 @@ def fit_eid(eid, sessdf):
                                                    estimator_kwargs=ESTIMATOR_KWARGS,
                                                    hyperparam_grid=HPARAM_GRID,
                                                    save_binned=SAVE_BINNED, shuffle=SHUFFLE,
-                                                   balanced_weight=BALANCED_WEIGHT)
+                                                   balanced_weight=BALANCED_WEIGHT,
+                                                   SCORE=SCORE)
 
                 # neurometric curve
                 if COMPUTE_NEUROMETRIC:
