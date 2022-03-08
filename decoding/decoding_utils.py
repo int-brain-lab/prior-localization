@@ -32,7 +32,7 @@ modeldispatcher = {expSmoothing_prevAction: 'expSmoothingPrevActions',
 # Loading data and input utilities
 
 
-def decoding_details(TARGET,MODEL,
+def decoding_details(TARGET,MODEL,SCORE,
                      ESTIMATORSTR,
                      ALIGN_TIME,
                      CONTROL_FEATURES,
@@ -46,11 +46,11 @@ def decoding_details(TARGET,MODEL,
     
     details = '_'.join(['decode', TARGET,
                    modeldispatcher[MODEL] if TARGET in ['prior', 'prederr'] else 'task',
-                   ESTIMATORSTR, 
+                   ESTIMATORSTR, SCORE,
                    'control', *CONTROL_FEATURES,
-                   str(N_PSEUDO), 'pseudosessions',
+                   str(N_PSEUDO), 'pseudos',
                    'align', ALIGN_TIME, 
-                   'timeWindow', 
+                   'timeWin', 
                    str(start_tw).replace('.', '_'), 
                    str(end_tw).replace('.', '_'),
                    ADD_TO_SAVING_PATH])
@@ -306,8 +306,8 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
     # initialize outputs
     Scores_test, Scores_train, weights, intercepts = [], [], [], []
     predictions, predictions_test, idxes_test, idxes_train, best_params = [], [], [], [], []
-    # if isinstance(estimatorObject, LogisticRegression):
-    #     probabilities, probabilities_test = [], []
+    if isinstance(estimatorObject, LogisticRegression):
+        probabilities, probabilities_test = [], []
     if SCORE == 'accuracy':
         current_score = lambda *args: accuracy_score(*args)
     elif SCORE == 'r2':
@@ -385,6 +385,9 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
             # prediction, target, idxes_test, idxes_train
             predictions.append(clf.predict(binned))
             predictions_test.append(clf.predict(binned)[test_index])
+            if isinstance(estimatorObject, LogisticRegression):
+                probabilities.append(clf.predict_proba(binned))
+                probabilities_test.append(clf.predict_proba(binned)[test_index])
             idxes_test.append(test_index)
             idxes_train.append(train_index)
             weights.append(clf.coef_)
@@ -393,7 +396,7 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
             else:
                 intercepts.append(None)
             best_params.append({hyperkey:best_alpha})
-
+    
     full_test_prediction = np.zeros(len(tvec))
     for k in range(nFolds):
         full_test_prediction[idxes_test[k]] = predictions_test[k]
@@ -407,6 +410,9 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
     outdict['target'] = tvec
     outdict['predictions'] = predictions
     outdict['predictions_test'] = predictions_test
+    if isinstance(estimatorObject, LogisticRegression):
+        outdict['probabilities'] = probabilities
+        outdict['probabilities_test'] = probabilities_test
     outdict['idxes_test'] = idxes_test
     outdict['idxes_train'] = idxes_train
     outdict['best_params'] = best_params

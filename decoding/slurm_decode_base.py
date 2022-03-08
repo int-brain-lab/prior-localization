@@ -52,10 +52,10 @@ DATE = str(date.today())
 MODELFIT_PATH = os.path.join(GROUP_HOME,'bensonb/international-brain-lab/prior-localization/behavior/')
 OUTPUT_PATH = os.path.join(GROUP_HOME,'bensonb/international-brain-lab/prior-localization/decoding/')
 
-TARGET = 'signcont'  # 'pLeft','prior','choice','feedback','signcont'
+TARGET = 'pLeft'  # 'pLeft','prior','choice','feedback','signcont'
 CONTROL_FEATURES = [] # subset of the following including empty: 'pLeft','choice','feedback','signcont'
 ALIGN_TIME = 'goCue_times'# 'feedback_times'
-TIME_WINDOW = (0, 0.1)  # (-0.6, -0.2), (0, 0.1)
+TIME_WINDOW = (-0.6, -0.2)  # (-0.6, -0.2), (0, 0.1)
 MIN_UNITS = 10
 MIN_BEHAV_TRIAS = 400
 MIN_RT = 0.08  # 0.08  # Float (s) or None
@@ -65,8 +65,8 @@ QC_CRITERIA = 3/3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
 # decoder and null distribution
 ESTIMATOR = sklm.LogisticRegression #sklm.Lasso  # Must be in keys of strlut above
 ESTIMATOR_KWARGS = {'penalty': 'l1', 'solver':'saga', 'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}#'penalty': 'l1', 'solver':'saga', 
-SCORE = 'r2' #r2 or accuracyb
-N_PSEUDO = 100
+SCORE = 'accuracy' #r2 or accuracy
+N_PSEUDO = 1
 
 NO_UNBIAS = False
 SHUFFLE = True
@@ -137,7 +137,7 @@ fit_metadata = {
 
 def save_region_results(fit_result, pseudo_results, 
                         subject, eid, probe, region, N):#
-    decodingdetailsfolder = Path(OUTPUT_PATH).joinpath(dut.decoding_details(TARGET,MODEL,
+    decodingdetailsfolder = Path(OUTPUT_PATH).joinpath(dut.decoding_details(TARGET,MODEL,SCORE,
                                                       ESTIMATORSTR,
                                                       ALIGN_TIME,
                                                       CONTROL_FEATURES,
