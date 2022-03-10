@@ -275,7 +275,7 @@ def remap_region(ids, source='Allen-lr', dest='Beryl-lr', output='acronym', br=N
 
 def compute_target(target, subject, eids_train, eid_test, savepath,
                    modeltype=expSmoothing_prevAction, one=None,
-                   beh_data=None):
+                   beh_data=None, **kwargs):
     """
     Computes regression target for use with regress_target, using subject, eid, and a string
     identifying the target parameter to output a vector of N_trials length containing the target

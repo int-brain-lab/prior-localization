@@ -3,8 +3,8 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import brainbox.io.one as bbone
-from brainbox.modeling.glm_linear import LinearGLM
-import brainbox.modeling.glm as glm
+from neurencoding.glm_linear import LinearGLM
+import neurencoding.glm as glm
 import sklearn.preprocessing as pp
 
 

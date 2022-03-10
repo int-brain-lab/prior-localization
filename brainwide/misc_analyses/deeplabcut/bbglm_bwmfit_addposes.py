@@ -7,7 +7,7 @@ Berk, May 2020
 from oneibl import one
 import numpy as np
 import pandas as pd
-from brainbox.modeling import glm
+from neurencoding import glm
 import brainbox.io.one as bbone
 from export_funs_addposes import trialinfo_to_df
 from prior_funcs import fit_sess_psytrack

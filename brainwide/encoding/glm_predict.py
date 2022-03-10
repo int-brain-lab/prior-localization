@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from brainbox.modeling import linear
-from brainbox.modeling import poisson
+from neurencoding import linear
+from neurencoding import poisson
 from brainbox.plot import peri_event_time_histogram
 
 

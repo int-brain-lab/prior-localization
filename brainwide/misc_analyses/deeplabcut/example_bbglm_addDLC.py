@@ -7,11 +7,11 @@ example script showing usage of DLC data for brainbox GLM fitting
 from oneibl import one
 import numpy as np
 import pandas as pd
-import brainbox.modeling.utils as mut
-from brainbox.modeling import utils
-from brainbox.modeling import linear
-from brainbox.modeling import poisson
-from brainbox.modeling.design_matrix import DesignMatrix
+import neurencoding.utils as mut
+from neurencoding import utils
+from neurencoding import linear
+from neurencoding import poisson
+from neurencoding.design_matrix import DesignMatrix
 from glm_predict import predict, pred_psth, GLMPredictor
 import brainbox.io.one as bbone
 from brainbox.plot import peri_event_time_histogram
