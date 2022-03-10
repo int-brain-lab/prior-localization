@@ -66,7 +66,7 @@ QC_CRITERIA = 3/3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
 ESTIMATOR = sklm.LogisticRegression #sklm.Lasso  # Must be in keys of strlut above
 ESTIMATOR_KWARGS = {'penalty': 'l1', 'solver':'saga', 'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}#'penalty': 'l1', 'solver':'saga', 
 SCORE = 'accuracy' #r2 or accuracy
-N_PSEUDO = 1
+N_PSEUDO = 100
 
 NO_UNBIAS = False
 SHUFFLE = True
