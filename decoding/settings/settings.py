@@ -28,8 +28,8 @@ else:
 SESS_CRITERION = 'aligned-behavior'  # aligned and behavior
 DATE = str(date.today())
 ALIGN_TIME = 'goCue_times'
-TARGET = 'pLeft'  # 'signcont' or 'pLeft'
-CONTINUOUS_TARGET = True  # is target continuous or not
+TARGET = 'signcont'  # 'signcont' or 'pLeft'
+CONTINUOUS_TARGET = False  # True  # is target continuous or not
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
 MODEL = dut.optimal_Bayesian  # expSmoothing_prevAction  or None # or dut.modeldispatcher.
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
@@ -49,7 +49,7 @@ SHUFFLE = True  # interleaved cross validation
 BORDER_QUANTILES_NEUROMETRIC = [.3, .7]  # [.3, .4, .5, .6, .7]
 COMPUTE_NEUROMETRIC = True if TARGET == 'signcont' else False
 FORCE_POSITIVE_NEURO_SLOPES = False
-# NEUROMETRIC_PRIOR_MODEL = expSmoothing_prevAction #'oracle'
+
 # Basically, quality metric on the stability of a single unit. Should have 1 metric per neuron
 QC_CRITERIA = 3 / 3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
 NORMALIZE_INPUT = False  # take out mean of the neural activity per unit across trials
