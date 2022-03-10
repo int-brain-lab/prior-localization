@@ -9,8 +9,8 @@ from one.api import ONE
 from ibllib.atlas import AllenAtlas
 from brainbox.io.one import SpikeSortingLoader
 
-from functions import decoding_utils as dut
-from functions.decode_prior import SESS_CRITERION
+from functions import utils as dut
+from settings.settings import SESS_CRITERION
 
 #DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding")
 DECODING_PATH = Path("/home/users/f/findling/scratch")
@@ -43,7 +43,7 @@ for i, rec in insdf.iterrows():
         continue
     print(i, pid)
     try:
-        ssl = SpikeSortingLoader(pid, one=one, atlas=ba)
+        ssl = SpikeSortingLoader(pid=pid, one=one, atlas=ba)
         spikes, clusters, channels = ssl.load_spike_sorting()
         # this will cache both the metrics if they don't exist or don't match and also write a clusters.pqt dataframe
         if not ssl.spike_sorting_path.joinpath('clusters.pqt').exists():

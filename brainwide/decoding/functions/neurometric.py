@@ -47,15 +47,15 @@ def get_target_df(target, pred, test_idxs, trialsdf, one):
             grpbyagg.index.get_level_values('blockprob').unique().sort_values()]
 
 
-def get_neurometric_parameters_(prob_arr, possible_contrasts, force_positive_neuro_slopes=False):
+def get_neurometric_parameters_(prob_arr, possible_contrasts, force_positive_neuro_slopes=False, nfits=100):
     if force_positive_neuro_slopes:
         pars, L = pfit.mle_fit_psycho(prob_arr,
                                       P_model='erf_psycho_2gammas',
-                                      nfits=100)
+                                      nfits=nfits)
     else:
         pars, L = pfit.mle_fit_psycho(prob_arr,
                                       P_model='erf_psycho_2gammas',
-                                      nfits=100,
+                                      nfits=nfits,
                                       parmin=np.array([-1., -10., 0., 0.]),
                                       parmax=np.array([1., 10., 0.4, 0.4]))
     contrasts = prob_arr[0, :] if possible_contrasts is None else possible_contrasts
@@ -69,7 +69,8 @@ def get_neurometric_parameters_(prob_arr, possible_contrasts, force_positive_neu
 def fit_get_shift_range(prob_arrs,
                         force_positive_neuro_slopes=False,
                         seed_=None,
-                        possible_contrasts=np.array([-1, -0.25, -0.125, -0.0625, 0, 0.0625, 0.125, 0.25, 1])
+                        possible_contrasts=np.array([-1, -0.25, -0.125, -0.0625, 0, 0.0625, 0.125, 0.25, 1]),
+                        nfits=100,
                         ):
     """
     Fit psychometric functions with erf with two gammas for lapse rate, and return the parameters,
@@ -88,12 +89,12 @@ def fit_get_shift_range(prob_arrs,
     if seed_ is not None:
         np.random.seed(seed_)
     lows = get_neurometric_parameters_(prob_arrs[0], possible_contrasts,
-                                       force_positive_neuro_slopes=force_positive_neuro_slopes)
+                                       force_positive_neuro_slopes=force_positive_neuro_slopes, nfits=nfits)
     # pLeft = 0.8 blocks
     if seed_ is not None:
         np.random.seed(seed_)
     highs = get_neurometric_parameters_(prob_arrs[-1], possible_contrasts,
-                                        force_positive_neuro_slopes=force_positive_neuro_slopes)
+                                        force_positive_neuro_slopes=force_positive_neuro_slopes, nfits=nfits)
 
     # compute shift
     shift = highs['fit_trace'][highs['zerind']] - lows['fit_trace'][lows['zerind']]

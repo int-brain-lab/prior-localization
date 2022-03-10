@@ -10,3 +10,11 @@ do
         then echo ${file}
         fi
 done
+
+
+# for file in slurm/*.out
+# do
+#         if ! (cat ${file} | grep "successful")
+#         then echo ${file}
+#         fi
+# done

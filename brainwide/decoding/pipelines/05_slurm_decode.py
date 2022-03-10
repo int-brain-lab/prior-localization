@@ -11,7 +11,7 @@ except:
     pass
 
 # import cached data
-insdf = pd.read_parquet(DECODING_PATH.joinpath('insertions.pqt'))
+insdf = pd.read_parquet(DECODING_PATH.joinpath('insertions.pqt')).reset_index(drop=True)
 insdf = insdf[insdf.spike_sorting != '']
 eids = insdf['eid'].unique()
 
@@ -28,8 +28,8 @@ else:
     imposterdf_future = None
 
 kwargs = {'imposterdf': None, 'nb_runs': N_RUNS, 'single_region': SINGLE_REGION, 'merged_probes': MERGED_PROBES,
-          'modelfit_path': DECODING_PATH.joinpath('results', 'behavioral'),
-          'output_path': DECODING_PATH.joinpath('results', 'neural'), 'one': None,
+          'modelfit_path': DECODING_PATH.joinpath('results', 'behavioral'), 'continuous_target': CONTINUOUS_TARGET,
+          'output_path': DECODING_PATH.joinpath('results', 'neural'), 'one': None, 'decoding_path': DECODING_PATH,
           'estimator_kwargs': ESTIMATOR_KWARGS, 'hyperparam_grid': HPARAM_GRID,
           'save_binned': SAVE_BINNED, 'shuffle': SHUFFLE, 'balanced_weight': BALANCED_WEIGHT,
           'normalize_input': NORMALIZE_INPUT, 'normalize_output': NORMALIZE_OUTPUT,
@@ -39,7 +39,9 @@ kwargs = {'imposterdf': None, 'nb_runs': N_RUNS, 'single_region': SINGLE_REGION,
           'no_unbias': NO_UNBIAS, 'min_rt': MIN_RT, 'min_behav_trials': MIN_BEHAV_TRIAS,
           'qc_criteria': QC_CRITERIA, 'min_units': MIN_UNITS, 'time_window': TIME_WINDOW,
           'use_imposter_session': USE_IMPOSTER_SESSION, 'compute_neurometric': COMPUTE_NEUROMETRIC,
-          'border_quantiles_neurometric': BORDER_QUANTILES_NEUROMETRIC, 'today': DATE
+          'border_quantiles_neurometric': BORDER_QUANTILES_NEUROMETRIC, 'today': DATE,
+          'add_to_saving_path': ADD_TO_SAVING_PATH, 'use_openturns': USE_OPENTURNS,
+          'bin_size_kde': BIN_SIZE_KDE
           }
 
 
@@ -55,3 +57,5 @@ else:
     if 1 in pseudo_ids:
         pseudo_ids = np.concatenate((-np.ones(1), pseudo_ids)).astype('int64')
     fit_eid(eid=eid, sessdf=insdf, pseudo_ids=pseudo_ids, **kwargs)
+
+print('Slurm job successful')
