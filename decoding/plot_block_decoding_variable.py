@@ -37,10 +37,10 @@ results = results.loc[results.loc[:,'fold']==-1]
 data = aggregate_data(results, RESULTS_PATH, SPECIFIC_DECODING)
     
 all_pvalues = data['p-value']
-all_r2s = data['r2']
-all_accuracies = data['accuracy']
+all_scores = data['score']
 all_targets = data['target']
 all_preds = data['prediction']
+all_probs = data['probability']
 all_block_pLeft = data['block_pLeft']
 all_actn = data['active_neurons']
 all_regions = data['region']
@@ -48,22 +48,17 @@ all_eids = data['eid']
 all_probes = data['probe']
 
 # plt.title('r2s')
-plt.hist(results.loc[:,'Rsquared_test'], bins=30, 
+plt.hist(results.loc[:,'Score_test'], bins=30, 
          histtype='step', density=True, lw=5)
-plt.hist(results.loc[:,'Rsquared_test_pseudo0'], bins=30, 
+plt.hist(results.loc[:,'Score_test_pseudo0'], bins=30, 
          histtype='step', density=True, lw=5)
-plt.xlabel('r2')
+plt.xlabel('score')
 plt.ylabel('density')
 plt.legend(['test','null'])
 plt.show()
 plt.hist(all_pvalues, bins=20, 
          histtype='step', density=True, lw=5)
 plt.xlabel('p-value')
-plt.ylabel('density')
-plt.show()
-plt.hist(all_accuracies, bins=20, 
-         histtype='step', density=True, lw=5)
-plt.xlabel('prediction accuracy')
 plt.ylabel('density')
 plt.show()
 
@@ -100,13 +95,30 @@ plt.show()
 # for i in range(len(edge)-1):
 #     all_targets[(all_targets >= edge[i])&(all_targets < edge[i+1])] = .5*(edge[i]+edge[i+1])
 #     best_targets[(best_targets >= edge[i])&(best_targets < edge[i+1])] = .5*(edge[i]+edge[i+1])
+index_max = np.argmax(all_scores)
+best_targets = all_targets[index_max]
+best_preds = all_preds[index_max]
+best_probs = all_probs[index_max]
+best_block_pLeft = all_block_pLeft[index_max]
+best_actn = all_actn[index_max]
+best_eid = all_eids[index_max]
+best_probe = all_probes[index_max]
+best_region = all_regions[index_max]
+
+all_probs_discrete = np.concatenate(all_probs)
+best_probs_discrete = np.copy(best_probs)
+edge = np.linspace(0,1,11)
+for i in range(len(edge)-1):
+    all_probs_discrete[(all_probs >= edge[i])&(all_probs < edge[i+1])] = .5*(edge[i]+edge[i+1])
+    best_probs_discrete[(best_probs >= edge[i])&(best_probs < edge[i+1])] = .5*(edge[i]+edge[i+1])
+
 
 plot_name = 'mediansignificantaccuracy'
 MIN_NUMBER_SESSIONS = 1
 all_sigs = (all_pvalues<=0.05)
 use_region = lambda reg: len(np.nonzero((all_regions==reg)&all_sigs)[0]) and len(np.nonzero(all_regions==reg)[0])>=MIN_NUMBER_SESSIONS
-get_region_value = lambda reg: np.median(all_accuracies[(all_regions==reg)&all_sigs])
-get_region_err = lambda reg: np.std(all_accuracies[(all_regions==reg)&all_sigs])
+get_region_value = lambda reg: np.median(all_scores[(all_regions==reg)&all_sigs])
+get_region_err = lambda reg: np.std(all_scores[(all_regions==reg)&all_sigs])
 
 regions = np.array([reg for reg in np.unique(all_regions) if use_region(reg)])
 reg_values = np.array([get_region_value(reg) for reg in regions])
@@ -137,8 +149,8 @@ plot_name = 'maxsignificantaccuracy'
 MIN_NUMBER_SESSIONS = 1
 all_sigs = (all_pvalues<=0.05)
 use_region = lambda reg: len(np.nonzero((all_regions==reg)&all_sigs)[0]) and len(np.nonzero(all_regions==reg)[0])>=MIN_NUMBER_SESSIONS
-get_region_value = lambda reg: np.max(all_accuracies[(all_regions==reg)&all_sigs])
-get_region_err = lambda reg: np.std(all_accuracies[(all_regions==reg)&all_sigs])
+get_region_value = lambda reg: np.max(all_scores[(all_regions==reg)&all_sigs])
+get_region_err = lambda reg: np.std(all_scores[(all_regions==reg)&all_sigs])
 
 regions = np.array([reg for reg in np.unique(all_regions) if use_region(reg)])
 reg_values = np.array([get_region_value(reg) for reg in regions])
@@ -163,40 +175,11 @@ bar_results(acronyms,
             YMIN=0.5,
             ylab='Accuracy')
 
-plot_name = 'mediansignificantr2'
-MIN_NUMBER_SESSIONS = 1
-all_sigs = (all_pvalues<=0.05)
-use_region = lambda reg: len(np.nonzero((all_regions==reg)&all_sigs)[0]) and len(np.nonzero(all_regions==reg)[0])>=MIN_NUMBER_SESSIONS
-get_region_value = lambda reg: np.max(all_r2s[(all_regions==reg)&all_sigs])
-get_region_err = lambda reg: np.std(all_r2s[(all_regions==reg)&all_sigs])
-
-regions = np.array([reg for reg in np.unique(all_regions) if use_region(reg)])
-reg_values = np.array([get_region_value(reg) for reg in regions])
-reg_errs = np.array([get_region_err(reg) for reg in regions])
-acronyms, values, errs = regions, reg_values, reg_errs
-
-
-brain_results(acronyms, 
-                values, 
-                os.path.join(VARIABLE_FOLDER,
-                              SPECIFIC_DECODING,
-                            ('_'.join([RESULTS_DATE, 'brains', plot_name])) +
-                            FIGURE_SUFFIX), 
-                FILE_PATH = FIGURE_PATH,
-                cmap='Purples')
-bar_results(acronyms,
-            values,
-            errs,
-            os.path.join(VARIABLE_FOLDER,
-                          SPECIFIC_DECODING,
-            ('_'.join([RESULTS_DATE, 'bars', plot_name])) +
-            FIGURE_SUFFIX))
-
 plot_name = 'nsessionssignificant'
 MIN_NUMBER_SESSIONS = 1
 all_sigs = (all_pvalues<=0.05)
 use_region = lambda reg: len(np.nonzero((all_regions==reg)&all_sigs)[0]) and len(np.nonzero(all_regions==reg)[0])>=MIN_NUMBER_SESSIONS
-get_region_value = lambda reg: len(all_r2s[(all_regions==reg)&all_sigs])
+get_region_value = lambda reg: len(all_scores[(all_regions==reg)&all_sigs])
 get_region_err = lambda reg: 0
 
 regions = np.array([reg for reg in np.unique(all_regions) if use_region(reg)])
@@ -224,8 +207,8 @@ plot_name = 'fsessionssignificant'
 MIN_NUMBER_SESSIONS = 1
 all_sigs = (all_pvalues<=0.05)
 use_region = lambda reg: len(np.nonzero((all_regions==reg)&all_sigs)[0]) and len(np.nonzero(all_regions==reg)[0])>=MIN_NUMBER_SESSIONS
-get_region_nsigsess = lambda reg: len(all_r2s[(all_regions==reg)&all_sigs])
-get_region_nsess = lambda reg: len(all_r2s[all_regions==reg])
+get_region_nsigsess = lambda reg: len(all_scores[(all_regions==reg)&all_sigs])
+get_region_nsess = lambda reg: len(all_scores[all_regions==reg])
 get_region_value = lambda reg: get_region_nsigsess(reg)/get_region_nsess(reg)
 ci_lower, ci_upper = 0.05, 1.0
 get_region_errm = lambda reg: get_region_value(reg) - Bernoulli_ci(get_region_nsigsess(reg),
@@ -251,7 +234,7 @@ brain_results(acronyms,
                             FIGURE_SUFFIX), 
                 FILE_PATH = FIGURE_PATH,
                 cmap='Purples',
-                value_title='min fraction of \nsignificant sessions \n(95\% confidence)')
+                value_title='chance of \nsignificant session \n(95\% ci)')
 bar_results(acronyms,
             values,
             errs,
@@ -259,51 +242,19 @@ bar_results(acronyms,
                           SPECIFIC_DECODING,
             ('_'.join([RESULTS_DATE, 'bars', plot_name])) +
             FIGURE_SUFFIX))
-# plot_name = 'fsessionssignificant'
-# MIN_NUMBER_SESSIONS = 1
-# all_sigs = (all_pvalues<=0.05)
-# use_region = lambda reg: len(np.nonzero((all_regions==reg)&all_sigs)[0]) and len(np.nonzero(all_regions==reg)[0])>=MIN_NUMBER_SESSIONS
-# get_region_value = lambda reg: len(all_r2s[(all_regions==reg)&all_sigs])/len(all_r2s[all_regions==reg])
-# get_region_err = lambda reg: 1.0/np.sqrt(len(all_r2s[all_regions==reg]))
-
-# regions = np.array([reg for reg in np.unique(all_regions) if use_region(reg)])
-# reg_values = np.array([get_region_value(reg) for reg in regions])
-# reg_errs = np.array([get_region_err(reg) for reg in regions])
-# acronyms, values, errs = regions, reg_values, reg_errs
-
-# brain_results(acronyms, 
-#                 values, 
-#                 os.path.join(VARIABLE_FOLDER,
-#                               SPECIFIC_DECODING,
-#                             ('_'.join([RESULTS_DATE, 'brains', plot_name])) +
-#                             FIGURE_SUFFIX), 
-#                 FILE_PATH = FIGURE_PATH,
-#                 cmap='Purples')
-# bar_results(acronyms,
-#             values,
-#             errs,
-#             os.path.join(VARIABLE_FOLDER,
-#                           SPECIFIC_DECODING,
-#             ('_'.join([RESULTS_DATE, 'bars', plot_name])) +
-#             FIGURE_SUFFIX))
 
 sns.set_theme(style="whitegrid")
 
-all_df = pd.DataFrame({'Target':np.concatenate(all_targets),
+#%%
+all_df = pd.DataFrame({'Probabilities':all_probs_discrete,
+                       'Target':np.concatenate(all_targets),
                        'Predictions':np.concatenate(all_preds),
                        'pLeft':np.concatenate(all_block_pLeft)})
-index_max = np.argmax(all_r2s)
-best_targets = all_targets[index_max]
-best_preds = all_preds[index_max]
-best_block_pLeft = all_block_pLeft[index_max]
-best_actn = all_actn[index_max]
-best_eid = all_eids[index_max]
-best_probe = all_probes[index_max]
-best_region = all_regions[index_max]
 
-best_df = pd.DataFrame({'Target':best_targets,
-                       'Predictions':best_preds,
-                       'pLeft':best_block_pLeft})
+best_df = pd.DataFrame({'Probabilities':best_probs_discrete,
+                        'Target':best_targets,
+                        'Predictions':best_preds,
+                        'pLeft':best_block_pLeft})
 
 ci = 95
 

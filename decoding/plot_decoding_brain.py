@@ -192,7 +192,34 @@ def bar_results(acronyms_unordered, values_unordered, errs_unordered,
 def get_saved_data(results,result_index,
                               RESULTS_PATH,
                               SPECIFIC_DECODING,
-                              return_number_of_active_neurons=False):
+                              return_number_of_active_neurons=False,
+                              get_probabilities=False):
+    '''
+    
+
+    Parameters
+    ----------
+    results : TYPE
+        DESCRIPTION.
+    result_index : TYPE
+        DESCRIPTION.
+    RESULTS_PATH : TYPE
+        DESCRIPTION.
+    SPECIFIC_DECODING : TYPE
+        DESCRIPTION.
+    return_number_of_active_neurons : TYPE, optional
+        DESCRIPTION. The default is False.
+    get_probabilities : TYPE, optional
+        DESCRIPTION. The default is False.
+
+    Returns
+    -------
+    preds
+        predictions of regression. if get_probabilities, then tuple 
+        (predictions, probabilities), where probabilities are the probability 
+        outputs of the classifier for the available classes
+
+    '''
     subject = results.loc[result_index,'subject']
     eid = results.loc[result_index,'eid']
     probe = results.loc[result_index,'probe']
@@ -208,9 +235,13 @@ def get_saved_data(results,result_index,
     data_name = names[0]
     data_df = pd.read_pickle(os.path.join(data_path,data_name))
     datafit_df = data_df['fit']
-    preds = np.concatenate(datafit_df['predictions_test'])
     inds = np.concatenate(datafit_df['idxes_test'])
+    preds = np.concatenate(datafit_df['predictions_test'])
     preds = preds[np.argsort(inds)]
+    if get_probabilities:
+        probs = np.concatenate(datafit_df['probabilities_test'])
+        probs = probs[np.argsort(inds)]
+        preds = (np.copy(preds), np.copy(probs))
     inds = inds[np.argsort(inds)]
     assert len(np.unique(inds))==len(inds)
     assert np.max(inds)==len(inds)-1
@@ -225,7 +256,8 @@ def get_saved_data(results,result_index,
         return target, preds, block_pLeft, average_neurons_active
     return target, preds, block_pLeft
 
-def aggregate_data(results, RESULTS_PATH, SPECIFIC_DECODING):
+def aggregate_data(results, RESULTS_PATH, SPECIFIC_DECODING, 
+                   get_probabilities=False):
     '''
     assumes 100 pseudo runs
 
@@ -251,26 +283,33 @@ def aggregate_data(results, RESULTS_PATH, SPECIFIC_DECODING):
     all_preds = []
     all_block_pLeft = []
     all_actn = []
-    all_accuracies = []
-    all_r2s = []
+    all_scores = []
     all_pvalues = []
+    if get_probabilities:
+        all_probs = []
     
     for result_index in results.index:
         target, preds, block_pLeft, actn = get_saved_data(results,
                                             result_index,
                                             RESULTS_PATH,
                                             SPECIFIC_DECODING,
-                                            return_number_of_active_neurons=True)
-        r2_value = r2_score(target,preds)
-        null_r2s = np.array([results.loc[result_index,
-                     'Rsquared_test_pseudo'+str(i)] for i in range(100)])
-        p_value = np.mean(null_r2s > r2_value)
+                                            return_number_of_active_neurons=True,
+                                            get_probabilities=get_probabilities)
+        if get_probabilities:
+            preds, probs = preds
+            all_probs.append(probs)
+            
+        score = results.loc[result_index,'Score_test']
         
-        assert results.loc[result_index,'Rsquared_test'] == r2_value
+        null_scores = np.array([results.loc[result_index,
+                     'Score_test_pseudo'+str(i)] for i in range(100)])
+        p_value = np.mean(null_scores > score)
+        
+        # score = r2_score(target,preds)
+        # assert results.loc[result_index,'Score_test'] == r2_value
         
         all_pvalues.append(p_value)
-        all_r2s.append(r2_value)
-        all_accuracies.append(np.mean(1-np.abs(target-preds)))
+        all_scores.append(score)
         all_targets.append(target)
         all_preds.append(preds)
         all_block_pLeft.append(block_pLeft)
@@ -278,26 +317,17 @@ def aggregate_data(results, RESULTS_PATH, SPECIFIC_DECODING):
         all_regions.append(results.loc[result_index,'region'])
         all_eids.append(results.loc[result_index,'eid'])
         all_probes.append(results.loc[result_index,'probe'])
-        
-    all_pvalues = np.array(all_pvalues)
-    all_r2s = np.array(all_r2s)
-    all_accuracies = np.array(all_accuracies)
-    all_targets = np.array(all_targets)
-    all_preds = np.array(all_preds)
-    all_block_pLeft = np.array(all_block_pLeft)
-    all_actn = np.array(all_actn)
-    all_regions = np.array(all_regions)
-    all_eids = np.array(all_eids)
-    all_probes = np.array(all_probes)
     
-    all_dict = {'p-value': all_pvalues,
-                'r2': all_r2s,
-                'accuracy': all_accuracies,
-                'target': all_targets,
-                'prediction': all_preds,
-                'block_pLeft': all_block_pLeft,
-                'active_neurons': all_actn,
-                'region': all_regions,
-                'eid': all_eids,
-                'probe': all_probes}
+    all_dict = {'p-value': np.array(all_pvalues),
+                'score': np.array(all_scores),
+                'target': np.array(all_targets),
+                'prediction': np.array(all_preds),
+                'block_pLeft': np.array(all_block_pLeft),
+                'active_neurons': np.array(all_actn),
+                'region': np.array(all_regions),
+                'eid': np.array(all_eids),
+                'probe': np.array(all_probes)}
+    if get_probabilities:
+        all_dict['probability'] = np.array(all_probs)
+        
     return all_dict
