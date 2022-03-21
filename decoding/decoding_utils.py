@@ -292,6 +292,7 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
     SCORE: str
         metric used to quantify regression performance.
         used to choose the best hyper parameters during cross validation. 
+        if 'accuracy', then output dictionary contains regression probabilities
     Returns
     -------
     dict
@@ -306,7 +307,7 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
     # initialize outputs
     Scores_test, Scores_train, weights, intercepts = [], [], [], []
     predictions, predictions_test, idxes_test, idxes_train, best_params = [], [], [], [], []
-    if isinstance(estimatorObject, LogisticRegression):
+    if SCORE == 'accuracy':
         probabilities, probabilities_test = [], []
     if SCORE == 'accuracy':
         current_score = lambda *args: accuracy_score(*args)
@@ -385,7 +386,7 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
             # prediction, target, idxes_test, idxes_train
             predictions.append(clf.predict(binned))
             predictions_test.append(clf.predict(binned)[test_index])
-            if isinstance(estimatorObject, LogisticRegression):
+            if SCORE == 'accuracy':
                 probabilities.append(clf.predict_proba(binned))
                 probabilities_test.append(clf.predict_proba(binned)[test_index])
             idxes_test.append(test_index)
@@ -410,7 +411,7 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
     outdict['target'] = tvec
     outdict['predictions'] = predictions
     outdict['predictions_test'] = predictions_test
-    if isinstance(estimatorObject, LogisticRegression):
+    if SCORE == 'accuracy':
         outdict['probabilities'] = probabilities
         outdict['probabilities_test'] = probabilities_test
     outdict['idxes_test'] = idxes_test
