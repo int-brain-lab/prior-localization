@@ -124,8 +124,8 @@ def brain_results(acronyms_unordered, values_unordered,
     plt.show()
     return
 
-def bar_results(acronyms_unordered, values_unordered, errs_unordered, 
-                filename, 
+def bar_results(acronyms_unordered, values_unordered, errs_unordered=None, 
+                filename='test.png', 
                 ylab='',
                 FILE_PATH='/home/bensonb/IntBrainLab/prior-localization/decoding_figures/',
                 YMIN=None):
@@ -141,6 +141,7 @@ def bar_results(acronyms_unordered, values_unordered, errs_unordered,
     errs_unordered : array of 1 or 2 dimensions
         1 dimensional: size of error bars associated with values (equal size above and below value), 
         2 dimensional: dimension 1 is size 2, (errors below value, errors above value)
+        if None, then all errors are zero
     filename : TYPE
         DESCRIPTION.
     ylab : str, optional
@@ -155,6 +156,8 @@ def bar_results(acronyms_unordered, values_unordered, errs_unordered,
     None.
 
     '''
+    if errs_unordered is None:
+        errs_unordered = np.zeros(len(values_unordered))
     assert len(errs_unordered.shape)==1 or len(errs_unordered.shape)==2
     acronyms, values = reorder_data(acronyms_unordered, values_unordered)
     if len(errs_unordered.shape) == 1:
@@ -229,6 +232,7 @@ def get_saved_data(results,result_index,
                              subject,
                              eid,
                              probe)
+    masks = results.loc[result_index,'mask']
     names = [name for name in os.listdir(data_path) if '_'+region+'.' in name]
     
     assert len(names)==1
@@ -253,8 +257,8 @@ def get_saved_data(results,result_index,
         all_weights = np.concatenate(datafit_df['weights'])
         average_neurons_active = np.mean(all_weights>0.01) * data_df['N_units']
     
-        return target, preds, block_pLeft, average_neurons_active
-    return target, preds, block_pLeft
+        return target, preds, block_pLeft, masks, average_neurons_active
+    return target, preds, block_pLeft, masks
 
 def aggregate_data(results, RESULTS_PATH, SPECIFIC_DECODING, 
                    get_probabilities=False):
@@ -285,11 +289,12 @@ def aggregate_data(results, RESULTS_PATH, SPECIFIC_DECODING,
     all_actn = []
     all_scores = []
     all_pvalues = []
+    all_masks = []
     if get_probabilities:
         all_probs = []
     
     for result_index in results.index:
-        target, preds, block_pLeft, actn = get_saved_data(results,
+        target, preds, block_pLeft, masks, actn = get_saved_data(results,
                                             result_index,
                                             RESULTS_PATH,
                                             SPECIFIC_DECODING,
@@ -297,7 +302,7 @@ def aggregate_data(results, RESULTS_PATH, SPECIFIC_DECODING,
                                             get_probabilities=get_probabilities)
         if get_probabilities:
             preds, probs = preds
-            all_probs.append(probs)
+            all_probs.append(probs[:,1])
             
         score = results.loc[result_index,'Score_test']
         
@@ -317,6 +322,7 @@ def aggregate_data(results, RESULTS_PATH, SPECIFIC_DECODING,
         all_regions.append(results.loc[result_index,'region'])
         all_eids.append(results.loc[result_index,'eid'])
         all_probes.append(results.loc[result_index,'probe'])
+        all_masks.append(masks)
     
     all_dict = {'p-value': np.array(all_pvalues),
                 'score': np.array(all_scores),
@@ -326,7 +332,8 @@ def aggregate_data(results, RESULTS_PATH, SPECIFIC_DECODING,
                 'active_neurons': np.array(all_actn),
                 'region': np.array(all_regions),
                 'eid': np.array(all_eids),
-                'probe': np.array(all_probes)}
+                'probe': np.array(all_probes),
+                'mask': np.array(all_masks)}
     if get_probabilities:
         all_dict['probability'] = np.array(all_probs)
         
