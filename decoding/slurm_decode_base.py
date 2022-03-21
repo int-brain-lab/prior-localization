@@ -28,6 +28,7 @@ from brainbox.population.decode import get_spike_counts_in_bins
 from brainbox.task.closed_loop import generate_pseudo_session
 from brainbox.metrics.single_units import quick_unit_metrics
 from decoding_stimulus_neurometric_fit import get_neurometric_parameters
+import generate_fake_data
 
 from tqdm import tqdm
 from ibllib.atlas import AllenAtlas
@@ -52,10 +53,11 @@ DATE = str(date.today())
 MODELFIT_PATH = os.path.join(GROUP_HOME,'bensonb/international-brain-lab/prior-localization/behavior/')
 OUTPUT_PATH = os.path.join(GROUP_HOME,'bensonb/international-brain-lab/prior-localization/decoding/')
 
-TARGET = 'pLeft'  # 'pLeft','prior','choice','feedback','signcont'
+TARGET = 'signcont'  # 'pLeft','prior','choice','feedback','signcont'
 CONTROL_FEATURES = [] # subset of the following including empty: 'pLeft','choice','feedback','signcont'
 ALIGN_TIME = 'goCue_times'# 'feedback_times'
-TIME_WINDOW = (-0.6, -0.2)  # (-0.6, -0.2), (0, 0.1)
+TIME_WINDOW = (0, 0.1)  # (-0.6, -0.2), (0, 0.1)
+USE_FAKE_DATA = False
 MIN_UNITS = 10
 MIN_BEHAV_TRIAS = 400
 MIN_RT = 0.08  # 0.08  # Float (s) or None
@@ -63,9 +65,9 @@ MIN_RT = 0.08  # 0.08  # Float (s) or None
 QC_CRITERIA = 3/3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
 
 # decoder and null distribution
-ESTIMATOR = sklm.LogisticRegression #sklm.Lasso  # Must be in keys of strlut above
-ESTIMATOR_KWARGS = {'penalty': 'l1', 'solver':'saga', 'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}#'penalty': 'l1', 'solver':'saga', 
-SCORE = 'accuracy' #r2 or accuracy
+ESTIMATOR = sklm.Lasso #sklm.Lasso  # Must be in keys of strlut above
+ESTIMATOR_KWARGS = {'tol': 0.001, 'max_iter': 10000, 'fit_intercept': True}#'penalty': 'l1', 'solver':'saga', 
+SCORE = 'r2' #r2 or accuracy
 N_PSEUDO = 100
 
 NO_UNBIAS = False
@@ -115,6 +117,7 @@ fit_metadata = {
     'output_path': OUTPUT_PATH,
     'align_time': ALIGN_TIME,
     'time_window': TIME_WINDOW,
+    'use_fake_data': USE_FAKE_DATA,
     'estimator': ESTIMATORSTR,
     'n_pseudo': N_PSEUDO,
     'min_units': MIN_UNITS,
@@ -142,7 +145,8 @@ def save_region_results(fit_result, pseudo_results,
                                                       ALIGN_TIME,
                                                       CONTROL_FEATURES,
                                                       N_PSEUDO,TIME_WINDOW,
-                                                      ADD_TO_SAVING_PATH))
+                                                      ADD_TO_SAVING_PATH,
+                                                      USE_FAKE_DATA=USE_FAKE_DATA))
     subjectfolder = decodingdetailsfolder.joinpath(subject)
     eidfolder = subjectfolder.joinpath(eid)
     probefolder = eidfolder.joinpath(probe)
@@ -258,8 +262,11 @@ def fit_eid(eid, sessdf):
             regspikes = spikes[probe].times[spikemask]
             regclu = spikes[probe].clusters[spikemask]
             
-            binned_neurons, _ = get_spike_counts_in_bins(regspikes, regclu,
+            if not USE_FAKE_DATA:
+                binned_neurons, _ = get_spike_counts_in_bins(regspikes, regclu,
                                                  intervals)
+            else:
+                binned_neurons = generate_fake_data.data_uncorr(N_units, len(msub_tvec), 1.0)
             
             # construct features used for decoding:
             #   often neural activity in the shape (n_neurons, n_trials), but

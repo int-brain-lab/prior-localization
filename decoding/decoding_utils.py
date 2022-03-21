@@ -37,7 +37,8 @@ def decoding_details(TARGET,MODEL,SCORE,
                      ALIGN_TIME,
                      CONTROL_FEATURES,
                      N_PSEUDO,TIME_WINDOW,
-                     ADD_TO_SAVING_PATH):
+                     ADD_TO_SAVING_PATH,
+                     USE_FAKE_DATA=False):
     '''
     MODEL must be in modeldispatcher in decoding_utils
     '''
@@ -52,8 +53,11 @@ def decoding_details(TARGET,MODEL,SCORE,
                    'align', ALIGN_TIME, 
                    'timeWin', 
                    str(start_tw).replace('.', '_'), 
-                   str(end_tw).replace('.', '_'),
-                   ADD_TO_SAVING_PATH])
+                   str(end_tw).replace('.', '_')])
+    if USE_FAKE_DATA:
+        details = details + '_fake'
+    if not (ADD_TO_SAVING_PATH == ''):
+        details = details + '_' + ADD_TO_SAVING_PATH
     return details
 
 
@@ -292,7 +296,8 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
     SCORE: str
         metric used to quantify regression performance.
         used to choose the best hyper parameters during cross validation. 
-        if 'accuracy', then output dictionary contains regression probabilities
+        if 'accuracy', then output dictionary contains regression probabilities.
+        assumed that there are only two classes. more than two is not implemented
     Returns
     -------
     dict
@@ -414,6 +419,7 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
     if SCORE == 'accuracy':
         outdict['probabilities'] = probabilities
         outdict['probabilities_test'] = probabilities_test
+        outdict['classes'] = 
     outdict['idxes_test'] = idxes_test
     outdict['idxes_train'] = idxes_train
     outdict['best_params'] = best_params
