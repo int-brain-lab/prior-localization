@@ -13,8 +13,6 @@ def slurm_submit_python_file(py_file, inputstr,
     ADD_TO_SAVING_PATH must not be empty
     '''
     slurm_sub_directory = os.path.join(SLURM_DIRECTORY,SUBDIRECTORY)
-#     if not (SLURM_DIRECTORY[-1] == '/'):
-#         SLURM_DIRECTORY = SLURM_DIRECTORY + '/'
     if not os.path.exists(slurm_sub_directory):
         os.mkdir(slurm_sub_directory)
         

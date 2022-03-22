@@ -19,7 +19,9 @@ import sklearn.linear_model as sklm
 import models.utils as mut
 from pathlib import Path
 from datetime import date
-from one.api import ONE
+from one.api import ONEI'm glad I get to say hello yeah my mom was here you she's asked about you883c100b
+
+on is great because the all day you don't have to rash around in#4must the bodies gettingmust the bodies gettingmust the bodies getting
 from one.params import CACHE_DIR_DEFAULT
 from models.expSmoothing_prevAction import expSmoothing_prevAction
 from models.optimalBayesian import optimal_Bayesian
@@ -68,7 +70,8 @@ QC_CRITERIA = 3/3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
 ESTIMATOR = sklm.Lasso #sklm.Lasso  # Must be in keys of strlut above
 ESTIMATOR_KWARGS = {'tol': 0.001, 'max_iter': 10000, 'fit_intercept': True}#'penalty': 'l1', 'solver':'saga', 
 SCORE = 'r2' #r2 or accuracy
-N_PSEUDO = 100
+N_PSEUDO = 10
+NULL_TYPE = 'impostor-session' # 'pseudo-session', 'impostor-session'
 
 NO_UNBIAS = False
 SHUFFLE = True
@@ -120,6 +123,7 @@ fit_metadata = {
     'use_fake_data': USE_FAKE_DATA,
     'estimator': ESTIMATORSTR,
     'n_pseudo': N_PSEUDO,
+    'null_type': NULL_TYPE,
     'min_units': MIN_UNITS,
     'min_behav_trials': MIN_BEHAV_TRIAS,
     'qc_criteria': QC_CRITERIA,
@@ -144,7 +148,7 @@ def save_region_results(fit_result, pseudo_results,
                                                       ESTIMATORSTR,
                                                       ALIGN_TIME,
                                                       CONTROL_FEATURES,
-                                                      N_PSEUDO,TIME_WINDOW,
+                                                      N_PSEUDO,NULL_TYPE,TIME_WINDOW,
                                                       ADD_TO_SAVING_PATH,
                                                       USE_FAKE_DATA=USE_FAKE_DATA))
     subjectfolder = decodingdetailsfolder.joinpath(subject)
@@ -162,8 +166,23 @@ def save_region_results(fit_result, pseudo_results,
     fw.close()
     return probefolder.joinpath(fn)
 
+def get_target_vector_eid(eid, sessdf):
+    one = ONE()  # mode='local'
+    subject = sessdf.xs(eid, level='eid').index[0]
+    subjeids = sessdf.xs(subject, level='subject').index.unique()
+    behavior_data = mut.load_session(eid, one=one)
+    try:
+        tvec = dut.compute_target(TARGET, subject, subjeids, eid, MODELFIT_PATH,
+                                  modeltype=MODEL, beh_data=behavior_data,
+                                  one=one)
+    except ValueError:
+        print('Model not fit.')
+        tvec = dut.compute_target(TARGET, subject, subjeids, eid, MODELFIT_PATH,
+                                  modeltype=MODEL, one=one)
+    return tvec
 
-def fit_eid(eid, sessdf):
+
+def fit_eid(eid, sessdf, impostordict = None):
     one = ONE()  # mode='local'
     atlas = AllenAtlas()
 
@@ -308,19 +327,52 @@ def fit_eid(eid, sessdf):
             else:
                 fit_result['full_neurometric'] = None
                 fit_result['fold_neurometric'] = None
-
+            
+            if NULL_TYPE == 'linear-shift':
+                D = 200
+                len_tvec = len(msub_tvec)
+                assert len_tvec >= D + 2
+                N = int((len_tvec - D) / 2)
+                def generate_linear_shifts():
+                    out = np.arange(-N,N+1)
+                    np.random.shuffle(out)
+                    i = 0
+                    while i < len(out):
+                        yield out[i]
+                        i+=1
+                genlsh = generate_shifts()
+                
             pseudo_results = []
             for _ in tqdm(range(N_PSEUDO), desc='Pseudo num: ', leave=False):
-                pseudosess = generate_pseudo_session(trialsdf)
-                pseudo_tvec = dut.compute_target(TARGET, subject, subjeids, eid,
-                                                      MODELFIT_PATH, modeltype=MODEL,
-                                                      beh_data=pseudosess, one=one)
-                msub_pseudo_tvec = TRANSFORM_DATA(pseudo_tvec[mask])   
+                if NULL_TYPE == 'pseudo-session':
+                    pseudosess = generate_pseudo_session(trialsdf)
+                    pseudo_tvec = dut.compute_target(TARGET, subject, subjeids, eid,
+                                                          MODELFIT_PATH, modeltype=MODEL,
+                                                          beh_data=pseudosess, one=one)
+                    assert len(pseudo_tvec) == len(msub_tvec)
+                    msub_pseudo_tvec = TRANSFORM_DATA(pseudo_tvec[mask])  
+                    msub_pseudo_binned = np.copy(msub_binned)
+                    
+                elif NULL_TYPE == 'impostor-session':
+                    assert not (impostordict is None):
+                    all_impostor_labels = list(impostordict.keys())
+                    all_impostor_targets = [impostordict[lab] for lab in all_impostor_labels]
+                    pseudo_tvec = get_impostor_target(all_impostor_targets, all_impostor_labels, current_label=eid)
+                    assert len(pseudo_tvec) == len(msub_tvec)
+                    msub_pseudo_tvec = TRANSFORM_DATA(pseudo_tvec[mask])  
+                    msub_pseudo_binned = np.copy(msub_binned)
+                    
+                elif NULL_TYPE == 'linear-shift':
+                    shift = next(genlsh)
+                    msub_unshift_tvec = TRANSFORM_DATA(pseudo_tvec[mask])  
+                    msub_pseudo_tvec = np.copy(msub_unshift_tvec[shift + N:shift + len_tvec - N])
+                    msub_pseudo_binned = np.copy(msub_binned[N:len_tvec - N, :])
+                    
                 # doubledipping
                 if DOUBLEDIP:
                     msub_pseudo_tvec = msub_pseudo_tvec - np.mean(msub_pseudo_tvec)
 
-                pseudo_result = dut.regress_target(msub_pseudo_tvec, msub_binned, estimator,
+                pseudo_result = dut.regress_target(msub_pseudo_tvec, msub_pseudo_binned, estimator,
                                                    estimator_kwargs=ESTIMATOR_KWARGS,
                                                    hyperparam_grid=HPARAM_GRID,
                                                    save_binned=SAVE_BINNED, shuffle=SHUFFLE,
