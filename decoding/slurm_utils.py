@@ -1,7 +1,11 @@
 # created by Brandon Benson 2022-02-12
 import os
+import pickle
+import pandas as pd
+import numpy as np
+from datetime import date
 
-def slurm_submit_python_file(py_file, inputstr, 
+def submit_python_file(py_file, inputstr, 
                              ADD_TO_SAVING_PATH = '_',
                              n_days = 2,
                              n_hours = 0,
@@ -48,3 +52,56 @@ def get_decoding_output_files(label = '',
                     decoding_output_files.extend([line_part for line_part in line.split('\'') if (label in line_part) and ('.pkl' in line_part)])
 
     return decoding_output_files
+
+def gather_save_outputs(SUBDIRECTORY, SLURM_DIRECTORY, OUTPUT_PATH, DATE = str(date.today())):
+    finished = get_decoding_output_files(SLURM_DIRECTORY = SLURM_DIRECTORY,
+                                     SUBDIRECTORY = SUBDIRECTORY)
+    #%%
+    indexers = ['subject', 'eid', 'probe', 'region']
+    indexers_neurometric = ['low_slope', 'high_slope', 'low_range', 'high_range', 'shift']
+    resultslist = []
+    for fn in finished:
+        fo = open(fn, 'rb')
+        result = pickle.load(fo)
+        N_PSEUDO = len(result['pseudosessions'])
+        fo.close()
+        tmpdict = {**{x: result[x] for x in indexers},
+                   'fold': -1,
+                   'mask': ''.join([str(item) for item in list(result['fit']['mask'].values * 1)]),
+                   'Score_test': result['fit']['Score_test_full'],
+                   **{f'Score_test_pseudo{i}': result['pseudosessions'][i]['Score_test_full']
+                      for i in range(N_PSEUDO)}}
+        if result['fit']['full_neurometric'] is not None \
+                and np.all([result['pseudosessions'][i]['full_neurometric'] is not None for i in range(N_PSEUDO)]):
+            print(len(result['pseudosessions']))
+            tmpdict = {**tmpdict,
+                       **{idx_neuro: result['fit']['full_neurometric'][idx_neuro]
+                          for idx_neuro in indexers_neurometric},
+                       **{str(idx_neuro) + f'_pseudo{i}': result['pseudosessions'][i]['full_neurometric'][idx_neuro]
+                          for i in range(N_PSEUDO) for idx_neuro in indexers_neurometric}}
+        resultslist.append(tmpdict)
+        for kfold in range(result['fit']['nFolds']):
+            tmpdict = {**{x: result[x] for x in indexers},
+                       'fold': kfold,
+                       'Score_test': result['fit']['Scores_test'][kfold],
+                       'Best_regulCoef': result['fit']['best_params'][kfold],
+                       **{f'Score_test_pseudo{i}': result['pseudosessions'][i]['Scores_test'][kfold]
+                          for i in range(N_PSEUDO)},
+                       }
+            if result['fit']['fold_neurometric'] is not None:
+                tmpdict = {**tmpdict,
+                           **{idx_neuro: result['fit']['fold_neurometric'][kfold][idx_neuro]
+                              for idx_neuro in indexers_neurometric}}
+            if np.all([result['pseudosessions'][i]['fold_neurometric'] is not None for i in range(N_PSEUDO)]):
+                tmpdict = {**tmpdict,
+                           **{str(idx_neuro) + f'_pseudo{i}': result['pseudosessions'][i][
+                               'fold_neurometric'][kfold][idx_neuro]
+                              for i in range(N_PSEUDO) for idx_neuro in indexers_neurometric}
+                           }
+            resultslist.append(tmpdict)
+    resultsdf = pd.DataFrame(resultslist).set_index(indexers)
+
+    fn = os.path.join(OUTPUT_PATH,SUBDIRECTORY,DATE+'_results')
+    fn = fn + '.parquet'
+    resultsdf.to_parquet(fn)
+

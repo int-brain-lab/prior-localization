@@ -19,9 +19,7 @@ import sklearn.linear_model as sklm
 import models.utils as mut
 from pathlib import Path
 from datetime import date
-from one.api import ONEI'm glad I get to say hello yeah my mom was here you she's asked about you883c100b
-
-on is great because the all day you don't have to rash around in#4must the bodies gettingmust the bodies gettingmust the bodies getting
+from one.api import ONE
 from one.params import CACHE_DIR_DEFAULT
 from models.expSmoothing_prevAction import expSmoothing_prevAction
 from models.optimalBayesian import optimal_Bayesian
@@ -55,10 +53,10 @@ DATE = str(date.today())
 MODELFIT_PATH = os.path.join(GROUP_HOME,'bensonb/international-brain-lab/prior-localization/behavior/')
 OUTPUT_PATH = os.path.join(GROUP_HOME,'bensonb/international-brain-lab/prior-localization/decoding/')
 
-TARGET = 'signcont'  # 'pLeft','prior','choice','feedback','signcont'
+TARGET = 'choice'  # 'pLeft','prior','choice','feedback','signcont'
 CONTROL_FEATURES = [] # subset of the following including empty: 'pLeft','choice','feedback','signcont'
-ALIGN_TIME = 'goCue_times'# 'feedback_times'
-TIME_WINDOW = (0, 0.1)  # (-0.6, -0.2), (0, 0.1)
+ALIGN_TIME = 'firstMovement_times' #'goCue_times' #'feedback_times' #'firstMovement_times'
+TIME_WINDOW = (-0.1, 0.0)  # (-0.4, -0.1), (0, 0.1)
 USE_FAKE_DATA = False
 MIN_UNITS = 10
 MIN_BEHAV_TRIAS = 400
@@ -67,10 +65,10 @@ MIN_RT = 0.08  # 0.08  # Float (s) or None
 QC_CRITERIA = 3/3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
 
 # decoder and null distribution
-ESTIMATOR = sklm.Lasso #sklm.Lasso  # Must be in keys of strlut above
-ESTIMATOR_KWARGS = {'tol': 0.001, 'max_iter': 10000, 'fit_intercept': True}#'penalty': 'l1', 'solver':'saga', 
-SCORE = 'r2' #r2 or accuracy
-N_PSEUDO = 10
+ESTIMATOR = sklm.LogisticRegression #sklm.Lasso  # Must be in keys of strlut above
+ESTIMATOR_KWARGS = {'penalty': 'l1', 'solver':'saga', 'tol': 0.001, 'max_iter': 10000, 'fit_intercept': True}#'penalty': 'l1', 'solver':'saga', 
+SCORE = 'accuracy' #r2 or accuracy
+N_PSEUDO = 100
 NULL_TYPE = 'impostor-session' # 'pseudo-session', 'impostor-session'
 
 NO_UNBIAS = False
@@ -329,6 +327,7 @@ def fit_eid(eid, sessdf, impostordict = None):
                 fit_result['fold_neurometric'] = None
             
             if NULL_TYPE == 'linear-shift':
+                #TODO
                 D = 200
                 len_tvec = len(msub_tvec)
                 assert len_tvec >= D + 2
@@ -349,25 +348,26 @@ def fit_eid(eid, sessdf, impostordict = None):
                     pseudo_tvec = dut.compute_target(TARGET, subject, subjeids, eid,
                                                           MODELFIT_PATH, modeltype=MODEL,
                                                           beh_data=pseudosess, one=one)
-                    assert len(pseudo_tvec) == len(msub_tvec)
                     msub_pseudo_tvec = TRANSFORM_DATA(pseudo_tvec[mask])  
                     msub_pseudo_binned = np.copy(msub_binned)
                     
                 elif NULL_TYPE == 'impostor-session':
-                    assert not (impostordict is None):
+                    assert not (impostordict is None)
                     all_impostor_labels = list(impostordict.keys())
                     all_impostor_targets = [impostordict[lab] for lab in all_impostor_labels]
-                    pseudo_tvec = get_impostor_target(all_impostor_targets, all_impostor_labels, current_label=eid)
-                    assert len(pseudo_tvec) == len(msub_tvec)
+                    pseudo_tvec = dut.get_impostor_target(all_impostor_targets, all_impostor_labels, current_label=eid)
                     msub_pseudo_tvec = TRANSFORM_DATA(pseudo_tvec[mask])  
                     msub_pseudo_binned = np.copy(msub_binned)
                     
                 elif NULL_TYPE == 'linear-shift':
+                    #TODO
                     shift = next(genlsh)
                     msub_unshift_tvec = TRANSFORM_DATA(pseudo_tvec[mask])  
                     msub_pseudo_tvec = np.copy(msub_unshift_tvec[shift + N:shift + len_tvec - N])
                     msub_pseudo_binned = np.copy(msub_binned[N:len_tvec - N, :])
-                    
+                
+                assert len(msub_pseudo_tvec) == len(msub_tvec)
+                
                 # doubledipping
                 if DOUBLEDIP:
                     msub_pseudo_tvec = msub_pseudo_tvec - np.mean(msub_pseudo_tvec)
