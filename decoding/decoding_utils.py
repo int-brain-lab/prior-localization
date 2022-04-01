@@ -36,8 +36,9 @@ def decoding_details(TARGET,MODEL,SCORE,
                      ESTIMATORSTR,
                      ALIGN_TIME,
                      CONTROL_FEATURES,
-                     N_PSEUDO,TIME_WINDOW,
-                     ADD_TO_SAVING_PATH):
+                     N_PSEUDO,NULL_TYPE,TIME_WINDOW,
+                     ADD_TO_SAVING_PATH,
+                     USE_FAKE_DATA=False):
     '''
     MODEL must be in modeldispatcher in decoding_utils
     '''
@@ -48,12 +49,15 @@ def decoding_details(TARGET,MODEL,SCORE,
                    modeldispatcher[MODEL] if TARGET in ['prior', 'prederr'] else 'task',
                    ESTIMATORSTR, SCORE,
                    'control', *CONTROL_FEATURES,
-                   str(N_PSEUDO), 'pseudos',
+                   str(N_PSEUDO), NULL_TYPE,
                    'align', ALIGN_TIME, 
                    'timeWin', 
                    str(start_tw).replace('.', '_'), 
-                   str(end_tw).replace('.', '_'),
-                   ADD_TO_SAVING_PATH])
+                   str(end_tw).replace('.', '_')])
+    if USE_FAKE_DATA:
+        details = details + '_fake'
+    if not (ADD_TO_SAVING_PATH == ''):
+        details = details + '_' + ADD_TO_SAVING_PATH
     return details
 
 
@@ -292,7 +296,8 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
     SCORE: str
         metric used to quantify regression performance.
         used to choose the best hyper parameters during cross validation. 
-        if 'accuracy', then output dictionary contains regression probabilities
+        if 'accuracy', then output dictionary contains regression probabilities.
+        assumed that there are only two classes. more than two is not implemented
     Returns
     -------
     dict
@@ -309,7 +314,6 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
     predictions, predictions_test, idxes_test, idxes_train, best_params = [], [], [], [], []
     if SCORE == 'accuracy':
         probabilities, probabilities_test = [], []
-    if SCORE == 'accuracy':
         current_score = lambda *args: accuracy_score(*args)
     elif SCORE == 'r2':
         current_score = lambda *args: r2_score(*args)
@@ -338,6 +342,7 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
         raise NotImplemented('the code does not support a CV-type estimator for the moment.')
     else:
         cvest = False
+        classes = []
         for train_index, test_index in outer_kfold:
             X_train, X_test = binned[train_index], binned[test_index]
             y_train, y_test = tvec[train_index], tvec[test_index]
@@ -389,6 +394,7 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
             if SCORE == 'accuracy':
                 probabilities.append(clf.predict_proba(binned))
                 probabilities_test.append(clf.predict_proba(binned)[test_index])
+                classes.append(clf.classes_)
             idxes_test.append(test_index)
             idxes_train.append(train_index)
             weights.append(clf.coef_)
@@ -397,7 +403,7 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
             else:
                 intercepts.append(None)
             best_params.append({hyperkey:best_alpha})
-    
+            
     full_test_prediction = np.zeros(len(tvec))
     for k in range(nFolds):
         full_test_prediction[idxes_test[k]] = predictions_test[k]
@@ -414,6 +420,7 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
     if SCORE == 'accuracy':
         outdict['probabilities'] = probabilities
         outdict['probabilities_test'] = probabilities_test
+        outdict['classes'] = classes
     outdict['idxes_test'] = idxes_test
     outdict['idxes_train'] = idxes_train
     outdict['best_params'] = best_params
@@ -462,3 +469,73 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
         '''
 
     return outdict
+
+def get_impostor_target(targets, labels, current_label=None,
+                        seed_idx=None, verbose=False):
+    """
+    Generate impostor targets by selecting from a list of current targets of variable length.
+    Targets are selected and stitched together to the length of the current labeled target,
+    aka 'Frankenstein' targets, often used for evaluating a null distribution while decoding.
+    Parameters
+    ----------
+    targets : list of all targets
+            targets may be arrays of any dimension (a,b,...,z)
+            but must have the same shape except for the last dimension, z.  All targets must
+            have z > 0.
+    labels : numpy array of strings
+            labels corresponding to each target e.g. session eid.
+            only targets with unique labels are used to create impostor target.  Typically,
+            use eid as the label because each eid has a unique target.
+    current_label : string
+            targets with the current label are not used to create impostor
+            target.  Size of corresponding target is used to determine size of impostor
+            target.  If None, a random selection from the set of unique labels is used.
+    Returns
+    --------
+    impostor_final : numpy array, same shape as all targets except last dimension
+    """
+
+    np.random.seed(seed_idx)
+
+    unique_labels, unique_label_idxs = np.unique(labels, return_index=True)
+    unique_targets = [targets[unique_label_idxs[i]] for i in range(len(unique_label_idxs))]
+    if current_label is None:
+        current_label = np.random.choice(unique_labels)
+    avoid_same_label = ~(unique_labels == current_label)
+    # current label must correspond to exactly one unique label
+    assert len(np.nonzero(~avoid_same_label)[0]) == 1
+    avoided_index = np.nonzero(~avoid_same_label)[0][0]
+    nonavoided_indices = np.nonzero(avoid_same_label)[0]
+    ntargets = len(nonavoided_indices)
+    all_impostor_targets = [unique_targets[nonavoided_indices[i]] for i in range(ntargets)]
+    all_impostor_sizes = np.array([all_impostor_targets[i].shape[-1] for i in range(ntargets)])
+    current_target_size = unique_targets[avoided_index].shape[-1]
+    if verbose:
+        print('impostor target has length %s' % (current_target_size))
+    assert np.min(all_impostor_sizes) > 0  # all targets must be nonzero in size
+    max_needed_to_tile = int(np.max(all_impostor_sizes) / np.min(all_impostor_sizes)) + 1
+    tile_indices = np.random.choice(np.arange(len(all_impostor_targets), dtype=int),
+                                    size=max_needed_to_tile,
+                                    replace=False)
+    impostor_tiles = [all_impostor_targets[tile_indices[i]] for i in range(len(tile_indices))]
+    impostor_tile_sizes = all_impostor_sizes[tile_indices]
+    if verbose:
+        print('Randomly chose %s targets to tile the impostor target' % (max_needed_to_tile))
+        print('with the following sizes:', impostor_tile_sizes)
+
+    number_of_tiles_needed = np.sum(np.cumsum(impostor_tile_sizes) < current_target_size) + 1
+    impostor_tiles = impostor_tiles[:number_of_tiles_needed]
+    if verbose:
+        print('%s of %s needed to tile the entire impostor target' % (number_of_tiles_needed,
+                                                                      max_needed_to_tile))
+
+    impostor_stitch = np.concatenate(impostor_tiles, axis=-1)
+    start_ind = np.random.randint((impostor_stitch.shape[-1] - current_target_size) + 1)
+    impostor_final = impostor_stitch[..., start_ind:start_ind + current_target_size]
+    if verbose:
+        print('%s targets stitched together with shift of %s\n' % (number_of_tiles_needed,
+                                                                   start_ind))
+
+    np.random.seed(None)  # reset numpy seed to None
+
+    return impostor_final

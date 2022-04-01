@@ -28,6 +28,7 @@ from brainbox.population.decode import get_spike_counts_in_bins
 from brainbox.task.closed_loop import generate_pseudo_session
 from brainbox.metrics.single_units import quick_unit_metrics
 from decoding_stimulus_neurometric_fit import get_neurometric_parameters
+import generate_fake_data
 
 from tqdm import tqdm
 from ibllib.atlas import AllenAtlas
@@ -52,10 +53,11 @@ DATE = str(date.today())
 MODELFIT_PATH = os.path.join(GROUP_HOME,'bensonb/international-brain-lab/prior-localization/behavior/')
 OUTPUT_PATH = os.path.join(GROUP_HOME,'bensonb/international-brain-lab/prior-localization/decoding/')
 
-TARGET = 'pLeft'  # 'pLeft','prior','choice','feedback','signcont'
+TARGET = 'choice'  # 'pLeft','prior','choice','feedback','signcont'
 CONTROL_FEATURES = [] # subset of the following including empty: 'pLeft','choice','feedback','signcont'
-ALIGN_TIME = 'goCue_times'# 'feedback_times'
-TIME_WINDOW = (-0.6, -0.2)  # (-0.6, -0.2), (0, 0.1)
+ALIGN_TIME = 'firstMovement_times' #'goCue_times' #'feedback_times' #'firstMovement_times'
+TIME_WINDOW = (-0.1, 0.0)  # (-0.4, -0.1), (0, 0.1)
+USE_FAKE_DATA = False
 MIN_UNITS = 10
 MIN_BEHAV_TRIAS = 400
 MIN_RT = 0.08  # 0.08  # Float (s) or None
@@ -64,9 +66,10 @@ QC_CRITERIA = 3/3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
 
 # decoder and null distribution
 ESTIMATOR = sklm.LogisticRegression #sklm.Lasso  # Must be in keys of strlut above
-ESTIMATOR_KWARGS = {'penalty': 'l1', 'solver':'saga', 'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}#'penalty': 'l1', 'solver':'saga', 
+ESTIMATOR_KWARGS = {'penalty': 'l1', 'solver':'saga', 'tol': 0.001, 'max_iter': 10000, 'fit_intercept': True}#'penalty': 'l1', 'solver':'saga', 
 SCORE = 'accuracy' #r2 or accuracy
 N_PSEUDO = 100
+NULL_TYPE = 'impostor-session' # 'pseudo-session', 'impostor-session'
 
 NO_UNBIAS = False
 SHUFFLE = True
@@ -115,8 +118,10 @@ fit_metadata = {
     'output_path': OUTPUT_PATH,
     'align_time': ALIGN_TIME,
     'time_window': TIME_WINDOW,
+    'use_fake_data': USE_FAKE_DATA,
     'estimator': ESTIMATORSTR,
     'n_pseudo': N_PSEUDO,
+    'null_type': NULL_TYPE,
     'min_units': MIN_UNITS,
     'min_behav_trials': MIN_BEHAV_TRIAS,
     'qc_criteria': QC_CRITERIA,
@@ -141,8 +146,9 @@ def save_region_results(fit_result, pseudo_results,
                                                       ESTIMATORSTR,
                                                       ALIGN_TIME,
                                                       CONTROL_FEATURES,
-                                                      N_PSEUDO,TIME_WINDOW,
-                                                      ADD_TO_SAVING_PATH))
+                                                      N_PSEUDO,NULL_TYPE,TIME_WINDOW,
+                                                      ADD_TO_SAVING_PATH,
+                                                      USE_FAKE_DATA=USE_FAKE_DATA))
     subjectfolder = decodingdetailsfolder.joinpath(subject)
     eidfolder = subjectfolder.joinpath(eid)
     probefolder = eidfolder.joinpath(probe)
@@ -158,8 +164,23 @@ def save_region_results(fit_result, pseudo_results,
     fw.close()
     return probefolder.joinpath(fn)
 
+def get_target_vector_eid(eid, sessdf):
+    one = ONE()  # mode='local'
+    subject = sessdf.xs(eid, level='eid').index[0]
+    subjeids = sessdf.xs(subject, level='subject').index.unique()
+    behavior_data = mut.load_session(eid, one=one)
+    try:
+        tvec = dut.compute_target(TARGET, subject, subjeids, eid, MODELFIT_PATH,
+                                  modeltype=MODEL, beh_data=behavior_data,
+                                  one=one)
+    except ValueError:
+        print('Model not fit.')
+        tvec = dut.compute_target(TARGET, subject, subjeids, eid, MODELFIT_PATH,
+                                  modeltype=MODEL, one=one)
+    return tvec
 
-def fit_eid(eid, sessdf):
+
+def fit_eid(eid, sessdf, impostordict = None):
     one = ONE()  # mode='local'
     atlas = AllenAtlas()
 
@@ -258,8 +279,11 @@ def fit_eid(eid, sessdf):
             regspikes = spikes[probe].times[spikemask]
             regclu = spikes[probe].clusters[spikemask]
             
-            binned_neurons, _ = get_spike_counts_in_bins(regspikes, regclu,
+            if not USE_FAKE_DATA:
+                binned_neurons, _ = get_spike_counts_in_bins(regspikes, regclu,
                                                  intervals)
+            else:
+                binned_neurons = generate_fake_data.data_uncorr(N_units, len(msub_tvec), 1.0)
             
             # construct features used for decoding:
             #   often neural activity in the shape (n_neurons, n_trials), but
@@ -301,19 +325,54 @@ def fit_eid(eid, sessdf):
             else:
                 fit_result['full_neurometric'] = None
                 fit_result['fold_neurometric'] = None
-
+            
+            if NULL_TYPE == 'linear-shift':
+                #TODO
+                D = 200
+                len_tvec = len(msub_tvec)
+                assert len_tvec >= D + 2
+                N = int((len_tvec - D) / 2)
+                def generate_linear_shifts():
+                    out = np.arange(-N,N+1)
+                    np.random.shuffle(out)
+                    i = 0
+                    while i < len(out):
+                        yield out[i]
+                        i+=1
+                genlsh = generate_shifts()
+                
             pseudo_results = []
             for _ in tqdm(range(N_PSEUDO), desc='Pseudo num: ', leave=False):
-                pseudosess = generate_pseudo_session(trialsdf)
-                pseudo_tvec = dut.compute_target(TARGET, subject, subjeids, eid,
-                                                      MODELFIT_PATH, modeltype=MODEL,
-                                                      beh_data=pseudosess, one=one)
-                msub_pseudo_tvec = TRANSFORM_DATA(pseudo_tvec[mask])   
+                if NULL_TYPE == 'pseudo-session':
+                    pseudosess = generate_pseudo_session(trialsdf)
+                    pseudo_tvec = dut.compute_target(TARGET, subject, subjeids, eid,
+                                                          MODELFIT_PATH, modeltype=MODEL,
+                                                          beh_data=pseudosess, one=one)
+                    msub_pseudo_tvec = TRANSFORM_DATA(pseudo_tvec[mask])  
+                    msub_pseudo_binned = np.copy(msub_binned)
+                    
+                elif NULL_TYPE == 'impostor-session':
+                    assert not (impostordict is None)
+                    all_impostor_labels = list(impostordict.keys())
+                    all_impostor_targets = [impostordict[lab] for lab in all_impostor_labels]
+                    pseudo_tvec = dut.get_impostor_target(all_impostor_targets, all_impostor_labels, current_label=eid)
+                    msub_pseudo_tvec = TRANSFORM_DATA(pseudo_tvec[mask])  
+                    msub_pseudo_binned = np.copy(msub_binned)
+                    
+                elif NULL_TYPE == 'linear-shift':
+                    #TODO
+                    shift = next(genlsh)
+                    msub_unshift_tvec = TRANSFORM_DATA(pseudo_tvec[mask])  
+                    msub_pseudo_tvec = np.copy(msub_unshift_tvec[shift + N:shift + len_tvec - N])
+                    msub_pseudo_binned = np.copy(msub_binned[N:len_tvec - N, :])
+                
+                assert len(msub_pseudo_tvec) == len(msub_tvec)
+                
                 # doubledipping
                 if DOUBLEDIP:
                     msub_pseudo_tvec = msub_pseudo_tvec - np.mean(msub_pseudo_tvec)
 
-                pseudo_result = dut.regress_target(msub_pseudo_tvec, msub_binned, estimator,
+                pseudo_result = dut.regress_target(msub_pseudo_tvec, msub_pseudo_binned, estimator,
                                                    estimator_kwargs=ESTIMATOR_KWARGS,
                                                    hyperparam_grid=HPARAM_GRID,
                                                    save_binned=SAVE_BINNED, shuffle=SHUFFLE,

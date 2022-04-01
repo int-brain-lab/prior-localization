@@ -3,7 +3,7 @@ MODELS_PATH = '/home/bensonb/IntBrainLab/behavior_models/'
 # MODELS_PATH = '/home/users/bensonb/international-brain-lab/behavior_models'
 if not MODELS_PATH in sys.path:                                                                              
      sys.path.insert(0, MODELS_PATH)
-     
+
 import os
 import pickle
 import logging
