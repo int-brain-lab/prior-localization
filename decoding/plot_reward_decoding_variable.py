@@ -6,7 +6,7 @@ Created on Thu Jan 20 19:54:53 2022
 @author: bensonb
 """
 import os
-from plot_decoding_brain import brain_results, bar_results, bar_results_basic, aggregate_data
+from plot_decoding_brain import brain_results, bar_results, aggregate_data
 from bernoulli_confidenceinterval import Bernoulli_ci
 import numpy as np
 import pandas as pd
@@ -21,15 +21,15 @@ FIGURE_PATH = '/home/bensonb/IntBrainLab/prior-localization/decoding_figures/'
 FIGURE_SUFFIX = '.png'
 
 #%%
-SPECIFIC_DECODING = 'decode_pLeft_task_Logistic_accuracy_control_100_pseudos_align_goCue_times_timeWin_-0_6_-0_2_alleidProb_incTol'
-VARIABLE_FOLDER = 'block/'
+SPECIFIC_DECODING = 'decode_feedback_task_Logistic_accuracy_control_100_impostor-session_align_feedback_times_timeWin_0_0_2_testnulls2'
+VARIABLE_FOLDER = 'reward/'
 if not os.path.isdir(os.path.join(FIGURE_PATH,
                                   VARIABLE_FOLDER,
                                   SPECIFIC_DECODING)):
     os.mkdir(os.path.join(FIGURE_PATH,
                           VARIABLE_FOLDER,
                           SPECIFIC_DECODING))
-RESULTS_DATE = '2022-03-17'
+RESULTS_DATE = '2022-03-31'
 FILE_PATH = os.path.join(RESULTS_PATH,SPECIFIC_DECODING,('_'.join([RESULTS_DATE, 'results'])) + '.parquet')
 
 results = pd.read_parquet(FILE_PATH).reset_index()
@@ -40,7 +40,6 @@ data = aggregate_data(results, RESULTS_PATH, SPECIFIC_DECODING,
     
 all_pvalues = data['p-value']
 all_scores = data['score']
-all_null_scores = data['null_scores']
 all_targets = data['target']
 all_preds = data['prediction']
 all_probs = data['probability']
@@ -54,9 +53,8 @@ all_masks = data['mask']
 # plt.title('r2s')
 plt.hist(results.loc[:,'Score_test'], bins=30, 
          histtype='step', density=True, lw=5)
-
-plt.hist(np.concatenate(all_null_scores), bins=30, 
-         histtype='step', density=True, lw=5)#results.loc[:,'Score_test_pseudo0']
+plt.hist(results.loc[:,'Score_test_pseudo0'], bins=30, 
+         histtype='step', density=True, lw=5)
 plt.xlabel('score')
 plt.ylabel('density')
 plt.legend(['test','null'])
@@ -129,28 +127,31 @@ for i in range(len(edge)-1):
                             (best_probs_continuous < edge[i+1])] = .5*(edge[i]+edge[i+1])
 
 
-plot_name = 'medianaccuracy'
-reg_nulls = np.array([np.median(all_null_scores[all_regions==reg],axis=0) for reg in np.unique(all_regions)])
-reg_values = np.array([all_scores[all_regions==reg] for reg in np.unique(all_regions)])
-reg_pvalue = np.array([np.mean(np.median(reg_values[i])<=reg_nulls[i]) \
-              for i in range(len(np.unique(all_regions)))])
-acronyms = np.unique(all_regions)[reg_pvalue<0.05]
-values = reg_values[reg_pvalue<0.05]
-nulls = np.median(reg_nulls,axis=1)[reg_pvalue<0.05]
+plot_name = 'mediansignificantaccuracy'
+MIN_NUMBER_SESSIONS = 1
+all_sigs = (all_pvalues<=0.05)
+use_region = lambda reg: len(np.nonzero((all_regions==reg)&all_sigs)[0]) and len(np.nonzero(all_regions==reg)[0])>=MIN_NUMBER_SESSIONS
+get_region_value = lambda reg: np.median(all_scores[(all_regions==reg)&all_sigs])
+get_region_err = lambda reg: np.std(all_scores[(all_regions==reg)&all_sigs])
+
+regions = np.array([reg for reg in np.unique(all_regions) if use_region(reg)])
+reg_values = np.array([get_region_value(reg) for reg in regions])
+reg_errs = np.array([get_region_err(reg) for reg in regions])
+acronyms, values, errs = regions, reg_values, reg_errs
 
 brain_results(acronyms, 
-                np.array([np.median(v) for v in values]), 
+                values, 
                 os.path.join(VARIABLE_FOLDER,
                               SPECIFIC_DECODING,
                             ('_'.join([RESULTS_DATE, 'brains', plot_name])) +
                             FIGURE_SUFFIX), 
                 FILE_PATH = FIGURE_PATH,
-                cmap='Purples',
+                cmap='Greens',
                 YMIN=0.5,
                 value_title='       Accuracy')#: %.3f'%(len(np.unique(np.random.choice(all_regions,size=int(len(all_regions)*0.05),replace=False)))/len(np.unique(all_regions))))
 bar_results(acronyms,
             values,
-            nulls,
+            errs,
             os.path.join(VARIABLE_FOLDER,
                           SPECIFIC_DECODING,
             ('_'.join([RESULTS_DATE, 'bars', plot_name])) +
@@ -177,9 +178,9 @@ brain_results(acronyms,
                             ('_'.join([RESULTS_DATE, 'brains', plot_name])) +
                             FIGURE_SUFFIX), 
                 FILE_PATH = FIGURE_PATH,
-                cmap='Purples',
+                cmap='Greens',
                 value_title='       Accuracy')
-bar_results_basic(acronyms,
+bar_results(acronyms,
             values,
             filename=os.path.join(VARIABLE_FOLDER,
                           SPECIFIC_DECODING,
@@ -217,9 +218,9 @@ brain_results(acronyms,
                             ('_'.join([RESULTS_DATE, 'brains', plot_name])) +
                             FIGURE_SUFFIX), 
                 FILE_PATH = FIGURE_PATH,
-                cmap='Purples',
+                cmap='Greens',
                 value_title='chance of \nsignificant session \n(95\% ci)')
-bar_results_basic(acronyms,
+bar_results(acronyms,
             values,
             errs,
             os.path.join(VARIABLE_FOLDER,
@@ -239,7 +240,15 @@ reg_values = np.array([get_region_value(reg) for reg in regions])
 reg_errs = np.array([get_region_err(reg) for reg in regions])
 acronyms, values, errs = regions, reg_values, reg_errs
 
-bar_results_basic(acronyms,
+# brain_results(acronyms, 
+#                 values, 
+#                 os.path.join(VARIABLE_FOLDER,
+#                               SPECIFIC_DECODING,
+#                             ('_'.join([RESULTS_DATE, 'brains', plot_name])) +
+#                             FIGURE_SUFFIX), 
+#                 FILE_PATH = FIGURE_PATH,
+#                 cmap='Purples')
+bar_results(acronyms,
             values,
             errs,
             os.path.join(VARIABLE_FOLDER,

@@ -44,7 +44,8 @@ def brain_results(acronyms_unordered, values_unordered,
                 FILE_PATH='/home/bensonb/IntBrainLab/prior-localization/decoding_figures/',
                 cmap='viridis',
                 YMIN=None,
-                value_title='$R^2$'):
+                value_title='$R^2$',
+                TOP_N_TEXT=np.nan):
     '''
     
 
@@ -117,14 +118,17 @@ def brain_results(acronyms_unordered, values_unordered,
     cbar = plt.colorbar(mappable=ax.images[0], cax=cb_ax, extend=extend)
     # cbar.set_ticks([0,.2,.4,.6,.8,1])
     cb_ax.set_title(value_title)
-    top_regions = acronyms[np.argsort(values)[::-1][:15]]
-    top_regions_string = 'Top 15 Regions:\n   '+('\n   '.join(top_regions))
-    fig.text(.38, .2, top_regions_string)
+    if not np.isnan(TOP_N_TEXT):
+        TOP_N_TEXT = int(TOP_N_TEXT)
+        top_regions = acronyms[np.argsort(values)[::-1][:TOP_N_TEXT]]
+        top_regions_string = 'Top %d Regions:\n   '%TOP_N_TEXT \
+                                        +('\n   '.join(top_regions))
+        fig.text(.38, .2, top_regions_string)
     plt.savefig(SAVE_PATH, dpi=600)
     plt.show()
     return
 
-def bar_results(acronyms_unordered, values_unordered, errs_unordered=None, 
+def bar_results_basic(acronyms_unordered, values_unordered, errs_unordered=None, 
                 filename='test.png', 
                 ylab='',
                 FILE_PATH='/home/bensonb/IntBrainLab/prior-localization/decoding_figures/',
@@ -187,6 +191,42 @@ def bar_results(acronyms_unordered, values_unordered, errs_unordered=None,
     plt.ylabel(ylab)
     if not (YMIN is None):
         plt.ylim(YMIN, 1.1*(np.max(values+errs_high)-YMIN)+YMIN)
+    plt.tight_layout()
+    plt.savefig(SAVE_PATH, dpi=600)
+    plt.show()
+    return
+
+def bar_results(acronyms_unordered, values_eids_unordered, nulls_unordered, 
+                filename='test.png', 
+                ylab='',
+                FILE_PATH='/home/bensonb/IntBrainLab/prior-localization/decoding_figures/',
+                YMIN=None):
+    
+    values_unordered = np.array([np.median(vs) for vs in values_eids_unordered])
+    acronyms, values = reorder_data(acronyms_unordered, values_unordered)
+    acronyms_tmp, nulls = reorder_data(acronyms_unordered, nulls_unordered)
+    assert np.all(acronyms == acronyms_tmp)
+    assert len(values) == len(nulls)
+        
+    PLOT_TITLE = ''
+    SAVE_PATH = os.path.join(FILE_PATH, filename)
+    plt.figure(figsize=(7,2.5))
+    plt.title(PLOT_TITLE)
+    inds = np.arange(len(acronyms))
+    plt.bar(inds, values, 
+            color=[reg2rgba_dict[r] for r in acronyms])
+    plt.plot(inds, nulls, 'ko', ms = 10, mfc='w', mew=2)
+    for i in range(len(values_eids_unordered)):
+        vs = values_eids_unordered[i]
+        acr_inds = np.nonzero(acronyms==acronyms_unordered[i])[0]
+        assert len(acr_inds) == 1
+        ind = acr_inds[0]
+        plt.plot(ind*np.ones(len(vs)), vs, 'ko')
+    plt.xticks(inds, labels=acronyms, rotation=90)
+    plt.ylabel(ylab)
+    if not (YMIN is None):
+        plt.ylim(YMIN, 
+                 1.1*(np.max(np.concatenate(values_eids_unordered))-YMIN)+YMIN)
     plt.tight_layout()
     plt.savefig(SAVE_PATH, dpi=600)
     plt.show()
@@ -288,6 +328,7 @@ def aggregate_data(results, RESULTS_PATH, SPECIFIC_DECODING,
     all_block_pLeft = []
     all_actn = []
     all_scores = []
+    all_null_scores = []
     all_pvalues = []
     all_masks = []
     if get_probabilities:
@@ -315,6 +356,7 @@ def aggregate_data(results, RESULTS_PATH, SPECIFIC_DECODING,
         
         all_pvalues.append(p_value)
         all_scores.append(score)
+        all_null_scores.append(null_scores)
         all_targets.append(target)
         all_preds.append(preds)
         all_block_pLeft.append(block_pLeft)
@@ -326,6 +368,7 @@ def aggregate_data(results, RESULTS_PATH, SPECIFIC_DECODING,
     
     all_dict = {'p-value': np.array(all_pvalues),
                 'score': np.array(all_scores),
+                'null_scores': np.array(all_null_scores),
                 'target': np.array(all_targets),
                 'prediction': np.array(all_preds),
                 'block_pLeft': np.array(all_block_pLeft),
