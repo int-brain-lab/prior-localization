@@ -200,33 +200,99 @@ def bar_results(acronyms_unordered, values_eids_unordered, nulls_unordered,
                 filename='test.png', 
                 ylab='',
                 FILE_PATH='/home/bensonb/IntBrainLab/prior-localization/decoding_figures/',
-                YMIN=None):
+                YMIN=None,
+                TOP_N=np.nan):
+    '''
+    
+
+    Parameters
+    ----------
+    acronyms_unordered : array
+        region acronyms
+    values_eids_unordered : array of arrays
+        each element in array is an array of all sessions' values
+        corresponding to the regions in acronyms_unordered
+    nulls_unordered : array
+        the null value to plot as white circle on each region's bar
+    filename : str, optional
+        DESCRIPTION. The default is 'test.png'.
+    ylab : str, optional
+        DESCRIPTION. The default is ''.
+    FILE_PATH : str, optional
+        DESCRIPTION. The default is '/home/bensonb/IntBrainLab/prior-localization/decoding_figures/'.
+    YMIN : float, optional
+        DESCRIPTION. The default is None.
+    TOP_N : int, optional
+        only plot the top n values. The default is np.nan.
+
+    Returns
+    -------
+    None.
+
+    '''
     
     values_unordered = np.array([np.median(vs) for vs in values_eids_unordered])
+    if not np.isnan(TOP_N):
+        sinds = np.argsort(values_unordered)[::-1][:TOP_N]
+        acronyms_unordered = acronyms_unordered[sinds]
+        if len(nulls_unordered.shape)==1:
+            nulls_unordered = nulls_unordered[sinds]
+        elif len(nulls_unordered.shape)==2:
+            nulls_unordered = np.vstack((nulls_unordered[0,:][sinds],
+                                         nulls_unordered[1,:][sinds],
+                                         nulls_unordered[2,:][sinds]))
+        values_eids_unordered = values_eids_unordered[sinds]
+        values_unordered = values_unordered[sinds]
+    
     acronyms, values = reorder_data(acronyms_unordered, values_unordered)
-    acronyms_tmp, nulls = reorder_data(acronyms_unordered, nulls_unordered)
-    assert np.all(acronyms == acronyms_tmp)
-    assert len(values) == len(nulls)
+    if len(nulls_unordered.shape)==1:
+        acronyms_tmp, nulls = reorder_data(acronyms_unordered, nulls_unordered)
+        assert np.all(acronyms == acronyms_tmp)
+        assert len(values) == len(nulls)
+        nulls_errbars = None
+    elif len(nulls_unordered.shape)==2:
+        acronyms_tmpl, nulls_l = reorder_data(acronyms_unordered, nulls_unordered[0,:])
+        acronyms_tmpm, nulls_m = reorder_data(acronyms_unordered, nulls_unordered[1,:])
+        acronyms_tmph, nulls_h = reorder_data(acronyms_unordered, nulls_unordered[2,:])
+        assert np.all(acronyms == acronyms_tmpl)
+        assert np.all(acronyms == acronyms_tmpm)
+        assert np.all(acronyms == acronyms_tmph)
+        assert len(values) == len(nulls_l)
+        assert len(values) == len(nulls_m)
+        assert len(values) == len(nulls_h)
+        nulls = nulls_m
+        nulls_errbars = np.vstack((nulls_m-nulls_l, nulls_h-nulls_m))
+        
         
     PLOT_TITLE = ''
     SAVE_PATH = os.path.join(FILE_PATH, filename)
-    plt.figure(figsize=(7,2.5))
+    plt.figure(figsize=(8,2))
     plt.title(PLOT_TITLE)
     inds = np.arange(len(acronyms))
     plt.bar(inds, values, 
-            color=[reg2rgba_dict[r] for r in acronyms])
+            color=[reg2rgba_dict[r] for r in acronyms],
+            edgecolor='k',
+            linewidth=1,
+            )
+    plt.errorbar(inds, nulls, yerr=nulls_errbars, 
+                         ecolor='k', elinewidth=3, linestyle='')
     plt.plot(inds, nulls, 'ko', ms = 10, mfc='w', mew=2)
+    
     for i in range(len(values_eids_unordered)):
         vs = values_eids_unordered[i]
         acr_inds = np.nonzero(acronyms==acronyms_unordered[i])[0]
         assert len(acr_inds) == 1
         ind = acr_inds[0]
-        plt.plot(ind*np.ones(len(vs)), vs, 'ko')
+        plt.plot( ind*np.ones(len(vs)) + 0.4 * (np.random.rand(len(vs))-0.5), 
+                     vs, 
+                     'ko', markersize=4 )
     plt.xticks(inds, labels=acronyms, rotation=90)
+    #print(acronyms)
     plt.ylabel(ylab)
     if not (YMIN is None):
         plt.ylim(YMIN, 
                  1.1*(np.max(np.concatenate(values_eids_unordered))-YMIN)+YMIN)
+    
     plt.tight_layout()
     plt.savefig(SAVE_PATH, dpi=600)
     plt.show()

@@ -11,6 +11,7 @@ from bernoulli_confidenceinterval import Bernoulli_ci
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import scipy.stats
 import seaborn as sns
 from sklearn.metrics import r2_score
 
@@ -100,7 +101,8 @@ plt.show()
 # for i in range(len(edge)-1):
 #     all_targets[(all_targets >= edge[i])&(all_targets < edge[i+1])] = .5*(edge[i]+edge[i+1])
 #     best_targets[(best_targets >= edge[i])&(best_targets < edge[i+1])] = .5*(edge[i]+edge[i+1])
-index_max = np.argmax(all_scores)
+assert np.max(all_scores)-np.min(all_scores) < 999
+index_max = np.argmax(all_scores - (999*(all_regions!='CP')))
 best_targets = all_targets[index_max]
 best_preds = all_preds[index_max]
 best_probs = all_probs[index_max]
@@ -136,7 +138,11 @@ reg_pvalue = np.array([np.mean(np.median(reg_values[i])<=reg_nulls[i]) \
               for i in range(len(np.unique(all_regions)))])
 acronyms = np.unique(all_regions)[reg_pvalue<0.05]
 values = reg_values[reg_pvalue<0.05]
-nulls = np.median(reg_nulls,axis=1)[reg_pvalue<0.05]
+nulls_m = np.median(reg_nulls,axis=1)[reg_pvalue<0.05]
+nulls_l = np.min(reg_nulls,axis=1)[reg_pvalue<0.05]
+nulls_h = np.array([scipy.stats.scoreatpercentile(reg_nulls[i,:], 
+                    95, interpolation_method='fraction') for i in range(reg_nulls.shape[0])])[reg_pvalue<0.05]
+nulls = np.vstack((nulls_l,nulls_m,nulls_h))
 
 brain_results(acronyms, 
                 np.array([np.median(v) for v in values]), 
@@ -156,7 +162,8 @@ bar_results(acronyms,
             ('_'.join([RESULTS_DATE, 'bars', plot_name])) +
             FIGURE_SUFFIX),
             YMIN=0.5,
-            ylab='Accuracy')
+            ylab='Accuracy',
+            TOP_N=15)
 
 plot_name = 'maxsignificantaccuracy'
 MIN_NUMBER_SESSIONS = 1
@@ -301,10 +308,11 @@ ax.set_xticklabels(xlabs, rotation=45)
 plt.ylim(0,1)
 
 plt.tight_layout()
-plt.savefig(FIGURE_PATH +
-            VARIABLE_FOLDER + 
-            ('_'.join([RESULTS_DATE, 'calibration_probabilities', SPECIFIC_DECODING])) +
-            FIGURE_SUFFIX, 
+plt.savefig(os.path.join(FIGURE_PATH,
+                         VARIABLE_FOLDER,
+                         SPECIFIC_DECODING,
+            ('_'.join([RESULTS_DATE, 'calibration_probabilities'])) +
+            FIGURE_SUFFIX), 
             dpi=600)
 plt.show()
 
@@ -318,10 +326,11 @@ ax.set_xticklabels(xlabs, rotation=45)
 plt.ylim(0,1)
 
 plt.tight_layout()
-plt.savefig(FIGURE_PATH +
-            VARIABLE_FOLDER + 
-            ('_'.join([RESULTS_DATE, 'calibrationBest_probabilities', SPECIFIC_DECODING])) +
-            FIGURE_SUFFIX, 
+plt.savefig(os.path.join(FIGURE_PATH,
+                         VARIABLE_FOLDER,
+                         SPECIFIC_DECODING,
+            ('_'.join([RESULTS_DATE, 'calibrationBest_probabilities'])) +
+            FIGURE_SUFFIX), 
             dpi=600)
 plt.show()
 
@@ -339,13 +348,13 @@ plt.show()
 
 best_trials = np.arange(len(best_masks))[[m=='1' for m in best_masks]]
 assert len(best_trials) == len(best_targets)
-plt.figure(figsize=(6,2.5))
+plt.figure(figsize=(10,2.5))
 plt.title(best_eid+' ['+best_probe+'] ['+best_region+']')
 plt.plot(best_trials, best_targets, '-', c='k')
 plt.plot(best_trials, best_probs, '-', c='indigo')
 plt.yticks([0,.5,1])
 #plt.ylim(0,1)
-plt.xlim(0,len(best_masks))
+#plt.xlim(0,len(best_masks))
 plt.legend(['True','Predicted Probability'],frameon=True,loc=(-0.15,1.1))
 plt.xlabel('Trials')
 plt.ylabel('Block')

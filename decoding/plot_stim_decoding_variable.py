@@ -11,6 +11,7 @@ from bernoulli_confidenceinterval import Bernoulli_ci
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import scipy.stats
 import seaborn as sns
 
 #cmap='Purples'#,'Blues','Greens','Oranges','Reds'
@@ -99,7 +100,8 @@ plt.show()
 # for i in range(len(edge)-1):
 #     all_targets[(all_targets >= edge[i])&(all_targets < edge[i+1])] = .5*(edge[i]+edge[i+1])
 #     best_targets[(best_targets >= edge[i])&(best_targets < edge[i+1])] = .5*(edge[i]+edge[i+1])
-index_max = np.argmax(all_scores - (999*(all_regions!='ORBvl')))
+assert np.max(all_scores)-np.min(all_scores) < 999
+index_max = np.argmax(all_scores)
 best_targets = all_targets[index_max]
 best_preds = all_preds[index_max]
 best_block_pLeft = all_block_pLeft[index_max]
@@ -108,11 +110,22 @@ best_eid = all_eids[index_max]
 best_probe = all_probes[index_max]
 best_region = all_regions[index_max]
 best_masks = all_masks[index_max]
+index_max_orb = np.argmax(all_scores - (999*(all_regions!='ZI')))
+best_targets_orb = all_targets[index_max_orb]
+best_preds_orb = all_preds[index_max_orb]
+best_block_pLeft_orb = all_block_pLeft[index_max_orb]
+best_actn_orb = all_actn[index_max_orb]
+best_eid_orb = all_eids[index_max_orb]
+best_probe_orb = all_probes[index_max_orb]
+best_region_orb = all_regions[index_max_orb]
+best_masks_orb = all_masks[index_max_orb]
 
 all_preds_discrete = np.concatenate(all_preds)
 all_preds_continuous = np.concatenate(all_preds)
 best_preds_discrete = np.copy(best_preds)
 best_preds_continuous = np.copy(best_preds)
+best_preds_discrete_orb = np.copy(best_preds_orb)
+best_preds_continuous_orb = np.copy(best_preds_orb)
 edge = np.linspace(-1,1,11)
 edge = np.insert(np.append(edge,np.infty),0,-np.infty)
 for i in range(len(edge)-1):
@@ -121,11 +134,15 @@ for i in range(len(edge)-1):
                            (all_preds_continuous <= edge[i+1])] = .5*(edge[i]+edge[i+1])
         best_preds_discrete[(best_preds_continuous >= edge[i])&
                             (best_preds_continuous <= edge[i+1])] = .5*(edge[i]+edge[i+1])
+        best_preds_discrete_orb[(best_preds_continuous_orb >= edge[i])&
+                            (best_preds_continuous_orb <= edge[i+1])] = .5*(edge[i]+edge[i+1])
     else:
         all_preds_discrete[(all_preds_continuous >= edge[i])&
                            (all_preds_continuous < edge[i+1])] = .5*(edge[i]+edge[i+1])
         best_preds_discrete[(best_preds_continuous >= edge[i])&
                             (best_preds_continuous < edge[i+1])] = .5*(edge[i]+edge[i+1])
+        best_preds_discrete_orb[(best_preds_continuous_orb >= edge[i])&
+                            (best_preds_continuous_orb < edge[i+1])] = .5*(edge[i]+edge[i+1])
 
 plot_name = 'medianr2'
 reg_nulls = np.array([np.median(all_null_scores[all_regions==reg],axis=0) for reg in np.unique(all_regions)])
@@ -134,7 +151,11 @@ reg_pvalue = np.array([np.mean(np.median(reg_values[i])<=reg_nulls[i]) \
               for i in range(len(np.unique(all_regions)))])
 acronyms = np.unique(all_regions)[reg_pvalue<0.05]
 values = reg_values[reg_pvalue<0.05]
-nulls = np.median(reg_nulls,axis=1)[reg_pvalue<0.05]
+nulls_m = np.median(reg_nulls,axis=1)[reg_pvalue<0.05]
+nulls_l = np.min(reg_nulls,axis=1)[reg_pvalue<0.05]
+nulls_h = np.array([scipy.stats.scoreatpercentile(reg_nulls[i,:], 
+                    95, interpolation_method='fraction') for i in range(reg_nulls.shape[0])])[reg_pvalue<0.05]
+nulls = np.vstack((nulls_l,nulls_m,nulls_h))
 
 brain_results(acronyms, 
                 np.array([np.median(v) for v in values]), 
@@ -154,7 +175,8 @@ bar_results(acronyms,
             ('_'.join([RESULTS_DATE, 'bars', plot_name])) +
             FIGURE_SUFFIX),
             YMIN=-0.1,
-            ylab='$R^2$')
+            ylab='$R^2$',
+            TOP_N=15)
 # plot_name = 'mediansignificantr2'
 # MIN_NUMBER_SESSIONS = 1
 # all_sigs = (all_pvalues<=0.05)
@@ -297,6 +319,10 @@ best_df = pd.DataFrame({'Target':best_targets,
                        'Predictions':best_preds,
                        'pLeft':best_block_pLeft})
 
+best_df_orb = pd.DataFrame({'Target':best_targets_orb,
+                       'Predictions':best_preds_orb,
+                       'pLeft':best_block_pLeft_orb})
+
 all_discrete_df = pd.DataFrame({'Target':np.concatenate(all_targets),
                        'Predictions':all_preds_discrete,
                        'pLeft':np.concatenate(all_block_pLeft)})
@@ -305,6 +331,10 @@ best_discrete_df = pd.DataFrame({'Target':best_targets,
                        'Predictions':best_preds_discrete,
                        'pLeft':best_block_pLeft})
 
+best_discrete_df_orb = pd.DataFrame({'Target':best_targets_orb,
+                       'Predictions':best_preds_discrete_orb,
+                       'pLeft':best_block_pLeft_orb})
+
 ci = 95
 
 plt.figure(figsize=(3,5))
@@ -312,6 +342,7 @@ ax = sns.barplot(x='Target', y='Predictions',
                  data=all_df, 
                  ci=ci, capsize=.2)
 ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
+ax.set(xlabel='Stimulus')
 plt.ylim(-1,1)
 plt.tight_layout()
 plt.savefig(os.path.join(FIGURE_PATH,
@@ -322,18 +353,36 @@ plt.savefig(os.path.join(FIGURE_PATH,
             dpi=600)
 plt.show()
 
-plt.figure(figsize=(3,5))
+plt.figure(figsize=(4.2,5))
 plt.title(best_eid+' \n['+best_probe+'] ['+best_region+']')
 ax = sns.barplot(x='Target', y='Predictions', 
                  data=best_df, 
                  ci=ci, capsize=.2)
 ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
+ax.set(xlabel='Stimulus')
 plt.ylim(-1,1)
 plt.tight_layout()
 plt.savefig(os.path.join(FIGURE_PATH,
                          VARIABLE_FOLDER,
                          SPECIFIC_DECODING,
             ('_'.join([RESULTS_DATE, 'predictionsBest_xtarget'])) +
+            FIGURE_SUFFIX), 
+            dpi=600)
+plt.show()
+
+plt.figure(figsize=(4.2,5))
+plt.title(best_eid_orb+' \n['+best_probe_orb+'] ['+best_region_orb+']')
+ax = sns.barplot(x='Target', y='Predictions', 
+                 data=best_df_orb, 
+                 ci=ci, capsize=.2)
+ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
+ax.set(xlabel='Stimulus')
+plt.ylim(-1,1)
+plt.tight_layout()
+plt.savefig(os.path.join(FIGURE_PATH,
+                         VARIABLE_FOLDER,
+                         SPECIFIC_DECODING,
+            ('_'.join([RESULTS_DATE, 'predictionsBest_xtarget_orb'])) +
             FIGURE_SUFFIX), 
             dpi=600)
 plt.show()
@@ -348,10 +397,11 @@ ax.set_xticklabels(xlabs, rotation=45)
 #plt.ylim(0,1)
 
 plt.tight_layout()
-plt.savefig(FIGURE_PATH +
-            VARIABLE_FOLDER + 
-            ('_'.join([RESULTS_DATE, 'calibration_probabilities', SPECIFIC_DECODING])) +
-            FIGURE_SUFFIX, 
+plt.savefig(os.path.join(FIGURE_PATH,
+                         VARIABLE_FOLDER,
+                         SPECIFIC_DECODING,
+            ('_'.join([RESULTS_DATE, 'calibration_probabilities'])) +
+            FIGURE_SUFFIX), 
             dpi=600)
 plt.show()
 
@@ -365,10 +415,11 @@ ax.set_xticklabels(xlabs, rotation=45)
 #plt.ylim(0,1)
 
 plt.tight_layout()
-plt.savefig(FIGURE_PATH +
-            VARIABLE_FOLDER + 
-            ('_'.join([RESULTS_DATE, 'calibrationBest_probabilities', SPECIFIC_DECODING])) +
-            FIGURE_SUFFIX, 
+plt.savefig(os.path.join(FIGURE_PATH,
+                         VARIABLE_FOLDER,
+                         SPECIFIC_DECODING,
+            ('_'.join([RESULTS_DATE, 'calibrationBest_probabilities'])) +
+            FIGURE_SUFFIX), 
             dpi=600)
 plt.show()
 
@@ -423,21 +474,47 @@ plt.show()
 #             dpi=600)
 # plt.show()
 
-plt.figure(figsize=(8,3.5))
+best_trials = np.arange(len(best_masks))[[m=='1' for m in best_masks]]
+plt.figure(figsize=(10,3))
 plt.title(best_eid+' ['+best_probe+'] ['+best_region+']')
-plt.plot(best_targets,'k')
-plt.plot(best_preds,'blue')
-plt.legend(['targets','predictions'])
+plt.plot(best_trials,best_targets,'k')
+plt.plot(best_trials[best_targets>0],best_preds[best_targets>0],'C0',lw=2)
+plt.plot(best_trials[best_targets<0],best_preds[best_targets<0],'C1',lw=2)
 plt.yticks([-1,0,1])
 plt.ylim(-1,1)
-plt.legend(['True','Predicted'],frameon=True,loc=(-0.15,1.1))
+plt.legend(['True',
+            'Prediction given stimulus $> 0$', 
+            'Prediction given stimulus $< 0$'],frameon=True,loc=(-0.15,1.1))
 plt.xlabel('Trials')
-plt.ylabel('Prior')
+plt.ylabel('Stimulus')
 plt.tight_layout()
 plt.savefig(os.path.join(FIGURE_PATH,
                          VARIABLE_FOLDER,
                          SPECIFIC_DECODING,
             ('_'.join([RESULTS_DATE, 'predictionsTraceBestR2'])) +
+            FIGURE_SUFFIX), 
+            dpi=600)
+plt.show()
+
+
+best_trials_orb = np.arange(len(best_masks_orb))[[m=='1' for m in best_masks_orb]]
+plt.figure(figsize=(10,3))
+plt.title(best_eid_orb+' ['+best_probe_orb+'] ['+best_region_orb+']')
+plt.plot(best_trials_orb, best_targets_orb,'k')
+plt.plot(best_trials_orb[best_targets_orb>0],best_preds_orb[best_targets_orb>0],'C0',lw=2)
+plt.plot(best_trials_orb[best_targets_orb<0],best_preds_orb[best_targets_orb<0],'C1',lw=2)
+plt.yticks([-1,0,1])
+plt.ylim(-1,1)
+plt.legend(['True',
+            'Prediction given stimulus $> 0$', 
+            'Prediction given stimulus $< 0$'],frameon=True,loc=(-0.15,1.1))
+plt.xlabel('Trials')
+plt.ylabel('Stimulus')
+plt.tight_layout()
+plt.savefig(os.path.join(FIGURE_PATH,
+                         VARIABLE_FOLDER,
+                         SPECIFIC_DECODING,
+            ('_'.join([RESULTS_DATE, 'predictionsTraceBestR2_orb'])) +
             FIGURE_SUFFIX), 
             dpi=600)
 plt.show()
