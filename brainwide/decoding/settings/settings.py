@@ -21,22 +21,22 @@ LOCAL = True
 if LOCAL:
     DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/code/prior-localization/brainwide/decoding/")
 else:
-    DECODING_PATH = Path("/home/users/f/findling/scratch/")
+    DECODING_PATH = Path("/home/users/h/hubertf/scratch")
 
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
 SESS_CRITERION = 'aligned-behavior'  # aligned and behavior
-DATE = str(date.today())
+DATE = '2022-04-05'
 ALIGN_TIME = 'goCue_times'
 TARGET = 'signcont'  # 'signcont' or 'pLeft'
 CONTINUOUS_TARGET = False  # True  # is target continuous or not
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
-MODEL = dut.optimal_Bayesian  # expSmoothing_prevAction  or None # or dut.modeldispatcher.
+MODEL = dut.expSmoothing_prevAction  # expSmoothing_prevAction  #optimal_Bayesian or None # or dut.modeldispatcher.
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
-N_PSEUDO = 100
-N_PSEUDO_PER_JOB = 1
+N_PSEUDO = 200
+N_PSEUDO_PER_JOB = 10
 N_JOBS_PER_SESSION = N_PSEUDO // N_PSEUDO_PER_JOB
 N_RUNS = 10
 MIN_UNITS = 10
@@ -56,7 +56,7 @@ NORMALIZE_INPUT = False  # take out mean of the neural activity per unit across 
 NORMALIZE_OUTPUT = False  # take out mean of output to predict
 if NORMALIZE_INPUT or NORMALIZE_OUTPUT:
     warnings.warn('This feature has not been tested')
-USE_IMPOSTER_SESSION = False  # if false, it uses pseudosessions
+USE_IMPOSTER_SESSION = True  # if false, it uses pseudosessions
 
 BALANCED_WEIGHT = True  # seems to work better with BALANCED_WEIGHT=False, but putting True is important
 USE_OPENTURNS = False  # uses openturns to perform kernel density estimation
@@ -64,7 +64,7 @@ BIN_SIZE_KDE = 0.05  # size of the kde bin
 HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])}
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
-ADD_TO_SAVING_PATH = 'pseudoSessions_mergedProbes_wholeBrain'
+ADD_TO_SAVING_PATH = 'imposterSessions_mergedProbes_wholeBrain_2'
 
 # WIDE FIELD IMAGING
 WIDE_FIELD_IMAGING = True

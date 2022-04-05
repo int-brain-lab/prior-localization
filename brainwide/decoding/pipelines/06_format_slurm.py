@@ -1,4 +1,3 @@
-import pandas as pd
 import pickle
 import functions.utils as dut
 import pandas as pd
@@ -15,17 +14,29 @@ eids = insdf['eid'].unique()
 
 SAVE_KFOLDS = True
 
-date = '2022-02-19'
-finished = glob.glob(str(DECODING_PATH.joinpath("results", "neural", "*", "*", "*",
-                                                "*%s*%s*%s*%s*%s*" % (date, TARGET, str(TIME_WINDOW[0]).replace('.', '_'),
-                                                                      str(TIME_WINDOW[1]).replace('.', '_'),
-                                                                      ADD_TO_SAVING_PATH))))
+kwargs = {'imposterdf': None, 'nb_runs': N_RUNS, 'single_region': SINGLE_REGION, 'merged_probes': MERGED_PROBES,
+          'modelfit_path': DECODING_PATH.joinpath('results', 'behavioral'),
+          'output_path': DECODING_PATH.joinpath('results', 'neural'), 'one': None,
+          'estimator_kwargs': ESTIMATOR_KWARGS, 'hyperparam_grid': HPARAM_GRID,
+          'save_binned': SAVE_BINNED, 'shuffle': SHUFFLE, 'balanced_weight': BALANCED_WEIGHT,
+          'normalize_input': NORMALIZE_INPUT, 'normalize_output': NORMALIZE_OUTPUT,
+          'compute_on_each_fold': COMPUTE_NEURO_ON_EACH_FOLD,
+          'force_positive_neuro_slopes': FORCE_POSITIVE_NEURO_SLOPES,
+          'estimator': ESTIMATOR, 'target': TARGET, 'model': MODEL, 'align_time': ALIGN_TIME,
+          'no_unbias': NO_UNBIAS, 'min_rt': MIN_RT, 'min_behav_trials': MIN_BEHAV_TRIAS,
+          'qc_criteria': QC_CRITERIA, 'min_units': MIN_UNITS, 'time_window': TIME_WINDOW,
+          'use_imposter_session': USE_IMPOSTER_SESSION, 'compute_neurometric': COMPUTE_NEUROMETRIC,
+          'border_quantiles_neurometric': BORDER_QUANTILES_NEUROMETRIC, 'today': DATE
+          }
+
+date = '2022-04-05'
+finished = glob.glob(str(DECODING_PATH.joinpath("results", "neural", "*", "*", "*", "*%s*" % date)))
 
 indexers = ['subject', 'eid', 'probe', 'region']
 indexers_neurometric = ['low_slope', 'high_slope', 'low_range', 'high_range', 'shift', 'mean_range', 'mean_slope']
 resultslist = []
-trajectoriesdict = {}
-for fn in finished:
+from tqdm import tqdm
+for fn in tqdm(finished):
     fo = open(fn, 'rb')
     result = pickle.load(fo)
     fo.close()
