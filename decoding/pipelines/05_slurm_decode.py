@@ -15,6 +15,8 @@ insdf = pd.read_parquet(DECODING_PATH.joinpath('insertions.pqt')).reset_index(dr
 insdf = insdf[insdf.spike_sorting != '']
 eids = insdf['eid'].unique()
 
+eids = eids[:10]
+
 # create necessary empty directories if not existing
 DECODING_PATH.joinpath('results').mkdir(exist_ok=True)
 DECODING_PATH.joinpath('results', 'behavioral').mkdir(exist_ok=True)
@@ -25,9 +27,9 @@ DECODING_PATH.joinpath('logs', 'slurm').mkdir(exist_ok=True)
 if USE_IMPOSTER_SESSION:
     imposterdf = pd.read_parquet(DECODING_PATH.joinpath('imposterSessions_beforeRecordings.pqt'))
 else:
-    imposterdf_future = None
+    imposterdf = None
 
-kwargs = {'imposterdf': None, 'nb_runs': N_RUNS, 'single_region': SINGLE_REGION, 'merged_probes': MERGED_PROBES,
+kwargs = {'imposterdf': imposterdf, 'nb_runs': N_RUNS, 'single_region': SINGLE_REGION, 'merged_probes': MERGED_PROBES,
           'modelfit_path': DECODING_PATH.joinpath('results', 'behavioral'), 'continuous_target': CONTINUOUS_TARGET,
           'output_path': DECODING_PATH.joinpath('results', 'neural'), 'one': None,
           'estimator_kwargs': ESTIMATOR_KWARGS, 'hyperparam_grid': HPARAM_GRID,
