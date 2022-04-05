@@ -26,7 +26,8 @@ def load_wfi_session(path_to_wfi, sessid):
                            'session_id', 'firstMovement_times']]
     sessiondf = sessiondf.assign(stim_side=(sessiondf.choice * (sessiondf.feedbackType == 1) -
                                             sessiondf.choice * (sessiondf.feedbackType == -1)))
-    sessiondf['eid'] = sessiondf['session_id'].apply(lambda x: 'sess' + str(x))
+    sessiondf['eid'] = sessiondf['session_id'].apply(lambda x: ('wfi_mouse' + str(path_to_wfi.split('-')[-1])
+                                                                + '_sess' + str(x)))
     downsampled = downsampled[sessid]
     frame_df = frame_df[sessid]
     wideFieldImaging_dict = {'activity': downsampled, 'timings': frame_df, 'regions': ds_atlas, 'atlas': atlas}

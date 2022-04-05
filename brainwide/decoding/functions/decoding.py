@@ -30,8 +30,8 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
     sessiondf: the behavioral and neural dataframe when you want to bypass the bwm encoding phase
     """
 
-    if ((wideFieldImaging_dict is not None and kwargs['wide_field_imaging']) or
-            (wideFieldImaging_dict is None and not kwargs['wide_field_imaging'])):
+    if ((wideFieldImaging_dict is None and kwargs['wide_field_imaging']) or
+            (wideFieldImaging_dict is not None and not kwargs['wide_field_imaging'])):
         raise ValueError('wideFieldImaging_dict must be defined for wide_field_imaging and reciprocally')
 
     if kwargs['wide_field_imaging'] and kwargs['wfi_nb_frames'] == 0:
@@ -52,7 +52,6 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
         print('todo')
         subject = sessiondf.subject.unique()[0]
         subjeids = sessiondf.eid.unique()
-        eid = sessiondf.eid[sessiondf.session_to_decode].unique()[0]
         behavior_data_train = sessiondf
         behavior_data = {k: np.array(v) for (k, v) in sessiondf[sessiondf.session_to_decode].to_dict('list').items()}
 
@@ -218,7 +217,7 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
                         blockprob_neurometric = dut.compute_target('pLeft', subject, subjeids, eid,
                                                                    kwargs['modelfit_path'], modeltype=kwargs['model'],
                                                                    beh_data_test=trialsdf if pseudo_id == -1 else pseudosess,
-                                                                   one=one)
+                                                                   behavior_data_train=behavior_data_train, one=one)
 
                         trialsdf_neurometric['blockprob_neurometric'] = np.stack([np.greater_equal(blockprob_neurometric
                                                                                                    [mask], border)

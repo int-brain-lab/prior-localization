@@ -58,19 +58,21 @@ if WIDE_FIELD_IMAGING:
     if sess_id < 0:
         raise ValueError('There is an error in the code')
     sessiondf, wideFieldImaging_dict = wut.load_wfi_session(subjects[subj_id], sess_id)
+    eid = sessiondf.eid[sessiondf.session_to_decode].unique()[0]
 else:
     eid_id = index % eids.size
     job_id = index // eids.size
-
     eid = eids[eid_id]
+    sessiondf, wideFieldImaging_dict = None, None
 
-if (eid in excludes or np.any(insdf[insdf['eid'] == eid]['spike_sorting'] == "")):
+if WIDE_FIELD_IMAGING and eid in excludes or np.any(insdf[insdf['eid'] == eid]['spike_sorting'] == ""):
     print(f"dud {eid}")
 else:
     print(f"session: {eid}")
     pseudo_ids = np.arange(job_id * N_PSEUDO_PER_JOB, (job_id + 1) * N_PSEUDO_PER_JOB) + 1
     if 1 in pseudo_ids:
         pseudo_ids = np.concatenate((-np.ones(1), pseudo_ids)).astype('int64')
-    fit_eid(eid=eid, bwmdf=insdf, pseudo_ids=pseudo_ids, **kwargs)
+    fit_eid(eid=eid, bwmdf=insdf, pseudo_ids=pseudo_ids,
+            sessiondf=sessiondf, wideFieldImaging_dict=wideFieldImaging_dict, **kwargs)
 
     print('Slurm job successful')
