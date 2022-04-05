@@ -41,21 +41,24 @@ kwargs = {'imposterdf': None, 'nb_runs': N_RUNS, 'single_region': SINGLE_REGION,
           'use_imposter_session': USE_IMPOSTER_SESSION, 'compute_neurometric': COMPUTE_NEUROMETRIC,
           'border_quantiles_neurometric': BORDER_QUANTILES_NEUROMETRIC, 'today': DATE,
           'add_to_saving_path': ADD_TO_SAVING_PATH, 'use_openturns': USE_OPENTURNS,
-          'bin_size_kde': BIN_SIZE_KDE
-          }
+          'bin_size_kde': BIN_SIZE_KDE, 'wide_field_imaging': WIDE_FIELD_IMAGING, 'wfi_hemispheres': WFI_HEMISPHERES,
+          'wfi_nb_frames': WFI_NB_FRAMES, }
 
 
-eid_id = index % eids.size
-job_id = index // eids.size
+if WIDE_FIELD_IMAGING:
 
-eid = eids[eid_id]
-if (eid in excludes or np.any(insdf[insdf['eid'] == eid]['spike_sorting'] == "")):
-    print(f"dud {eid}")
 else:
-    print(f"session: {eid}")
-    pseudo_ids = np.arange(job_id * N_PSEUDO_PER_JOB, (job_id + 1) * N_PSEUDO_PER_JOB) + 1
-    if 1 in pseudo_ids:
-        pseudo_ids = np.concatenate((-np.ones(1), pseudo_ids)).astype('int64')
-    fit_eid(eid=eid, sessdf=insdf, pseudo_ids=pseudo_ids, **kwargs)
+    eid_id = index % eids.size
+    job_id = index // eids.size
 
-print('Slurm job successful')
+    eid = eids[eid_id]
+    if (eid in excludes or np.any(insdf[insdf['eid'] == eid]['spike_sorting'] == "")):
+        print(f"dud {eid}")
+    else:
+        print(f"session: {eid}")
+        pseudo_ids = np.arange(job_id * N_PSEUDO_PER_JOB, (job_id + 1) * N_PSEUDO_PER_JOB) + 1
+        if 1 in pseudo_ids:
+            pseudo_ids = np.concatenate((-np.ones(1), pseudo_ids)).astype('int64')
+        fit_eid(eid=eid, bwmdf=insdf, pseudo_ids=pseudo_ids, **kwargs)
+
+    print('Slurm job successful')

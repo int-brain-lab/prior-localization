@@ -13,7 +13,7 @@ DECODING_PATH.joinpath('results').mkdir(exist_ok=True)
 DECODING_PATH.joinpath('results', 'behavioral').mkdir(exist_ok=True)
 DECODING_PATH.joinpath('results', 'neural').mkdir(exist_ok=True)
 insdf = pd.read_parquet(DECODING_PATH.joinpath('insertions.pqt'))
-insdf = insdf[insdf.spike_sorting!=""]
+insdf = insdf[insdf.spike_sorting != ""]
 
 eids = insdf['eid'].unique()
 # sessdf = insdf.sort_values('subject').set_index(['subject', 'eid'])

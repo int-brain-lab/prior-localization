@@ -17,9 +17,9 @@ strlut = {sklm.Lasso: "Lasso",
           sklm.LogisticRegression: "Logistic"}
 
 # %% Run param definitions
-LOCAL = False
+LOCAL = True
 if LOCAL:
-    DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding/")
+    DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/code/prior-localization/brainwide/decoding/")
 else:
     DECODING_PATH = Path("/home/users/f/findling/scratch/")
 
@@ -36,7 +36,7 @@ TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
 N_PSEUDO = 100
-N_PSEUDO_PER_JOB = 10
+N_PSEUDO_PER_JOB = 1
 N_JOBS_PER_SESSION = N_PSEUDO // N_PSEUDO_PER_JOB
 N_RUNS = 10
 MIN_UNITS = 10
@@ -65,6 +65,11 @@ HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])}
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
 ADD_TO_SAVING_PATH = 'pseudoSessions_mergedProbes_wholeBrain'
+
+# WIDE FIELD IMAGING
+WIDE_FIELD_IMAGING = True
+WFI_HEMISPHERES = ['left']  # 'left' and/or 'right'
+WFI_NB_FRAMES = -1  # signed number of frames from ALIGN_TIME. can not be zero
 
 
 # session to be excluded (by Olivier Winter)

@@ -12,51 +12,72 @@ from brainbox.task.closed_loop import generate_pseudo_session
 import one.alf.io as alfio
 from functions.neurometric import get_neurometric_parameters
 from tqdm import tqdm
-import openturns
 import pickle
 
-def fit_eid(eid, sessdf, pseudo_ids=[-1], **kwargs):
+def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=None, **kwargs):
     """
     Parameters
     ----------
     single_region: Bool, decoding using region wise or pulled over regions
     eid: eid of session
-    sessdf: dataframe of session eid
+    bwmdf: dataframe of bwm session
     pseudo_id: whether to compute a pseudosession or not. if pseudo_id=-1, the true session is considered.
     can not be 0
     nb_runs: nb of independent runs performed. this was added after consequent variability was observed across runs.
     modelfit_path: outputs of behavioral fits
     output_path: outputs of decoding fits
     one: ONE object -- this is not to be used with dask, this option is given for debugging purposes
+    sessiondf: the behavioral and neural dataframe when you want to bypass the bwm encoding phase
     """
+
+    if ((wideFieldImaging_dict is not None and kwargs['wide_field_imaging']) or
+            (wideFieldImaging_dict is None and not kwargs['wide_field_imaging'])):
+        raise ValueError('wideFieldImaging_dict must be defined for wide_field_imaging and reciprocally')
+
+    if kwargs['wide_field_imaging'] and kwargs['wfi_nb_frames'] == 0:
+        raise ValueError('wfi_nb_frames can not be 0. it is a signed non-null integer')
 
     if 0 in pseudo_ids:
         raise ValueError('pseudo id can be -1 (actual session) or strictly greater than 0 (pseudo session)')
 
     one = One() if kwargs['one'] is None else kwargs['one']
-    df_insertions = sessdf.loc[sessdf['eid'] == eid]
-    subject = df_insertions['subject'].to_numpy()[0]
-    subjeids = sessdf.loc[sessdf['subject'] == subject]['eid'].unique()
+    if sessiondf is None:
+        df_insertions = bwmdf.loc[bwmdf['eid'] == eid]
+        subject = df_insertions['subject'].to_numpy()[0]
+        subjeids = bwmdf.loc[bwmdf['subject'] == subject]['eid'].unique()
+        brainreg = dut.BrainRegions()
+        behavior_data = mut.load_session(eid, one=one)
+        behavior_data_train = None
+    else:
+        print('todo')
+        subject = sessiondf.subject.unique()[0]
+        subjeids = sessiondf.eid.unique()
+        eid = sessiondf.eid[sessiondf.session_to_decode].unique()[0]
+        behavior_data_train = sessiondf
+        behavior_data = {k: np.array(v) for (k, v) in sessiondf[sessiondf.session_to_decode].to_dict('list').items()}
 
-    brainreg = dut.BrainRegions()
-    behavior_data = mut.load_session(eid, one=one)
     try:
         tvec = dut.compute_target(kwargs['target'], subject, subjeids, eid, kwargs['modelfit_path'],
-                                  modeltype=kwargs['model'], beh_data=behavior_data,
-                                  one=one)
+                                  modeltype=kwargs['model'], behavior_data_train=behavior_data_train,
+                                  beh_data_test=behavior_data, one=one)
     except ValueError:
         print('Model not fit.')
         tvec = dut.compute_target(kwargs['target'], subject, subjeids, eid, kwargs['modelfit_path'],
-                                  modeltype=kwargs['model'], one=kwargs['one'])
+                                  modeltype=kwargs['model'], one=kwargs['one'], beh_data_test=behavior_data)
 
     try:
-        trialsdf = bbone.load_trials_df(eid, one=one, addtl_types=['firstMovement_times'])
+        if sessiondf is None:
+            trialsdf = bbone.load_trials_df(eid, one=one, addtl_types=['firstMovement_times'])
+        else:
+            trialsdf = sessiondf[sessiondf.session_to_decode]
+            if 'react_times' in trialsdf.columns:
+                trialsdf = trialsdf.drop('react_times', axis=1)
         if len(trialsdf) != len(tvec):
             raise IndexError
     except IndexError:
         raise IndexError('Problem in the dimensions of dataframe of session')
     trialsdf['react_times'] = trialsdf['firstMovement_times'] - trialsdf[kwargs['align_time']]
-    mask = trialsdf[kwargs['align_time']].notna()
+    mask = trialsdf[kwargs['align_time']].notna() & trialsdf['firstMovement_times'].notna()
     if kwargs['no_unbias']:
         mask = mask & (trialsdf.probabilityLeft != 0.5).values
     if kwargs['min_rt'] is not None:
@@ -83,7 +104,7 @@ def fit_eid(eid, sessdf, pseudo_ids=[-1], **kwargs):
 
     print(f'Working on eid : {eid}')
 
-    if kwargs['merged_probes']:
+    if kwargs['merged_probes'] and wideFieldImaging_dict is None:
         across_probes = {'regions': [], 'clusters': [], 'times': [], 'qc_pass': []}
         for i_probe, (_, ins) in tqdm(enumerate(df_insertions.iterrows()), desc='Probe: ', leave=False):
             probe = ins['probe']
@@ -106,8 +127,13 @@ def fit_eid(eid, sessdf, pseudo_ids=[-1], **kwargs):
         df_insertions_iterrows = pd.DataFrame.from_dict({'1': 'mergedProbes'},
                                                         orient='index',
                                                         columns=['probe']).iterrows()
-    else:
+    elif wideFieldImaging_dict is None:
         df_insertions_iterrows = df_insertions.iterrows()
+    else:
+        regions = wideFieldImaging_dict['atlas'].acronym.values
+        df_insertions_iterrows = pd.DataFrame.from_dict({'1': 'mergedProbes'},
+                                                        orient='index',
+                                                        columns=['probe']).iterrows()
 
     for i, ins in tqdm(df_insertions_iterrows, desc='Probe: ', leave=False):
         probe = ins['probe']
@@ -120,12 +146,21 @@ def fit_eid(eid, sessdf, pseudo_ids=[-1], **kwargs):
             regions = np.unique(beryl_reg)
         # warnings.filterwarnings('ignore')
         for region in tqdm(regions, desc='Region: ', leave=False):
-            if kwargs['merged_probes']:
+            if kwargs['merged_probes'] and wideFieldImaging_dict is None:
                 reg_mask = np.isin(across_probes['regions'], region)
                 reg_clu_ids = np.argwhere(reg_mask & across_probes['qc_pass']).flatten()
-            else:
+            elif wideFieldImaging_dict is None:
                 reg_mask = beryl_reg == region
                 reg_clu_ids = np.argwhere(reg_mask & qc_pass).flatten()
+            else:
+                region_labels = []
+                reg_lab = wideFieldImaging_dict['atlas'][wideFieldImaging_dict['atlas'].acronym == region].label.values.squeeze()
+                if 'left' in kwargs['wfi_hemispheres']:
+                    region_labels.append(reg_lab)
+                if 'right' in kwargs['wfi_hemispheres']:
+                    region_labels.append(-reg_lab)
+                reg_mask = np.isin(wideFieldImaging_dict['regions'], region_labels)
+                reg_clu_ids = np.argwhere(reg_mask)
             N_units = len(reg_clu_ids)
             if N_units < kwargs['min_units']:
                 continue
@@ -136,7 +171,7 @@ def fit_eid(eid, sessdf, pseudo_ids=[-1], **kwargs):
             intervals = np.vstack([nb_trialsdf[kwargs['align_time']] + kwargs['time_window'][0],
                                    nb_trialsdf[kwargs['align_time']] + kwargs['time_window'][1]]).T
 
-            if kwargs['merged_probes']:
+            if kwargs['merged_probes'] and wideFieldImaging_dict is None:
                 spikemask = np.isin(across_probes['clusters'], reg_clu_ids)
                 regspikes = across_probes['times'][spikemask]
                 regclu = across_probes['clusters'][spikemask]
@@ -144,13 +179,21 @@ def fit_eid(eid, sessdf, pseudo_ids=[-1], **kwargs):
                 binned, _ = get_spike_counts_in_bins(regspikes[arg_sortedSpikeTimes],
                                                      regclu[arg_sortedSpikeTimes],
                                                      intervals)
-            else:
+            elif wideFieldImaging_dict is None:
                 spikemask = np.isin(spikes.clusters, reg_clu_ids)
                 regspikes = spikes.times[spikemask]
                 regclu = spikes.clusters[spikemask]
                 binned, _ = get_spike_counts_in_bins(regspikes, regclu, intervals)
+            else:
+                frames_idx = wideFieldImaging_dict['timings'][kwargs['align_time']].values
+                frames_idx = np.sort(
+                    frames_idx[:, None] + np.arange(0, kwargs['wfi_nb_frames'], np.sign(kwargs['wfi_nb_frames'])),
+                    axis=1,
+                )
+                binned = np.take(wideFieldImaging_dict['activity'][:, reg_mask], frames_idx, axis=0)
+                binned = binned.reshape(binned.shape[0], -1).T
 
-            msub_binned = binned.T
+            msub_binned = binned.T  # number of trials x nb bins
 
             if len(msub_binned.shape) > 2:
                 raise ValueError('Multiple bins are being calculated per trial,'
@@ -166,7 +209,7 @@ def fit_eid(eid, sessdf, pseudo_ids=[-1], **kwargs):
 
                     msub_pseudo_tvec = dut.compute_target(kwargs['target'], subject, subjeids, eid,
                                                           kwargs['modelfit_path'], modeltype=kwargs['model'],
-                                                          beh_data=pseudosess, one=one)[mask]
+                                                          beh_data_test=pseudosess, one=one)[mask]
 
                 if kwargs['compute_neurometric']:  # compute prior for neurometric curve
                     trialsdf_neurometric = nb_trialsdf.reset_index() if (pseudo_id == -1) else \
@@ -174,7 +217,7 @@ def fit_eid(eid, sessdf, pseudo_ids=[-1], **kwargs):
                     if kwargs['model'] is not None:
                         blockprob_neurometric = dut.compute_target('pLeft', subject, subjeids, eid,
                                                                    kwargs['modelfit_path'], modeltype=kwargs['model'],
-                                                                   beh_data=trialsdf if pseudo_id == -1 else pseudosess,
+                                                                   beh_data_test=trialsdf if pseudo_id == -1 else pseudosess,
                                                                    one=one)
 
                         trialsdf_neurometric['blockprob_neurometric'] = np.stack([np.greater_equal(blockprob_neurometric

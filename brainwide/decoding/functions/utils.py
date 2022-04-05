@@ -189,8 +189,7 @@ def generate_imposter_session(imposterdf, eid, trialsdf, nbSampledSess=50, pLeft
 
 
 def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=False,
-                    modeltype=expSmoothing_prevAction, one=None,
-                    beh_data_test=None):
+                    modeltype=expSmoothing_prevAction, one=None, behavior_data_train=None, beh_data_test=None):
     '''
     load/fit a behavioral model to compute target on a single session
     Params:
@@ -201,7 +200,6 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
         target can be pLeft or signcont. If target=pLeft, it will return the prior predicted by modeltype
                                          if modetype=None, then it will return the actual pLeft (.2, .5, .8)
     '''
-
     one = one or ONE()
 
     # check if is trained
@@ -212,8 +210,10 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
         beh_data_test = mut.load_session(eid_test, one=one)
 
     if target == 'signcont':
-        out = np.nan_to_num(beh_data_test['contrastLeft']) - \
-              np.nan_to_num(beh_data_test['contrastRight'])
+        if 'signedContrast' in beh_data_test.keys():
+            out = beh_data_test['signedContrast']
+        else:
+            out = np.nan_to_num(beh_data_test['contrastLeft']) - np.nan_to_num(beh_data_test['contrastRight'])
         return out
     elif (target == 'pLeft') and (modeltype is None):
         return np.array(beh_data_test['probabilityLeft'])
@@ -228,12 +228,15 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
     if (not istrained) and (target != 'signcont') and (modeltype is not None):
         datadict = {'stim_side': [], 'actions': [], 'stimuli': []}
         for eid in eids_train:
-            data = mut.load_session(eid, one=one)
-            if data['choice'] is None:
-                raise ValueError('Session choices produced are None.'
-                                 'Debug models.utils.load_session,'
-                                 f' or remove the eid {eid} from your input list.')
-            stim_side, stimuli, actions, _ = mut.format_data(data)
+            if behavior_data_train is None:
+                data = mut.load_session(eid, one=one)
+                if data['choice'] is None:
+                    raise ValueError('Session choices produced are None. Debug models.utils.load_session,'
+                                     f' or remove the eid {eid} from your input list.')
+                stim_side, stimuli, actions, _ = mut.format_data(data)
+            else:
+                subdf = behavior_data_train[behavior_data_train.eid == eid]
+                stim_side, stimuli, actions = subdf.stim_side.values, subdf.signedContrast.values, subdf.choice.values
             datadict['stim_side'].append(stim_side)
             datadict['stimuli'].append(stimuli)
             datadict['actions'].append(actions)
@@ -274,8 +277,8 @@ def remap_region(ids, source='Allen-lr', dest='Beryl-lr', output='acronym', br=N
 
 
 def compute_target(target, subject, eids_train, eid_test, savepath,
-                   modeltype=expSmoothing_prevAction, one=None,
-                   beh_data=None, **kwargs):
+                   modeltype=expSmoothing_prevAction, one=None, behavior_data_train=None,
+                   beh_data_test=None):
     """
     Computes regression target for use with regress_target, using subject, eid, and a string
     identifying the target parameter to output a vector of N_trials length containing the target
@@ -311,7 +314,8 @@ def compute_target(target, subject, eids_train, eid_test, savepath,
         raise ValueError('target should be in {}'.format(possible_targets))
 
     tvec = fit_load_bhvmod(target, subject, savepath.as_posix() + '/', eids_train, eid_test, remove_old=False,
-                           modeltype=modeltype, one=one, beh_data_test=beh_data)
+                           modeltype=modeltype, one=one, behavior_data_train=behavior_data_train,
+                           beh_data_test=beh_data_test)
 
     # todo make pd.Series
     return tvec
