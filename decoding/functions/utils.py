@@ -110,7 +110,12 @@ def generate_imposter_session(imposterdf, eid, trialsdf, nbSampledSess=50, pLeft
     imposter session df
 
     """
-    template_sess_eid = float(imposterdf[imposterdf.eid == eid].template_sess.unique())
+    # this is to correct for when the eid is not part of the imposterdf eids
+    # which is very possible when using imposter sessions from biaisChoice world.
+    temp_trick = list(imposterdf[imposterdf.eid == eid].template_sess.unique())
+    temp_trick.append(-1)
+    template_sess_eid = temp_trick[0] 
+
     imposter_eids = np.random.choice(imposterdf[imposterdf.template_sess != template_sess_eid].eid.unique(),
                                      size=nbSampledSess,
                                      replace=False)
@@ -124,7 +129,7 @@ def generate_imposter_session(imposterdf, eid, trialsdf, nbSampledSess=50, pLeft
     sub_imposterdf = sub_imposterdf.sort_values(by=['sorted_eids'])
     # seems to work better when starting the imposter session as the actual session, with an unbiased block
     sub_imposterdf = sub_imposterdf[(sub_imposterdf.probabilityLeft != 0.5) |
-                                    (sub_imposterdf.eid == imposter_eids[0])].reset_index(drop=True)
+                     (sub_imposterdf.eid == imposter_eids[0])].reset_index(drop=True)
     if pLeftChange_when_stitch:
         valid_imposter_eids, current_last_pLeft = [], 0
         for i, imposter_eid in enumerate(imposter_eids):
