@@ -15,7 +15,7 @@ insdf = pd.read_parquet(DECODING_PATH.joinpath('insertions.pqt')).reset_index(dr
 insdf = insdf[insdf.spike_sorting != '']
 eids = insdf['eid'].unique()
 
-eids = eids[:10]
+eids = eids
 
 # create necessary empty directories if not existing
 DECODING_PATH.joinpath('results').mkdir(exist_ok=True)
@@ -47,20 +47,18 @@ kwargs = {'imposterdf': imposterdf, 'nb_runs': N_RUNS, 'single_region': SINGLE_R
           'wfi_nb_frames': WFI_NB_FRAMES, }
 
 
-if WIDE_FIELD_IMAGING:
 
+eid_id = index % eids.size
+job_id = index // eids.size
+
+eid = eids[eid_id]
+if (eid in excludes or np.any(insdf[insdf['eid'] == eid]['spike_sorting'] == "")):
+    print(f"dud {eid}")
 else:
-    eid_id = index % eids.size
-    job_id = index // eids.size
+    print(f"session: {eid}")
+    pseudo_ids = np.arange(job_id * N_PSEUDO_PER_JOB, (job_id + 1) * N_PSEUDO_PER_JOB) + 1
+    if 1 in pseudo_ids:
+        pseudo_ids = np.concatenate((-np.ones(1), pseudo_ids)).astype('int64')
+    fit_eid(eid=eid, bwmdf=insdf, pseudo_ids=pseudo_ids, **kwargs)
 
-    eid = eids[eid_id]
-    if (eid in excludes or np.any(insdf[insdf['eid'] == eid]['spike_sorting'] == "")):
-        print(f"dud {eid}")
-    else:
-        print(f"session: {eid}")
-        pseudo_ids = np.arange(job_id * N_PSEUDO_PER_JOB, (job_id + 1) * N_PSEUDO_PER_JOB) + 1
-        if 1 in pseudo_ids:
-            pseudo_ids = np.concatenate((-np.ones(1), pseudo_ids)).astype('int64')
-        fit_eid(eid=eid, bwmdf=insdf, pseudo_ids=pseudo_ids, **kwargs)
-
-    print('Slurm job successful')
+print('Slurm job successful')

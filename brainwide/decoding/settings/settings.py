@@ -17,7 +17,7 @@ strlut = {sklm.Lasso: "Lasso",
           sklm.LogisticRegression: "Logistic"}
 
 # %% Run param definitions
-LOCAL = True
+LOCAL = False
 if LOCAL:
     DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/code/prior-localization/brainwide/decoding/")
 else:
@@ -28,7 +28,7 @@ else:
 SESS_CRITERION = 'aligned-behavior'  # aligned and behavior
 DATE = '2022-04-05'
 ALIGN_TIME = 'goCue_times'
-TARGET = 'signcont'  # 'signcont' or 'pLeft'
+TARGET = 'pLeft'  # 'signcont' or 'pLeft'
 CONTINUOUS_TARGET = False  # True  # is target continuous or not
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
 MODEL = dut.expSmoothing_prevAction  # expSmoothing_prevAction  #optimal_Bayesian or None # or dut.modeldispatcher.
