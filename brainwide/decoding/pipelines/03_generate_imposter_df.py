@@ -28,9 +28,10 @@ for i, u in enumerate(eids):
         # mice on the rig and more than 400 trials and better then 90% on highest contrasts trials (BWM criteria)
         if 'ephys' in det['json']['PYBPOD_BOARD']:
             trialsdf = bbone.load_trials_df(u, one=one)
-            if (trialsdf.index.size > 400) and \
+            if ((trialsdf.index.size > 400) and
                 ((trialsdf[(trialsdf.contrastLeft == 1) |
-                           (trialsdf.contrastRight == 1)].feedbackType == 1).mean() > 0.9):
+                           (trialsdf.contrastRight == 1)].feedbackType == 1).mean() > 0.9) and
+                ((trialsdf.probabilityLeft == 0.5).sum() == 90) and (trialsdf.probabilityLeft.values[0] == 0.5)):
                 session_id = i if not GENERATE_FROM_EPHYS else det['json']['SESSION_ORDER'][det['json']['SESSION_IDX']]
                 if FAKE_IMPOSTER_SESSION:
                     trialsdf = generate_pseudo_session(trialsdf)

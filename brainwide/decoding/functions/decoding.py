@@ -204,7 +204,7 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
                     if kwargs['use_imposter_session']:
                         pseudosess = dut.generate_imposter_session(kwargs['imposterdf'], eid, trialsdf)
                     else:
-                        pseudosess = generate_pseudo_session(trialsdf)
+                        pseudosess = generate_pseudo_session(trialsdf, generate_choices=False)
 
                     msub_pseudo_tvec = dut.compute_target(kwargs['target'], subject, subjeids, eid,
                                                           kwargs['modelfit_path'], modeltype=kwargs['model'],

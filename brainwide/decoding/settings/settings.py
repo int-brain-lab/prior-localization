@@ -28,7 +28,7 @@ else:
 SESS_CRITERION = 'aligned-behavior'  # aligned and behavior
 DATE = '2022-04-05'
 ALIGN_TIME = 'goCue_times'
-TARGET = 'signcont'  # 'signcont' or 'pLeft'
+TARGET = 'pLeft'  # 'signcont' or 'pLeft'
 CONTINUOUS_TARGET = False  # True  # is target continuous or not
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
 MODEL = dut.expSmoothing_prevAction  # expSmoothing_prevAction  #optimal_Bayesian or None # or dut.modeldispatcher.
@@ -56,7 +56,7 @@ NORMALIZE_INPUT = False  # take out mean of the neural activity per unit across 
 NORMALIZE_OUTPUT = False  # take out mean of output to predict
 if NORMALIZE_INPUT or NORMALIZE_OUTPUT:
     warnings.warn('This feature has not been tested')
-USE_IMPOSTER_SESSION = False  # if false, it uses pseudosessions
+USE_IMPOSTER_SESSION = True  # if false, it uses pseudosessions
 
 BALANCED_WEIGHT = True  # seems to work better with BALANCED_WEIGHT=False, but putting True is important
 USE_OPENTURNS = False  # uses openturns to perform kernel density estimation
@@ -67,7 +67,7 @@ COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times s
 ADD_TO_SAVING_PATH = 'imposterSessions_mergedProbes_wholeBrain_2'
 
 # WIDE FIELD IMAGING
-WIDE_FIELD_IMAGING = True
+WIDE_FIELD_IMAGING = False
 WFI_HEMISPHERES = ['left']  # 'left' and/or 'right'
 WFI_NB_FRAMES = -1  # signed number of frames from ALIGN_TIME. can not be zero
 
