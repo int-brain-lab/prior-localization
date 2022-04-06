@@ -29,6 +29,8 @@ SESS_CRITERION = 'aligned-behavior'  # aligned and behavior
 DATE = '2022-04-05'
 ALIGN_TIME = 'goCue_times'
 TARGET = 'pLeft'  # 'signcont' or 'pLeft'
+if TARGET not in ['pLeft', 'signcont']:
+    raise ValueError('TARGET can only be pLeft or signcont for the moment')
 CONTINUOUS_TARGET = True if TARGET == 'pLeft' else False  # True  # is target continuous or not
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
 MODEL = dut.expSmoothing_prevAction  # expSmoothing_prevAction  #optimal_Bayesian or None # or dut.modeldispatcher.
