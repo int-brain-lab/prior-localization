@@ -29,7 +29,7 @@ SESS_CRITERION = 'aligned-behavior'  # aligned and behavior
 DATE = '2022-04-05'
 ALIGN_TIME = 'goCue_times'
 TARGET = 'pLeft'  # 'signcont' or 'pLeft'
-CONTINUOUS_TARGET = False  # True  # is target continuous or not
+CONTINUOUS_TARGET = True if TARGET == 'pLeft' else False  # True  # is target continuous or not
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
 MODEL = dut.expSmoothing_prevAction  # expSmoothing_prevAction  #optimal_Bayesian or None # or dut.modeldispatcher.
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
@@ -127,5 +127,10 @@ fit_metadata = {
     'use_imposter_session': USE_IMPOSTER_SESSION,
     'continuous_target': CONTINUOUS_TARGET,
     'use_openturns': USE_OPENTURNS,
-    'bin_size_kde': BIN_SIZE_KDE
+    'bin_size_kde': BIN_SIZE_KDE,
+    'wide_field_imaging': WIDE_FIELD_IMAGING,
 }
+
+if WIDE_FIELD_IMAGING:
+    fit_metadata['wfi_hemispheres'] = WFI_HEMISPHERES
+    fit_metadata['wfi_nb_frames'] = WFI_HEMISPHERES
