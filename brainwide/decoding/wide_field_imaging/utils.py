@@ -20,14 +20,14 @@ def load_wfi_session(path_to_wfi, sessid):
         behavior[k]['session_id'] = k
         behavior[k]['session_to_decode'] = True if k == sessid else False
     sessiondf = pd.concat(behavior, axis=0).reset_index(drop=True)
-    sessiondf['subject'] = 'wfi_mouse%s' % path_to_wfi.split('-')[-1]
+    sessiondf['subject'] = 'wfi%i' % int(path_to_wfi.split('-')[-1])
     sessiondf = sessiondf[['choice', 'stimOn_times', 'feedbackType', 'feedback_times', 'contrastLeft', 'goCue_times',
                            'contrastRight', 'probabilityLeft', 'session_to_decode', 'subject', 'signedContrast',
                            'session_id', 'firstMovement_times']]
     sessiondf = sessiondf.assign(stim_side=(sessiondf.choice * (sessiondf.feedbackType == 1) -
                                             sessiondf.choice * (sessiondf.feedbackType == -1)))
-    sessiondf['eid'] = sessiondf['session_id'].apply(lambda x: ('wfi_mouse' + str(path_to_wfi.split('-')[-1])
-                                                                + '_sess' + str(x)))
+    sessiondf['eid'] = sessiondf['session_id'].apply(lambda x: ('wfi' + str(int(path_to_wfi.split('-')[-1]))
+                                                                + 's' + str(x)))
     downsampled = downsampled[sessid]
     frame_df = frame_df[sessid]
     wideFieldImaging_dict = {'activity': downsampled, 'timings': frame_df, 'regions': ds_atlas, 'atlas': atlas}

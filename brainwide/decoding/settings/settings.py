@@ -67,7 +67,7 @@ COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times s
 ADD_TO_SAVING_PATH = 'imposterSessions_mergedProbes_wholeBrain_2'
 
 # WIDE FIELD IMAGING
-WIDE_FIELD_IMAGING = False
+WIDE_FIELD_IMAGING = True
 WFI_HEMISPHERES = ['left']  # 'left' and/or 'right'
 WFI_NB_FRAMES = -1  # signed number of frames from ALIGN_TIME. can not be zero
 
