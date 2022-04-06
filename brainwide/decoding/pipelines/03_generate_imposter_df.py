@@ -6,7 +6,7 @@ from brainbox.task.closed_loop import generate_pseudo_session
 
 FAKE_IMPOSTER_SESSION = False  # only here for debugging
 GENERATE_FROM_EPHYS = False  # the number of ephys session template is too small
-DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding")
+DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/code/prior-localization/brainwide/decoding/")
 #DECODING_PATH = Path("/home/users/f/findling/scratch/decoding")
 
 one = ONE()
@@ -21,23 +21,24 @@ else:
 
 columns = ['probabilityLeft', 'contrastRight', 'feedbackType', 'choice', 'contrastLeft', 'eid', 'template_sess']
 
-one = ONE()
 all_trialsdf = []
 for i, u in enumerate(eids):
     try:
-        trialsdf = bbone.load_trials_df(u, one=one)
         det = one.get_details(u, full=True)
         # mice on the rig and more than 400 trials and better then 90% on highest contrasts trials (BWM criteria)
-        if ('ephys' in det['json']['PYBPOD_BOARD']) and (trialsdf.index.size > 400) and \
+        if 'ephys' in det['json']['PYBPOD_BOARD']:
+            trialsdf = bbone.load_trials_df(u, one=one)
+            if ((trialsdf.index.size > 400) and
                 ((trialsdf[(trialsdf.contrastLeft == 1) |
-                           (trialsdf.contrastRight == 1)].feedbackType == 1).mean() > 0.9):
-            session_id = i if not GENERATE_FROM_EPHYS else det['json']['SESSION_ORDER'][det['json']['SESSION_IDX']]
-            if FAKE_IMPOSTER_SESSION:
-                trialsdf = generate_pseudo_session(trialsdf)
-            trialsdf['eid'] = u
-            trialsdf['trial_id'] = trialsdf.index
-            trialsdf['template_sess'] = session_id
-            all_trialsdf.append(trialsdf)
+                           (trialsdf.contrastRight == 1)].feedbackType == 1).mean() > 0.9) and
+                ((trialsdf.probabilityLeft == 0.5).sum() == 90) and (trialsdf.probabilityLeft.values[0] == 0.5)):
+                session_id = i if not GENERATE_FROM_EPHYS else det['json']['SESSION_ORDER'][det['json']['SESSION_IDX']]
+                if FAKE_IMPOSTER_SESSION:
+                    trialsdf = generate_pseudo_session(trialsdf)
+                trialsdf['eid'] = u
+                trialsdf['trial_id'] = trialsdf.index
+                trialsdf['template_sess'] = session_id
+                all_trialsdf.append(trialsdf)
     except Exception as e:
         print(e)
 
