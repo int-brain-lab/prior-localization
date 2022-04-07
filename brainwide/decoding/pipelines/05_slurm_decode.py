@@ -31,7 +31,7 @@ else:
     imposterdf = None
 
 kwargs = {'imposterdf': imposterdf, 'nb_runs': N_RUNS, 'single_region': SINGLE_REGION, 'merged_probes': MERGED_PROBES,
-          'modelfit_path': DECODING_PATH.joinpath('results', 'behavioral'), 'continuous_target': CONTINUOUS_TARGET,
+          'modelfit_path': DECODING_PATH.joinpath('results', 'behavioral'), 'balanced_continuous_target': BALANCED_CONTINUOUS_TARGET,
           'output_path': DECODING_PATH.joinpath('results', 'neural'), 'one': None, 'decoding_path': DECODING_PATH,
           'estimator_kwargs': ESTIMATOR_KWARGS, 'hyperparam_grid': HPARAM_GRID,
           'save_binned': SAVE_BINNED, 'shuffle': SHUFFLE, 'balanced_weight': BALANCED_WEIGHT,

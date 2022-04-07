@@ -237,7 +237,7 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
                                                     use_openturns=kwargs['use_openturns'],
                                                     target_distribution=target_distribution,
                                                     bin_size_kde=kwargs['bin_size_kde'],
-                                                    continuous_target=kwargs['continuous_target'],
+                                                    balanced_continuous_target=kwargs['balanced_continuous_target'],
                                                     estimator_kwargs=kwargs['estimator_kwargs'],
                                                     hyperparam_grid=kwargs['hyperparam_grid'],
                                                     save_binned=kwargs['save_binned'], shuffle=kwargs['shuffle'],

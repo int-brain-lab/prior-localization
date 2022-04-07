@@ -327,7 +327,7 @@ def compute_target(target, subject, eids_train, eid_test, savepath,
 
 
 def regress_target(tvec, binned, estimatorObject, estimator_kwargs, use_openturns, target_distribution, bin_size_kde,
-                   continuous_target=True, hyperparam_grid=None, test_prop=0.2, nFolds=5, save_binned=False,
+                   balanced_continuous_target=True, hyperparam_grid=None, test_prop=0.2, nFolds=5, save_binned=False,
                    verbose=False, shuffle=True, outer_cv=True, balanced_weight=False,
                    normalize_input=False, normalize_output=False):
     """
@@ -425,7 +425,7 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs, use_openturn
                     if balanced_weight:
                         estimator.fit(X_train_inner, y_train_inner,
                                       sample_weight=balanced_weighting(vec=y_train_inner,
-                                                                       continuous=continuous_target,
+                                                                       continuous=balanced_continuous_target,
                                                                        use_openturns=use_openturns,
                                                                        bin_size_kde=bin_size_kde,
                                                                        target_distribution=target_distribution))
