@@ -85,6 +85,8 @@ def get_target_pLeft(nb_trials, nb_sessions, take_out_unbiased, bin_size_kde, **
         model = subjModel['modeltype'](subjModel['modelfit_path'].as_posix() + '/', subjModel['subjeids'],
                                        subjModel['subject'], actions=None, stimuli=None, stim_side=None)
         model.load_or_train(loadpath=str(fullpath))
+    else:
+        model = None
     contrast_set = np.array([0., 0.0625, 0.125, 0.25, 1])
     target_pLeft = []
     for _ in np.arange(nb_sessions):
@@ -470,7 +472,7 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs, use_openturn
 
             if balanced_weight:
                 clf.fit(X_train, y_train, sample_weight=balanced_weighting(vec=y_train,
-                                                                           continuous=continuous_target,
+                                                                           continuous=balanced_continuous_target,
                                                                            use_openturns=use_openturns,
                                                                            bin_size_kde=bin_size_kde,
                                                                            target_distribution=target_distribution))
