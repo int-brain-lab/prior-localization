@@ -76,7 +76,15 @@ def query_sessions(selection='all', one=None):
     return retdf
 
 
-def get_target_pLeft(nb_trials, nb_sessions, take_out_unbiased, bin_size_kde):
+def get_target_pLeft(nb_trials, nb_sessions, take_out_unbiased, bin_size_kde, **subjModel):
+    if len(subjModel.keys()) > 0:
+        istrained, fullpath = check_bhv_fit_exists(subjModel['subject'], subjModel['modeltype'],
+                                                   subjModel['subjeids'], subjModel['modelfit_path'].as_posix() + '/')
+        if not istrained:
+            raise ValueError('Something is wrong. The model should be trained by this line')
+        model = subjModel['modeltype'](subjModel['modelfit_path'].as_posix() + '/', subjModel['subjeids'],
+                                       subjModel['subject'], actions=None, stimuli=None, stim_side=None)
+        model.load_or_train(loadpath=str(fullpath))
     contrast_set = np.array([0., 0.0625, 0.125, 0.25, 1])
     target_pLeft = []
     for _ in np.arange(nb_sessions):
@@ -105,6 +113,24 @@ def get_target_pLeft(nb_trials, nb_sessions, take_out_unbiased, bin_size_kde):
     out = np.histogram(target_pLeft, bins=np.arange(0, 1, bin_size_kde) + bin_size_kde/2., density=True)
     return out, target_pLeft
 
+'''
+        eids = np.array(subjeids)
+        model = modeltype(savepath.as_posix() + '/', np.array(subjeids), subject, actions, stimuli, stim_side)
+        model.load_or_train(remove_old=remove_old)
+    elif (target != 'signcont') and (modeltype is not None):
+    
+    istrained, fullpath = check_bhv_fit_exists(subject, modeltype, eids_train, savepath)
+    model = modeltype(savepath.as_posix() + '/', eids_train, subject, actions=None, stimuli=None, stim_side=None)
+    model.load_or_train(loadpath=str(fullpath))
+
+    # compute signal
+    stim_side, stimuli, actions, _ = mut.format_data(beh_data_test)
+    stimuli, actions, stim_side = mut.format_input([stimuli], [actions], [stim_side])
+    signal = model.compute_signal(signal='prior' if target == 'pLeft' else target,
+                                  act=actions,
+                                  stim=stimuli,
+                                  side=stim_side)['prior' if target == 'pLeft' else target]
+'''
 
 def check_bhv_fit_exists(subject, model, eids, resultpath):
     '''
@@ -113,14 +139,12 @@ def check_bhv_fit_exists(subject, model, eids, resultpath):
     check if the behavioral fits exists
     return Bool and filename
     '''
-    trainmeth = 'MCMC'  # This needs to be un-hard-coded if charles changes to diff. methods
-    trunc_eids = [eid.split('-')[0] for eid in eids]
-    str_sessionuuids = '_'.join(f'sess{k + 1}_{eid}' for k, eid in enumerate(trunc_eids))
     if model not in modeldispatcher.keys():
         raise KeyError('Model is not an instance of a model from behavior_models')
+    path_results_mouse = 'model_%s_' % modeldispatcher[model]
+    trunc_eids = [eid.split('-')[0] for eid in eids]
+    filen = mut.build_path(path_results_mouse, trunc_eids)
     subjmodpath = Path(resultpath).joinpath(Path(subject))
-    modstr = modeldispatcher[model]
-    filen = f'model_{modstr}_train_{trainmeth}_train_' + str_sessionuuids + '.pkl'
     fullpath = subjmodpath.joinpath(filen)
     return os.path.exists(fullpath), fullpath
 
@@ -729,10 +753,8 @@ def return_path(eid, sessdf, pseudo_ids=[-1], **kwargs):
 
 possible_targets = ['prederr', 'signcont', 'pLeft']
 
-modeldispatcher = {expSmoothing_prevAction: 'expSmoothingPrevActions',
-                   expSmoothing_stimside: 'expSmoothingStimSides',
-                   biased_ApproxBayesian: 'biased_Approxbayesian',
-                   biased_Bayesian: 'biased_Bayesian',
-                   optimal_Bayesian: 'optimal_bayesian',
+modeldispatcher = {expSmoothing_prevAction: expSmoothing_prevAction.name,
+                   expSmoothing_stimside: expSmoothing_stimside.name,
+                   optimal_Bayesian: 'optBay',
                    None: 'oracle'
                    }

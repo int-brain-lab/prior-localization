@@ -31,7 +31,7 @@ ALIGN_TIME = 'goCue_times'
 TARGET = 'pLeft'  # 'signcont' or 'pLeft'
 if TARGET not in ['pLeft', 'signcont']:
     raise ValueError('TARGET can only be pLeft or signcont for the moment')
-CONTINUOUS_TARGET = True if TARGET == 'pLeft' else False  # True  # is target continuous or not
+BALANCED_CONTINUOUS_TARGET = True if TARGET == 'pLeft' else False  # True  # is target continuous or not FOR BALANCED WEIGHTING
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
 MODEL = dut.expSmoothing_prevAction  # expSmoothing_prevAction  #optimal_Bayesian or None # or dut.modeldispatcher.
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
@@ -58,7 +58,7 @@ NORMALIZE_INPUT = False  # take out mean of the neural activity per unit across 
 NORMALIZE_OUTPUT = False  # take out mean of output to predict
 if NORMALIZE_INPUT or NORMALIZE_OUTPUT:
     warnings.warn('This feature has not been tested')
-USE_IMPOSTER_SESSION = True  # if false, it uses pseudosessions
+USE_IMPOSTER_SESSION = False  # if false, it uses pseudosessions
 
 BALANCED_WEIGHT = True  # seems to work better with BALANCED_WEIGHT=False, but putting True is important
 USE_OPENTURNS = False  # uses openturns to perform kernel density estimation
@@ -69,7 +69,7 @@ COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times s
 ADD_TO_SAVING_PATH = 'imposterSessions_mergedProbes_wholeBrain_2'
 
 # WIDE FIELD IMAGING
-WIDE_FIELD_IMAGING = True
+WIDE_FIELD_IMAGING = False
 WFI_HEMISPHERES = ['left']  # 'left' and/or 'right'
 WFI_NB_FRAMES = -1  # signed number of frames from ALIGN_TIME. can not be zero
 
@@ -127,7 +127,7 @@ fit_metadata = {
     'normalize_input': NORMALIZE_INPUT,
     'single_region': SINGLE_REGION,
     'use_imposter_session': USE_IMPOSTER_SESSION,
-    'continuous_target': CONTINUOUS_TARGET,
+    'balanced_continuous_target': BALANCED_CONTINUOUS_TARGET,
     'use_openturns': USE_OPENTURNS,
     'bin_size_kde': BIN_SIZE_KDE,
     'wide_field_imaging': WIDE_FIELD_IMAGING,
