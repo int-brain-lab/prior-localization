@@ -22,15 +22,15 @@ FIGURE_PATH = '/home/bensonb/IntBrainLab/prior-localization/decoding_figures/'
 FIGURE_SUFFIX = '.png'
 
 #%%
-SPECIFIC_DECODING = 'decode_pLeft_task_Logistic_accuracy_control_100_pseudos_align_goCue_times_timeWin_-0_6_-0_2_alleidProb_incTol'
-VARIABLE_FOLDER = 'block/'
+SPECIFIC_DECODING = 'decode_feedback_task_Logistic_accuracy_control_100_impostor-session_align_feedback_times_timeWin_0_0_2_testnulls2'
+VARIABLE_FOLDER = 'reward/'
 if not os.path.isdir(os.path.join(FIGURE_PATH,
                                   VARIABLE_FOLDER,
                                   SPECIFIC_DECODING)):
     os.mkdir(os.path.join(FIGURE_PATH,
                           VARIABLE_FOLDER,
                           SPECIFIC_DECODING))
-RESULTS_DATE = '2022-03-17'
+RESULTS_DATE = '2022-03-31'
 FILE_PATH = os.path.join(RESULTS_PATH,SPECIFIC_DECODING,('_'.join([RESULTS_DATE, 'results'])) + '.parquet')
 
 results = pd.read_parquet(FILE_PATH).reset_index()
@@ -55,9 +55,8 @@ all_masks = data['mask']
 # plt.title('r2s')
 plt.hist(results.loc[:,'Score_test'], bins=30, 
          histtype='step', density=True, lw=5)
-
-plt.hist(np.concatenate(all_null_scores), bins=30, 
-         histtype='step', density=True, lw=5)#results.loc[:,'Score_test_pseudo0']
+plt.hist(results.loc[:,'Score_test_pseudo0'], bins=30, 
+         histtype='step', density=True, lw=5)
 plt.xlabel('score')
 plt.ylabel('density')
 plt.legend(['test','null'])
@@ -102,7 +101,7 @@ plt.show()
 #     all_targets[(all_targets >= edge[i])&(all_targets < edge[i+1])] = .5*(edge[i]+edge[i+1])
 #     best_targets[(best_targets >= edge[i])&(best_targets < edge[i+1])] = .5*(edge[i]+edge[i+1])
 assert np.max(all_scores)-np.min(all_scores) < 999
-index_max = np.argmax(all_scores - (999*(all_regions!='CP')))
+index_max = np.argmax(all_scores - (999*(all_regions!='PRNr')))
 best_targets = all_targets[index_max]
 best_score = all_scores[index_max]
 best_preds = all_preds[index_max]
@@ -152,7 +151,7 @@ brain_results(acronyms,
                             ('_'.join([RESULTS_DATE, 'brains', plot_name])) +
                             FIGURE_SUFFIX), 
                 FILE_PATH = FIGURE_PATH,
-                cmap='Purples',
+                cmap='Greens',
                 YMIN=0.5,
                 value_title='       Accuracy')#: %.3f'%(len(np.unique(np.random.choice(all_regions,size=int(len(all_regions)*0.05),replace=False)))/len(np.unique(all_regions))))
 bar_results(acronyms,
@@ -185,7 +184,7 @@ brain_results(acronyms,
                             ('_'.join([RESULTS_DATE, 'brains', plot_name])) +
                             FIGURE_SUFFIX), 
                 FILE_PATH = FIGURE_PATH,
-                cmap='Purples',
+                cmap='Greens',
                 value_title='       Accuracy')
 bar_results_basic(acronyms,
             values,
@@ -225,7 +224,7 @@ brain_results(acronyms,
                             ('_'.join([RESULTS_DATE, 'brains', plot_name])) +
                             FIGURE_SUFFIX), 
                 FILE_PATH = FIGURE_PATH,
-                cmap='Purples',
+                cmap='Greens',
                 value_title='chance of \nsignificant session \n(95\% ci)')
 bar_results_basic(acronyms,
             values,
@@ -247,6 +246,14 @@ reg_values = np.array([get_region_value(reg) for reg in regions])
 reg_errs = np.array([get_region_err(reg) for reg in regions])
 acronyms, values, errs = regions, reg_values, reg_errs
 
+# brain_results(acronyms, 
+#                 values, 
+#                 os.path.join(VARIABLE_FOLDER,
+#                               SPECIFIC_DECODING,
+#                             ('_'.join([RESULTS_DATE, 'brains', plot_name])) +
+#                             FIGURE_SUFFIX), 
+#                 FILE_PATH = FIGURE_PATH,
+#                 cmap='Purples')
 bar_results_basic(acronyms,
             values,
             errs,
@@ -349,16 +356,17 @@ plt.show()
 
 best_trials = np.arange(len(best_masks))[[m=='1' for m in best_masks]]
 assert len(best_trials) == len(best_targets)
-plt.figure(figsize=(10,2.5))
+plt.figure(figsize=(10,3))
 plt.title(best_eid+' ['+best_probe+'] ['+best_region+']'+'\n accuracy$=$%.4f'%best_score)
-plt.plot(best_trials, best_targets, '-', c='k')
-plt.plot(best_trials, best_probs, '-', c='indigo')
+plt.plot(best_trials[best_targets>0.5],best_probs[best_targets>0.5],'C0o',lw=2,ms=4)
+plt.plot(best_trials[best_targets<0.5],best_probs[best_targets<0.5],'C1o',lw=2,ms=4)
 plt.yticks([0,.5,1])
 #plt.ylim(0,1)
 #plt.xlim(0,len(best_masks))
-plt.legend(['True','Predicted Probability'],frameon=True,loc=(-0.15,1.1))
+plt.legend(['Probability given reward $=1$', 
+            'Probability given reward $=0$'],frameon=True,loc=(-0.15,1.1))
 plt.xlabel('Trials')
-plt.ylabel('Block')
+plt.ylabel('Reward')
 plt.tight_layout()
 plt.savefig(os.path.join(FIGURE_PATH,
                          VARIABLE_FOLDER,

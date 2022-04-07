@@ -22,15 +22,15 @@ FIGURE_PATH = '/home/bensonb/IntBrainLab/prior-localization/decoding_figures/'
 FIGURE_SUFFIX = '.png'
 
 #%%
-SPECIFIC_DECODING = 'decode_pLeft_task_Logistic_accuracy_control_100_pseudos_align_goCue_times_timeWin_-0_6_-0_2_alleidProb_incTol'
-VARIABLE_FOLDER = 'block/'
+SPECIFIC_DECODING = 'decode_choice_task_Logistic_accuracy_control_100_impostor-session_align_firstMovement_times_timeWin_-0_1_0_0_testnulls1'
+VARIABLE_FOLDER = 'choice/'
 if not os.path.isdir(os.path.join(FIGURE_PATH,
                                   VARIABLE_FOLDER,
                                   SPECIFIC_DECODING)):
     os.mkdir(os.path.join(FIGURE_PATH,
                           VARIABLE_FOLDER,
                           SPECIFIC_DECODING))
-RESULTS_DATE = '2022-03-17'
+RESULTS_DATE = '2022-03-29'
 FILE_PATH = os.path.join(RESULTS_PATH,SPECIFIC_DECODING,('_'.join([RESULTS_DATE, 'results'])) + '.parquet')
 
 results = pd.read_parquet(FILE_PATH).reset_index()
@@ -55,9 +55,8 @@ all_masks = data['mask']
 # plt.title('r2s')
 plt.hist(results.loc[:,'Score_test'], bins=30, 
          histtype='step', density=True, lw=5)
-
-plt.hist(np.concatenate(all_null_scores), bins=30, 
-         histtype='step', density=True, lw=5)#results.loc[:,'Score_test_pseudo0']
+plt.hist(results.loc[:,'Score_test_pseudo0'], bins=30, 
+         histtype='step', density=True, lw=5)
 plt.xlabel('score')
 plt.ylabel('density')
 plt.legend(['test','null'])
@@ -102,7 +101,7 @@ plt.show()
 #     all_targets[(all_targets >= edge[i])&(all_targets < edge[i+1])] = .5*(edge[i]+edge[i+1])
 #     best_targets[(best_targets >= edge[i])&(best_targets < edge[i+1])] = .5*(edge[i]+edge[i+1])
 assert np.max(all_scores)-np.min(all_scores) < 999
-index_max = np.argmax(all_scores - (999*(all_regions!='CP')))
+index_max = np.argmax(all_scores - (999*(all_regions!='SSp-ul')))
 best_targets = all_targets[index_max]
 best_score = all_scores[index_max]
 best_preds = all_preds[index_max]
@@ -131,7 +130,6 @@ for i in range(len(edge)-1):
         best_probs_discrete[(best_probs_continuous >= edge[i])&
                             (best_probs_continuous < edge[i+1])] = .5*(edge[i]+edge[i+1])
 
-
 plot_name = 'medianaccuracy'
 reg_nulls = np.array([np.median(all_null_scores[all_regions==reg],axis=0) for reg in np.unique(all_regions)])
 reg_values = np.array([all_scores[all_regions==reg] for reg in np.unique(all_regions)])
@@ -152,7 +150,7 @@ brain_results(acronyms,
                             ('_'.join([RESULTS_DATE, 'brains', plot_name])) +
                             FIGURE_SUFFIX), 
                 FILE_PATH = FIGURE_PATH,
-                cmap='Purples',
+                cmap='Oranges',
                 YMIN=0.5,
                 value_title='       Accuracy')#: %.3f'%(len(np.unique(np.random.choice(all_regions,size=int(len(all_regions)*0.05),replace=False)))/len(np.unique(all_regions))))
 bar_results(acronyms,
@@ -185,7 +183,7 @@ brain_results(acronyms,
                             ('_'.join([RESULTS_DATE, 'brains', plot_name])) +
                             FIGURE_SUFFIX), 
                 FILE_PATH = FIGURE_PATH,
-                cmap='Purples',
+                cmap='Oranges',
                 value_title='       Accuracy')
 bar_results_basic(acronyms,
             values,
@@ -225,7 +223,7 @@ brain_results(acronyms,
                             ('_'.join([RESULTS_DATE, 'brains', plot_name])) +
                             FIGURE_SUFFIX), 
                 FILE_PATH = FIGURE_PATH,
-                cmap='Purples',
+                cmap='Oranges',
                 value_title='chance of \nsignificant session \n(95\% ci)')
 bar_results_basic(acronyms,
             values,
@@ -247,6 +245,14 @@ reg_values = np.array([get_region_value(reg) for reg in regions])
 reg_errs = np.array([get_region_err(reg) for reg in regions])
 acronyms, values, errs = regions, reg_values, reg_errs
 
+# brain_results(acronyms, 
+#                 values, 
+#                 os.path.join(VARIABLE_FOLDER,
+#                               SPECIFIC_DECODING,
+#                             ('_'.join([RESULTS_DATE, 'brains', plot_name])) +
+#                             FIGURE_SUFFIX), 
+#                 FILE_PATH = FIGURE_PATH,
+#                 cmap='Purples')
 bar_results_basic(acronyms,
             values,
             errs,
@@ -349,16 +355,17 @@ plt.show()
 
 best_trials = np.arange(len(best_masks))[[m=='1' for m in best_masks]]
 assert len(best_trials) == len(best_targets)
-plt.figure(figsize=(10,2.5))
+plt.figure(figsize=(10,3))
 plt.title(best_eid+' ['+best_probe+'] ['+best_region+']'+'\n accuracy$=$%.4f'%best_score)
-plt.plot(best_trials, best_targets, '-', c='k')
-plt.plot(best_trials, best_probs, '-', c='indigo')
+plt.plot(best_trials[best_targets>0.5],best_probs[best_targets>0.5],'C0o',lw=2,ms=4)
+plt.plot(best_trials[best_targets<0.5],best_probs[best_targets<0.5],'C1o',lw=2,ms=4)
 plt.yticks([0,.5,1])
 #plt.ylim(0,1)
 #plt.xlim(0,len(best_masks))
-plt.legend(['True','Predicted Probability'],frameon=True,loc=(-0.15,1.1))
+plt.legend(['Probability given choice $=1$', 
+            'Probability given choice $=0$'],frameon=True,loc=(-0.15,1.1))
 plt.xlabel('Trials')
-plt.ylabel('Block')
+plt.ylabel('Choice')
 plt.tight_layout()
 plt.savefig(os.path.join(FIGURE_PATH,
                          VARIABLE_FOLDER,
@@ -367,6 +374,7 @@ plt.savefig(os.path.join(FIGURE_PATH,
             FIGURE_SUFFIX), 
             dpi=600)
 plt.show()
+
 
 plt.title(best_eid+' ['+best_probe+'] ['+best_region+']')
 vals, bins, _ = plt.hist(all_actn, density=True)
