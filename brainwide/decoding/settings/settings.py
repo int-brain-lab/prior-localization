@@ -29,7 +29,9 @@ SESS_CRITERION = 'aligned-behavior'  # aligned and behavior
 DATE = '2022-04-08'
 ALIGN_TIME = 'goCue_times'
 TARGET = 'pLeft'  # 'signcont' or 'pLeft'
-CONTINUOUS_TARGET = False  # True  # is target continuous or not
+if TARGET not in ['pLeft', 'signcont']:
+    raise ValueError('TARGET can only be pLeft or signcont for the moment')
+BALANCED_CONTINUOUS_TARGET = True if TARGET == 'pLeft' else False  # True  # is target continuous or not FOR BALANCED WEIGHTING
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
 MODEL = dut.expSmoothing_prevAction  # expSmoothing_prevAction  #optimal_Bayesian or None # or dut.modeldispatcher.
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
@@ -56,7 +58,7 @@ NORMALIZE_INPUT = False  # take out mean of the neural activity per unit across 
 NORMALIZE_OUTPUT = False  # take out mean of output to predict
 if NORMALIZE_INPUT or NORMALIZE_OUTPUT:
     warnings.warn('This feature has not been tested')
-USE_IMPOSTER_SESSION = True  # if false, it uses pseudosessions
+USE_IMPOSTER_SESSION = False  # if false, it uses pseudosessions
 
 BALANCED_WEIGHT = True # until implemented the importance sampling   # seems to work better with BALANCED_WEIGHT=False, but putting True is important
 USE_OPENTURNS = False  # uses openturns to perform kernel density estimation
@@ -125,7 +127,12 @@ fit_metadata = {
     'normalize_input': NORMALIZE_INPUT,
     'single_region': SINGLE_REGION,
     'use_imposter_session': USE_IMPOSTER_SESSION,
-    'continuous_target': CONTINUOUS_TARGET,
+    'balanced_continuous_target': BALANCED_CONTINUOUS_TARGET,
     'use_openturns': USE_OPENTURNS,
-    'bin_size_kde': BIN_SIZE_KDE
+    'bin_size_kde': BIN_SIZE_KDE,
+    'wide_field_imaging': WIDE_FIELD_IMAGING,
 }
+
+if WIDE_FIELD_IMAGING:
+    fit_metadata['wfi_hemispheres'] = WFI_HEMISPHERES
+    fit_metadata['wfi_nb_frames'] = WFI_HEMISPHERES

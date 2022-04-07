@@ -49,7 +49,6 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
         behavior_data = mut.load_session(eid, one=one)
         behavior_data_train = None
     else:
-        print('todo')
         subject = sessiondf.subject.unique()[0]
         subjeids = sessiondf.eid.unique()
         behavior_data_train = sessiondf
@@ -208,7 +207,8 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
 
                     msub_pseudo_tvec = dut.compute_target(kwargs['target'], subject, subjeids, eid,
                                                           kwargs['modelfit_path'], modeltype=kwargs['model'],
-                                                          beh_data_test=pseudosess, one=one)[mask]
+                                                          beh_data_test=pseudosess, one=one,
+                                                          behavior_data_train=behavior_data_train)[mask]
 
                 if kwargs['compute_neurometric']:  # compute prior for neurometric curve
                     trialsdf_neurometric = nb_trialsdf.reset_index() if (pseudo_id == -1) else \
@@ -237,7 +237,7 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
                                                     use_openturns=kwargs['use_openturns'],
                                                     target_distribution=target_distribution,
                                                     bin_size_kde=kwargs['bin_size_kde'],
-                                                    continuous_target=kwargs['continuous_target'],
+                                                    balanced_continuous_target=kwargs['balanced_continuous_target'],
                                                     estimator_kwargs=kwargs['estimator_kwargs'],
                                                     hyperparam_grid=kwargs['hyperparam_grid'],
                                                     save_binned=kwargs['save_binned'], shuffle=kwargs['shuffle'],
