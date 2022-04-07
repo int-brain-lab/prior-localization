@@ -103,6 +103,7 @@ plt.show()
 assert np.max(all_scores)-np.min(all_scores) < 999
 index_max = np.argmax(all_scores)
 best_targets = all_targets[index_max]
+best_score = all_scores[index_max]
 best_preds = all_preds[index_max]
 best_block_pLeft = all_block_pLeft[index_max]
 best_actn = all_actn[index_max]
@@ -112,6 +113,7 @@ best_region = all_regions[index_max]
 best_masks = all_masks[index_max]
 index_max_orb = np.argmax(all_scores - (999*(all_regions!='ZI')))
 best_targets_orb = all_targets[index_max_orb]
+best_score_orb = all_scores[index_max_orb]
 best_preds_orb = all_preds[index_max_orb]
 best_block_pLeft_orb = all_block_pLeft[index_max_orb]
 best_actn_orb = all_actn[index_max_orb]
@@ -475,15 +477,14 @@ plt.show()
 # plt.show()
 
 best_trials = np.arange(len(best_masks))[[m=='1' for m in best_masks]]
+assert len(best_trials) == len(best_targets)
 plt.figure(figsize=(10,3))
-plt.title(best_eid+' ['+best_probe+'] ['+best_region+']')
-plt.plot(best_trials,best_targets,'k')
-plt.plot(best_trials[best_targets>0],best_preds[best_targets>0],'C0',lw=2)
-plt.plot(best_trials[best_targets<0],best_preds[best_targets<0],'C1',lw=2)
+plt.title(best_eid+' ['+best_probe+'] ['+best_region+']'+'\n $r^2=$%.4f'%best_score)
+plt.plot(best_trials[best_targets>0],best_preds[best_targets>0],'C0o',lw=2,ms=4)
+plt.plot(best_trials[best_targets<0],best_preds[best_targets<0],'C1o',lw=2,ms=4)
 plt.yticks([-1,0,1])
 plt.ylim(-1,1)
-plt.legend(['True',
-            'Prediction given stimulus $> 0$', 
+plt.legend(['Prediction given stimulus $> 0$', 
             'Prediction given stimulus $< 0$'],frameon=True,loc=(-0.15,1.1))
 plt.xlabel('Trials')
 plt.ylabel('Stimulus')
@@ -499,14 +500,12 @@ plt.show()
 
 best_trials_orb = np.arange(len(best_masks_orb))[[m=='1' for m in best_masks_orb]]
 plt.figure(figsize=(10,3))
-plt.title(best_eid_orb+' ['+best_probe_orb+'] ['+best_region_orb+']')
-plt.plot(best_trials_orb, best_targets_orb,'k')
-plt.plot(best_trials_orb[best_targets_orb>0],best_preds_orb[best_targets_orb>0],'C0',lw=2)
-plt.plot(best_trials_orb[best_targets_orb<0],best_preds_orb[best_targets_orb<0],'C1',lw=2)
+plt.title(best_eid_orb+' ['+best_probe_orb+'] ['+best_region_orb+']'+'\n $r^2=$%.4f'%best_score_orb)
+plt.plot(best_trials_orb[best_targets_orb>0],best_preds_orb[best_targets_orb>0],'C0o',lw=2,ms=4)
+plt.plot(best_trials_orb[best_targets_orb<0],best_preds_orb[best_targets_orb<0],'C1o',lw=2,ms=4)
 plt.yticks([-1,0,1])
 plt.ylim(-1,1)
-plt.legend(['True',
-            'Prediction given stimulus $> 0$', 
+plt.legend(['Prediction given stimulus $> 0$', 
             'Prediction given stimulus $< 0$'],frameon=True,loc=(-0.15,1.1))
 plt.xlabel('Trials')
 plt.ylabel('Stimulus')

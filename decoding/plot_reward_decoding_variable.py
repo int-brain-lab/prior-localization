@@ -103,6 +103,7 @@ plt.show()
 assert np.max(all_scores)-np.min(all_scores) < 999
 index_max = np.argmax(all_scores - (999*(all_regions!='PRNr')))
 best_targets = all_targets[index_max]
+best_score = all_scores[index_max]
 best_preds = all_preds[index_max]
 best_probs = all_probs[index_max]
 best_block_pLeft = all_block_pLeft[index_max]
@@ -356,15 +357,13 @@ plt.show()
 best_trials = np.arange(len(best_masks))[[m=='1' for m in best_masks]]
 assert len(best_trials) == len(best_targets)
 plt.figure(figsize=(10,3))
-plt.title(best_eid+' ['+best_probe+'] ['+best_region+']')
-plt.plot(best_trials, best_targets, '-', c='k')
-plt.plot(best_trials[best_targets>0.5],best_probs[best_targets>0.5],'C0',lw=2)
-plt.plot(best_trials[best_targets<0.5],best_probs[best_targets<0.5],'C1',lw=2)
+plt.title(best_eid+' ['+best_probe+'] ['+best_region+']'+'\n accuracy$=$%.4f'%best_score)
+plt.plot(best_trials[best_targets>0.5],best_probs[best_targets>0.5],'C0o',lw=2,ms=4)
+plt.plot(best_trials[best_targets<0.5],best_probs[best_targets<0.5],'C1o',lw=2,ms=4)
 plt.yticks([0,.5,1])
 #plt.ylim(0,1)
 #plt.xlim(0,len(best_masks))
-plt.legend(['True',
-            'Probability given reward $=1$', 
+plt.legend(['Probability given reward $=1$', 
             'Probability given reward $=0$'],frameon=True,loc=(-0.15,1.1))
 plt.xlabel('Trials')
 plt.ylabel('Reward')

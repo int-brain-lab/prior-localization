@@ -104,6 +104,7 @@ plt.show()
 assert np.max(all_scores)-np.min(all_scores) < 999
 index_max = np.argmax(all_scores - (999*(all_regions!='CP')))
 best_targets = all_targets[index_max]
+best_score = all_scores[index_max]
 best_preds = all_preds[index_max]
 best_probs = all_probs[index_max]
 best_block_pLeft = all_block_pLeft[index_max]
@@ -349,7 +350,7 @@ plt.show()
 best_trials = np.arange(len(best_masks))[[m=='1' for m in best_masks]]
 assert len(best_trials) == len(best_targets)
 plt.figure(figsize=(10,2.5))
-plt.title(best_eid+' ['+best_probe+'] ['+best_region+']')
+plt.title(best_eid+' ['+best_probe+'] ['+best_region+']'+'\n accuracy$=$%.4f'%best_score)
 plt.plot(best_trials, best_targets, '-', c='k')
 plt.plot(best_trials, best_probs, '-', c='indigo')
 plt.yticks([0,.5,1])
