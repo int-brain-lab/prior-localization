@@ -3,7 +3,7 @@
 #SBATCH --output=logs/slurm/decoding.%A.%a.out
 #SBATCH --error=logs/slurm/decoding.%A.%a.err
 #SBATCH --partition=shared-cpu
-#SBATCH --array=1-6300:1
+#SBATCH --array=1-200:1
 #SBATCH --mem-per-cpu=12000
 #SBATCH --time=12:00:00
 
