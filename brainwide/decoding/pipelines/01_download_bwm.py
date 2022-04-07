@@ -4,6 +4,13 @@ We compute clusters locations and metrics within the clusters objects and save i
 The output is a pandas dataframe of insertions, containing eids, pids, subjects, and the location of
 the cached datasets on disk for future loading
 """
+import sys
+sys.path.insert(0, "/home/users/bensonb/international-brain-lab/prior-localization/brainwide/decoding")
+sys.path.insert(0, "/home/users/bensonb/international-brain-lab/behavior_models")
+#print(sys.path)
+#sys.path.insert(0, "/home/users/bensonb/international-brain-lab/prior-localization/brainwide/decoding/functions")
+#sys.path.insert(0, "/home/users/bensonb/international-brain-lab/behavior_models/")
+
 from pathlib import Path
 from one.api import ONE
 from ibllib.atlas import AllenAtlas
@@ -13,7 +20,8 @@ from functions import utils as dut
 from settings.settings import SESS_CRITERION
 
 #DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding")
-DECODING_PATH = Path("/home/users/f/findling/scratch")
+#DECODING_PATH = Path("/home/users/f/findling/scratch")
+DECODING_PATH = Path("/home/groups/sganguli/bensonb/international-brain-lab")
 one = ONE()
 ba = AllenAtlas()
 
