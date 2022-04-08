@@ -76,7 +76,7 @@ def query_sessions(selection='all', one=None):
     return retdf
 
 
-def get_target_pLeft(nb_trials, nb_sessions, take_out_unbiased, bin_size_kde, subjModel=None):
+def get_target_pLeft(nb_trials, nb_sessions, take_out_unbiased, bin_size_kde, subjModel=None, antithetic=True):
     # if subjModel is empty, compute the optimal Bayesian prior
     if subjModel is not None:
         istrained, fullpath = check_bhv_fit_exists(subjModel['subject'], subjModel['modeltype'],
@@ -123,8 +123,10 @@ def get_target_pLeft(nb_trials, nb_sessions, take_out_unbiased, bin_size_kde, su
         else:
             target_pLeft.append(msub_pseudo_tvec)
     target_pLeft = np.concatenate(target_pLeft)
-    target_pLeft = np.concatenate([target_pLeft, 1 - target_pLeft])
-    out = np.histogram(target_pLeft, bins=np.arange(0, 1, bin_size_kde) + bin_size_kde/2., density=True)
+    if antithetic:
+        target_pLeft = np.concatenate([target_pLeft, 1 - target_pLeft])
+    out = np.histogram(target_pLeft, bins=(np.arange(-bin_size_kde/2., 1 + bin_size_kde/2., bin_size_kde) +
+                                           bin_size_kde/2.), density=True)
     return out, target_pLeft
 
 '''
@@ -580,7 +582,7 @@ def balanced_weighting(vec, continuous, use_openturns, bin_size_kde, target_dist
             proposal_weights = np.array(distribution.computePDF(sample)).squeeze()
             balanced_weight = np.ones(vec.size) / proposal_weights
         else:
-            emp_distribution = np.histogram(vec, bins=np.arange(0, 1, bin_size_kde) + bin_size_kde/2, density=True)
+            emp_distribution = np.histogram(vec, bins=target_distribution[-1], density=True)
             balanced_weight = pdf_from_histogram(vec, target_distribution)/pdf_from_histogram(vec, emp_distribution)
         #  plt.hist(y_train_inner[:, None], density=True)
         #  plt.plot(sample, proposal_weights, '+')

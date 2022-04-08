@@ -72,7 +72,6 @@ else:
     pseudo_ids = np.arange(job_id * N_PSEUDO_PER_JOB, (job_id + 1) * N_PSEUDO_PER_JOB) + 1
     if 1 in pseudo_ids:
         pseudo_ids = np.concatenate((-np.ones(1), pseudo_ids)).astype('int64')
-    print("oi")
     fit_eid(eid=eid, bwmdf=bwmdf, pseudo_ids=pseudo_ids,
             sessiondf=sessiondf, wideFieldImaging_dict=wideFieldImaging_dict, **kwargs)
 
