@@ -76,8 +76,9 @@ def query_sessions(selection='all', one=None):
     return retdf
 
 
-def get_target_pLeft(nb_trials, nb_sessions, take_out_unbiased, bin_size_kde, **subjModel):
-    if len(subjModel.keys()) > 0:
+def get_target_pLeft(nb_trials, nb_sessions, take_out_unbiased, bin_size_kde, subjModel=None, antithetic=True):
+    # if subjModel is empty, compute the optimal Bayesian prior
+    if subjModel is not None:
         istrained, fullpath = check_bhv_fit_exists(subjModel['subject'], subjModel['modeltype'],
                                                    subjModel['subjeids'], subjModel['modelfit_path'].as_posix() + '/')
         if not istrained:
@@ -85,48 +86,53 @@ def get_target_pLeft(nb_trials, nb_sessions, take_out_unbiased, bin_size_kde, **
         model = subjModel['modeltype'](subjModel['modelfit_path'].as_posix() + '/', subjModel['subjeids'],
                                        subjModel['subject'], actions=None, stimuli=None, stim_side=None)
         model.load_or_train(loadpath=str(fullpath))
+    else:
+        model = None
     contrast_set = np.array([0., 0.0625, 0.125, 0.25, 1])
     target_pLeft = []
     for _ in np.arange(nb_sessions):
-        pseudo_trials = pd.DataFrame()
-        pseudo_trials['probabilityLeft'] = generate_pseudo_blocks(nb_trials)
-        for i in range(pseudo_trials.shape[0]):
-            position = _draw_position([-1, 1], pseudo_trials['probabilityLeft'][i])
-            contrast = _draw_contrast(contrast_set, 'uniform')
-            if position == -1:
-                pseudo_trials.loc[i, 'contrastLeft'] = contrast
-            elif position == 1:
-                pseudo_trials.loc[i, 'contrastRight'] = contrast
-            pseudo_trials.loc[i, 'stim_side'] = position
-        pseudo_trials['signed_contrast'] = pseudo_trials['contrastRight']
-        pseudo_trials.loc[pseudo_trials['signed_contrast'].isnull(),
-                          'signed_contrast'] = -pseudo_trials['contrastLeft']
-        pseudo_trials['choice'] = 1  # choice padding
+        if model is None or not subjModel['use_imposter_session']:
+            pseudo_trials = pd.DataFrame()
+            pseudo_trials['probabilityLeft'] = generate_pseudo_blocks(nb_trials)
+            for i in range(pseudo_trials.shape[0]):
+                position = _draw_position([-1, 1], pseudo_trials['probabilityLeft'][i])
+                contrast = _draw_contrast(contrast_set, 'uniform')
+                if position == -1:
+                    pseudo_trials.loc[i, 'contrastLeft'] = contrast
+                elif position == 1:
+                    pseudo_trials.loc[i, 'contrastRight'] = contrast
+                pseudo_trials.loc[i, 'stim_side'] = position
+            pseudo_trials['signed_contrast'] = pseudo_trials['contrastRight']
+            pseudo_trials.loc[pseudo_trials['signed_contrast'].isnull(),
+                              'signed_contrast'] = -pseudo_trials['contrastLeft']
+            pseudo_trials['choice'] = np.NaN  # choice padding
+        else:
+            pseudo_trials = generate_imposter_session(subjModel['imposterdf'], subjModel['eid'],
+                                                      nb_trials, nbSampledSess=10)
         side, stim, act, _ = mut.format_data(pseudo_trials)
-        msub_pseudo_tvec = optimal_Bayesian(act.values, stim, side.values)
+        if model is None:
+            msub_pseudo_tvec = optimal_Bayesian(act.values, stim, side.values)
+        else:
+            stim, act, side = mut.format_input([stim], [act.values], [side.values])
+            msub_pseudo_tvec = model.compute_signal(signal=('prior' if subjModel['target'] == 'pLeft'
+                                                            else subjModel['target']),
+                                                    act=act, stim=stim, side=side)
+            msub_pseudo_tvec = msub_pseudo_tvec['prior' if subjModel['target'] == 'pLeft' else subjModel['target']]
         if take_out_unbiased:
             target_pLeft.append(msub_pseudo_tvec[(pseudo_trials.probabilityLeft != 0.5).values])
         else:
             target_pLeft.append(msub_pseudo_tvec)
     target_pLeft = np.concatenate(target_pLeft)
-    target_pLeft = np.concatenate([target_pLeft, 1 - target_pLeft])
-    out = np.histogram(target_pLeft, bins=np.arange(0, 1, bin_size_kde) + bin_size_kde/2., density=True)
+    if antithetic:
+        target_pLeft = np.concatenate([target_pLeft, 1 - target_pLeft])
+    out = np.histogram(target_pLeft, bins=(np.arange(-bin_size_kde/2., 1 + bin_size_kde/2., bin_size_kde) +
+                                           bin_size_kde/2.), density=True)
     return out, target_pLeft
 
 '''
-        eids = np.array(subjeids)
-        model = modeltype(savepath.as_posix() + '/', np.array(subjeids), subject, actions, stimuli, stim_side)
-        model.load_or_train(remove_old=remove_old)
-    elif (target != 'signcont') and (modeltype is not None):
-    
-    istrained, fullpath = check_bhv_fit_exists(subject, modeltype, eids_train, savepath)
-    model = modeltype(savepath.as_posix() + '/', eids_train, subject, actions=None, stimuli=None, stim_side=None)
-    model.load_or_train(loadpath=str(fullpath))
-
-    # compute signal
-    stim_side, stimuli, actions, _ = mut.format_data(beh_data_test)
-    stimuli, actions, stim_side = mut.format_input([stimuli], [actions], [stim_side])
-    signal = model.compute_signal(signal='prior' if target == 'pLeft' else target,
+    side, stim, act, _ = mut.format_data(pseudo_trials)
+    stim, act, side = mut.format_input([stim], [act.values], [side])
+    signal = model.compute_signal(signal='prior' if subjModel['target'] == 'pLeft' else target,
                                   act=actions,
                                   stim=stimuli,
                                   side=stim_side)['prior' if target == 'pLeft' else target]
@@ -149,7 +155,7 @@ def check_bhv_fit_exists(subject, model, eids, resultpath):
     return os.path.exists(fullpath), fullpath
 
 
-def generate_imposter_session(imposterdf, eid, trialsdf, nbSampledSess=50, pLeftChange_when_stitch=True):
+def generate_imposter_session(imposterdf, eid, nbtrials, nbSampledSess=10, pLeftChange_when_stitch=True):
     """
 
     Parameters
@@ -167,6 +173,9 @@ def generate_imposter_session(imposterdf, eid, trialsdf, nbSampledSess=50, pLeft
     """
     # this is to correct for when the eid is not part of the imposterdf eids
     # which is very possible when using imposter sessions from biaisChoice world.
+    if np.any(imposterdf.eid == eid):
+        raise ValueError('The eid of the current session was found in the imposter session df which is impossible as'
+                         'you generate the imposter sessions from biasChoice world and decoding from ehysChoice world')
     temp_trick = list(imposterdf[imposterdf.eid == eid].template_sess.unique())
     temp_trick.append(-1)
     template_sess_eid = temp_trick[0] 
@@ -206,14 +215,14 @@ def generate_imposter_session(imposterdf, eid, trialsdf, nbSampledSess=50, pLeft
                 if np.abs(second2last_pLeft - current_last_pLeft) > 1e-8:
                     raise ValueError('There is most certainly a bug here')
         sub_imposterdf = sub_imposterdf[sub_imposterdf.eid.isin(valid_imposter_eids)].sort_values(by=['sorted_eids'])
-        if sub_imposterdf.index.size < trialsdf.index.size:
+        if sub_imposterdf.index.size < nbtrials:
             raise ValueError('you did not stitch enough imposter sessions. Simply increase the nbSampledSess argument')
         sub_imposterdf = sub_imposterdf.reset_index(drop=True)
     # select a random first block index <- this doesn't seem to work well, it changes the block statistics too much
     # idx_chge = np.where(sub_imposterdf.probabilityLeft.values[1:] != sub_imposterdf.probabilityLeft.values[:-1])[0]+1
     # random_number = np.random.choice(idx_chge[idx_chge < (sub_imposterdf.index.size - trialsdf.index.size)])
     # imposter_sess = sub_imposterdf.iloc[random_number:(random_number + trialsdf.index.size)].reset_index(drop=True)
-    imposter_sess = sub_imposterdf.iloc[:trialsdf.index.size].reset_index(drop=True)
+    imposter_sess = sub_imposterdf.iloc[:nbtrials].reset_index(drop=True)
     return imposter_sess
 
 
@@ -470,7 +479,7 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs, use_openturn
 
             if balanced_weight:
                 clf.fit(X_train, y_train, sample_weight=balanced_weighting(vec=y_train,
-                                                                           continuous=continuous_target,
+                                                                           continuous=balanced_continuous_target,
                                                                            use_openturns=use_openturns,
                                                                            bin_size_kde=bin_size_kde,
                                                                            target_distribution=target_distribution))
@@ -573,7 +582,7 @@ def balanced_weighting(vec, continuous, use_openturns, bin_size_kde, target_dist
             proposal_weights = np.array(distribution.computePDF(sample)).squeeze()
             balanced_weight = np.ones(vec.size) / proposal_weights
         else:
-            emp_distribution = np.histogram(vec, bins=np.arange(0, 1, bin_size_kde) + bin_size_kde/2, density=True)
+            emp_distribution = np.histogram(vec, bins=target_distribution[-1], density=True)
             balanced_weight = pdf_from_histogram(vec, target_distribution)/pdf_from_histogram(vec, emp_distribution)
         #  plt.hist(y_train_inner[:, None], density=True)
         #  plt.plot(sample, proposal_weights, '+')
