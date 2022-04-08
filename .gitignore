@@ -1,3 +1,7 @@
+brainwide/decoding/settings/settings.py
+brainwide/decoding/*pqt
+brainwide/decoding/results/
+brainwide/decoding/wide_field_imaging/
 legacy_decoding/
 legacy
 .gitignore
