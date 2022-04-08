@@ -30,6 +30,12 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
     sessiondf: the behavioral and neural dataframe when you want to bypass the bwm encoding phase
     """
 
+    if 'act' in kwargs['model'].name and kwargs['target'] == 'pLeft' and not kwargs['use_imposter_session']:
+        raise ValueError('There is a problem in the settings. You should use imposter sessions')
+
+    if kwargs['target'] == 'pLeft' and kwargs['balanced_weight'] and not kwargs['balanced_continuous_target']:
+        raise ValueError('There is a problem in the settings. This is a continuous target for balanced weighting')
+
     if ((wideFieldImaging_dict is None and kwargs['wide_field_imaging']) or
             (wideFieldImaging_dict is not None and not kwargs['wide_field_imaging'])):
         raise ValueError('wideFieldImaging_dict must be defined for wide_field_imaging and reciprocally')
@@ -62,7 +68,6 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
         print('Model not fit.')
         tvec = dut.compute_target(kwargs['target'], subject, subjeids, eid, kwargs['modelfit_path'],
                                   modeltype=kwargs['model'], one=kwargs['one'], beh_data_test=behavior_data)
-
     try:
         if sessiondf is None:
             trialsdf = bbone.load_trials_df(eid, one=one, addtl_types=['firstMovement_times'])
@@ -85,14 +90,21 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
     nb_trialsdf = trialsdf[mask]
     msub_tvec = tvec[mask]
 
-    if kwargs['balanced_weight'] and not kwargs['use_imposter_session'] and (kwargs['model'] == dut.optimal_Bayesian):
-        if kwargs['no_unbias']:
+    if kwargs['balanced_weight']:
+        if kwargs['no_unbias'] and not kwargs['use_imposter_session'] and (kwargs['model'] == dut.optimal_Bayesian):
             with open(kwargs['decoding_path'].joinpath('targetpLeft_optBay_%s.pkl' %
                                                        str(kwargs['bin_size_kde']).replace('.', '_')), 'rb') as f:
                 target_distribution = pickle.load(f)
-        else:
+        elif not kwargs['use_imposter_session'] and (kwargs['model'] == dut.optimal_Bayesian):
             target_distribution, _ = dut.get_target_pLeft(nb_trials=trialsdf.index.size, nb_sessions=250,
                                                           take_out_unbiased=False, bin_size_kde=kwargs['bin_size_kde'])
+        else:
+            subjModel = {'modeltype': kwargs['model'], 'subjeids': subjeids, 'subject': subject,
+                         'modelfit_path': kwargs['modelfit_path'], 'imposterdf': kwargs['imposterdf'],
+                         'use_imposter_session': kwargs['use_imposter_session'], 'eid': eid, 'target': kwargs['target']}
+            target_distribution, allV_t = dut.get_target_pLeft(nb_trials=trialsdf.index.size, nb_sessions=250,
+                                                               take_out_unbiased=kwargs['no_unbias'],
+                                                               bin_size_kde=kwargs['bin_size_kde'], subjModel=subjModel)
     else:
         target_distribution = None
 
@@ -201,7 +213,8 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
             for pseudo_id in pseudo_ids:
                 if pseudo_id > 0:  # create pseudo session when necessary
                     if kwargs['use_imposter_session']:
-                        pseudosess = dut.generate_imposter_session(kwargs['imposterdf'], eid, trialsdf)
+                        pseudosess = dut.generate_imposter_session(kwargs['imposterdf'], eid,
+                                                                   trialsdf.index.size, nbSampledSess=10)
                     else:
                         pseudosess = generate_pseudo_session(trialsdf, generate_choices=False)
 
