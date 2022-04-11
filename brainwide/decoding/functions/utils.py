@@ -117,7 +117,7 @@ def get_target_pLeft(nb_trials, nb_sessions, take_out_unbiased, bin_size_kde, su
             valid = np.ones([1, pseudo_trials.index.size], dtype=bool)
             stim, act, side = mut.format_input([stim], [act.values], [side.values])
             act_sim, stim, side = model.simulate(arr_params, stim, side, torch.from_numpy(valid),
-                                                 nb_simul=20, only_perf=False)
+                                                 nb_simul=10, only_perf=False)
             act_sim = act_sim.squeeze().T
             stim = torch.tile(stim.squeeze()[None], (act_sim.shape[0], 1))
             side = torch.tile(side.squeeze()[None], (act_sim.shape[0], 1))
