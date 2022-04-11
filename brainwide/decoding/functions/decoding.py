@@ -101,7 +101,8 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
         else:
             subjModel = {'modeltype': kwargs['model'], 'subjeids': subjeids, 'subject': subject,
                          'modelfit_path': kwargs['modelfit_path'], 'imposterdf': kwargs['imposterdf'],
-                         'use_imposter_session': kwargs['use_imposter_session'], 'eid': eid, 'target': kwargs['target']}
+                         'use_imposter_session_for_balancing': kwargs['use_imposter_session_for_balancing'],
+                         'eid': eid, 'target': kwargs['target']}
             target_distribution, allV_t = dut.get_target_pLeft(nb_trials=trialsdf.index.size, nb_sessions=250,
                                                                take_out_unbiased=kwargs['no_unbias'],
                                                                bin_size_kde=kwargs['bin_size_kde'], subjModel=subjModel)

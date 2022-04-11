@@ -91,7 +91,7 @@ def get_target_pLeft(nb_trials, nb_sessions, take_out_unbiased, bin_size_kde, su
     contrast_set = np.array([0., 0.0625, 0.125, 0.25, 1])
     target_pLeft = []
     for _ in np.arange(nb_sessions):
-        if model is None or not subjModel['use_imposter_session']:
+        if model is None or not subjModel['use_imposter_session_for_balancing']:
             pseudo_trials = pd.DataFrame()
             pseudo_trials['probabilityLeft'] = generate_pseudo_blocks(nb_trials)
             for i in range(pseudo_trials.shape[0]):
@@ -112,6 +112,20 @@ def get_target_pLeft(nb_trials, nb_sessions, take_out_unbiased, bin_size_kde, su
         side, stim, act, _ = mut.format_data(pseudo_trials)
         if model is None:
             msub_pseudo_tvec = optimal_Bayesian(act.values, stim, side.values)
+        elif not subjModel['use_imposter_session_for_balancing']:
+            arr_params = model.get_parameters(parameter_type='posterior_mean')[None]
+            valid = np.ones([1, pseudo_trials.index.size], dtype=bool)
+            side, stim, act, _ = mut.format_data(pseudo_trials)
+            stim, act, side = mut.format_input([stim], [act.values], [side.values])
+            act_sim, stim, side = model.simulate(arr_params, stim.numpy(), side.numpy(), torch.from_numpy(valid),
+                                                 nb_simul=20, only_perf=False)
+            act_sim = act_sim.squeeze().T
+            stim = torch.tile(stim.squeeze()[None], (act_sim.shape[0], 1))
+            side = torch.tile(side.squeeze()[None], (act_sim.shape[0], 1))
+            msub_pseudo_tvec = model.compute_signal(signal=('prior' if subjModel['target'] == 'pLeft'
+                                                            else subjModel['target']),
+                                                    act=act_sim, stim=stim, side=side)
+            msub_pseudo_tvec = msub_pseudo_tvec['prior'].T
         else:
             stim, act, side = mut.format_input([stim], [act.values], [side.values])
             msub_pseudo_tvec = model.compute_signal(signal=('prior' if subjModel['target'] == 'pLeft'
@@ -119,9 +133,9 @@ def get_target_pLeft(nb_trials, nb_sessions, take_out_unbiased, bin_size_kde, su
                                                     act=act, stim=stim, side=side)
             msub_pseudo_tvec = msub_pseudo_tvec['prior' if subjModel['target'] == 'pLeft' else subjModel['target']]
         if take_out_unbiased:
-            target_pLeft.append(msub_pseudo_tvec[(pseudo_trials.probabilityLeft != 0.5).values])
+            target_pLeft.append(msub_pseudo_tvec[(pseudo_trials.probabilityLeft != 0.5).values].ravel())
         else:
-            target_pLeft.append(msub_pseudo_tvec)
+            target_pLeft.append(msub_pseudo_tvec.ravel())
     target_pLeft = np.concatenate(target_pLeft)
     if antithetic:
         target_pLeft = np.concatenate([target_pLeft, 1 - target_pLeft])
@@ -130,12 +144,7 @@ def get_target_pLeft(nb_trials, nb_sessions, take_out_unbiased, bin_size_kde, su
     return out, target_pLeft
 
 '''
-    side, stim, act, _ = mut.format_data(pseudo_trials)
-    stim, act, side = mut.format_input([stim], [act.values], [side])
-    signal = model.compute_signal(signal='prior' if subjModel['target'] == 'pLeft' else target,
-                                  act=actions,
-                                  stim=stimuli,
-                                  side=stim_side)['prior' if target == 'pLeft' else target]
+
 '''
 
 def check_bhv_fit_exists(subject, model, eids, resultpath):
@@ -186,8 +195,12 @@ def generate_imposter_session(imposterdf, eid, nbtrials, nbSampledSess=10, pLeft
     sub_imposterdf = imposterdf[imposterdf.eid.isin(imposter_eids)].reset_index(drop=True)
     sub_imposterdf['row_id'] = sub_imposterdf.index
     sub_imposterdf['sorted_eids'] = sub_imposterdf.apply(lambda x: (np.argmax(imposter_eids == x['eid']) *
-                                                                    sub_imposterdf.index.size + x.row_id),
-                                                         axis=1)
+                                                                    sub_imposterdf.index.size + x.row_id), axis=1)
+    identical_comp = np.argmax(sub_imposterdf.eid.values[None] == imposter_eids[:, None],
+                                              axis=0) * sub_imposterdf.index.size + sub_imposterdf.row_id
+    if np.any(identical_comp.values != sub_imposterdf['sorted_eids'].values):
+        raise ValueError('There is certainly a bug in the code. Sorry!')
+
     if np.any(sub_imposterdf['sorted_eids'].unique() != sub_imposterdf['sorted_eids']):
         raise ValueError('There is most probably a bug in the function')
     sub_imposterdf = sub_imposterdf.sort_values(by=['sorted_eids'])
@@ -199,6 +212,17 @@ def generate_imposter_session(imposterdf, eid, nbtrials, nbSampledSess=10, pLeft
         for i, imposter_eid in enumerate(imposter_eids):
             #  get first pLeft
             first_pLeft = sub_imposterdf[(sub_imposterdf.eid == imposter_eid)].probabilityLeft.values[0]
+
+            if np.abs(first_pLeft - current_last_pLeft) < 1e-8:
+                first_pLeft_idx = sub_imposterdf[sub_imposterdf.eid == imposter_eid].index[0]
+                second_pLeft_idx = sub_imposterdf[(sub_imposterdf.eid == imposter_eid) &
+                                                  (sub_imposterdf.probabilityLeft.values != first_pLeft)].index[0]
+                sub_imposterdf = sub_imposterdf.drop(np.arange(first_pLeft_idx, second_pLeft_idx))
+                first_pLeft = sub_imposterdf[(sub_imposterdf.eid == imposter_eid)].probabilityLeft.values[0]
+
+            if np.abs(first_pLeft - current_last_pLeft) < 1e-8:
+                raise ValueError('There is certainly a bug in the code. Sorry!')
+
             #  make it such that stitches correspond to pLeft changepoints
             if np.abs(first_pLeft - current_last_pLeft) > 1e-8:
                 valid_imposter_eids.append(imposter_eid)  # if first pLeft is different from current pLeft, accept sess
