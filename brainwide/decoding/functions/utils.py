@@ -115,9 +115,8 @@ def get_target_pLeft(nb_trials, nb_sessions, take_out_unbiased, bin_size_kde, su
         elif not subjModel['use_imposter_session_for_balancing']:
             arr_params = model.get_parameters(parameter_type='posterior_mean')[None]
             valid = np.ones([1, pseudo_trials.index.size], dtype=bool)
-            side, stim, act, _ = mut.format_data(pseudo_trials)
             stim, act, side = mut.format_input([stim], [act.values], [side.values])
-            act_sim, stim, side = model.simulate(arr_params, stim.numpy(), side.numpy(), torch.from_numpy(valid),
+            act_sim, stim, side = model.simulate(arr_params, stim, side, torch.from_numpy(valid),
                                                  nb_simul=20, only_perf=False)
             act_sim = act_sim.squeeze().T
             stim = torch.tile(stim.squeeze()[None], (act_sim.shape[0], 1))
