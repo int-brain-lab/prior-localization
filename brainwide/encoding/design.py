@@ -90,7 +90,7 @@ def generate_design(trialsdf,
 
     def stepfunc_poststim(row):
         zerovec = np.zeros(design.binf(row.duration))
-        currtr_start = design.binf(row.stimOn_times + 0.1)
+        currtr_start = design.binf(row.stimOn_times)
         currtr_end = design.binf(row.feedback_times)
         zerovec[currtr_start:currtr_end] = row.prior_last
         zerovec[currtr_end:] = row.prior
