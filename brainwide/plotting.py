@@ -270,7 +270,7 @@ def plot_scalar_on_slice(regions,
             region_values[0] = np.nan
 
     if ax:
-        fig = ax.get_fig()
+        fig = ax.figure
     else:
         fig, ax = plt.subplots()
 
