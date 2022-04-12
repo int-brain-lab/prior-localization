@@ -29,6 +29,7 @@ SESS_CRITERION = 'aligned-behavior'  # aligned and behavior
 DATE = str(date.today())
 ALIGN_TIME = 'goCue_times'
 TARGET = 'signcont'  # 'signcont' or 'pLeft'
+CONTINUOUS_TARGET = False  # True  # is target continuous or not
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
 MODEL = dut.optimal_Bayesian  # expSmoothing_prevAction  or None # or dut.modeldispatcher.
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
@@ -41,14 +42,14 @@ N_RUNS = 10
 MIN_UNITS = 10
 MIN_BEHAV_TRIAS = 400  # default BWM setting
 MIN_RT = 0.08  # 0.08  # Float (s) or None
-SINGLE_REGION = True  # perform decoding on region-wise or whole brain analysis
-MERGED_PROBES = False  # merge probes before performing analysis
-NO_UNBIAS = False
+SINGLE_REGION = False  # perform decoding on region-wise or whole brain analysis
+MERGED_PROBES = True  # merge probes before performing analysis
+NO_UNBIAS = False  # take out unbiased trials
 SHUFFLE = True  # interleaved cross validation
-BORDER_QUANTILES_NEUROMETRIC = [.4, .6]  # [.3, .4, .5, .6, .7]
+BORDER_QUANTILES_NEUROMETRIC = [.3, .7]  # [.3, .4, .5, .6, .7]
 COMPUTE_NEUROMETRIC = True if TARGET == 'signcont' else False
 FORCE_POSITIVE_NEURO_SLOPES = False
-# NEUROMETRIC_PRIOR_MODEL = expSmoothing_prevAction #'oracle'
+
 # Basically, quality metric on the stability of a single unit. Should have 1 metric per neuron
 QC_CRITERIA = 3 / 3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
 NORMALIZE_INPUT = False  # take out mean of the neural activity per unit across trials
@@ -57,11 +58,14 @@ if NORMALIZE_INPUT or NORMALIZE_OUTPUT:
     warnings.warn('This feature has not been tested')
 USE_IMPOSTER_SESSION = False  # if false, it uses pseudosessions
 
-BALANCED_WEIGHT = True  # seems to work better with BALANCED_WEIGHT=False
+BALANCED_WEIGHT = True  # seems to work better with BALANCED_WEIGHT=False, but putting True is important
+USE_OPENTURNS = False  # uses openturns to perform kernel density estimation
+BIN_SIZE_KDE = 0.05  # size of the kde bin
 HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])}
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
-ADD_TO_SAVING_PATH = 'pseudoSessions_unmergedProbes'
+ADD_TO_SAVING_PATH = 'pseudoSessions_mergedProbes_wholeBrain'
+
 
 # session to be excluded (by Olivier Winter)
 excludes = [
@@ -115,5 +119,8 @@ fit_metadata = {
     'normalize_output': NORMALIZE_OUTPUT,
     'normalize_input': NORMALIZE_INPUT,
     'single_region': SINGLE_REGION,
-    'use_imposter_session': USE_IMPOSTER_SESSION
+    'use_imposter_session': USE_IMPOSTER_SESSION,
+    'continuous_target': CONTINUOUS_TARGET,
+    'use_openturns': USE_OPENTURNS,
+    'bin_size_kde': BIN_SIZE_KDE
 }

@@ -12,6 +12,8 @@ from brainbox.task.closed_loop import generate_pseudo_session
 import one.alf.io as alfio
 from functions.neurometric import get_neurometric_parameters
 from tqdm import tqdm
+import openturns
+import pickle
 
 def fit_eid(eid, sessdf, pseudo_ids=[-1], **kwargs):
     """
@@ -63,6 +65,17 @@ def fit_eid(eid, sessdf, pseudo_ids=[-1], **kwargs):
 
     nb_trialsdf = trialsdf[mask]
     msub_tvec = tvec[mask]
+
+    if kwargs['balanced_weight'] and not kwargs['use_imposter_session'] and (kwargs['model'] == dut.optimal_Bayesian):
+        if kwargs['no_unbias']:
+            with open(kwargs['decoding_path'].joinpath('targetpLeft_optBay_%s.pkl' %
+                                                       str(kwargs['bin_size_kde']).replace('.', '_')), 'rb') as f:
+                target_distribution = pickle.load(f)
+        else:
+            target_distribution, _ = dut.get_target_pLeft(nb_trials=trialsdf.index.size, nb_sessions=250,
+                                                          take_out_unbiased=False, bin_size_kde=kwargs['bin_size_kde'])
+    else:
+        target_distribution = None
 
     filenames = []
     if len(msub_tvec) <= kwargs['min_behav_trials']:
@@ -179,6 +192,10 @@ def fit_eid(eid, sessdf, pseudo_ids=[-1], **kwargs):
                 for i_run in range(kwargs['nb_runs']):
                     fit_result = dut.regress_target(msub_tvec if (pseudo_id == -1) else msub_pseudo_tvec,
                                                     msub_binned, kwargs['estimator'],
+                                                    use_openturns=kwargs['use_openturns'],
+                                                    target_distribution=target_distribution,
+                                                    bin_size_kde=kwargs['bin_size_kde'],
+                                                    continuous_target=kwargs['continuous_target'],
                                                     estimator_kwargs=kwargs['estimator_kwargs'],
                                                     hyperparam_grid=kwargs['hyperparam_grid'],
                                                     save_binned=kwargs['save_binned'], shuffle=kwargs['shuffle'],
@@ -186,6 +203,7 @@ def fit_eid(eid, sessdf, pseudo_ids=[-1], **kwargs):
                                                     normalize_input=kwargs['normalize_input'],
                                                     normalize_output=kwargs['normalize_output'])
                     fit_result['mask'] = mask
+                    fit_result['df'] = trialsdf if pseudo_id == -1 else pseudosess
                     fit_result['pseudo_id'] = pseudo_id
                     fit_result['run_id'] = i_run
                     # neurometric curve
@@ -205,6 +223,8 @@ def fit_eid(eid, sessdf, pseudo_ids=[-1], **kwargs):
                                                      str(np.squeeze(region)) if kwargs['single_region'] else 'allRegions',
                                                      N_units, output_path=kwargs['output_path'],
                                                      time_window=kwargs['time_window'],
-                                                     today=kwargs['today']))
+                                                     today=kwargs['today'],
+                                                     target=kwargs['target'],
+                                                     add_to_saving_path=kwargs['add_to_saving_path']))
 
     return filenames
