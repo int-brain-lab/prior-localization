@@ -18,7 +18,7 @@ from dask_jobqueue import SLURMCluster
 import brainbox.io.one as bbone
 import brainbox.metrics.single_units as bbqc
 from one.api import ONE
-from params import GLM_CACHE
+from brainwide.params import GLM_CACHE
 
 # Brainwide repo imports
 from brainwide.utils import query_sessions, get_impostor_df
@@ -33,13 +33,9 @@ def load_regressors(session_id,
                     t_after=0.,
                     binwidth=0.02,
                     abswheel=False,
-                    resolved_alignment=False,
                     ret_qc=False,
                     one=None):
     one = ONE() if one is None else one
-    dataset_types = None if not ret_qc else [
-        'spikes.times', 'spikes.clusters', 'spikes.amps', 'spikes.depths'
-    ]
 
     trialsdf = bbone.load_trials_df(session_id,
                                     maxlen=max_len,
@@ -51,27 +47,23 @@ def load_regressors(session_id,
                                     addtl_types=['firstMovement_times'],
                                     one=one)
 
-    if resolved_alignment:
-        spikes, clusters, _ = bbone.load_spike_sorting_fast(session_id,
-                                                            dataset_types=dataset_types,
-                                                            one=one)
-        if not all(len(clusters[p]['acronym']) > 0 for p in clusters):
-            raise KeyError('No resolved alignment datset found for {subject} : {eid}. '
-                           'Try again with resolved_alignment=False.')
-    else:
-        spikes, clusters, _ = bbone.load_spike_sorting_with_channel(session_id,
-                                                                    dataset_types=dataset_types,
-                                                                    one=one,
-                                                                    aligned=True)
+    spikes, clusters = {}, {}
+    for pid in probes:
+        ssl = bbone.SpikeSortingLoader(one=one, pid=pid)
+        spikes[pid], tmpclu, channels = ssl.load_spike_sorting()
+        if 'metrics' not in tmpclu:
+            tmpclu['metrics'] = np.ones(tmpclu['channels'].size)
+        clusters[pid] = ssl.merge_clusters(spikes[pid], tmpclu, channels)
+
     allspikes, allclu, allreg, allamps, alldepths = [], [], [], [], []
     clumax = 0
-    for probe in probes:
-        allspikes.append(spikes[probe].times)
-        allclu.append(spikes[probe].clusters + clumax)
-        allreg.append(clusters[probe].acronym)
-        allamps.append(spikes[probe].amps)
-        alldepths.append(spikes[probe].depths)
-        clumax += np.max(spikes[probe].clusters) + 1
+    for pid in probes:
+        allspikes.append(spikes[pid].times)
+        allclu.append(spikes[pid].clusters + clumax)
+        allreg.append(clusters[pid].acronym)
+        allamps.append(spikes[pid].amps)
+        alldepths.append(spikes[pid].depths)
+        clumax += np.max(spikes[pid].clusters) + 1
 
     allspikes, allclu, allamps, alldepths = [
         np.hstack(x) for x in (allspikes, allclu, allamps, alldepths)
@@ -85,7 +77,6 @@ def load_regressors(session_id,
     if not ret_qc:
         return trialsdf, spk_times, spk_clu, clu_regions
 
-    # TODO: add cluster_ids=np.arange(beryl_reg.size) to quick_unit_metrics
     clu_qc = bbqc.quick_unit_metrics(spk_clu,
                                      spk_times,
                                      spk_amps,
@@ -219,7 +210,7 @@ sessdf = query_sessions(SESS_CRITERION).set_index(['subject', 'eid'])
 for eid in sessdf.index.unique(level='eid'):
     xsdf = sessdf.xs(eid, level='eid')
     subject = xsdf.index[0]
-    probes = xsdf.probe.to_list()
+    probes = xsdf.pid.to_list()
     load_outputs = delayed_load(eid, probes, params, force_load=FORCE)
     save_future = delayed_save(subject, eid, probes, params, load_outputs)
     dataset_futures.append([subject, eid, probes, save_future])
