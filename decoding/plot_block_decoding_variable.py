@@ -154,7 +154,7 @@ brain_results(acronyms,
                 FILE_PATH = FIGURE_PATH,
                 cmap='Purples',
                 YMIN=0.5,
-                value_title='       Accuracy')#: %.3f'%(len(np.unique(np.random.choice(all_regions,size=int(len(all_regions)*0.05),replace=False)))/len(np.unique(all_regions))))
+                value_title='       Accuracy \n              %d of %d sig.'%(np.sum(reg_pvalue<0.05),len(reg_pvalue)))#: %.3f'%(len(np.unique(np.random.choice(all_regions,size=int(len(all_regions)*0.05),replace=False)))/len(np.unique(all_regions))))
 bar_results(acronyms,
             values,
             nulls,
