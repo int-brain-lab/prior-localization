@@ -18,7 +18,6 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
     """
     Parameters
     ----------
-    single_region: Bool, decoding using region wise or pulled over regions
     eid: eid of session
     bwmdf: dataframe of bwm session
     pseudo_id: whether to compute a pseudosession or not. if pseudo_id=-1, the true session is considered.
@@ -86,7 +85,6 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
     if kwargs['min_rt'] is not None:
         mask = mask & (~(trialsdf.react_times < kwargs['min_rt'])).values
     mask = mask & (trialsdf.choice != 0)  # take out when mouse doesn't perform any action
-
     nb_trialsdf = trialsdf[mask]
     msub_tvec = tvec[mask]
 

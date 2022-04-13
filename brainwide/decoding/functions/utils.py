@@ -138,8 +138,8 @@ def get_target_pLeft(nb_trials, nb_sessions, take_out_unbiased, bin_size_kde, su
     target_pLeft = np.concatenate(target_pLeft)
     if antithetic:
         target_pLeft = np.concatenate([target_pLeft, 1 - target_pLeft])
-    out = np.histogram(target_pLeft, bins=(np.arange(-bin_size_kde/2., 1 + bin_size_kde/2., bin_size_kde) +
-                                           bin_size_kde/2.), density=True)
+    out = np.histogram(target_pLeft, bins=(np.arange(-bin_size_kde, 1 + bin_size_kde/2., bin_size_kde)
+                                           + bin_size_kde/2.), density=True)
     return out, target_pLeft
 
 '''
@@ -590,7 +590,16 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs, use_openturn
 
 
 def pdf_from_histogram(x, out):
+    # unit test of pdf_from_histogram
+    # out = np.histogram(np.array([0.9, 0.9]), bins=target_distribution[-1], density=True)
+    # out[0][(np.array([0.9])[:, None] > out[1][None]).sum(axis=-1) - 1]
     return out[0][(x[:, None] > out[1][None]).sum(axis=-1) - 1]
+
+
+def test_df_from_histogram(target_distribution):
+    v = 0.9
+    out = np.histogram(np.array([v, v]), bins=target_distribution[-1], density=True)
+    assert(pdf_from_histogram(np.array([v]), out) > 0)
 
 
 def balanced_weighting(vec, continuous, use_openturns, bin_size_kde, target_distribution):
