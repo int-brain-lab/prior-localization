@@ -29,7 +29,8 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
     sessiondf: the behavioral and neural dataframe when you want to bypass the bwm encoding phase
     """
 
-    if 'act' in kwargs['model'].name and kwargs['target'] == 'pLeft' and not kwargs['use_imposter_session']:
+    if (kwargs['model'] != dut.optimal_Bayesian and 'act' in kwargs['model'].name \
+            and kwargs['target'] == 'pLeft' and not kwargs['use_imposter_session']):
         raise ValueError('There is a problem in the settings. You should use imposter sessions')
 
     if kwargs['target'] == 'pLeft' and kwargs['balanced_weight'] and not kwargs['balanced_continuous_target']:
@@ -41,6 +42,10 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
 
     if kwargs['wide_field_imaging'] and kwargs['wfi_nb_frames'] == 0:
         raise ValueError('wfi_nb_frames can not be 0. it is a signed non-null integer')
+
+    if (kwargs['model'] == dut.optimal_Bayesian and
+            (kwargs['use_imposter_session'] or kwargs['use_imposter_session_for_balancing'])):
+        raise ValueError('You can not and should not use imposter sessions for the optimal model')
 
     if 0 in pseudo_ids:
         raise ValueError('pseudo id can be -1 (actual session) or strictly greater than 0 (pseudo session)')
@@ -67,6 +72,7 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
         print('Model not fit.')
         tvec = dut.compute_target(kwargs['target'], subject, subjeids, eid, kwargs['modelfit_path'],
                                   modeltype=kwargs['model'], one=kwargs['one'], beh_data_test=behavior_data)
+
     try:
         if sessiondf is None:
             trialsdf = bbone.load_trials_df(eid, one=one, addtl_types=['firstMovement_times'])
