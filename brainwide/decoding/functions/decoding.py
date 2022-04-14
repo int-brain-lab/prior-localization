@@ -18,7 +18,6 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
     """
     Parameters
     ----------
-    single_region: Bool, decoding using region wise or pulled over regions
     eid: eid of session
     bwmdf: dataframe of bwm session
     pseudo_id: whether to compute a pseudosession or not. if pseudo_id=-1, the true session is considered.
@@ -30,12 +29,23 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
     sessiondf: the behavioral and neural dataframe when you want to bypass the bwm encoding phase
     """
 
+    if (kwargs['model'] != dut.optimal_Bayesian and 'act' in kwargs['model'].name \
+            and kwargs['target'] == 'pLeft' and not kwargs['use_imposter_session']):
+        raise ValueError('There is a problem in the settings. You should use imposter sessions')
+
+    if kwargs['target'] == 'pLeft' and kwargs['balanced_weight'] and not kwargs['balanced_continuous_target']:
+        raise ValueError('There is a problem in the settings. This is a continuous target for balanced weighting')
+
     if ((wideFieldImaging_dict is None and kwargs['wide_field_imaging']) or
             (wideFieldImaging_dict is not None and not kwargs['wide_field_imaging'])):
         raise ValueError('wideFieldImaging_dict must be defined for wide_field_imaging and reciprocally')
 
     if kwargs['wide_field_imaging'] and kwargs['wfi_nb_frames'] == 0:
         raise ValueError('wfi_nb_frames can not be 0. it is a signed non-null integer')
+
+    if (kwargs['model'] == dut.optimal_Bayesian and
+            (kwargs['use_imposter_session'] or kwargs['use_imposter_session_for_balancing'])):
+        raise ValueError('You can not and should not use imposter sessions for the optimal model')
 
     if 0 in pseudo_ids:
         raise ValueError('pseudo id can be -1 (actual session) or strictly greater than 0 (pseudo session)')
@@ -81,18 +91,25 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
     if kwargs['min_rt'] is not None:
         mask = mask & (~(trialsdf.react_times < kwargs['min_rt'])).values
     mask = mask & (trialsdf.choice != 0)  # take out when mouse doesn't perform any action
-
     nb_trialsdf = trialsdf[mask]
     msub_tvec = tvec[mask]
 
-    if kwargs['balanced_weight'] and not kwargs['use_imposter_session'] and (kwargs['model'] == dut.optimal_Bayesian):
-        if kwargs['no_unbias']:
+    if kwargs['balanced_weight']:
+        if kwargs['no_unbias'] and not kwargs['use_imposter_session'] and (kwargs['model'] == dut.optimal_Bayesian):
             with open(kwargs['decoding_path'].joinpath('targetpLeft_optBay_%s.pkl' %
                                                        str(kwargs['bin_size_kde']).replace('.', '_')), 'rb') as f:
                 target_distribution = pickle.load(f)
-        else:
+        elif not kwargs['use_imposter_session'] and (kwargs['model'] == dut.optimal_Bayesian):
             target_distribution, _ = dut.get_target_pLeft(nb_trials=trialsdf.index.size, nb_sessions=250,
                                                           take_out_unbiased=False, bin_size_kde=kwargs['bin_size_kde'])
+        else:
+            subjModel = {'modeltype': kwargs['model'], 'subjeids': subjeids, 'subject': subject,
+                         'modelfit_path': kwargs['modelfit_path'], 'imposterdf': kwargs['imposterdf'],
+                         'use_imposter_session_for_balancing': kwargs['use_imposter_session_for_balancing'],
+                         'eid': eid, 'target': kwargs['target']}
+            target_distribution, allV_t = dut.get_target_pLeft(nb_trials=trialsdf.index.size, nb_sessions=250,
+                                                               take_out_unbiased=kwargs['no_unbias'],
+                                                               bin_size_kde=kwargs['bin_size_kde'], subjModel=subjModel)
     else:
         target_distribution = None
 
@@ -201,7 +218,8 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
             for pseudo_id in pseudo_ids:
                 if pseudo_id > 0:  # create pseudo session when necessary
                     if kwargs['use_imposter_session']:
-                        pseudosess = dut.generate_imposter_session(kwargs['imposterdf'], eid, trialsdf)
+                        pseudosess = dut.generate_imposter_session(kwargs['imposterdf'], eid,
+                                                                   trialsdf.index.size, nbSampledSess=10)
                     else:
                         pseudosess = generate_pseudo_session(trialsdf, generate_choices=False)
 

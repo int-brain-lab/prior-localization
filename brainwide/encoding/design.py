@@ -90,7 +90,7 @@ def generate_design(trialsdf,
 
     def stepfunc_poststim(row):
         zerovec = np.zeros(design.binf(row.duration))
-        currtr_start = design.binf(row.stimOn_times + 0.1)
+        currtr_start = design.binf(row.stimOn_times)
         currtr_end = design.binf(row.feedback_times)
         zerovec[currtr_start:currtr_end] = row.prior_last
         zerovec[currtr_end:] = row.prior
@@ -121,11 +121,19 @@ def generate_design(trialsdf,
                                 bases['feedback'],
                                 cond=lambda tr: tr.feedbackType == -1,
                                 desc='Kernel conditioned on incorrect feedback')
-    design.add_covariate_timing('fmove',
+    design.add_covariate_timing('fmoveL',
                                 'firstMovement_times',
                                 bases['fmove'],
                                 offset=fmove_offset,
-                                desc='Lead up to first movement')
+                                cond=lambda tr: tr.choice == 1,
+                                desc='Lead up to first movement leading to left choice')
+    design.add_covariate_timing('fmoveR',
+                                'firstMovement_times',
+                                bases['fmove'],
+                                offset=fmove_offset,
+                                cond=lambda tr: tr.choice == -1,
+                                desc='Lead up to first movement leading to right choice')
+
     design.add_covariate_raw('pLeft', stepfunc_prestim, desc='Step function on prior estimate')
     design.add_covariate_raw('pLeft_tr',
                              stepfunc_poststim,
