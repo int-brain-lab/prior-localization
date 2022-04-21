@@ -26,7 +26,7 @@ else:
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
 SESS_CRITERION = 'aligned-behavior'  # aligned and behavior
-DATE = str(date.today())  # '2022-04-18'
+DATE = '2022-04-22'  #str(date.today())  # '2022-04-18'
 ALIGN_TIME = 'goCue_times'
 TARGET = 'pLeft'  # 'signcont' or 'pLeft'
 if TARGET not in ['pLeft', 'signcont']:
@@ -62,14 +62,14 @@ if NORMALIZE_INPUT or NORMALIZE_OUTPUT:
 USE_IMPOSTER_SESSION = True  # if false, it uses pseudosessions
 USE_IMPOSTER_SESSION_FOR_BALANCING = False  # if false, it simulates the model (should be False)
 
-BALANCED_WEIGHT = True  # seems to work better with BALANCED_WEIGHT=False, but putting True is important
+BALANCED_WEIGHT = False  # seems to work better with BALANCED_WEIGHT=False, but putting True is important
 USE_OPENTURNS = False  # uses openturns to perform kernel density estimation
 BIN_SIZE_KDE = 0.05  # size of the kde bin
 HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])}
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
-ADD_TO_SAVING_PATH = 'imposterSess_%i_balancedWeigh_%i_RegionLevel_%i_mergedProbes_%i_behMouseLevelTraining_%i'.\
-    format(USE_IMPOSTER_SESSION, BALANCED_WEIGHT, SINGLE_REGION, MERGED_PROBES, BEH_MOUSELEVEL_TRAINING)
+ADD_TO_SAVING_PATH = ('imposterSess_%i_balancedWeigh_%i_RegionLevel_%i_mergedProbes_%i_behMouseLevelTraining_%i'
+                      % (USE_IMPOSTER_SESSION, BALANCED_WEIGHT, SINGLE_REGION, MERGED_PROBES, BEH_MOUSELEVEL_TRAINING))
 
 # WIDE FIELD IMAGING
 WIDE_FIELD_IMAGING = False
