@@ -68,7 +68,7 @@ BIN_SIZE_KDE = 0.05  # size of the kde bin
 HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])}
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
-ADD_TO_SAVING_PATH = ('imposterSess_%i_balancedWeigh_%i_RegionLevel_%i_mergedProbes_%i_behMouseLevelTraining_%i'
+ADD_TO_SAVING_PATH = ('imposterSess_%i_balancedWeight_%i_RegionLevel_%i_mergedProbes_%i_behMouseLevelTraining_%i'
                       % (USE_IMPOSTER_SESSION, BALANCED_WEIGHT, SINGLE_REGION, MERGED_PROBES, BEH_MOUSELEVEL_TRAINING))
 
 # WIDE FIELD IMAGING
