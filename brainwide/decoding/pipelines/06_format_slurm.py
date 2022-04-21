@@ -12,7 +12,7 @@ insdf = pd.read_parquet(DECODING_PATH.joinpath('insertions.pqt'))
 insdf = insdf[insdf.spike_sorting != '']
 eids = insdf['eid'].unique()
 
-SAVE_KFOLDS = True
+SAVE_KFOLDS = False
 
 kwargs = {'imposterdf': None, 'nb_runs': N_RUNS, 'single_region': SINGLE_REGION, 'merged_probes': MERGED_PROBES,
           'modelfit_path': DECODING_PATH.joinpath('results', 'behavioral'),
@@ -29,7 +29,7 @@ kwargs = {'imposterdf': None, 'nb_runs': N_RUNS, 'single_region': SINGLE_REGION,
           'border_quantiles_neurometric': BORDER_QUANTILES_NEUROMETRIC, 'today': DATE
           }
 
-date = '2022-04-09'
+date = DATE # '2022-04-13'
 finished = glob.glob(str(DECODING_PATH.joinpath("results", "neural", "*", "*", "*", "*%s*" % date)))
 
 indexers = ['subject', 'eid', 'probe', 'region']
@@ -45,7 +45,7 @@ for fn in tqdm(finished):
     for i_run in range(len(result['fit'])):
         side, stim, act, _ = mut.format_data(result["fit"][i_run]["df"])
         mask = result["fit"][i_run]["mask"]  # np.all(result["fit"][i_run]["target"] == stim[mask])
-        full_test_prediction = np.zeros(result["fit"][i_run]["target"].size)
+        #full_test_prediction = np.zeros(result["fit"][i_run]["target"].size)
         #for k in range(len(result["fit"][i_run]["idxes_test"])):
         #    full_test_prediction[result["fit"][i_run]['idxes_test'][k]] = result["fit"][i_run]['predictions_test'][k]
         #neural_act = np.sign(full_test_prediction)
@@ -58,8 +58,8 @@ for fn in tqdm(finished):
                    'pseudo_id': result['pseudo_id'],
                    'N_units': result['N_units'],
                    'run_id': i_run + 1,
-                   'prediction': list(full_test_prediction),
-                   'target': list(result["fit"][i_run]["target"]),
+                   #'prediction': list(full_test_prediction),
+                   #'target': list(result["fit"][i_run]["target"]),
                    #'perf_allcontrast': perf_allcontrasts,
                    #'perf_allcontrasts_prevtrial': perf_allcontrasts_prevtrial,
                    #'perf_0contrast': perf_0contrasts,
@@ -113,9 +113,8 @@ metadata_fn = '.'.join([fn.split('.')[0], 'metadata', 'pkl'])
 resultsdf.to_parquet(fn)
 metadata_df.to_pickle(metadata_fn)
 
-with open(metadata_fn.split('.metadata.pkl')[0] + '.trajectories.pkl', 'wb') as f:
-    pickle.dump(trajectoriesdict, f)
 
+"""
 # save weights
 weightsdict = {}
 for fn in finished:
@@ -130,3 +129,5 @@ for fn in finished:
 
 with open(metadata_fn.split('.metadata.pkl')[0] + '.weights.pkl', 'wb') as f:
     pickle.dump(weightsdict, f)
+"""
+

@@ -16,8 +16,6 @@ bwmdf = pd.read_parquet(DECODING_PATH.joinpath('insertions.pqt')).reset_index(dr
 bwmdf = bwmdf[bwmdf.spike_sorting != '']
 eids = bwmdf['eid'].unique()
 
-eids = eids[:10]
-
 # create necessary empty directories if not existing
 DECODING_PATH.joinpath('results').mkdir(exist_ok=True)
 DECODING_PATH.joinpath('results', 'behavioral').mkdir(exist_ok=True)
@@ -65,14 +63,18 @@ else:
     eid = eids[eid_id]
     sessiondf, wideFieldImaging_dict = None, None
 
-if WIDE_FIELD_IMAGING and eid in excludes or np.any(bwmdf[bwmdf['eid'] == eid]['spike_sorting'] == ""):
-    print(f"dud {eid}")
-else:
-    print(f"session: {eid}")
-    pseudo_ids = np.arange(job_id * N_PSEUDO_PER_JOB, (job_id + 1) * N_PSEUDO_PER_JOB) + 1
-    if 1 in pseudo_ids:
-        pseudo_ids = np.concatenate((-np.ones(1), pseudo_ids)).astype('int64')
-    fit_eid(eid=eid, bwmdf=bwmdf, pseudo_ids=pseudo_ids,
-            sessiondf=sessiondf, wideFieldImaging_dict=wideFieldImaging_dict, **kwargs)
 
-print('Slurm job successful')
+if (job_id + 1) * N_PSEUDO_PER_JOB <= N_PSEUDO:
+    if WIDE_FIELD_IMAGING and eid in excludes or np.any(bwmdf[bwmdf['eid'] == eid]['spike_sorting'] == ""):
+        print(f"dud {eid}")
+    else:
+        print(f"session: {eid}")
+        pseudo_ids = np.arange(job_id * N_PSEUDO_PER_JOB, (job_id + 1) * N_PSEUDO_PER_JOB) + 1
+        if 1 in pseudo_ids:
+            pseudo_ids = np.concatenate((-np.ones(1), pseudo_ids)).astype('int64')
+        fit_eid(eid=eid, bwmdf=bwmdf, pseudo_ids=pseudo_ids,
+                sessiondf=sessiondf, wideFieldImaging_dict=wideFieldImaging_dict, **kwargs)
+    print('Slurm job successful')
+else:
+    print('index is too high, which would lead to generating more sessions than expected')
+
