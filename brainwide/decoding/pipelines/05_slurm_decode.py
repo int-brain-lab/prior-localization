@@ -43,7 +43,8 @@ kwargs = {'imposterdf': imposterdf, 'nb_runs': N_RUNS, 'single_region': SINGLE_R
           'border_quantiles_neurometric': BORDER_QUANTILES_NEUROMETRIC, 'today': DATE,
           'add_to_saving_path': ADD_TO_SAVING_PATH, 'use_openturns': USE_OPENTURNS,
           'bin_size_kde': BIN_SIZE_KDE, 'wide_field_imaging': WIDE_FIELD_IMAGING, 'wfi_hemispheres': WFI_HEMISPHERES,
-          'wfi_nb_frames': WFI_NB_FRAMES, 'use_imposter_session_for_balancing': USE_IMPOSTER_SESSION_FOR_BALANCING,}
+          'wfi_nb_frames': WFI_NB_FRAMES, 'use_imposter_session_for_balancing': USE_IMPOSTER_SESSION_FOR_BALANCING,
+          'beh_mouseLevel_training': BEH_MOUSELEVEL_TRAINING,}
 
 if WIDE_FIELD_IMAGING:
     import glob
@@ -63,6 +64,7 @@ else:
     eid = eids[eid_id]
     sessiondf, wideFieldImaging_dict = None, None
 
+eid = '0ac8d013-b91e-4732-bc7b-a1164ff3e445'
 
 if (job_id + 1) * N_PSEUDO_PER_JOB <= N_PSEUDO:
     if WIDE_FIELD_IMAGING and eid in excludes or np.any(bwmdf[bwmdf['eid'] == eid]['spike_sorting'] == ""):

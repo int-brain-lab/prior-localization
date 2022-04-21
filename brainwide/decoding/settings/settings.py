@@ -34,6 +34,7 @@ if TARGET not in ['pLeft', 'signcont']:
 BALANCED_CONTINUOUS_TARGET = True if TARGET == 'pLeft' else False  # True  # is target continuous or not FOR BALANCED WEIGHTING
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
 MODEL = dut.expSmoothing_prevAction  # expSmoothing_prevAction  #optimal_Bayesian or None # or dut.modeldispatcher.
+BEH_MOUSELEVEL_TRAINING = False  # if True, trains the behavioral model session-wise else mouse-wise
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
@@ -67,10 +68,8 @@ BIN_SIZE_KDE = 0.05  # size of the kde bin
 HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])}
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
-ADD_TO_SAVING_PATH = 'imposterSess_%i_balancedWeigh_%i_RegionLevel_%i_mergedProbes_%i'.format(USE_IMPOSTER_SESSION,
-                                                                                              BALANCED_WEIGHT,
-                                                                                              SINGLE_REGION,
-                                                                                              MERGED_PROBES)
+ADD_TO_SAVING_PATH = 'imposterSess_%i_balancedWeigh_%i_RegionLevel_%i_mergedProbes_%i_behMouseLevelTraining_%i'.\
+    format(USE_IMPOSTER_SESSION, BALANCED_WEIGHT, SINGLE_REGION, MERGED_PROBES, BEH_MOUSELEVEL_TRAINING)
 
 # WIDE FIELD IMAGING
 WIDE_FIELD_IMAGING = False
@@ -136,6 +135,7 @@ fit_metadata = {
     'bin_size_kde': BIN_SIZE_KDE,
     'wide_field_imaging': WIDE_FIELD_IMAGING,
     'use_imposter_session_for_balancing': USE_IMPOSTER_SESSION_FOR_BALANCING,
+    'beh_mouseLevel_training': BEH_MOUSELEVEL_TRAINING,
 }
 
 if WIDE_FIELD_IMAGING:
