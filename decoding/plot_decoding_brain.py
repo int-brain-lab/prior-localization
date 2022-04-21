@@ -44,6 +44,7 @@ def brain_results(acronyms_unordered, values_unordered,
                 FILE_PATH='/home/bensonb/IntBrainLab/prior-localization/decoding_figures/',
                 cmap='viridis',
                 YMIN=None,
+                YMAX=None,
                 value_title='$R^2$',
                 TOP_N_TEXT=np.nan):
     '''
@@ -63,6 +64,8 @@ def brain_results(acronyms_unordered, values_unordered,
         DESCRIPTION. The default is 'viridis'.
     YMIN : TYPE, optional
         DESCRIPTION. The default is None.
+    YMAX : TYPE, optional
+        DESCRIPTION. The default is None.
     value_title : TYPE, optional
         DESCRIPTION. The default is '$R^2$'.
 
@@ -79,12 +82,28 @@ def brain_results(acronyms_unordered, values_unordered,
     
     extend = None
     clevels = None
-    if not (YMIN is None):
+    if (not (YMIN is None)) and (not (YMAX is None)):
+        clevels = [YMIN, YMAX]
+        if (np.min(values) < YMIN) and (np.max(values) > YMAX):
+            extend = 'both'
+            values = np.minimum(np.maximum(values,YMIN),YMAX)
+        elif np.min(values) < YMIN:
+            extend = 'min'
+            values = np.maximum(values,YMIN)
+        elif np.max(values) > YMAX:
+            extend = 'max'
+            values = np.minimum(values,YMAX)
+    elif not (YMIN is None):
         clevels = [YMIN, np.max(values)]
         if np.min(values) < YMIN:
             extend = 'min'
             values = np.maximum(values,YMIN)
-        
+    elif not (YMAX is None):
+        clevels = [np.min(values), YMAX]
+        if np.max(values) > YMAX:
+            extend = 'max'
+            values = np.minimum(values,YMAX)
+
     
     fig, axes = plt.subplots(2,2)
         
@@ -201,7 +220,8 @@ def bar_results(acronyms_unordered, values_eids_unordered, nulls_unordered,
                 ylab='',
                 FILE_PATH='/home/bensonb/IntBrainLab/prior-localization/decoding_figures/',
                 YMIN=None,
-                TOP_N=np.nan):
+                TOP_N=np.nan,
+                POOL_PROTOCOL='median'):
     '''
     
 
@@ -224,14 +244,21 @@ def bar_results(acronyms_unordered, values_eids_unordered, nulls_unordered,
         DESCRIPTION. The default is None.
     TOP_N : int, optional
         only plot the top n values. The default is np.nan.
-
+    POOL_PROTOCOL : str, optional
+        'median' or 'mean'.  how to do per-region pooling across sessions.
+        The default is 'median'.
     Returns
     -------
     None.
 
     '''
-    
-    values_unordered = np.array([np.median(vs) for vs in values_eids_unordered])
+    if POOL_PROTOCOL == 'median':
+        values_unordered = np.array([np.median(vs) for vs in values_eids_unordered])
+    elif POOL_PROTOCOL == 'mean':
+        values_unordered = np.array([np.mean(vs) for vs in values_eids_unordered])
+    else:
+        raise ValueError('This value of POOL_PROTOCOL is not implemented.')
+        
     if not np.isnan(TOP_N):
         sinds = np.argsort(values_unordered)[::-1][:TOP_N]
         acronyms_unordered = acronyms_unordered[sinds]

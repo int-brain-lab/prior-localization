@@ -21,9 +21,13 @@ FIGURE_PATH = '/home/bensonb/IntBrainLab/prior-localization/decoding_figures/'
 FIGURE_SUFFIX = '.png'
 
 #%%
-SPECIFIC_DECODING = 'decode_signcont_task_Lasso_r2_control_100_pseudos_align_goCue_times_timeWin_0_0_1_alleidProb_incTol'
 SPECIFIC_DECODING = 'decode_signcont_task_Lasso_r2_control_100_pseudo-session_align_goCue_times_timeWin_0_0_1_alleid220414'
-VARIABLE_FOLDER = 'stimulus/'
+VARIABLE_FOLDER = 'stimulus_VISonly/'
+
+if not os.path.isdir(os.path.join(FIGURE_PATH,
+                                  VARIABLE_FOLDER)):
+    os.mkdir(os.path.join(FIGURE_PATH,
+                          VARIABLE_FOLDER))
 if not os.path.isdir(os.path.join(FIGURE_PATH,
                                   VARIABLE_FOLDER,
                                   SPECIFIC_DECODING)):
@@ -50,6 +54,20 @@ all_eids = data['eid']
 all_probes = data['probe']
 all_masks = data['mask']
 
+# region_filter = np.array([('VIS' in reg) for reg in all_regions])
+# all_pvalues = all_pvalues[region_filter]
+# all_scores = all_scores[region_filter]
+# all_null_scores = all_null_scores[region_filter]
+# all_targets = all_targets[region_filter]
+# all_preds = all_preds[region_filter]
+# all_block_pLeft = all_block_pLeft[region_filter]
+# all_actn = all_actn[region_filter]
+# all_regions = all_regions[region_filter]
+# all_eids = all_eids[region_filter]
+# all_probes = all_probes[region_filter]
+# all_masks = all_masks[region_filter]
+
+
 # plt.title('r2s')
 plt.hist(results.loc[:,'Score_test'], bins=30, 
          histtype='step', density=True, lw=5)
@@ -67,40 +85,6 @@ plt.ylabel('density')
 plt.show()
 
 #%%
-
-# plt.title('prior: random example')
-# plt.plot(all_targets[100:400])
-# plt.plot(all_preds[100:400])
-# plt.legend(['targets','predictions'])
-# plt.savefig(os.path.join(FIGURE_PATH,
-#                          VARIABLE_FOLDER,
-#                          SPECIFIC_DECODING,
-#             ('_'.join([RESULTS_DATE, 'predictionsTraceRandomExample'])) +
-#             FIGURE_SUFFIX), 
-#             dpi=600)
-# plt.show()
-
-# plt.title('prior: best example')
-# plt.plot(best_targets[100:400])
-# plt.plot(best_preds[100:400])
-# plt.legend(['targets','predictions'])
-# plt.savefig(os.path.join(FIGURE_PATH,
-#                          VARIABLE_FOLDER,
-#                          SPECIFIC_DECODING,
-#             ('_'.join([RESULTS_DATE, 'predictionsTraceBestR2Example'])) +
-#             FIGURE_SUFFIX), 
-#             dpi=600)
-# plt.show()
-
-# plotting
-
-# all_targets, best_targets = np.array(all_targets), np.array(best_targets)
-# best_targets_continuous = np.copy(best_targets)
-# edge = np.linspace(0,1,11)
-
-# for i in range(len(edge)-1):
-#     all_targets[(all_targets >= edge[i])&(all_targets < edge[i+1])] = .5*(edge[i]+edge[i+1])
-#     best_targets[(best_targets >= edge[i])&(best_targets < edge[i+1])] = .5*(edge[i]+edge[i+1])
 assert np.max(all_scores)-np.min(all_scores) < 999
 index_max = np.argmax(all_scores)
 best_targets = all_targets[index_max]
@@ -112,7 +96,7 @@ best_eid = all_eids[index_max]
 best_probe = all_probes[index_max]
 best_region = all_regions[index_max]
 best_masks = all_masks[index_max]
-index_max_orb = np.argmax(all_scores - (999*(all_regions!='PRNr')))
+index_max_orb = np.argmax(all_scores - (999*(all_regions!='VISp')))
 best_targets_orb = all_targets[index_max_orb]
 best_score_orb = all_scores[index_max_orb]
 best_preds_orb = all_preds[index_max_orb]
@@ -146,12 +130,13 @@ for i in range(len(edge)-1):
                             (best_preds_continuous < edge[i+1])] = .5*(edge[i]+edge[i+1])
         best_preds_discrete_orb[(best_preds_continuous_orb >= edge[i])&
                             (best_preds_continuous_orb < edge[i+1])] = .5*(edge[i]+edge[i+1])
+
 plot_name = 'medianr2'
 reg_nulls = np.array([np.mean(all_null_scores[all_regions==reg],axis=0) for reg in np.unique(all_regions)])
 reg_values = np.array([all_scores[all_regions==reg] for reg in np.unique(all_regions)])
 reg_pvalue = np.array([np.mean(np.mean(reg_values[i])<=reg_nulls[i]) \
               for i in range(len(np.unique(all_regions)))])
-
+    
 acronyms = np.unique(all_regions)[reg_pvalue<0.05]
 values = reg_values[reg_pvalue<0.05]
 nulls_m = np.median(reg_nulls,axis=1)[reg_pvalue<0.05]
@@ -160,59 +145,31 @@ nulls_h = np.array([scipy.stats.scoreatpercentile(reg_nulls[i,:],
                     95, interpolation_method='fraction') for i in range(reg_nulls.shape[0])])[reg_pvalue<0.05]
 nulls = np.vstack((nulls_l,nulls_m,nulls_h))
 
+print(np.unique(all_regions)[reg_pvalue<0.05])
+print(np.unique(all_regions)[reg_pvalue>=0.05])
 brain_results(acronyms, 
-                np.array([np.median(v) for v in values]), 
+                np.array([np.mean(v) for v in values]), 
                 os.path.join(VARIABLE_FOLDER,
                               SPECIFIC_DECODING,
-                            ('_'.join([RESULTS_DATE, 'brains', plot_name])) +
+                            ('_'.join([RESULTS_DATE, 'brains_VISonly', plot_name])) +
                             FIGURE_SUFFIX), 
                 FILE_PATH = FIGURE_PATH,
                 cmap='Blues',
                 YMIN=0,
-                YMAX=0.08,
+                YMAX=0.1,
                 value_title='$R^2$')# '\n             %d of %d sig.'%(np.sum(reg_pvalue<0.05),len(reg_pvalue))
 bar_results(acronyms,
             values,
             nulls,
             os.path.join(VARIABLE_FOLDER,
                           SPECIFIC_DECODING,
-            ('_'.join([RESULTS_DATE, 'bars', plot_name])) +
+            ('_'.join([RESULTS_DATE, 'bars_VISonly', plot_name])) +
             FIGURE_SUFFIX),
             YMIN=-0.1,
             ylab='$R^2$',
             POOL_PROTOCOL='mean',
             TOP_N=15)
-# plot_name = 'mediansignificantr2'
-# MIN_NUMBER_SESSIONS = 1
-# all_sigs = (all_pvalues<=0.05)
-# use_region = lambda reg: len(np.nonzero((all_regions==reg)&all_sigs)[0]) and len(np.nonzero(all_regions==reg)[0])>=MIN_NUMBER_SESSIONS
-# get_region_value = lambda reg: np.median(all_scores[(all_regions==reg)&all_sigs])
-# get_region_err = lambda reg: np.std(all_scores[(all_regions==reg)&all_sigs])
 
-# regions = np.array([reg for reg in np.unique(all_regions) if use_region(reg)])
-# reg_values = np.array([get_region_value(reg) for reg in regions])
-# reg_errs = np.array([get_region_err(reg) for reg in regions])
-# acronyms, values, errs = regions, reg_values, reg_errs
-
-# brain_results(acronyms, 
-#                 values, 
-#                 os.path.join(VARIABLE_FOLDER,
-#                               SPECIFIC_DECODING,
-#                             ('_'.join([RESULTS_DATE, 'brains', plot_name])) +
-#                             FIGURE_SUFFIX), 
-#                 FILE_PATH = FIGURE_PATH,
-#                 cmap='Blues',
-#                 YMIN=0,
-#                 value_title='$R^2$')
-# bar_results(acronyms,
-#             values,
-#             errs,
-#             os.path.join(VARIABLE_FOLDER,
-#                           SPECIFIC_DECODING,
-#             ('_'.join([RESULTS_DATE, 'bars', plot_name])) +
-#             FIGURE_SUFFIX),
-#             YMIN=0,
-#             ylab='$R^2$')
 
 plot_name = 'maxsignificantr2'
 MIN_NUMBER_SESSIONS = 1
@@ -226,21 +183,21 @@ reg_values = np.array([get_region_value(reg) for reg in regions])
 reg_errs = np.array([get_region_err(reg) for reg in regions])
 acronyms, values, errs = regions, reg_values, reg_errs
 
-brain_results(acronyms, 
-                values, 
-                os.path.join(VARIABLE_FOLDER,
-                              SPECIFIC_DECODING,
-                            ('_'.join([RESULTS_DATE, 'brains', plot_name])) +
-                            FIGURE_SUFFIX), 
-                FILE_PATH = FIGURE_PATH,
-                cmap='Blues',
-                YMIN=0,
-                value_title='$R^2$')
+# brain_results(acronyms, 
+#                 values, 
+#                 os.path.join(VARIABLE_FOLDER,
+#                               SPECIFIC_DECODING,
+#                             ('_'.join([RESULTS_DATE, 'brains_VISonly', plot_name])) +
+#                             FIGURE_SUFFIX), 
+#                 FILE_PATH = FIGURE_PATH,
+#                 cmap='Blues',
+#                 YMIN=0,
+#                 value_title='$R^2$')
 bar_results_basic(acronyms,
             values,
             filename=os.path.join(VARIABLE_FOLDER,
                           SPECIFIC_DECODING,
-            ('_'.join([RESULTS_DATE, 'bars', plot_name])) +
+            ('_'.join([RESULTS_DATE, 'bars_VISonly', plot_name])) +
             FIGURE_SUFFIX),
             YMIN=0,
             ylab='$R^2$')
@@ -268,21 +225,21 @@ reg_errsm = np.array([get_region_errm(reg) for reg in regions])
 reg_errsp = np.array([get_region_errp(reg) for reg in regions])
 acronyms, values, errs = regions, reg_values, np.vstack((reg_errsm, reg_errsp))
 
-brain_results(acronyms, 
-                values-errs[0,:], 
-                os.path.join(VARIABLE_FOLDER,
-                              SPECIFIC_DECODING,
-                            ('_'.join([RESULTS_DATE, 'brains', plot_name])) +
-                            FIGURE_SUFFIX), 
-                FILE_PATH = FIGURE_PATH,
-                cmap='Blues',
-                value_title='chance of \nsignificant session \n(95\% ci)')
+# brain_results(acronyms, 
+#                 values-errs[0,:], 
+#                 os.path.join(VARIABLE_FOLDER,
+#                               SPECIFIC_DECODING,
+#                             ('_'.join([RESULTS_DATE, 'brains', plot_name])) +
+#                             FIGURE_SUFFIX), 
+#                 FILE_PATH = FIGURE_PATH,
+#                 cmap='Blues',
+#                 value_title='chance of \nsignificant session \n(95\% ci)')
 bar_results_basic(acronyms,
             values,
             errs,
             os.path.join(VARIABLE_FOLDER,
                           SPECIFIC_DECODING,
-            ('_'.join([RESULTS_DATE, 'bars', plot_name])) +
+            ('_'.join([RESULTS_DATE, 'bars_VISonly', plot_name])) +
             FIGURE_SUFFIX))
 
 plot_name = 'nsessionssignificant'
@@ -310,7 +267,7 @@ bar_results_basic(acronyms,
             errs,
             os.path.join(VARIABLE_FOLDER,
                           SPECIFIC_DECODING,
-            ('_'.join([RESULTS_DATE, 'bars', plot_name])) +
+            ('_'.join([RESULTS_DATE, 'bars_VISonly', plot_name])) +
             FIGURE_SUFFIX))
 
 #%%
@@ -523,43 +480,43 @@ plt.savefig(os.path.join(FIGURE_PATH,
             dpi=600)
 plt.show()
 
-best_trials = np.arange(len(best_masks))[[m=='1' for m in best_masks]]
-plt.figure(figsize=(10,3))
-plt.title(best_eid+' ['+best_probe+'] ['+best_region+']'+'\n $r^2=$%.4f'%best_score)
-plt.plot(best_trials,best_targets,'k',lw=2,ms=4)
-plt.plot(best_trials,best_preds,'C0',lw=2,ms=4)
-plt.yticks([-1,0,1])
-plt.ylim(-1,1)
-plt.legend(['True','Prediction'],frameon=True,loc=(-0.15,1.1))
-plt.xlabel('Trials')
-plt.ylabel('Stimulus')
-plt.tight_layout()
-plt.savefig(os.path.join(FIGURE_PATH,
-                         VARIABLE_FOLDER,
-                         SPECIFIC_DECODING,
-            ('_'.join([RESULTS_DATE, 'predictionsTraceBestR2_2'])) +
-            FIGURE_SUFFIX), 
-            dpi=600)
-plt.show()
+# best_trials = np.arange(len(best_masks))[[m=='1' for m in best_masks]]
+# plt.figure(figsize=(10,3))
+# plt.title(best_eid+' ['+best_probe+'] ['+best_region+']'+'\n $r^2=$%.4f'%best_score)
+# plt.plot(best_trials,best_targets,'k',lw=2,ms=4)
+# plt.plot(best_trials,best_preds,'C0',lw=2,ms=4)
+# plt.yticks([-1,0,1])
+# plt.ylim(-1,1)
+# plt.legend(['True','Prediction'],frameon=True,loc=(-0.15,1.1))
+# plt.xlabel('Trials')
+# plt.ylabel('Stimulus')
+# plt.tight_layout()
+# plt.savefig(os.path.join(FIGURE_PATH,
+#                          VARIABLE_FOLDER,
+#                          SPECIFIC_DECODING,
+#             ('_'.join([RESULTS_DATE, 'predictionsTraceBestR2_2'])) +
+#             FIGURE_SUFFIX), 
+#             dpi=600)
+# plt.show()
 
-best_trials_orb = np.arange(len(best_masks_orb))[[m=='1' for m in best_masks_orb]]
-plt.figure(figsize=(10,3))
-plt.title(best_eid_orb+' ['+best_probe_orb+'] ['+best_region_orb+']'+'\n $r^2=$%.4f'%best_score_orb)
-plt.plot(best_trials_orb,best_targets_orb,'k',lw=2,ms=4)
-plt.plot(best_trials_orb,best_preds_orb,'C0',lw=2,ms=4)
-plt.yticks([-1,0,1])
-plt.ylim(-1,1)
-plt.legend(['True','Prediction'],frameon=True,loc=(-0.15,1.1))
-plt.xlabel('Trials')
-plt.ylabel('Stimulus')
-plt.tight_layout()
-plt.savefig(os.path.join(FIGURE_PATH,
-                         VARIABLE_FOLDER,
-                         SPECIFIC_DECODING,
-            ('_'.join([RESULTS_DATE, 'predictionsTraceBestR2_orb2'])) +
-            FIGURE_SUFFIX), 
-            dpi=600)
-plt.show()
+# best_trials_orb = np.arange(len(best_masks_orb))[[m=='1' for m in best_masks_orb]]
+# plt.figure(figsize=(10,3))
+# plt.title(best_eid_orb+' ['+best_probe_orb+'] ['+best_region_orb+']'+'\n $r^2=$%.4f'%best_score_orb)
+# plt.plot(best_trials_orb,best_targets_orb,'k',lw=2,ms=4)
+# plt.plot(best_trials_orb,best_preds_orb,'C0',lw=2,ms=4)
+# plt.yticks([-1,0,1])
+# plt.ylim(-1,1)
+# plt.legend(['True','Prediction'],frameon=True,loc=(-0.15,1.1))
+# plt.xlabel('Trials')
+# plt.ylabel('Stimulus')
+# plt.tight_layout()
+# plt.savefig(os.path.join(FIGURE_PATH,
+#                          VARIABLE_FOLDER,
+#                          SPECIFIC_DECODING,
+#             ('_'.join([RESULTS_DATE, 'predictionsTraceBestR2_orb2'])) +
+#             FIGURE_SUFFIX), 
+#             dpi=600)
+# plt.show()
 
 plt.title(best_eid+' ['+best_probe+'] ['+best_region+']')
 vals, bins, _ = plt.hist(all_actn, density=True)
