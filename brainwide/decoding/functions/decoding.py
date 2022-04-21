@@ -107,11 +107,12 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
     msub_tvec = tvec[mask]
 
     if kwargs['balanced_weight']:
-        if kwargs['no_unbias'] and not kwargs['use_imposter_session'] and (kwargs['model'] == dut.optimal_Bayesian):
+        if (kwargs['no_unbias'] and not kwargs['use_imposter_session_for_balancing']
+                and (kwargs['model'] == dut.optimal_Bayesian)):
             with open(kwargs['decoding_path'].joinpath('targetpLeft_optBay_%s.pkl' %
                                                        str(kwargs['bin_size_kde']).replace('.', '_')), 'rb') as f:
                 target_distribution = pickle.load(f)
-        elif not kwargs['use_imposter_session'] and (kwargs['model'] == dut.optimal_Bayesian):
+        elif not kwargs['use_imposter_session_for_balancing'] and (kwargs['model'] == dut.optimal_Bayesian):
             target_distribution, _ = dut.get_target_pLeft(nb_trials=trialsdf.index.size, nb_sessions=250,
                                                           take_out_unbiased=False, bin_size_kde=kwargs['bin_size_kde'])
         else:
