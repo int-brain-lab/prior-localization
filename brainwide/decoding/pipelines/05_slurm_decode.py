@@ -8,7 +8,7 @@ from wide_field_imaging import utils as wut
 try:
     index = int(sys.argv[1]) - 1
 except:
-    index = 4
+    index = 182
     pass
 
 # import cached data

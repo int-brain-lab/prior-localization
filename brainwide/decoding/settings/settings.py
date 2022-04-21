@@ -18,10 +18,10 @@ strlut = {sklm.Lasso: "Lasso",
 
 # %% Run param definitions
 LOCAL = False
-if LOCAL:
-    DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/code/prior-localization/brainwide/decoding/")
+if not LOCAL and Path("/home/users/f/findling/scratch").exists():
+        DECODING_PATH = Path("/home/users/f/findling/scratch")
 else:
-    DECODING_PATH = Path("/home/users/f/findling/scratch")
+    DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/code/prior-localization/brainwide/decoding/")
 
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
