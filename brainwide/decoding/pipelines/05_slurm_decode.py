@@ -64,8 +64,6 @@ else:
     eid = eids[eid_id]
     sessiondf, wideFieldImaging_dict = None, None
 
-eid = '0ac8d013-b91e-4732-bc7b-a1164ff3e445'
-
 if (job_id + 1) * N_PSEUDO_PER_JOB <= N_PSEUDO:
     if WIDE_FIELD_IMAGING and eid in excludes or np.any(bwmdf[bwmdf['eid'] == eid]['spike_sorting'] == ""):
         print(f"dud {eid}")

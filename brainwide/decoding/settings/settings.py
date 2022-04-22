@@ -26,7 +26,7 @@ else:
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
 SESS_CRITERION = 'aligned-behavior'  # aligned and behavior
-DATE = '2022-04-22'  #str(date.today())  # '2022-04-18'
+DATE = '2022-04-23'  #str(date.today())  # '2022-04-18'
 ALIGN_TIME = 'goCue_times'
 TARGET = 'pLeft'  # 'signcont' or 'pLeft'
 if TARGET not in ['pLeft', 'signcont']:
