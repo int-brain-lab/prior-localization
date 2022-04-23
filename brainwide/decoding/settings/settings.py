@@ -17,16 +17,16 @@ strlut = {sklm.Lasso: "Lasso",
           sklm.LogisticRegression: "Logistic"}
 
 # %% Run param definitions
-LOCAL = True
-if LOCAL:
-    DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/code/prior-localization/brainwide/decoding/")
+LOCAL = False
+if not LOCAL and Path("/home/users/f/findling/scratch").exists():
+        DECODING_PATH = Path("/home/users/f/findling/scratch")
 else:
-    DECODING_PATH = Path("/home/users/h/hubertf/scratch")
+    DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/code/prior-localization/brainwide/decoding/")
 
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
 SESS_CRITERION = 'aligned-behavior'  # aligned and behavior
-DATE = '2022-04-05'
+DATE = '2022-04-23'  #str(date.today())  # '2022-04-18'
 ALIGN_TIME = 'goCue_times'
 TARGET = 'pLeft'  # 'signcont' or 'pLeft'
 if TARGET not in ['pLeft', 'signcont']:
@@ -34,18 +34,19 @@ if TARGET not in ['pLeft', 'signcont']:
 BALANCED_CONTINUOUS_TARGET = True if TARGET == 'pLeft' else False  # True  # is target continuous or not FOR BALANCED WEIGHTING
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
 MODEL = dut.expSmoothing_prevAction  # expSmoothing_prevAction  #optimal_Bayesian or None # or dut.modeldispatcher.
+BEH_MOUSELEVEL_TRAINING = False  # if True, trains the behavioral model session-wise else mouse-wise
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
-N_PSEUDO = 200
+N_PSEUDO = 100
 N_PSEUDO_PER_JOB = 10
 N_JOBS_PER_SESSION = N_PSEUDO // N_PSEUDO_PER_JOB
 N_RUNS = 10
 MIN_UNITS = 10
 MIN_BEHAV_TRIAS = 400  # default BWM setting
 MIN_RT = 0.08  # 0.08  # Float (s) or None
-SINGLE_REGION = False  # perform decoding on region-wise or whole brain analysis
-MERGED_PROBES = True  # merge probes before performing analysis
+SINGLE_REGION = True  # perform decoding on region-wise or whole brain analysis
+MERGED_PROBES = False  # merge probes before performing analysis
 NO_UNBIAS = False  # take out unbiased trials
 SHUFFLE = True  # interleaved cross validation
 BORDER_QUANTILES_NEUROMETRIC = [.3, .7]  # [.3, .4, .5, .6, .7]
@@ -59,15 +60,16 @@ NORMALIZE_OUTPUT = False  # take out mean of output to predict
 if NORMALIZE_INPUT or NORMALIZE_OUTPUT:
     warnings.warn('This feature has not been tested')
 USE_IMPOSTER_SESSION = True  # if false, it uses pseudosessions
-USE_IMPOSTER_SESSION_FOR_BALANCING = False  # if false, it simulates the model
+USE_IMPOSTER_SESSION_FOR_BALANCING = False  # if false, it simulates the model (should be False)
 
-BALANCED_WEIGHT = True  # seems to work better with BALANCED_WEIGHT=False, but putting True is important
+BALANCED_WEIGHT = False  # seems to work better with BALANCED_WEIGHT=False, but putting True is important
 USE_OPENTURNS = False  # uses openturns to perform kernel density estimation
 BIN_SIZE_KDE = 0.05  # size of the kde bin
 HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])}
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
-ADD_TO_SAVING_PATH = 'imposterSessions_mergedProbes_wholeBrain_2'
+ADD_TO_SAVING_PATH = ('imposterSess_%i_balancedWeight_%i_RegionLevel_%i_mergedProbes_%i_behMouseLevelTraining_%i'
+                      % (USE_IMPOSTER_SESSION, BALANCED_WEIGHT, SINGLE_REGION, MERGED_PROBES, BEH_MOUSELEVEL_TRAINING))
 
 # WIDE FIELD IMAGING
 WIDE_FIELD_IMAGING = False
@@ -133,6 +135,7 @@ fit_metadata = {
     'bin_size_kde': BIN_SIZE_KDE,
     'wide_field_imaging': WIDE_FIELD_IMAGING,
     'use_imposter_session_for_balancing': USE_IMPOSTER_SESSION_FOR_BALANCING,
+    'beh_mouseLevel_training': BEH_MOUSELEVEL_TRAINING,
 }
 
 if WIDE_FIELD_IMAGING:

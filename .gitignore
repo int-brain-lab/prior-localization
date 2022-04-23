@@ -1,3 +1,4 @@
+brainwide/logs/slurm
 brainwide/decoding/settings/settings.py
 brainwide/decoding/*pqt
 brainwide/decoding/results/

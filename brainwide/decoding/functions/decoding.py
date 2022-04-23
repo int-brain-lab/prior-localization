@@ -54,7 +54,10 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
     if sessiondf is None:
         df_insertions = bwmdf.loc[bwmdf['eid'] == eid]
         subject = df_insertions['subject'].to_numpy()[0]
-        subjeids = bwmdf.loc[bwmdf['subject'] == subject]['eid'].unique()
+        if kwargs['beh_mouseLevel_training']:
+            subjeids = bwmdf.loc[bwmdf['subject'] == subject]['eid'].unique()
+        else:
+            subjeids = np.array([eid])
         brainreg = dut.BrainRegions()
         behavior_data = mut.load_session(eid, one=one)
         behavior_data_train = None
@@ -68,6 +71,15 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
         tvec = dut.compute_target(kwargs['target'], subject, subjeids, eid, kwargs['modelfit_path'],
                                   modeltype=kwargs['model'], behavior_data_train=behavior_data_train,
                                   beh_data_test=behavior_data, one=one)
+        '''
+        from matplotlib import pyplot as plt
+        plt.figure()
+        plt.plot(tvec, label='pLeft')
+        plt.plot((behavior_data['choice'] == 1) * 1 + (behavior_data['choice'] == 0) * 0.5, label='action')
+        plt.legend()
+        plt.draw()
+        plt.show()
+        '''
     except ValueError:
         print('Model not fit.')
         tvec = dut.compute_target(kwargs['target'], subject, subjeids, eid, kwargs['modelfit_path'],
@@ -95,11 +107,12 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
     msub_tvec = tvec[mask]
 
     if kwargs['balanced_weight']:
-        if kwargs['no_unbias'] and not kwargs['use_imposter_session'] and (kwargs['model'] == dut.optimal_Bayesian):
+        if (kwargs['no_unbias'] and not kwargs['use_imposter_session_for_balancing']
+                and (kwargs['model'] == dut.optimal_Bayesian)):
             with open(kwargs['decoding_path'].joinpath('targetpLeft_optBay_%s.pkl' %
                                                        str(kwargs['bin_size_kde']).replace('.', '_')), 'rb') as f:
                 target_distribution = pickle.load(f)
-        elif not kwargs['use_imposter_session'] and (kwargs['model'] == dut.optimal_Bayesian):
+        elif not kwargs['use_imposter_session_for_balancing'] and (kwargs['model'] == dut.optimal_Bayesian):
             target_distribution, _ = dut.get_target_pLeft(nb_trials=trialsdf.index.size, nb_sessions=250,
                                                           take_out_unbiased=False, bin_size_kde=kwargs['bin_size_kde'])
         else:
