@@ -60,7 +60,7 @@ NORMALIZE_INPUT = False  # take out mean of the neural activity per unit across 
 NORMALIZE_OUTPUT = False  # take out mean of output to predict
 if NORMALIZE_INPUT or NORMALIZE_OUTPUT:
     warnings.warn('This feature has not been tested')
-USE_IMPOSTER_SESSION = True  # if false, it uses pseudosessions
+USE_IMPOSTER_SESSION = False  # if false, it uses pseudosessions
 USE_IMPOSTER_SESSION_FOR_BALANCING = False  # if false, it simulates the model (should be False)
 
 BALANCED_WEIGHT = False  # seems to work better with BALANCED_WEIGHT=False, but putting True is important

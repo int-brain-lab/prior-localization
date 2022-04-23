@@ -503,8 +503,6 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs, use_openturn
 
                     r2s[ifold, i_alpha] = scoring_f(y_test_inner, pred_test_inner)
 
-                    balanced_accuracy_score(y_test_inner, pred_test_inner)
-
             r2s_avg = r2s.mean(axis=0)
             best_alpha = hyperparam_grid[key][np.argmax(r2s_avg)]
             clf = estimatorObject(**{**estimator_kwargs, key: best_alpha})
