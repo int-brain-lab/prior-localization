@@ -45,9 +45,9 @@ for fn in tqdm(finished):
     for i_run in range(len(result['fit'])):
         side, stim, act, _ = mut.format_data(result["fit"][i_run]["df"])
         mask = result["fit"][i_run]["mask"]  # np.all(result["fit"][i_run]["target"] == stim[mask])
-        #full_test_prediction = np.zeros(result["fit"][i_run]["target"].size)
-        #for k in range(len(result["fit"][i_run]["idxes_test"])):
-        #    full_test_prediction[result["fit"][i_run]['idxes_test'][k]] = result["fit"][i_run]['predictions_test'][k]
+        full_test_prediction = np.zeros(result["fit"][i_run]["target"].size)
+        for k in range(len(result["fit"][i_run]["idxes_test"])):
+            full_test_prediction[result["fit"][i_run]['idxes_test'][k]] = result["fit"][i_run]['predictions_test'][k]
         #neural_act = np.sign(full_test_prediction)
         #perf_allcontrasts = (side.values[mask][neural_act != 0] == neural_act[neural_act != 0]).mean()
         #perf_allcontrasts_prevtrial = (side.values[mask][1:] == neural_act[:-1])[neural_act[:-1] != 0].mean()
@@ -58,14 +58,18 @@ for fn in tqdm(finished):
                    'pseudo_id': result['pseudo_id'],
                    'N_units': result['N_units'],
                    'run_id': i_run + 1,
-                   #'prediction': list(full_test_prediction),
-                   #'target': list(result["fit"][i_run]["target"]),
-                   #'perf_allcontrast': perf_allcontrasts,
-                   #'perf_allcontrasts_prevtrial': perf_allcontrasts_prevtrial,
-                   #'perf_0contrast': perf_0contrasts,
-                   #'nb_trials_act_is_0': nb_trials_act_is_0,
                    'mask': ''.join([str(item) for item in list(result['fit'][i_run]['mask'].values * 1)]),
-                   'R2_test': result['fit'][i_run]['Rsquared_test_full']}
+                   'R2_test': result['fit'][i_run]['Rsquared_test_full'],
+                   'prediction': list(full_test_prediction),
+                   # 'target': list(result["fit"][i_run]["target"]),
+                   # 'perf_allcontrast': perf_allcontrasts,
+                   # 'perf_allcontrasts_prevtrial': perf_allcontrasts_prevtrial,
+                   # 'perf_0contrast': perf_0contrasts,
+                   # 'nb_trials_act_is_0': nb_trials_act_is_0,
+                   }
+        if 'acc_test_full' in result['fit'][i_run].keys():
+            tmpdict = {**tmpdict, 'acc_test': result['fit'][i_run]['acc_test_full'],
+                       'balanced_acc_test': result['fit'][i_run]['balanced_acc_test_full']}
         if result['fit'][i_run]['full_neurometric'] is not None:
             tmpdict = {**tmpdict,
                        **{idx_neuro: result['fit'][i_run]['full_neurometric'][idx_neuro]

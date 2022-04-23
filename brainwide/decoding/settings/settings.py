@@ -26,17 +26,18 @@ else:
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
 SESS_CRITERION = 'aligned-behavior'  # aligned and behavior
-DATE = '2022-04-23'  #str(date.today())  # '2022-04-18'
+DATE = '2022-04-23'  # str(date.today())  # '2022-04-18'
 ALIGN_TIME = 'goCue_times'
-TARGET = 'pLeft'  # 'signcont' or 'pLeft'
-if TARGET not in ['pLeft', 'signcont']:
-    raise ValueError('TARGET can only be pLeft or signcont for the moment')
-BALANCED_CONTINUOUS_TARGET = True if TARGET == 'pLeft' else False  # True  # is target continuous or not FOR BALANCED WEIGHTING
+TARGET = 'choice'  # 'signcont' or 'pLeft'
+if TARGET not in ['pLeft', 'signcont', 'choice', 'feedback']:
+    raise ValueError('TARGET can only be pLeft, signcont or choice')
+BALANCED_CONTINUOUS_TARGET = True  # is target continuous or discrete FOR BALANCED WEIGHTING
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
-MODEL = dut.expSmoothing_prevAction  # expSmoothing_prevAction  #optimal_Bayesian or None # or dut.modeldispatcher.
+MODEL = dut.expSmoothing_prevAction  # expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
 BEH_MOUSELEVEL_TRAINING = False  # if True, trains the behavioral model session-wise else mouse-wise
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
-ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
+ESTIMATOR = sklm.LogisticRegression  # Must be in keys of strlut above
+BINARIZATION_VALUE = None  # to binarize the target -> could be useful with logistic regression estimator
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
 N_PSEUDO = 100
 N_PSEUDO_PER_JOB = 10
@@ -65,7 +66,8 @@ USE_IMPOSTER_SESSION_FOR_BALANCING = False  # if false, it simulates the model (
 BALANCED_WEIGHT = False  # seems to work better with BALANCED_WEIGHT=False, but putting True is important
 USE_OPENTURNS = False  # uses openturns to perform kernel density estimation
 BIN_SIZE_KDE = 0.05  # size of the kde bin
-HPARAM_GRID = {'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])}
+HPARAM_GRID = ({'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])} if not (sklm.LogisticRegression == ESTIMATOR)
+               else {'C': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])})
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
 ADD_TO_SAVING_PATH = ('imposterSess_%i_balancedWeight_%i_RegionLevel_%i_mergedProbes_%i_behMouseLevelTraining_%i'
@@ -86,12 +88,12 @@ excludes = [
     '09394481-8dd2-4d5c-9327-f2753ede92d7',  # same same
 ]
 
+if ESTIMATOR == sklm.LogisticRegression and BALANCED_CONTINUOUS_TARGET:
+    raise ValueError('you can not have a continuous target with logistic regression')
+
 # ValueErrors and NotImplementedErrors
 if not SINGLE_REGION and not MERGED_PROBES:
     raise ValueError('full probes analysis can only be done with merged probes')
-
-if TARGET not in ['signcont', 'pLeft']:
-    raise NotImplementedError('this TARGET is not supported yet')
 
 if MODEL not in list(dut.modeldispatcher.keys()):
     raise NotImplementedError('this MODEL is not supported yet')

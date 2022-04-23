@@ -69,6 +69,7 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
 
     try:
         tvec = dut.compute_target(kwargs['target'], subject, subjeids, eid, kwargs['modelfit_path'],
+                                  binarization_value=kwargs['binarization_value'],
                                   modeltype=kwargs['model'], behavior_data_train=behavior_data_train,
                                   beh_data_test=behavior_data, one=one)
         '''
@@ -83,6 +84,7 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
     except ValueError:
         print('Model not fit.')
         tvec = dut.compute_target(kwargs['target'], subject, subjeids, eid, kwargs['modelfit_path'],
+                                  binarization_value=kwargs['binarization_value'],
                                   modeltype=kwargs['model'], one=kwargs['one'], beh_data_test=behavior_data)
 
     try:
@@ -106,7 +108,7 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
     nb_trialsdf = trialsdf[mask]
     msub_tvec = tvec[mask]
 
-    if kwargs['balanced_weight']:
+    if kwargs['balanced_weight'] and kwargs['balanced_continuous_target']:
         if (kwargs['no_unbias'] and not kwargs['use_imposter_session_for_balancing']
                 and (kwargs['model'] == dut.optimal_Bayesian)):
             with open(kwargs['decoding_path'].joinpath('targetpLeft_optBay_%s.pkl' %
@@ -237,7 +239,9 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
                         pseudosess = generate_pseudo_session(trialsdf, generate_choices=False)
 
                     msub_pseudo_tvec = dut.compute_target(kwargs['target'], subject, subjeids, eid,
-                                                          kwargs['modelfit_path'], modeltype=kwargs['model'],
+                                                          kwargs['modelfit_path'],
+                                                          binarization_value=kwargs['binarization_value'],
+                                                          modeltype=kwargs['model'],
                                                           beh_data_test=pseudosess, one=one,
                                                           behavior_data_train=behavior_data_train)[mask]
 
@@ -246,7 +250,9 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
                         pseudosess[mask].reset_index()
                     if kwargs['model'] is not None:
                         blockprob_neurometric = dut.compute_target('pLeft', subject, subjeids, eid,
-                                                                   kwargs['modelfit_path'], modeltype=kwargs['model'],
+                                                                   kwargs['modelfit_path'],
+                                                                   binarization_value=kwargs['binarization_value'],
+                                                                   modeltype=kwargs['model'],
                                                                    beh_data_test=trialsdf if pseudo_id == -1 else pseudosess,
                                                                    behavior_data_train=behavior_data_train, one=one)
 
