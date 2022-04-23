@@ -28,15 +28,15 @@ else:
 SESS_CRITERION = 'aligned-behavior'  # aligned and behavior
 DATE = '2022-04-23'  # str(date.today())  # '2022-04-18'
 ALIGN_TIME = 'goCue_times'
-TARGET = 'choice'  # 'signcont' or 'pLeft'
+TARGET = 'pLeft'  # 'signcont' or 'pLeft'
 if TARGET not in ['pLeft', 'signcont', 'choice', 'feedback']:
     raise ValueError('TARGET can only be pLeft, signcont or choice')
 BALANCED_CONTINUOUS_TARGET = True  # is target continuous or discrete FOR BALANCED WEIGHTING
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
-MODEL = dut.expSmoothing_prevAction  # expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
+MODEL = dut.optimal_Bayesian  # expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
 BEH_MOUSELEVEL_TRAINING = False  # if True, trains the behavioral model session-wise else mouse-wise
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
-ESTIMATOR = sklm.LogisticRegression  # Must be in keys of strlut above
+ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 BINARIZATION_VALUE = None  # to binarize the target -> could be useful with logistic regression estimator
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
 N_PSEUDO = 100
