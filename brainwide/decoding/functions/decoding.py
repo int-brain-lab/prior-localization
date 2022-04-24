@@ -33,9 +33,6 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
             and kwargs['target'] == 'pLeft' and not kwargs['use_imposter_session']):
         raise ValueError('There is a problem in the settings. You should use imposter sessions')
 
-    if kwargs['target'] == 'pLeft' and kwargs['balanced_weight'] and not kwargs['balanced_continuous_target']:
-        raise ValueError('There is a problem in the settings. This is a continuous target for balanced weighting')
-
     if ((wideFieldImaging_dict is None and kwargs['wide_field_imaging']) or
             (wideFieldImaging_dict is not None and not kwargs['wide_field_imaging'])):
         raise ValueError('wideFieldImaging_dict must be defined for wide_field_imaging and reciprocally')

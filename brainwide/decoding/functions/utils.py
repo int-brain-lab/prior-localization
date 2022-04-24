@@ -571,6 +571,8 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs, use_openturn
     outdict['nFolds'] = nFolds
     if save_binned:
         outdict['regressors'] = binned
+    if hasattr(clf, 'classes_'):
+        outdict['classes_'] = clf.classes_
 
     # logging
     if verbose:
