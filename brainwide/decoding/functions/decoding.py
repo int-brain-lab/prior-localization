@@ -101,9 +101,8 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
         mask = mask & (trialsdf.probabilityLeft != 0.5).values
     if kwargs['min_rt'] is not None:
         mask = mask & (~(trialsdf.react_times < kwargs['min_rt'])).values
-    mask = mask & (trialsdf.choice != 0)  # take out when mouse doesn't perform any action
-    nb_trialsdf = trialsdf[mask]
-    msub_tvec = tvec[mask]
+    nb_trialsdf = trialsdf[mask & (trialsdf.choice != 0)]  # take out when mouse doesn't perform any action
+    msub_tvec = tvec[mask & (trialsdf.choice != 0)]  # take out when mouse doesn't perform any action
 
     if kwargs['balanced_weight'] and kwargs['balanced_continuous_target']:
         if (kwargs['no_unbias'] and not kwargs['use_imposter_session_for_balancing']
@@ -232,19 +231,21 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
                     if kwargs['use_imposter_session']:
                         pseudosess = dut.generate_imposter_session(kwargs['imposterdf'], eid,
                                                                    trialsdf.index.size, nbSampledSess=10)
+                        pseudomask = mask & (pseudosess.choice != 0)
                     else:
                         pseudosess = generate_pseudo_session(trialsdf, generate_choices=False)
+                        pseudomask = mask & (trialsdf.choice != 0)
 
                     msub_pseudo_tvec = dut.compute_target(kwargs['target'], subject, subjeids, eid,
                                                           kwargs['modelfit_path'],
                                                           binarization_value=kwargs['binarization_value'],
                                                           modeltype=kwargs['model'],
                                                           beh_data_test=pseudosess, one=one,
-                                                          behavior_data_train=behavior_data_train)[mask]
+                                                          behavior_data_train=behavior_data_train)[pseudomask]
 
                 if kwargs['compute_neurometric']:  # compute prior for neurometric curve
                     trialsdf_neurometric = nb_trialsdf.reset_index() if (pseudo_id == -1) else \
-                        pseudosess[mask].reset_index()
+                        pseudosess[pseudomask].reset_index()
                     if kwargs['model'] is not None:
                         blockprob_neurometric = dut.compute_target('pLeft', subject, subjeids, eid,
                                                                    kwargs['modelfit_path'],
@@ -253,12 +254,12 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
                                                                    beh_data_test=trialsdf if pseudo_id == -1 else pseudosess,
                                                                    behavior_data_train=behavior_data_train, one=one)
 
-                        trialsdf_neurometric['blockprob_neurometric'] = np.stack([np.greater_equal(blockprob_neurometric
-                                                                                                   [mask], border)
-                                                                                 .astype(int)
-                                                                                  for border in
-                                                                                  kwargs['border_quantiles_neurometric']
-                                                                                  ]).sum(0)
+                        trialsdf_neurometric['blockprob_neurometric'] = np.stack(
+                            [np.greater_equal(
+                                blockprob_neurometric[(mask & (trialsdf.choice != 0) if pseudo_id == -1 else pseudomask)],
+                                border).astype(int)
+                             for border in kwargs['border_quantiles_neurometric']
+                             ]).sum(0)
 
                     else:
                         blockprob_neurometric = trialsdf_neurometric['probabilityLeft'].replace(0.2, 0).replace(0.8, 1)
@@ -278,7 +279,7 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
                                                     balanced_weight=kwargs['balanced_weight'],
                                                     normalize_input=kwargs['normalize_input'],
                                                     normalize_output=kwargs['normalize_output'])
-                    fit_result['mask'] = mask
+                    fit_result['mask'] = mask & (trialsdf.choice != 0)
                     fit_result['df'] = trialsdf if pseudo_id == -1 else pseudosess
                     fit_result['pseudo_id'] = pseudo_id
                     fit_result['run_id'] = i_run
