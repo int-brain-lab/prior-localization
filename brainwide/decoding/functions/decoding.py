@@ -40,10 +40,6 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
     if kwargs['wide_field_imaging'] and kwargs['wfi_nb_frames'] == 0:
         raise ValueError('wfi_nb_frames can not be 0. it is a signed non-null integer')
 
-    if (kwargs['model'] == dut.optimal_Bayesian and
-            (kwargs['use_imposter_session'] or kwargs['use_imposter_session_for_balancing'])):
-        raise ValueError('You can not and should not use imposter sessions for the optimal model')
-
     if 0 in pseudo_ids:
         raise ValueError('pseudo id can be -1 (actual session) or strictly greater than 0 (pseudo session)')
 
