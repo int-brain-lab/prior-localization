@@ -26,7 +26,7 @@ else:
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
 SESS_CRITERION = 'aligned-behavior'  # aligned and behavior
-DATE = '2022-04-24'  # str(date.today())  # '2022-04-18'
+DATE = '2022-04-25'  # str(date.today())  # '2022-04-18'
 ALIGN_TIME = 'goCue_times'
 TARGET = 'pLeft'  # 'signcont' or 'pLeft'
 if TARGET not in ['pLeft', 'signcont', 'choice', 'feedback']:
@@ -60,7 +60,7 @@ NORMALIZE_INPUT = False  # take out mean of the neural activity per unit across 
 NORMALIZE_OUTPUT = False  # take out mean of output to predict
 if NORMALIZE_INPUT or NORMALIZE_OUTPUT:
     warnings.warn('This feature has not been tested')
-USE_IMPOSTER_SESSION = False  # if false, it uses pseudosessions
+USE_IMPOSTER_SESSION = True  # if false, it uses pseudosessions
 USE_IMPOSTER_SESSION_FOR_BALANCING = False  # if false, it simulates the model (should be False)
 
 BALANCED_WEIGHT = True  # seems to work better with BALANCED_WEIGHT=False, but putting True is important
