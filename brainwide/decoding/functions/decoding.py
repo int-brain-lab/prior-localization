@@ -97,8 +97,8 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
         mask = mask & (trialsdf.probabilityLeft != 0.5).values
     if kwargs['min_rt'] is not None:
         mask = mask & (~(trialsdf.react_times < kwargs['min_rt'])).values
-    nb_trialsdf = trialsdf[mask & (trialsdf.choice != 0)]  # take out when mouse doesn't perform any action
-    msub_tvec = tvec[mask & (trialsdf.choice != 0)]  # take out when mouse doesn't perform any action
+    nb_trialsdf = trialsdf[mask]  # take out when mouse doesn't perform any action
+    msub_tvec = tvec[mask]  # take out when mouse doesn't perform any action
 
     if kwargs['balanced_weight'] and kwargs['balanced_continuous_target']:
         if (kwargs['no_unbias'] and not kwargs['use_imposter_session_for_balancing']
@@ -263,7 +263,8 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
 
                 fit_results = []
                 for i_run in range(kwargs['nb_runs']):
-                    fit_result = dut.regress_target(msub_tvec if (pseudo_id == -1) else msub_pseudo_tvec,
+                    fit_result = dut.regress_target((msub_tvec[mask & (trialsdf.choice != 0)]
+                                                     if (pseudo_id == -1) else msub_pseudo_tvec),
                                                     msub_binned, kwargs['estimator'],
                                                     use_openturns=kwargs['use_openturns'],
                                                     target_distribution=target_distribution,
