@@ -6,7 +6,7 @@ Created on Thu Jan 20 19:54:53 2022
 @author: bensonb
 """
 import os
-from plot_decoding_brain import brain_results, bar_results, bar_results_basic, aggregate_data
+from plot_decoding_brain import brain_results, bar_results, brain_cortex_results, bar_results_basic, aggregate_data
 from bernoulli_confidenceinterval import Bernoulli_ci
 import numpy as np
 import pandas as pd
@@ -171,6 +171,9 @@ brain_results(acronyms,
                 YMIN=0,
                 YMAX=0.08,
                 value_title='$R^2$')# '\n             %d of %d sig.'%(np.sum(reg_pvalue<0.05),len(reg_pvalue))
+brain_cortex_results(acronyms, 
+                np.array([np.median(v) for v in values]))
+
 bar_results(acronyms,
             values,
             nulls,

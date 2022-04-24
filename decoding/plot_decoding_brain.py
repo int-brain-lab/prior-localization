@@ -11,8 +11,15 @@ import matplotlib.pyplot as plt
 import matplotlib.colors
 import numpy as np
 import pandas as pd
-from ibllib.atlas import AllenAtlas
+from ibllib.atlas import AllenAtlas, FlatMap
+from ibllib.atlas.plots import plot_scalar_on_flatmap
 from sklearn.metrics import r2_score
+
+# res = 25
+# flmap = FlatMap(flatmap='dorsal_cortex', res_um=res)
+# Plot flatmap at depth = 0
+# flmap.plot_flatmap(int(0 / res))
+
 ba=AllenAtlas()
 
 import sys
@@ -38,7 +45,14 @@ def hex2rgba(hex):
 reg2rgba_dict = {allen_color_data[i,3]:
                  hex2rgba(allen_color_data[i,13]) for i in range(1,allen_color_data.shape[0])}
 
+def brain_cortex_results(acronyms, values):
 
+    # Plot region values on the left hemisphere at depth=0um overlaid on boundary image using Allen mapping
+    fig, ax = plot_scalar_on_flatmap(acronyms, values, depth=0, mapping='Allen', hemisphere='left', background='boundary',
+                                cmap='viridis', flmap_atlas=FlatMap(flatmap='dorsal_cortex', res_um=25))
+    plt.show()
+    return
+    
 def brain_results(acronyms_unordered, values_unordered, 
                   filename, 
                 FILE_PATH='/home/bensonb/IntBrainLab/prior-localization/decoding_figures/',
