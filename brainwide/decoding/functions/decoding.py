@@ -98,7 +98,6 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
     if kwargs['min_rt'] is not None:
         mask = mask & (~(trialsdf.react_times < kwargs['min_rt'])).values
     nb_trialsdf = trialsdf[mask]  # take out when mouse doesn't perform any action
-    msub_tvec = tvec[mask]  # take out when mouse doesn't perform any action
 
     if kwargs['balanced_weight'] and kwargs['balanced_continuous_target']:
         if (kwargs['no_unbias'] and not kwargs['use_imposter_session_for_balancing']
@@ -121,7 +120,7 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
         target_distribution = None
 
     filenames = []
-    if len(msub_tvec) <= kwargs['min_behav_trials']:
+    if len(tvec[mask]) <= kwargs['min_behav_trials']:
         return filenames
 
     print(f'Working on eid : {eid}')
@@ -263,9 +262,11 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
 
                 fit_results = []
                 for i_run in range(kwargs['nb_runs']):
-                    fit_result = dut.regress_target((msub_tvec[mask & (trialsdf.choice != 0)]
+                    fit_result = dut.regress_target((tvec[mask & (nb_trialsdf.choice != 0)]
                                                      if (pseudo_id == -1) else msub_pseudo_tvec),
-                                                    msub_binned, kwargs['estimator'],
+                                                    (msub_binned[nb_trialsdf.choice != 0]
+                                                     if (pseudo_id == -1) else msub_binned[pseudosess[mask].choice != 0]),
+                                                    kwargs['estimator'],
                                                     use_openturns=kwargs['use_openturns'],
                                                     target_distribution=target_distribution,
                                                     bin_size_kde=kwargs['bin_size_kde'],
