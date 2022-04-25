@@ -44,7 +44,8 @@ kwargs = {'imposterdf': imposterdf, 'nb_runs': N_RUNS, 'single_region': SINGLE_R
           'add_to_saving_path': ADD_TO_SAVING_PATH, 'use_openturns': USE_OPENTURNS,
           'bin_size_kde': BIN_SIZE_KDE, 'wide_field_imaging': WIDE_FIELD_IMAGING, 'wfi_hemispheres': WFI_HEMISPHERES,
           'wfi_nb_frames': WFI_NB_FRAMES, 'use_imposter_session_for_balancing': USE_IMPOSTER_SESSION_FOR_BALANCING,
-          'beh_mouseLevel_training': BEH_MOUSELEVEL_TRAINING, 'binarization_value': BINARIZATION_VALUE}
+          'beh_mouseLevel_training': BEH_MOUSELEVEL_TRAINING, 'binarization_value': BINARIZATION_VALUE,
+          'simulate_neural_data': SIMULATE_NEURAL_DATA}
 
 if WIDE_FIELD_IMAGING:
     import glob

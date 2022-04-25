@@ -216,6 +216,23 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
 
             msub_binned = binned.T  # number of trials x nb bins
 
+            if kwargs['simulate_neural_data']:
+                x_range = np.arange(len(msub_binned))
+                polyfit = np.polyfit(x_range, msub_binned, deg=3)
+                ypred = np.polyval(polyfit, x_range[:, None])
+                ypred = np.maximum(
+                    np.nan_to_num((tvec[mask][:, None] * ypred) / (tvec[mask][:, None] * ypred).mean(axis=0)
+                                  * np.mean(msub_binned, axis=0)[None], 0), 0
+                )
+                msub_binned = np.random.poisson(ypred)
+                '''
+                from matplotlib import pyplot as plt
+                plt.figure()
+                iplot=12
+                plt.plot(msub_binned[:, iplot]); plt.plot(ypred[:, iplot])
+                plt.draw(); plt.show()
+                '''
+
             if len(msub_binned.shape) > 2:
                 raise ValueError('Multiple bins are being calculated per trial,'
                                  'may be due to floating point representation error.'
@@ -229,6 +246,7 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
                         pseudomask = mask & (pseudosess.choice != 0)
                     else:
                         pseudosess = generate_pseudo_session(trialsdf, generate_choices=False)
+                        pseudosess['choice'] = trialsdf.choice
                         pseudomask = mask & (trialsdf.choice != 0)
 
                     msub_pseudo_tvec = dut.compute_target(kwargs['target'], subject, subjeids, eid,
