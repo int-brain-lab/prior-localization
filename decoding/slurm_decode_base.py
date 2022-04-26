@@ -53,10 +53,10 @@ DATE = str(date.today())
 MODELFIT_PATH = os.path.join(GROUP_HOME,'bensonb/international-brain-lab/prior-localization/behavior/')
 OUTPUT_PATH = os.path.join(GROUP_HOME,'bensonb/international-brain-lab/prior-localization/decoding/')
 
-TARGET = 'feedback'  # 'pLeft','prior','choice','feedback','signcont'
+TARGET = 'signcont'  # 'pLeft','prior','choice','feedback','signcont'
 CONTROL_FEATURES = [] # subset of the following including empty: 'pLeft','choice','feedback','signcont'
-ALIGN_TIME = 'feedback_times' #'goCue_times' #'feedback_times' #'firstMovement_times'
-TIME_WINDOW = (0, 0.2)  # (-0.4, -0.1), (-0.1,0), (0, 0.1)
+ALIGN_TIME = 'goCue_times' #'goCue_times' #'feedback_times' #'firstMovement_times'
+TIME_WINDOW = (0, 0.1)  # (-0.4, -0.1), (-0.1,0), (0, 0.1), (0, 0.2)
 USE_FAKE_DATA = False
 MIN_UNITS = 10
 MIN_BEHAV_TRIAS = 400
@@ -65,11 +65,11 @@ MIN_RT = 0.08  # 0.08  # Float (s) or None
 QC_CRITERIA = 3/3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
 
 # decoder and null distribution
-ESTIMATOR = sklm.LogisticRegression #sklm.Lasso  # Must be in keys of strlut above
-ESTIMATOR_KWARGS = {'penalty': 'l1', 'solver':'saga', 'tol': 0.001, 'max_iter': 100000, 'fit_intercept': True}#'penalty': 'l1', 'solver':'saga', 
-SCORE = 'accuracy' #r2 or accuracy
+ESTIMATOR = sklm.Lasso #sklm.LogisticRegression #sklm.Lasso  # Must be in keys of strlut above
+ESTIMATOR_KWARGS = {'tol': 0.001, 'max_iter': 100000, 'fit_intercept': True}#'penalty': 'l1', 'solver':'saga', 
+SCORE = 'r2' #r2 or accuracy
 N_PSEUDO = 100
-NULL_TYPE = 'impostor-session' # 'pseudo-session', 'impostor-session'
+NULL_TYPE = 'pseudo-session' # 'pseudo-session', 'impostor-session'
 
 NO_UNBIAS = False
 SHUFFLE = True
