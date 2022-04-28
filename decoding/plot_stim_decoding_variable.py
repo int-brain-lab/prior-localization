@@ -172,7 +172,7 @@ brain_results(acronyms,
                 YMAX=0.08,
                 value_title='$R^2$')# '\n             %d of %d sig.'%(np.sum(reg_pvalue<0.05),len(reg_pvalue))
 brain_cortex_results(acronyms, 
-                np.array([np.median(v) for v in values]))
+                np.array([np.median(v) for v in values]), cmap='Blues')
 
 bar_results(acronyms,
             values,
@@ -346,8 +346,8 @@ best_discrete_df_orb = pd.DataFrame({'Target':best_targets_orb,
 ci = 95
 
 plt.figure(figsize=(3,5))
-ax = sns.barplot(x='Target', y='Predictions', 
-                 data=all_df, 
+ax = sns.barplot(x='Target', y='Predictions', hue='pLeft',
+                 data=all_df.loc[(all_df['pLeft']==0.8)|(all_df['pLeft']==0.2),:],
                  ci=ci, capsize=.2)
 ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
 ax.set(xlabel='Stimulus')
@@ -363,8 +363,8 @@ plt.show()
 
 plt.figure(figsize=(4.2,5))
 plt.title(best_eid+' \n['+best_probe+'] ['+best_region+']')
-ax = sns.barplot(x='Target', y='Predictions', 
-                 data=best_df, 
+ax = sns.barplot(x='Target', y='Predictions', hue='pLeft',
+                 data=best_df.loc[(best_df['pLeft']==0.8)|(best_df['pLeft']==0.2),:], 
                  ci=ci, capsize=.2)
 ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
 ax.set(xlabel='Stimulus')
@@ -380,8 +380,8 @@ plt.show()
 
 plt.figure(figsize=(4.2,5))
 plt.title(best_eid_orb+' \n['+best_probe_orb+'] ['+best_region_orb+']')
-ax = sns.barplot(x='Target', y='Predictions', 
-                 data=best_df_orb, 
+ax = sns.barplot(x='Target', y='Predictions', hue='pLeft',
+                 data=best_df_orb.loc[(best_df_orb['pLeft']==0.8)|(best_df_orb['pLeft']==0.2),:], 
                  ci=ci, capsize=.2)
 ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
 ax.set(xlabel='Stimulus')

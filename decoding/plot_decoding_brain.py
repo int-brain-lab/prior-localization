@@ -45,11 +45,16 @@ def hex2rgba(hex):
 reg2rgba_dict = {allen_color_data[i,3]:
                  hex2rgba(allen_color_data[i,13]) for i in range(1,allen_color_data.shape[0])}
 
-def brain_cortex_results(acronyms, values):
+def brain_cortex_results(acronyms, values, cmap='viridis'):
 
     # Plot region values on the left hemisphere at depth=0um overlaid on boundary image using Allen mapping
-    fig, ax = plot_scalar_on_flatmap(acronyms, values, depth=0, mapping='Allen', hemisphere='left', background='boundary',
-                                cmap='viridis', flmap_atlas=FlatMap(flatmap='dorsal_cortex', res_um=25))
+    # fig, ax = plot_scalar_on_flatmap(acronyms, values, depth=0, mapping='Allen', hemisphere='left', background='boundary',
+    #                             cmap='viridis', flmap_atlas=FlatMap(flatmap='dorsal_cortex', res_um=25))
+    # Plot two column region values on the both hemispheres at depth=0um on boundary image using Allen mapping
+    fig, ax = plot_scalar_on_flatmap(acronyms, values, depth=0, 
+                                     mapping='Beryl', hemisphere='left',
+                                     background='boundary', 
+                                     cmap=cmap, flmap_atlas=FlatMap(flatmap='dorsal_cortex', res_um=25))
     plt.show()
     return
     
