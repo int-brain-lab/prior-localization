@@ -30,7 +30,7 @@ DATE = '2022-04-26'  # str(date.today())  # '2022-04-18'
 ALIGN_TIME = 'goCue_times'
 TARGET = 'pLeft'  # 'signcont' or 'pLeft'
 if TARGET not in ['pLeft', 'signcont', 'choice', 'feedback']:
-    raise ValueError('TARGET can only be pLeft, signcont or choice')
+    raise ValueError('TARGET can only be pLeft, signcont, choice or feedback')
 BALANCED_CONTINUOUS_TARGET = True  # is target continuous or discrete FOR BALANCED WEIGHTING
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
 MODEL = dut.optimal_Bayesian  # expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
