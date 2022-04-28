@@ -26,14 +26,14 @@ else:
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
 SESS_CRITERION = 'aligned-behavior'  # aligned and behavior
-DATE = '2022-04-26'  # str(date.today())  # '2022-04-18'
+DATE = '2022-04-28'  # str(date.today())  # '2022-04-18'
 ALIGN_TIME = 'goCue_times'
 TARGET = 'pLeft'  # 'signcont' or 'pLeft'
 if TARGET not in ['pLeft', 'signcont', 'choice', 'feedback']:
     raise ValueError('TARGET can only be pLeft, signcont or choice')
 BALANCED_CONTINUOUS_TARGET = True  # is target continuous or discrete FOR BALANCED WEIGHTING
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
-MODEL = dut.optimal_Bayesian  # expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
+MODEL = dut.expSmoothing_prevAction  # expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
 BEH_MOUSELEVEL_TRAINING = False  # if True, trains the behavioral model session-wise else mouse-wise
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
@@ -61,8 +61,9 @@ NORMALIZE_OUTPUT = False  # take out mean of output to predict
 if NORMALIZE_INPUT or NORMALIZE_OUTPUT:
     warnings.warn('This feature has not been tested')
 USE_IMPOSTER_SESSION = True  # if false, it uses pseudosessions
+CONSTRAIN_IMPOSTER_SESSION_WITH_BEH = True
 USE_IMPOSTER_SESSION_FOR_BALANCING = False  # if false, it simulates the model (should be False)
-SIMULATE_NEURAL_DATA = False
+SIMULATE_NEURAL_DATA = True
 
 BALANCED_WEIGHT = True  # seems to work better with BALANCED_WEIGHT=False, but putting True is important
 USE_OPENTURNS = False  # uses openturns to perform kernel density estimation
@@ -71,8 +72,8 @@ HPARAM_GRID = ({'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])} i
                else {'C': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])})
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
-ADD_TO_SAVING_PATH = ('imposterSess_%i_balancedWeight_%i_RegionLevel_%i_mergedProbes_%i_behMouseLevelTraining_%i_simulations_%i'
-                      % (USE_IMPOSTER_SESSION, BALANCED_WEIGHT, SINGLE_REGION, MERGED_PROBES, BEH_MOUSELEVEL_TRAINING, SIMULATE_NEURAL_DATA))
+ADD_TO_SAVING_PATH = ('imposterSess_%i_balancedWeight_%i_RegionLevel_%i_mergedProbes_%i_behMouseLevelTraining_%i_simulated_%i_constrainImpSess_%i'
+                      % (USE_IMPOSTER_SESSION, BALANCED_WEIGHT, SINGLE_REGION, MERGED_PROBES, BEH_MOUSELEVEL_TRAINING, SIMULATE_NEURAL_DATA, CONSTRAIN_IMPOSTER_SESSION_WITH_BEH))
 
 # WIDE FIELD IMAGING
 WIDE_FIELD_IMAGING = False
@@ -140,6 +141,7 @@ fit_metadata = {
     'use_imposter_session_for_balancing': USE_IMPOSTER_SESSION_FOR_BALANCING,
     'beh_mouseLevel_training': BEH_MOUSELEVEL_TRAINING,
     'simulate_neural_data': SIMULATE_NEURAL_DATA,
+    'constrain_imposter_session_with_beh': CONSTRAIN_IMPOSTER_SESSION_WITH_BEH
 }
 
 if WIDE_FIELD_IMAGING:
