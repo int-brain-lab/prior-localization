@@ -241,8 +241,21 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
             for pseudo_id in pseudo_ids:
                 if pseudo_id > 0:  # create pseudo session when necessary
                     if kwargs['use_imposter_session']:
-                        pseudosess = dut.generate_imposter_session(kwargs['imposterdf'], eid,
-                                                                   trialsdf.index.size, nbSampledSess=10)
+                        if not kwargs['constrain_imposter_session_with_beh']:
+                            pseudosess = dut.generate_imposter_session(kwargs['imposterdf'], eid,
+                                                                       trialsdf.index.size, nbSampledSess=10)
+                        else:
+                            feedback_0contrast = trialsdf[(trialsdf.contrastLeft == 0).values +
+                                                          (trialsdf.contrastRight == 0).values].feedbackType.mean()
+
+                            pseudosess_s = [dut.generate_imposter_session(kwargs['imposterdf'], eid,
+                                                                       trialsdf.index.size, nbSampledSess=10)
+                                            for _ in range(50)]
+                            feedback_pseudo_0cont = [pseudo[(pseudo.contrastLeft == 0).values +
+                                                            (pseudo.contrastRight == 0).values].feedbackType.mean()
+                                                     for pseudo in pseudosess_s]
+                            pseudosess = pseudosess_s[np.argmin(np.abs(np.array(feedback_pseudo_0cont)
+                                                                       - feedback_0contrast))]
                         pseudomask = mask & (pseudosess.choice != 0)
                     else:
                         pseudosess = generate_pseudo_session(trialsdf, generate_choices=False)
