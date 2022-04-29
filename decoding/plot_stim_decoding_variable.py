@@ -146,10 +146,51 @@ for i in range(len(edge)-1):
                             (best_preds_continuous < edge[i+1])] = .5*(edge[i]+edge[i+1])
         best_preds_discrete_orb[(best_preds_continuous_orb >= edge[i])&
                             (best_preds_continuous_orb < edge[i+1])] = .5*(edge[i]+edge[i+1])
-plot_name = 'medianr2'
+
+plot_name = 'medianr2_poolmean'
 reg_nulls = np.array([np.mean(all_null_scores[all_regions==reg],axis=0) for reg in np.unique(all_regions)])
 reg_values = np.array([all_scores[all_regions==reg] for reg in np.unique(all_regions)])
 reg_pvalue = np.array([np.mean(np.mean(reg_values[i])<=reg_nulls[i]) \
+              for i in range(len(np.unique(all_regions)))])
+
+acronyms = np.unique(all_regions)[reg_pvalue<0.05]
+values = reg_values[reg_pvalue<0.05]
+nulls_m = np.median(reg_nulls,axis=1)[reg_pvalue<0.05]
+nulls_l = np.min(reg_nulls,axis=1)[reg_pvalue<0.05]
+nulls_h = np.array([scipy.stats.scoreatpercentile(reg_nulls[i,:], 
+                    95, interpolation_method='fraction') for i in range(reg_nulls.shape[0])])[reg_pvalue<0.05]
+nulls = np.vstack((nulls_l,nulls_m,nulls_h))
+
+brain_results(acronyms, 
+                np.array([np.mean(v) for v in values]), 
+                os.path.join(VARIABLE_FOLDER,
+                              SPECIFIC_DECODING,
+                            ('_'.join([RESULTS_DATE, 'brains', plot_name])) +
+                            FIGURE_SUFFIX), 
+                FILE_PATH = FIGURE_PATH,
+                cmap='Blues',
+                YMIN=0,
+                YMAX=0.08,
+                value_title='$R^2$')# '\n             %d of %d sig.'%(np.sum(reg_pvalue<0.05),len(reg_pvalue))
+brain_cortex_results(acronyms, 
+                np.array([np.mean(v) for v in values]), cmap='Blues')
+
+bar_results(acronyms,
+            values,
+            nulls,
+            os.path.join(VARIABLE_FOLDER,
+                          SPECIFIC_DECODING,
+            ('_'.join([RESULTS_DATE, 'bars', plot_name])) +
+            FIGURE_SUFFIX),
+            YMIN=-0.1,
+            ylab='$R^2$',
+            POOL_PROTOCOL='mean',
+            TOP_N=15)
+
+plot_name = 'medianr2'
+reg_nulls = np.array([np.median(all_null_scores[all_regions==reg],axis=0) for reg in np.unique(all_regions)])
+reg_values = np.array([all_scores[all_regions==reg] for reg in np.unique(all_regions)])
+reg_pvalue = np.array([np.mean(np.median(reg_values[i])<=reg_nulls[i]) \
               for i in range(len(np.unique(all_regions)))])
 
 acronyms = np.unique(all_regions)[reg_pvalue<0.05]
@@ -183,7 +224,7 @@ bar_results(acronyms,
             FIGURE_SUFFIX),
             YMIN=-0.1,
             ylab='$R^2$',
-            POOL_PROTOCOL='mean',
+            POOL_PROTOCOL='median',
             TOP_N=15)
 # plot_name = 'mediansignificantr2'
 # MIN_NUMBER_SESSIONS = 1
@@ -487,7 +528,7 @@ plt.show()
 best_trials = np.arange(len(best_masks))[[m=='1' for m in best_masks]]
 assert len(best_trials) == len(best_targets)
 plt.figure(figsize=(10,3))
-plt.title(best_eid+' ['+best_probe+'] ['+best_region+']'+'\n $r^2=$%.4f'%best_score)
+plt.title(best_eid+' ['+best_probe+'] ['+best_region+']'+'\n $r^2=$%.4f, $n=$%d'%(best_score,best_actn))
 plt.plot(best_trials[best_targets>0],best_preds[best_targets>0],'C0o',lw=2,ms=4)
 plt.plot(best_trials[best_targets<0],best_preds[best_targets<0],'C1o',lw=2,ms=4)
 plt.yticks([-1,0,1])
@@ -508,7 +549,7 @@ plt.show()
 
 best_trials_orb = np.arange(len(best_masks_orb))[[m=='1' for m in best_masks_orb]]
 plt.figure(figsize=(10,3))
-plt.title(best_eid_orb+' ['+best_probe_orb+'] ['+best_region_orb+']'+'\n $r^2=$%.4f'%best_score_orb)
+plt.title(best_eid_orb+' ['+best_probe_orb+'] ['+best_region_orb+']'+'\n $r^2=$%.4f, $n=$%d'%(best_score_orb,best_actn_orb))
 plt.plot(best_trials_orb[best_targets_orb>0],best_preds_orb[best_targets_orb>0],'C0o',lw=2,ms=4)
 plt.plot(best_trials_orb[best_targets_orb<0],best_preds_orb[best_targets_orb<0],'C1o',lw=2,ms=4)
 plt.yticks([-1,0,1])

@@ -357,7 +357,7 @@ plt.show()
 best_trials = np.arange(len(best_masks))[[m=='1' for m in best_masks]]
 assert len(best_trials) == len(best_targets)
 plt.figure(figsize=(10,3))
-plt.title(best_eid+' ['+best_probe+'] ['+best_region+']'+'\n accuracy$=$%.4f'%best_score)
+plt.title(best_eid+' ['+best_probe+'] ['+best_region+']'+'\n accuracy$=$%.4f, $n=$%d'%(best_score,best_actn))
 plt.plot(best_trials[best_targets>0.5],best_probs[best_targets>0.5],'C0o',lw=2,ms=4)
 plt.plot(best_trials[best_targets<0.5],best_probs[best_targets<0.5],'C1o',lw=2,ms=4)
 plt.yticks([0,.5,1])

@@ -55,6 +55,7 @@ def brain_cortex_results(acronyms, values, cmap='viridis'):
                                      mapping='Beryl', hemisphere='left',
                                      background='boundary', 
                                      cmap=cmap, flmap_atlas=FlatMap(flatmap='dorsal_cortex', res_um=25))
+    #plt.colorbar() doesn't work
     plt.show()
     return
     
@@ -407,7 +408,7 @@ def get_saved_data(results,result_index,
     
     if return_number_of_active_neurons:
         all_weights = np.concatenate(datafit_df['weights'])
-        average_neurons_active = np.mean(all_weights>0.01) * data_df['N_units']
+        average_neurons_active = data_df['N_units']#np.mean(all_weights>0.01) * 
     
         return target, preds, block_pLeft, masks, average_neurons_active
     return target, preds, block_pLeft, masks
