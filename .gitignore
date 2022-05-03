@@ -36,3 +36,4 @@ dj_local_conf.json
 *.svg
 *.parquet
 *.csv
+*.idea
