@@ -14,6 +14,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.model_selection import GridSearchCV, KFold
 from sklearn.linear_model._coordinate_descent import LinearModelCV
 from sklearn.metrics import r2_score
+from sklearn.metrics import balanced_accuracy_score
+from sklearn.metrics import accuracy_score
 from sklearn.utils.class_weight import compute_sample_weight
 from tqdm import tqdm
 import torch
@@ -21,6 +23,7 @@ import pickle
 import one.alf.io as alfio
 import openturns
 from brainbox.task.closed_loop import generate_pseudo_blocks, _draw_position, _draw_contrast
+import sklearn.linear_model as sklm
 
 
 def query_sessions(selection='all', one=None):
@@ -138,8 +141,8 @@ def get_target_pLeft(nb_trials, nb_sessions, take_out_unbiased, bin_size_kde, su
     target_pLeft = np.concatenate(target_pLeft)
     if antithetic:
         target_pLeft = np.concatenate([target_pLeft, 1 - target_pLeft])
-    out = np.histogram(target_pLeft, bins=(np.arange(-bin_size_kde/2., 1 + bin_size_kde/2., bin_size_kde) +
-                                           bin_size_kde/2.), density=True)
+    out = np.histogram(target_pLeft, bins=(np.arange(-bin_size_kde, 1 + bin_size_kde/2., bin_size_kde)
+                                           + bin_size_kde/2.), density=True)
     return out, target_pLeft
 
 '''
@@ -276,6 +279,10 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
         else:
             out = np.nan_to_num(beh_data_test['contrastLeft']) - np.nan_to_num(beh_data_test['contrastRight'])
         return out
+    if target == 'choice':
+        return np.array(beh_data_test['choice'])
+    if target == 'feedback':
+        return np.array(beh_data_test['feedbackType'])
     elif (target == 'pLeft') and (modeltype is None):
         return np.array(beh_data_test['probabilityLeft'])
     elif (target == 'pLeft') and (modeltype is optimal_Bayesian):  # bypass fitting and generate priors
@@ -337,7 +344,7 @@ def remap_region(ids, source='Allen-lr', dest='Beryl-lr', output='acronym', br=N
         return br.get(br.id[br.mappings[dest][inds]])
 
 
-def compute_target(target, subject, eids_train, eid_test, savepath,
+def compute_target(target, subject, eids_train, eid_test, savepath, binarization_value,
                    modeltype=expSmoothing_prevAction, one=None, behavior_data_train=None,
                    beh_data_test=None):
     """
@@ -378,6 +385,8 @@ def compute_target(target, subject, eids_train, eid_test, savepath,
                            modeltype=modeltype, one=one, behavior_data_train=behavior_data_train,
                            beh_data_test=beh_data_test)
 
+    if binarization_value is not None:
+        tvec = (tvec > binarization_value) * 1
     # todo make pd.Series
     return tvec
 
@@ -433,8 +442,9 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs, use_openturn
             - Input regressors (optional, see binned argument)
     """
     # initialize outputs
-    Rsquareds_test, Rsquareds_train, weights, intercepts = [], [], [], []
+    scores_test, scores_train, weights, intercepts = [], [], [], []
     predictions, predictions_test, idxes_test, idxes_train, best_params = [], [], [], [], []
+    predictions_test_to_save = []
 
     # train / test split
     # Split the dataset in two equal parts
@@ -445,18 +455,19 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs, use_openturn
     else:
         outer_kfold = iter([train_test_split(indices, test_size=test_prop, shuffle=shuffle)])
 
+    # scoring function
+    scoring_f = balanced_accuracy_score if (estimatorObject == sklm.LogisticRegression) else r2_score
+
     # Select either the GridSearchCV estimator for a normal estimator, or use the native estimator
     # in the case of CV-type estimators
     if isinstance(estimatorObject, LinearModelCV):
         if hyperparam_grid is not None:
             raise TypeError('If using a CV estimator hyperparam_grid will not be respected;'
                             ' set to None')
-        cvest = True
         estimatorObject.cv = nFolds  # Overwrite user spec to make sure nFolds is used
         clf = estimatorObject
         raise NotImplemented('the code does not support a CV-type estimator for the moment.')
     else:
-        cvest = False
         for train_index, test_index in outer_kfold:
             X_train, X_test = binned[train_index], binned[test_index]
             y_train, y_test = tvec[train_index], tvec[test_index]
@@ -464,7 +475,8 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs, use_openturn
             idx_inner = np.arange(len(X_train))
             inner_kfold = KFold(n_splits=nFolds, shuffle=shuffle).split(idx_inner)
 
-            r2s = np.zeros([nFolds, len(hyperparam_grid['alpha'])])
+            key = list(hyperparam_grid.keys())[0]
+            r2s = np.zeros([nFolds, len(hyperparam_grid[key])])
             for ifold, (train_inner, test_inner) in enumerate(inner_kfold):
                 X_train_inner, X_test_inner = X_train[train_inner], X_train[test_inner]
                 y_train_inner, y_test_inner = y_train[train_inner], y_train[test_inner]
@@ -476,8 +488,8 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs, use_openturn
                 mean_y_train_inner = y_train_inner.mean(axis=0) if normalize_output else 0
                 y_train_inner = y_train_inner - mean_y_train_inner
 
-                for i_alpha, alpha in enumerate(hyperparam_grid['alpha']):
-                    estimator = estimatorObject(**{**estimator_kwargs, 'alpha': alpha})
+                for i_alpha, alpha in enumerate(hyperparam_grid[key]):
+                    estimator = estimatorObject(**{**estimator_kwargs, key: alpha})
                     if balanced_weight:
                         estimator.fit(X_train_inner, y_train_inner,
                                       sample_weight=balanced_weighting(vec=y_train_inner,
@@ -488,11 +500,12 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs, use_openturn
                     else:
                         estimator.fit(X_train_inner, y_train_inner)
                     pred_test_inner = estimator.predict(X_test_inner) + mean_y_train_inner
-                    r2s[ifold, i_alpha] = r2_score(y_test_inner, pred_test_inner)
+
+                    r2s[ifold, i_alpha] = scoring_f(y_test_inner, pred_test_inner)
 
             r2s_avg = r2s.mean(axis=0)
-            best_alpha = hyperparam_grid['alpha'][np.argmax(r2s_avg)]
-            clf = estimatorObject(**{**estimator_kwargs, 'alpha': best_alpha})
+            best_alpha = hyperparam_grid[key][np.argmax(r2s_avg)]
+            clf = estimatorObject(**{**estimator_kwargs, key: best_alpha})
 
             # normalization when necessary
             mean_X_train = X_train.mean(axis=0) if normalize_input else 0
@@ -511,15 +524,20 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs, use_openturn
 
             # compute R2 on the train data
             y_pred_train = clf.predict(X_train)
-            Rsquareds_train.append(r2_score(y_train + mean_y_train, y_pred_train + mean_y_train))
+            scores_train.append(scoring_f(y_train + mean_y_train, y_pred_train + mean_y_train))
 
             # compute R2 on held-out data
             y_true, prediction = y_test, clf.predict(binned - mean_X_train) + mean_y_train
-            Rsquareds_test.append(r2_score(y_true, prediction[test_index]))
+            scores_test.append(scoring_f(y_true, prediction[test_index]))
+
+            # save the raw prediction in the case of linear and the predicted proba when working with logit
+            prediction_to_save = (prediction if not (estimatorObject == sklm.LogisticRegression)
+                                  else clf.predict_proba(binned - mean_X_train)[:, 0] + mean_y_train)
 
             # prediction, target, idxes_test, idxes_train
             predictions.append(prediction)
             predictions_test.append(prediction[test_index])
+            predictions_test_to_save.append(prediction_to_save[test_index])
             idxes_test.append(test_index)
             idxes_train.append(train_index)
             weights.append(clf.coef_)
@@ -527,27 +545,34 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs, use_openturn
                 intercepts.append(clf.intercept_)
             else:
                 intercepts.append(None)
-            best_params.append({'alpha': best_alpha})
+            best_params.append({key: best_alpha})
 
+    full_test_predictions_to_save = np.zeros(len(tvec))
     full_test_prediction = np.zeros(len(tvec))
     for k in range(nFolds):
         full_test_prediction[idxes_test[k]] = predictions_test[k]
+        full_test_predictions_to_save[idxes_test[k]] = predictions_test_to_save[k]
 
     outdict = dict()
+    outdict['score_test_full'] = scoring_f(tvec, full_test_prediction)
+    outdict['scores_train'] = scores_train
+    outdict['scores_test'] = scores_test
     outdict['Rsquared_test_full'] = r2_score(tvec, full_test_prediction)
-    outdict['Rsquareds_train'] = Rsquareds_train
-    outdict['Rsquareds_test'] = Rsquareds_test
+    if estimatorObject == sklm.LogisticRegression:
+        outdict['acc_test_full'] = accuracy_score(tvec, full_test_prediction)
+        outdict['balanced_acc_test_full'] = balanced_accuracy_score(tvec, full_test_prediction)
     outdict['weights'] = weights
     outdict['intercepts'] = intercepts
     outdict['target'] = tvec
-    outdict['predictions'] = predictions
-    outdict['predictions_test'] = predictions_test
+    outdict['predictions_test'] = np.array(full_test_predictions_to_save)
     outdict['idxes_test'] = idxes_test
     outdict['idxes_train'] = idxes_train
     outdict['best_params'] = best_params
     outdict['nFolds'] = nFolds
     if save_binned:
         outdict['regressors'] = binned
+    if hasattr(clf, 'classes_'):
+        outdict['classes_'] = clf.classes_
 
     # logging
     if verbose:
@@ -590,7 +615,16 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs, use_openturn
 
 
 def pdf_from_histogram(x, out):
+    # unit test of pdf_from_histogram
+    # out = np.histogram(np.array([0.9, 0.9]), bins=target_distribution[-1], density=True)
+    # out[0][(np.array([0.9])[:, None] > out[1][None]).sum(axis=-1) - 1]
     return out[0][(x[:, None] > out[1][None]).sum(axis=-1) - 1]
+
+
+def test_df_from_histogram(target_distribution):
+    v = 0.9
+    out = np.histogram(np.array([v, v]), bins=target_distribution[-1], density=True)
+    assert(pdf_from_histogram(np.array([v]), out) > 0)
 
 
 def balanced_weighting(vec, continuous, use_openturns, bin_size_kde, target_distribution):
@@ -783,7 +817,7 @@ def return_path(eid, sessdf, pseudo_ids=[-1], **kwargs):
     return filenames
 
 
-possible_targets = ['prederr', 'signcont', 'pLeft']
+possible_targets = ['choice', 'feedback', 'signcont', 'pLeft']
 
 modeldispatcher = {expSmoothing_prevAction: expSmoothing_prevAction.name,
                    expSmoothing_stimside: expSmoothing_stimside.name,

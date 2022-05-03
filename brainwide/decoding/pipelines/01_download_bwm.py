@@ -8,7 +8,8 @@ from pathlib import Path
 from one.api import ONE
 from ibllib.atlas import AllenAtlas
 from brainbox.io.one import SpikeSortingLoader
-
+import tracemalloc
+tracemalloc.start()
 from functions import utils as dut
 from settings.settings import SESS_CRITERION
 
@@ -54,12 +55,15 @@ for i, rec in insdf.iterrows():
         insdf['spike_sorting'][i] = ssl.collection
         one.load_object(ssl.eid, 'trials', collection='alf', download_only=True)
         one.load_object(ssl.eid, 'wheel', collection='alf', download_only=True)
+        current, peak = tracemalloc.get_traced_memory()
+        print(f"Current memory usage is {current / 10 ** 6}MB; Peak was {peak / 10 ** 6}MB")
     except Exception as e:
         print(e)
         errors_pid.append(rec.eid)
         pass
 
 insdf.to_parquet(DECODING_PATH.joinpath('insertions.pqt'))
+tracemalloc.stop()
 
 print('\n')
 print('errors')

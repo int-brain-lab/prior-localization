@@ -12,7 +12,7 @@ insdf = pd.read_parquet(DECODING_PATH.joinpath('insertions.pqt'))
 insdf = insdf[insdf.spike_sorting != '']
 eids = insdf['eid'].unique()
 
-SAVE_KFOLDS = True
+SAVE_KFOLDS = False
 
 kwargs = {'imposterdf': None, 'nb_runs': N_RUNS, 'single_region': SINGLE_REGION, 'merged_probes': MERGED_PROBES,
           'modelfit_path': DECODING_PATH.joinpath('results', 'behavioral'),
@@ -29,7 +29,7 @@ kwargs = {'imposterdf': None, 'nb_runs': N_RUNS, 'single_region': SINGLE_REGION,
           'border_quantiles_neurometric': BORDER_QUANTILES_NEUROMETRIC, 'today': DATE
           }
 
-date = '2022-04-09'
+date = DATE  # '2022-04-13'
 finished = glob.glob(str(DECODING_PATH.joinpath("results", "neural", "*", "*", "*", "*%s*" % date)))
 
 indexers = ['subject', 'eid', 'probe', 'region']
@@ -46,8 +46,8 @@ for fn in tqdm(finished):
         side, stim, act, _ = mut.format_data(result["fit"][i_run]["df"])
         mask = result["fit"][i_run]["mask"]  # np.all(result["fit"][i_run]["target"] == stim[mask])
         full_test_prediction = np.zeros(result["fit"][i_run]["target"].size)
-        #for k in range(len(result["fit"][i_run]["idxes_test"])):
-        #    full_test_prediction[result["fit"][i_run]['idxes_test'][k]] = result["fit"][i_run]['predictions_test'][k]
+        for k in range(len(result["fit"][i_run]["idxes_test"])):
+            full_test_prediction[result["fit"][i_run]['idxes_test'][k]] = result["fit"][i_run]['predictions_test'][k]
         #neural_act = np.sign(full_test_prediction)
         #perf_allcontrasts = (side.values[mask][neural_act != 0] == neural_act[neural_act != 0]).mean()
         #perf_allcontrasts_prevtrial = (side.values[mask][1:] == neural_act[:-1])[neural_act[:-1] != 0].mean()
@@ -58,14 +58,18 @@ for fn in tqdm(finished):
                    'pseudo_id': result['pseudo_id'],
                    'N_units': result['N_units'],
                    'run_id': i_run + 1,
-                   'prediction': list(full_test_prediction),
-                   'target': list(result["fit"][i_run]["target"]),
-                   #'perf_allcontrast': perf_allcontrasts,
-                   #'perf_allcontrasts_prevtrial': perf_allcontrasts_prevtrial,
-                   #'perf_0contrast': perf_0contrasts,
-                   #'nb_trials_act_is_0': nb_trials_act_is_0,
                    'mask': ''.join([str(item) for item in list(result['fit'][i_run]['mask'].values * 1)]),
-                   'R2_test': result['fit'][i_run]['Rsquared_test_full']}
+                   'R2_test': result['fit'][i_run]['Rsquared_test_full'],
+                   'prediction': list(full_test_prediction),
+                   # 'target': list(result["fit"][i_run]["target"]),
+                   # 'perf_allcontrast': perf_allcontrasts,
+                   # 'perf_allcontrasts_prevtrial': perf_allcontrasts_prevtrial,
+                   # 'perf_0contrast': perf_0contrasts,
+                   # 'nb_trials_act_is_0': nb_trials_act_is_0,
+                   }
+        if 'acc_test_full' in result['fit'][i_run].keys():
+            tmpdict = {**tmpdict, 'acc_test': result['fit'][i_run]['acc_test_full'],
+                       'balanced_acc_test': result['fit'][i_run]['balanced_acc_test_full']}
         if result['fit'][i_run]['full_neurometric'] is not None:
             tmpdict = {**tmpdict,
                        **{idx_neuro: result['fit'][i_run]['full_neurometric'][idx_neuro]
@@ -113,9 +117,8 @@ metadata_fn = '.'.join([fn.split('.')[0], 'metadata', 'pkl'])
 resultsdf.to_parquet(fn)
 metadata_df.to_pickle(metadata_fn)
 
-with open(metadata_fn.split('.metadata.pkl')[0] + '.trajectories.pkl', 'wb') as f:
-    pickle.dump(trajectoriesdict, f)
 
+"""
 # save weights
 weightsdict = {}
 for fn in finished:
@@ -130,3 +133,5 @@ for fn in finished:
 
 with open(metadata_fn.split('.metadata.pkl')[0] + '.weights.pkl', 'wb') as f:
     pickle.dump(weightsdict, f)
+"""
+

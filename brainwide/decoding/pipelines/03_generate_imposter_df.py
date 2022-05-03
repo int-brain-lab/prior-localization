@@ -7,7 +7,7 @@ from brainbox.task.closed_loop import generate_pseudo_session
 FAKE_IMPOSTER_SESSION = False  # only here for debugging
 GENERATE_FROM_EPHYS = False  # the number of ephys session template is too small
 # DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/code/prior-localization/brainwide/decoding/")
-DECODING_PATH = Path("/home/users/h/hubertf/scratch")
+DECODING_PATH = Path("/home/users/f/findling/scratch")
 
 one = ONE()
 
