@@ -251,6 +251,26 @@ def generate_imposter_session(imposterdf, eid, nbtrials, nbSampledSess=10, pLeft
     imposter_sess = sub_imposterdf.iloc[:nbtrials].reset_index(drop=True)
     return imposter_sess
 
+def generate_choices(pseudosess, trialsdf, subjModel):
+
+    istrained, fullpath = check_bhv_fit_exists(subjModel['subject'], subjModel['modeltype'],
+                                               subjModel['subjeids'],
+                                               subjModel['modelfit_path'].as_posix() + '/')
+    if not istrained:
+        raise ValueError('Something is wrong. The model should be trained by this line')
+    model = subjModel['modeltype'](subjModel['modelfit_path'].as_posix() + '/',
+                                   subjModel['subjeids'],
+                                   subjModel['subject'], actions=None, stimuli=None, stim_side=None)
+    model.load_or_train(loadpath=str(fullpath))
+
+    arr_params = model.get_parameters(parameter_type='posterior_mean')[None]
+    valid = np.ones([1, pseudosess.index.size], dtype=bool)
+    stim, act, side = mut.format_input([pseudosess.signed_contrast.values],
+                                       [trialsdf.choice.values],
+                                       [pseudosess.stim_side.values])
+    act_sim, stim, side = model.simulate(arr_params, stim, side, torch.from_numpy(valid),
+                                         nb_simul=1, only_perf=False)
+    return np.array(act_sim.squeeze().T, dtype=np.int64)
 
 def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=False,
                     modeltype=expSmoothing_prevAction, one=None, behavior_data_train=None, beh_data_test=None):

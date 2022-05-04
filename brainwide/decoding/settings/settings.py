@@ -26,14 +26,14 @@ else:
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
 SESS_CRITERION = 'aligned-behavior'  # aligned and behavior
-DATE = '2022-05-04'  # str(date.today())  # '2022-04-18'
+DATE = '2022-05-05'  # str(date.today())  # '2022-04-18'
 ALIGN_TIME = 'goCue_times'
 TARGET = 'pLeft'  # 'signcont' or 'pLeft'
 if TARGET not in ['pLeft', 'signcont', 'choice', 'feedback']:
     raise ValueError('TARGET can only be pLeft, signcont or choice')
 BALANCED_CONTINUOUS_TARGET = True  # is target continuous or discrete FOR BALANCED WEIGHTING
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
-MODEL = dut.optimal_Bayesian  # expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
+MODEL = dut.expSmoothing_prevAction  # expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
 BEH_MOUSELEVEL_TRAINING = False  # if True, trains the behavioral model session-wise else mouse-wise
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
@@ -60,12 +60,12 @@ NORMALIZE_INPUT = False  # take out mean of the neural activity per unit across 
 NORMALIZE_OUTPUT = False  # take out mean of output to predict
 if NORMALIZE_INPUT or NORMALIZE_OUTPUT:
     warnings.warn('This feature has not been tested')
-USE_IMPOSTER_SESSION = True  # if false, it uses pseudosessions
+USE_IMPOSTER_SESSION = False  # if false, it uses pseudosessions and simulates the model when action are necessary
 CONSTRAIN_IMPOSTER_SESSION_WITH_BEH = False
 USE_IMPOSTER_SESSION_FOR_BALANCING = False  # if false, it simulates the model (should be False)
 SIMULATE_NEURAL_DATA = False
 
-BALANCED_WEIGHT = True  # seems to work better with BALANCED_WEIGHT=False, but putting True is important
+BALANCED_WEIGHT = False  # seems to work better with BALANCED_WEIGHT=False, but putting True is important
 USE_OPENTURNS = False  # uses openturns to perform kernel density estimation
 BIN_SIZE_KDE = 0.05  # size of the kde bin
 HPARAM_GRID = ({'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])} if not (sklm.LogisticRegression == ESTIMATOR)
