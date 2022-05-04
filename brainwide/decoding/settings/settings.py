@@ -26,14 +26,14 @@ else:
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
 SESS_CRITERION = 'aligned-behavior'  # aligned and behavior
-DATE = '2022-04-28'  # str(date.today())  # '2022-04-18'
+DATE = '2022-05-04'  # str(date.today())  # '2022-04-18'
 ALIGN_TIME = 'goCue_times'
 TARGET = 'pLeft'  # 'signcont' or 'pLeft'
 if TARGET not in ['pLeft', 'signcont', 'choice', 'feedback']:
     raise ValueError('TARGET can only be pLeft, signcont, choice or feedback')
 BALANCED_CONTINUOUS_TARGET = True  # is target continuous or discrete FOR BALANCED WEIGHTING
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
-MODEL = dut.expSmoothing_prevAction  # expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
+MODEL = dut.optimal_Bayesian  # expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
 BEH_MOUSELEVEL_TRAINING = False  # if True, trains the behavioral model session-wise else mouse-wise
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
@@ -61,9 +61,9 @@ NORMALIZE_OUTPUT = False  # take out mean of output to predict
 if NORMALIZE_INPUT or NORMALIZE_OUTPUT:
     warnings.warn('This feature has not been tested')
 USE_IMPOSTER_SESSION = True  # if false, it uses pseudosessions
-CONSTRAIN_IMPOSTER_SESSION_WITH_BEH = True
+CONSTRAIN_IMPOSTER_SESSION_WITH_BEH = False
 USE_IMPOSTER_SESSION_FOR_BALANCING = False  # if false, it simulates the model (should be False)
-SIMULATE_NEURAL_DATA = True
+SIMULATE_NEURAL_DATA = False
 
 BALANCED_WEIGHT = True  # seems to work better with BALANCED_WEIGHT=False, but putting True is important
 USE_OPENTURNS = False  # uses openturns to perform kernel density estimation
@@ -147,3 +147,23 @@ fit_metadata = {
 if WIDE_FIELD_IMAGING:
     fit_metadata['wfi_hemispheres'] = WFI_HEMISPHERES
     fit_metadata['wfi_nb_frames'] = WFI_HEMISPHERES
+
+kwargs = {'nb_runs': N_RUNS, 'single_region': SINGLE_REGION, 'merged_probes': MERGED_PROBES,
+          'modelfit_path': DECODING_PATH.joinpath('results', 'behavioral'),
+          'output_path': DECODING_PATH.joinpath('results', 'neural'), 'one': None, 'decoding_path': DECODING_PATH,
+          'estimator_kwargs': ESTIMATOR_KWARGS, 'hyperparam_grid': HPARAM_GRID,
+          'save_binned': SAVE_BINNED, 'shuffle': SHUFFLE, 'balanced_weight': BALANCED_WEIGHT,
+          'normalize_input': NORMALIZE_INPUT, 'normalize_output': NORMALIZE_OUTPUT,
+          'compute_on_each_fold': COMPUTE_NEURO_ON_EACH_FOLD, 'balanced_continuous_target': BALANCED_CONTINUOUS_TARGET,
+          'force_positive_neuro_slopes': FORCE_POSITIVE_NEURO_SLOPES, 'estimator': ESTIMATOR,
+          'target': TARGET, 'model': MODEL, 'align_time': ALIGN_TIME,
+          'no_unbias': NO_UNBIAS, 'min_rt': MIN_RT, 'min_behav_trials': MIN_BEHAV_TRIAS,
+          'qc_criteria': QC_CRITERIA, 'min_units': MIN_UNITS, 'time_window': TIME_WINDOW,
+          'use_imposter_session': USE_IMPOSTER_SESSION, 'compute_neurometric': COMPUTE_NEUROMETRIC,
+          'border_quantiles_neurometric': BORDER_QUANTILES_NEUROMETRIC, 'today': DATE,
+          'add_to_saving_path': ADD_TO_SAVING_PATH, 'use_openturns': USE_OPENTURNS,
+          'bin_size_kde': BIN_SIZE_KDE, 'wide_field_imaging': WIDE_FIELD_IMAGING, 'wfi_hemispheres': WFI_HEMISPHERES,
+          'wfi_nb_frames': WFI_NB_FRAMES, 'use_imposter_session_for_balancing': USE_IMPOSTER_SESSION_FOR_BALANCING,
+          'beh_mouseLevel_training': BEH_MOUSELEVEL_TRAINING, 'binarization_value': BINARIZATION_VALUE,
+          'simulate_neural_data': SIMULATE_NEURAL_DATA,
+          'constrain_imposter_session_with_beh': CONSTRAIN_IMPOSTER_SESSION_WITH_BEH}

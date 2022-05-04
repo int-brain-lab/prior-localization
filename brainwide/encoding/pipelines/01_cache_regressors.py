@@ -234,11 +234,13 @@ cluster.scale(20)
 client = Client(cluster)
 
 tmp_futures = [client.compute(future[3]) for future in dataset_futures]
+params['maxlen'] = params['max_len']
+params.pop('max_len')
 impostor_df = get_impostor_df(
     '',
     one,
     ephys=EPHYS_IMPOSTOR,
-    tdf_kwargs={k: v for k, v in params if k not in ['resolved_alignment', 'ret_qc']},
+    tdf_kwargs={k: v for k, v in params.items() if k not in ['resolved_alignment', 'ret_qc']},
     ret_template=True)
 
 # Run below code AFTER futures have finished!
