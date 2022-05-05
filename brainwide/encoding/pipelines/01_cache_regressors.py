@@ -82,7 +82,7 @@ def load_regressors(session_id,
     spk_depths = alldepths[sortinds]
     clu_regions = np.hstack(allreg)
     if not ret_qc:
-        return trialsdf, spk_times, spk_clu, clu_regions
+        return trialsdf, spk_times, spk_clu, clu_regions, allcludf
 
     clu_qc = bbqc.quick_unit_metrics(spk_clu,
                                      spk_times,
