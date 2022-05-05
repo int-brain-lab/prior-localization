@@ -47,13 +47,20 @@ def load_regressors(session_id,
                                     addtl_types=['firstMovement_times'],
                                     one=one)
 
-    spikes, clusters = {}, {}
+    spikes, clusters, cludfs = {}, {}, []
+    clumax = 0
     for pid in probes:
         ssl = bbone.SpikeSortingLoader(one=one, pid=pid)
         spikes[pid], tmpclu, channels = ssl.load_spike_sorting()
         if 'metrics' not in tmpclu:
             tmpclu['metrics'] = np.ones(tmpclu['channels'].size)
         clusters[pid] = ssl.merge_clusters(spikes[pid], tmpclu, channels)
+        clusters_df = pd.DataFrame(clusters[pid]).set_index(['cluster_id'])
+        clusters_df.index += clumax
+        clusters_df['pid'] = pid
+        cludfs.append(clusters_df)
+        clumax = clusters_df.index.max()
+    allcludf = pd.concat(cludfs)
 
     allspikes, allclu, allreg, allamps, alldepths = [], [], [], [], []
     clumax = 0
@@ -82,11 +89,11 @@ def load_regressors(session_id,
                                      spk_amps,
                                      spk_depths,
                                      cluster_ids=np.arange(clu_regions.size))
-    return trialsdf, spk_times, spk_clu, clu_regions, clu_qc
+    return trialsdf, spk_times, spk_clu, clu_regions, clu_qc, allcludf
 
 
 def cache_regressors(subject, session_id, probes, regressor_params, trialsdf, spk_times, spk_clu,
-                     clu_regions, clu_qc):
+                     clu_regions, clu_qc, clu_df):
     """
     Take outputs of load_regressors() and cache them to disk in the folder defined in the params.py
     file in this repository, using a nested subject -> session folder structure.
@@ -111,7 +118,8 @@ def cache_regressors(subject, session_id, probes, regressor_params, trialsdf, sp
         'spk_times': spk_times,
         'spk_clu': spk_clu,
         'clu_regions': clu_regions,
-        'clu_qc': clu_qc
+        'clu_qc': clu_qc,
+        'clu_df': clu_df,
     }
     reghash = _hash_dict(regressors)
     metadata = {
