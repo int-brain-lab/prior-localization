@@ -6,7 +6,7 @@ Created on Thu Jan 20 19:54:53 2022
 @author: bensonb
 """
 import os
-from plot_decoding_brain import brain_results, bar_results, brain_cortex_results, bar_results_basic, aggregate_data
+from plot_decoding_brain import brain_results, bar_results, brain_cortex_results, bar_results_basic, aggregate_data, discretize_target
 from bernoulli_confidenceinterval import Bernoulli_ci
 import numpy as np
 import pandas as pd
@@ -67,40 +67,6 @@ plt.ylabel('density')
 plt.show()
 
 #%%
-
-# plt.title('prior: random example')
-# plt.plot(all_targets[100:400])
-# plt.plot(all_preds[100:400])
-# plt.legend(['targets','predictions'])
-# plt.savefig(os.path.join(FIGURE_PATH,
-#                          VARIABLE_FOLDER,
-#                          SPECIFIC_DECODING,
-#             ('_'.join([RESULTS_DATE, 'predictionsTraceRandomExample'])) +
-#             FIGURE_SUFFIX), 
-#             dpi=600)
-# plt.show()
-
-# plt.title('prior: best example')
-# plt.plot(best_targets[100:400])
-# plt.plot(best_preds[100:400])
-# plt.legend(['targets','predictions'])
-# plt.savefig(os.path.join(FIGURE_PATH,
-#                          VARIABLE_FOLDER,
-#                          SPECIFIC_DECODING,
-#             ('_'.join([RESULTS_DATE, 'predictionsTraceBestR2Example'])) +
-#             FIGURE_SUFFIX), 
-#             dpi=600)
-# plt.show()
-
-# plotting
-
-# all_targets, best_targets = np.array(all_targets), np.array(best_targets)
-# best_targets_continuous = np.copy(best_targets)
-# edge = np.linspace(0,1,11)
-
-# for i in range(len(edge)-1):
-#     all_targets[(all_targets >= edge[i])&(all_targets < edge[i+1])] = .5*(edge[i]+edge[i+1])
-#     best_targets[(best_targets >= edge[i])&(best_targets < edge[i+1])] = .5*(edge[i]+edge[i+1])
 assert np.max(all_scores)-np.min(all_scores) < 999
 index_max = np.argmax(all_scores)
 best_targets = all_targets[index_max]
@@ -113,7 +79,10 @@ best_probe = all_probes[index_max]
 best_region = all_regions[index_max]
 best_masks = all_masks[index_max]
 index_max_orb = np.argmax(all_scores - (999*(all_regions!='MOs')))
-index_max_orb = np.nonzero(((all_eids=='4d8c7767-981c-4347-8e5e-5d5fffe38534')&(all_regions=='MOs'))&(all_probes=='probe01'))[0]
+index_max_orb = np.nonzero(((all_eids=='4d8c7767-981c-4347-8e5e-5d5fffe38534')&(all_regions=='MOs'))&(all_probes=='probe01'))[0] #best choice mos
+index_max_orb = np.nonzero(((all_eids=='360eac0c-7d2d-4cc1-9dcf-79fc7afc56e7')&(all_regions=='CP'))&(all_probes=='probe00'))[0] #best block cp
+index_max_orb = np.nonzero(((all_eids=='9eec761e-9762-4897-b308-a3a08c311e69')&(all_regions=='PRNr'))&(all_probes=='probe01'))[0] #best reward prnr
+index_max_orb = np.nonzero(((all_eids=='aec5d3cc-4bb2-4349-80a9-0395b76f04e2')&(all_regions=='GRN'))&(all_probes=='probe01'))[0] #best reward prnr
 assert len(index_max_orb)==1
 index_max_orb = index_max_orb[0]
 best_targets_orb = all_targets[index_max_orb]
@@ -125,19 +94,6 @@ best_eid_orb = all_eids[index_max_orb]
 best_probe_orb = all_probes[index_max_orb]
 best_region_orb = all_regions[index_max_orb]
 best_masks_orb = all_masks[index_max_orb]
-
-def discretize_target(target_continuous,
-                      edge = np.linspace(0,1,11)):
-    
-    target_discrete = np.copy(target_continuous)
-    for i in range(len(edge)-1):
-        if i == len(edge)-2: # last edge includes boundary
-            target_discrete[(target_continuous >= edge[i])&
-                               (target_continuous <= edge[i+1])] = .5*(edge[i]+edge[i+1])
-        else:
-            target_discrete[(target_continuous >= edge[i])&
-                               (target_continuous < edge[i+1])] = .5*(edge[i]+edge[i+1])
-    return target_discrete
 
 edges = np.linspace(-1,1,11)
 edges[0] = -np.infty
@@ -589,6 +545,65 @@ plt.savefig(os.path.join(FIGURE_PATH,
                          VARIABLE_FOLDER,
                          SPECIFIC_DECODING,
             ('_'.join([RESULTS_DATE, 'averageNeuronsActiveDistribution'])) +
+            FIGURE_SUFFIX), 
+            dpi=600)
+plt.show()
+
+#%%
+maxind = -1
+maxval = -1
+for index_max_orb in range(len(all_targets)):
+     best_targets_orb = all_targets[index_max_orb]
+     best_score_orb = all_scores[index_max_orb]
+     best_preds_orb = all_preds[index_max_orb]
+     best_block_pLeft_orb = all_block_pLeft[index_max_orb]
+     best_actn_orb = all_actn[index_max_orb]
+     best_eid_orb = all_eids[index_max_orb]
+     best_probe_orb = all_probes[index_max_orb]
+     best_region_orb = all_regions[index_max_orb]
+     best_masks_orb = all_masks[index_max_orb]
+     
+     ml=np.mean(best_preds_orb[(best_block_pLeft_orb==0.8)&(best_targets_orb==0)])
+     sl=np.std(best_preds_orb[(best_block_pLeft_orb==0.8)&(best_targets_orb==0)])
+     
+     mr=np.mean(best_preds_orb[(best_block_pLeft_orb==0.2)&(best_targets_orb==0)])
+     sr=np.std(best_preds_orb[(best_block_pLeft_orb==0.2)&(best_targets_orb==0)])
+     
+     val = (ml)-(mr)
+     
+     if val > maxval:
+         maxval = val
+         maxind = index_max_orb
+         
+print(maxval, maxind)
+index_max_orb = maxind
+best_targets_orb = all_targets[index_max_orb]
+best_score_orb = all_scores[index_max_orb]
+best_preds_orb = all_preds[index_max_orb]
+best_block_pLeft_orb = all_block_pLeft[index_max_orb]
+best_actn_orb = all_actn[index_max_orb]
+best_eid_orb = all_eids[index_max_orb]
+best_probe_orb = all_probes[index_max_orb]
+best_region_orb = all_regions[index_max_orb]
+best_masks_orb = all_masks[index_max_orb]
+     
+best_df_orb = pd.DataFrame({'Target':best_targets_orb,
+                        'Predictions':best_preds_orb,
+                        'pLeft':best_block_pLeft_orb})
+
+plt.figure(figsize=(4.2,5))
+plt.title(best_eid_orb+' \n['+best_probe_orb+'] ['+best_region_orb+']')
+ax = sns.barplot(x='Target', y='Predictions', hue='pLeft',
+                  data=best_df_orb.loc[(best_df_orb['pLeft']==0.8)|(best_df_orb['pLeft']==0.2),:], 
+                  ci=ci, capsize=.2)
+ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
+ax.set(xlabel='Stimulus')
+plt.ylim(-1,1)
+plt.tight_layout()
+plt.savefig(os.path.join(FIGURE_PATH,
+                          VARIABLE_FOLDER,
+                          SPECIFIC_DECODING,
+            ('_'.join([RESULTS_DATE, 'predictionsBest_xtarget_best0contrastdiff'])) +
             FIGURE_SUFFIX), 
             dpi=600)
 plt.show()

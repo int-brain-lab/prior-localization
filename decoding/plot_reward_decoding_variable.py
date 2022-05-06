@@ -6,7 +6,7 @@ Created on Thu Jan 20 19:54:53 2022
 @author: bensonb
 """
 import os
-from plot_decoding_brain import brain_results, bar_results, brain_cortex_results, bar_results_basic, aggregate_data
+from plot_decoding_brain import brain_results, bar_results, brain_cortex_results, bar_results_basic, aggregate_data, discretize_target
 from bernoulli_confidenceinterval import Bernoulli_ci
 import numpy as np
 import pandas as pd
@@ -67,39 +67,6 @@ plt.xlabel('p-value')
 plt.ylabel('density')
 plt.show()
 
-# plt.title('prior: random example')
-# plt.plot(all_targets[100:400])
-# plt.plot(all_preds[100:400])
-# plt.legend(['targets','predictions'])
-# plt.savefig(os.path.join(FIGURE_PATH,
-#                          VARIABLE_FOLDER,
-#                          SPECIFIC_DECODING,
-#             ('_'.join([RESULTS_DATE, 'predictionsTraceRandomExample'])) +
-#             FIGURE_SUFFIX), 
-#             dpi=600)
-# plt.show()
-
-# plt.title('prior: best example')
-# plt.plot(best_targets[100:400])
-# plt.plot(best_preds[100:400])
-# plt.legend(['targets','predictions'])
-# plt.savefig(os.path.join(FIGURE_PATH,
-#                          VARIABLE_FOLDER,
-#                          SPECIFIC_DECODING,
-#             ('_'.join([RESULTS_DATE, 'predictionsTraceBestExample'])) +
-#             FIGURE_SUFFIX), 
-#             dpi=600)
-# plt.show()
-
-# plotting
-
-# all_targets, best_targets = np.array(all_targets), np.array(best_targets)
-# best_targets_continuous = np.copy(best_targets)
-# edge = np.linspace(0,1,11)
-
-# for i in range(len(edge)-1):
-#     all_targets[(all_targets >= edge[i])&(all_targets < edge[i+1])] = .5*(edge[i]+edge[i+1])
-#     best_targets[(best_targets >= edge[i])&(best_targets < edge[i+1])] = .5*(edge[i]+edge[i+1])
 assert np.max(all_scores)-np.min(all_scores) < 999
 index_max = np.argmax(all_scores - (999*(all_regions!='PRNr')))
 best_targets = all_targets[index_max]
@@ -112,19 +79,6 @@ best_eid = all_eids[index_max]
 best_probe = all_probes[index_max]
 best_region = all_regions[index_max]
 best_masks = all_masks[index_max]
-
-def discretize_target(target_continuous,
-                      edge = np.linspace(0,1,11)):
-    
-    target_discrete = np.copy(target_continuous)
-    for i in range(len(edge)-1):
-        if i == len(edge)-2: # last edge includes boundary
-            target_discrete[(target_continuous >= edge[i])&
-                               (target_continuous <= edge[i+1])] = .5*(edge[i]+edge[i+1])
-        else:
-            target_discrete[(target_continuous >= edge[i])&
-                               (target_continuous < edge[i+1])] = .5*(edge[i]+edge[i+1])
-    return target_discrete
 
 all_probs_discrete = discretize_target(np.concatenate(all_probs),
                                        edge = np.linspace(0,1,11))

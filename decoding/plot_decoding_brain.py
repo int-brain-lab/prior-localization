@@ -45,6 +45,19 @@ def hex2rgba(hex):
 reg2rgba_dict = {allen_color_data[i,3]:
                  hex2rgba(allen_color_data[i,13]) for i in range(1,allen_color_data.shape[0])}
 
+def discretize_target(target_continuous,
+                      edge = np.linspace(0,1,11)):
+    
+    target_discrete = np.copy(target_continuous)
+    for i in range(len(edge)-1):
+        if i == len(edge)-2: # last edge includes boundary
+            target_discrete[(target_continuous >= edge[i])&
+                               (target_continuous <= edge[i+1])] = .5*(edge[i]+edge[i+1])
+        else:
+            target_discrete[(target_continuous >= edge[i])&
+                               (target_continuous < edge[i+1])] = .5*(edge[i]+edge[i+1])
+    return target_discrete
+    
 def brain_cortex_results(acronyms, values, 
                   filename=None, 
                   cmap='viridis',
