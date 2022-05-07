@@ -26,7 +26,7 @@ else:
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
 SESS_CRITERION = 'aligned-behavior'  # aligned and behavior
-DATE = '2022-05-05'  # str(date.today())  # '2022-04-18'
+DATE = '2022-05-07'  # str(date.today())  # '2022-04-18'
 ALIGN_TIME = 'goCue_times'
 TARGET = 'pLeft'  # 'signcont' or 'pLeft'
 if TARGET not in ['pLeft', 'signcont', 'choice', 'feedback']:
@@ -39,8 +39,8 @@ TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 BINARIZATION_VALUE = None  # to binarize the target -> could be useful with logistic regression estimator
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
-N_PSEUDO = 100
-N_PSEUDO_PER_JOB = 10
+N_PSEUDO = 500
+N_PSEUDO_PER_JOB = 50
 N_JOBS_PER_SESSION = N_PSEUDO // N_PSEUDO_PER_JOB
 N_RUNS = 10
 MIN_UNITS = 10
