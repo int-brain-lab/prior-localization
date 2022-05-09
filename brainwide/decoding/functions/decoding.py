@@ -29,10 +29,6 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
     sessiondf: the behavioral and neural dataframe when you want to bypass the bwm encoding phase
     """
 
-    if (kwargs['model'] != dut.optimal_Bayesian and 'act' in kwargs['model'].name \
-            and kwargs['target'] == 'pLeft' and not kwargs['use_imposter_session']):
-        raise ValueError('There is a problem in the settings. You should use imposter sessions')
-
     if ((wideFieldImaging_dict is None and kwargs['wide_field_imaging']) or
             (wideFieldImaging_dict is not None and not kwargs['wide_field_imaging'])):
         raise ValueError('wideFieldImaging_dict must be defined for wide_field_imaging and reciprocally')
@@ -259,7 +255,12 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
                         pseudomask = mask & (pseudosess.choice != 0)
                     else:
                         pseudosess = generate_pseudo_session(trialsdf, generate_choices=False)
-                        pseudosess['choice'] = trialsdf.choice
+                        if kwargs['model'].name == 'actKernel':
+                            subjModel = {'modeltype': kwargs['model'], 'subjeids': subjeids, 'subject': subject,
+                                         'modelfit_path': kwargs['modelfit_path'], 'eid': eid}
+                            pseudosess['choice'] = dut.generate_choices(pseudosess, trialsdf, subjModel)
+                        else:
+                            pseudosess['choice'] = trialsdf.choice
                         pseudomask = mask & (trialsdf.choice != 0)
 
                     msub_pseudo_tvec = dut.compute_target(kwargs['target'], subject, subjeids, eid,
