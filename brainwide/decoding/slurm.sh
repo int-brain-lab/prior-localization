@@ -3,8 +3,8 @@
 #SBATCH --output=logs/slurm/decoding.%A.%a.out
 #SBATCH --error=logs/slurm/decoding.%A.%a.err
 #SBATCH --partition=shared-cpu
-#SBATCH --array=1-5560:1
-#SBATCH --mem=7000
+#SBATCH --array=1-1112:1
+#SBATCH --mem=10000
 #SBATCH --time=12:00:00
 
 # extracting settings from $SLURM_ARRAY_TASK_ID
