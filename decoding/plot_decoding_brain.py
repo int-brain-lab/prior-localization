@@ -14,6 +14,8 @@ import pandas as pd
 from ibllib.atlas import AllenAtlas, FlatMap
 from ibllib.atlas.plots import plot_scalar_on_flatmap
 from sklearn.metrics import r2_score
+from ibllib.atlas.flatmaps import plot_swanson
+from ibllib.atlas import BrainRegions
 
 # res = 25
 # flmap = FlatMap(flatmap='dorsal_cortex', res_um=res)
@@ -89,6 +91,56 @@ def brain_cortex_results(acronyms, values,
     if not filename is None:
         SAVE_PATH = os.path.join(FILE_PATH, filename)
         plt.savefig(SAVE_PATH, dpi=600)
+    plt.show()
+    return
+
+def brain_SwansonFlat_results(acronyms, values, 
+                  filename=None, 
+                  cmap='viridis',
+                  clevels=[None, None],
+                  extend=None,
+                  value_title='',
+                  FILE_PATH='/home/bensonb/IntBrainLab/prior-localization/decoding_figures/'):
+    print(clevels)
+    if clevels[0] is None:
+        print('min')
+        clevels[0] = np.min(values)
+    if clevels[1] is None:
+        print('max')
+        clevels[1] = np.max(values)
+    values = np.clip(values, clevels[0], clevels[1])
+    print(clevels, np.min(values), np.max(values))
+    #extend = 'both'
+    
+    
+    # plt.imshow([[0,1]], cmap=cmap, vmin=clevels[0], vmax=clevels[1], ax=axes[0,1])
+    # plt.gca().set_visible(False)
+    # plt.colorbar()# doesn't work
+    # fig, axes = plt.subplots(1,10)
+    fig = plt.figure()
+    ax_swan = plot_swanson(acronyms, 
+                    values, 
+                    cmap=cmap,
+                    hemisphere='left',
+                    br=BrainRegions())#,ax=axes[0:9])
+    ax_swan.grid(False)
+    # ax_swan.yticks([])
+    # ax_swan.xticks([])
+    
+    fig.subplots_adjust(right=0.85)
+    
+    cb_ax = fig.add_axes([0.88, 0.25, 0.02, 0.5])
+    cbar = plt.colorbar(mappable=ax_swan.images[0], cax=cb_ax, 
+                        extend=extend)
+    cb_ax.set_title(value_title)
+    #cb_ax.set_visible(False)
+    # cbar.set_ticks([0,.2,.4,.6,.8,1])
+    # cb_ax.set_title(value_title)
+    #cbar.set_colorbar(extend='both')
+    #plt.tight_layout()
+    if not filename is None:
+        SAVE_PATH = os.path.join(FILE_PATH, filename)
+        plt.savefig(SAVE_PATH, dpi=1200)
     plt.show()
     return
     
@@ -198,7 +250,7 @@ def brain_results(acronyms_unordered, values_unordered,
         fig.text(.38, .2, top_regions_string)
     plt.savefig(SAVE_PATH, dpi=600)
     plt.show()
-    return clevels
+    return clevels, extend
 
 def bar_results_basic(acronyms_unordered, values_unordered, errs_unordered=None, 
                 filename='test.png', 

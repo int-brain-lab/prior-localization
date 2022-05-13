@@ -6,7 +6,7 @@ Created on Thu Jan 20 19:54:53 2022
 @author: bensonb
 """
 import os
-from plot_decoding_brain import brain_results, bar_results, brain_cortex_results, bar_results_basic, aggregate_data, discretize_target
+from plot_decoding_brain import brain_results, bar_results, brain_cortex_results, brain_SwansonFlat_results, bar_results_basic, aggregate_data, discretize_target
 from bernoulli_confidenceinterval import Bernoulli_ci
 import numpy as np
 import pandas as pd
@@ -120,7 +120,7 @@ nulls_h = np.array([scipy.stats.scoreatpercentile(reg_nulls[i,:],
                     95, interpolation_method='fraction') for i in range(reg_nulls.shape[0])])[reg_pvalue<0.05]
 nulls = np.vstack((nulls_l,nulls_m,nulls_h))
 
-clevels = brain_results(acronyms, 
+clevels, extend = brain_results(acronyms, 
                 np.array([FPOOL(v) for v in values]), 
                 os.path.join(VARIABLE_FOLDER,
                               SPECIFIC_DECODING,
@@ -130,7 +130,7 @@ clevels = brain_results(acronyms,
                 cmap='Blues',
                 YMIN=0,
                 YMAX=0.08,
-                value_title='       $r^2$ \n              %d of %d sig.'%(np.sum(reg_pvalue<0.05),len(reg_pvalue)))#: %.3f'%(len(np.unique(np.random.choice(all_regions,size=int(len(all_regions)*0.05),replace=False)))/len(np.unique(all_regions))))
+                value_title='     $r^2$ \n       %d/%d sig.'%(np.sum(reg_pvalue<0.05),len(reg_pvalue)))#: %.3f'%(len(np.unique(np.random.choice(all_regions,size=int(len(all_regions)*0.05),replace=False)))/len(np.unique(all_regions))))
 brain_cortex_results(acronyms, 
                 np.array([FPOOL(v) for v in values]), 
                 cmap='Blues', 
@@ -140,6 +140,20 @@ brain_cortex_results(acronyms,
                             ('_'.join([RESULTS_DATE, 'brainscorticalflat', plot_name])) +
                             FIGURE_SUFFIX), 
                 FILE_PATH = FIGURE_PATH)
+
+brain_SwansonFlat_results(acronyms, 
+                np.array([FPOOL(v) for v in values]), 
+                cmap='Blues',
+                clevels=clevels,
+                extend=extend,
+                value_title='  $r^2$ \n    %d/%d sig.'%(np.sum(reg_pvalue<0.05),len(reg_pvalue)),
+                filename = os.path.join(VARIABLE_FOLDER,
+                              SPECIFIC_DECODING,
+                            ('_'.join([RESULTS_DATE, 'brainswansonflat', plot_name])) +
+                            FIGURE_SUFFIX), 
+                FILE_PATH = FIGURE_PATH)
+
+
 bar_results(acronyms,
             values,
             nulls,
@@ -185,36 +199,36 @@ bar_results(acronyms,
 #             YMIN=0,
 #             ylab='$R^2$')
 
-plot_name = 'maxsignificantr2'
-MIN_NUMBER_SESSIONS = 1
-all_sigs = (all_pvalues<=0.05)
-use_region = lambda reg: len(np.nonzero((all_regions==reg)&all_sigs)[0]) and len(np.nonzero(all_regions==reg)[0])>=MIN_NUMBER_SESSIONS
-get_region_value = lambda reg: np.max(all_scores[(all_regions==reg)&all_sigs])
-get_region_err = lambda reg: np.std(all_scores[(all_regions==reg)&all_sigs])
+# plot_name = 'maxsignificantr2'
+# MIN_NUMBER_SESSIONS = 1
+# all_sigs = (all_pvalues<=0.05)
+# use_region = lambda reg: len(np.nonzero((all_regions==reg)&all_sigs)[0]) and len(np.nonzero(all_regions==reg)[0])>=MIN_NUMBER_SESSIONS
+# get_region_value = lambda reg: np.max(all_scores[(all_regions==reg)&all_sigs])
+# get_region_err = lambda reg: np.std(all_scores[(all_regions==reg)&all_sigs])
 
-regions = np.array([reg for reg in np.unique(all_regions) if use_region(reg)])
-reg_values = np.array([get_region_value(reg) for reg in regions])
-reg_errs = np.array([get_region_err(reg) for reg in regions])
-acronyms, values, errs = regions, reg_values, reg_errs
+# regions = np.array([reg for reg in np.unique(all_regions) if use_region(reg)])
+# reg_values = np.array([get_region_value(reg) for reg in regions])
+# reg_errs = np.array([get_region_err(reg) for reg in regions])
+# acronyms, values, errs = regions, reg_values, reg_errs
 
-brain_results(acronyms, 
-                values, 
-                os.path.join(VARIABLE_FOLDER,
-                              SPECIFIC_DECODING,
-                            ('_'.join([RESULTS_DATE, 'brains', plot_name])) +
-                            FIGURE_SUFFIX), 
-                FILE_PATH = FIGURE_PATH,
-                cmap='Blues',
-                YMIN=0,
-                value_title='$R^2$')
-bar_results_basic(acronyms,
-            values,
-            filename=os.path.join(VARIABLE_FOLDER,
-                          SPECIFIC_DECODING,
-            ('_'.join([RESULTS_DATE, 'bars', plot_name])) +
-            FIGURE_SUFFIX),
-            YMIN=0,
-            ylab='$R^2$')
+# brain_results(acronyms, 
+#                 values, 
+#                 os.path.join(VARIABLE_FOLDER,
+#                               SPECIFIC_DECODING,
+#                             ('_'.join([RESULTS_DATE, 'brains', plot_name])) +
+#                             FIGURE_SUFFIX), 
+#                 FILE_PATH = FIGURE_PATH,
+#                 cmap='Blues',
+#                 YMIN=0,
+#                 value_title='$R^2$')
+# bar_results_basic(acronyms,
+#             values,
+#             filename=os.path.join(VARIABLE_FOLDER,
+#                           SPECIFIC_DECODING,
+#             ('_'.join([RESULTS_DATE, 'bars', plot_name])) +
+#             FIGURE_SUFFIX),
+#             YMIN=0,
+#             ylab='$R^2$')
 
 plot_name = 'fsessionssignificant'
 MIN_NUMBER_SESSIONS = 1
@@ -239,22 +253,33 @@ reg_errsm = np.array([get_region_errm(reg) for reg in regions])
 reg_errsp = np.array([get_region_errp(reg) for reg in regions])
 acronyms, values, errs = regions, reg_values, np.vstack((reg_errsm, reg_errsp))
 
-brain_results(acronyms, 
-                values-errs[0,:], 
-                os.path.join(VARIABLE_FOLDER,
-                              SPECIFIC_DECODING,
-                            ('_'.join([RESULTS_DATE, 'brains', plot_name])) +
-                            FIGURE_SUFFIX), 
-                FILE_PATH = FIGURE_PATH,
+brain_SwansonFlat_results(acronyms, 
+                values, 
                 cmap='Blues',
-                value_title='chance of \nsignificant session \n(95\% ci)')
-bar_results_basic(acronyms,
-            values,
-            errs,
-            os.path.join(VARIABLE_FOLDER,
-                          SPECIFIC_DECODING,
-            ('_'.join([RESULTS_DATE, 'bars', plot_name])) +
-            FIGURE_SUFFIX))
+                value_title='fraction sig.',
+                clevels=[None, None],
+                filename = os.path.join(VARIABLE_FOLDER,
+                              SPECIFIC_DECODING,
+                            ('_'.join([RESULTS_DATE, 'brainswansonflat', plot_name])) +
+                            FIGURE_SUFFIX), 
+                FILE_PATH = FIGURE_PATH)
+
+# brain_results(acronyms, 
+#                 values-errs[0,:], 
+#                 os.path.join(VARIABLE_FOLDER,
+#                               SPECIFIC_DECODING,
+#                             ('_'.join([RESULTS_DATE, 'brains', plot_name])) +
+#                             FIGURE_SUFFIX), 
+#                 FILE_PATH = FIGURE_PATH,
+#                 cmap='Blues',
+#                 value_title='chance of \nsignificant session \n(95\% ci)')
+# bar_results_basic(acronyms,
+#             values,
+#             errs,
+#             os.path.join(VARIABLE_FOLDER,
+#                           SPECIFIC_DECODING,
+#             ('_'.join([RESULTS_DATE, 'bars', plot_name])) +
+#             FIGURE_SUFFIX))
 
 plot_name = 'nsessionssignificant'
 MIN_NUMBER_SESSIONS = 1
@@ -268,6 +293,17 @@ reg_values = np.array([get_region_value(reg) for reg in regions])
 reg_errs = np.array([get_region_err(reg) for reg in regions])
 acronyms, values, errs = regions, reg_values, reg_errs
 
+brain_SwansonFlat_results(acronyms, 
+                values, 
+                cmap='Blues',
+                clevels=[None, None],
+                value_title='n sig.',
+                filename = os.path.join(VARIABLE_FOLDER,
+                              SPECIFIC_DECODING,
+                            ('_'.join([RESULTS_DATE, 'brainswansonflat', plot_name])) +
+                            FIGURE_SUFFIX), 
+                FILE_PATH = FIGURE_PATH)
+
 # brain_results(acronyms, 
 #                 values, 
 #                 os.path.join(VARIABLE_FOLDER,
@@ -276,13 +312,13 @@ acronyms, values, errs = regions, reg_values, reg_errs
 #                             FIGURE_SUFFIX), 
 #                 FILE_PATH = FIGURE_PATH,
 #                 cmap='Purples')
-bar_results_basic(acronyms,
-            values,
-            errs,
-            os.path.join(VARIABLE_FOLDER,
-                          SPECIFIC_DECODING,
-            ('_'.join([RESULTS_DATE, 'bars', plot_name])) +
-            FIGURE_SUFFIX))
+# bar_results_basic(acronyms,
+#             values,
+#             errs,
+#             os.path.join(VARIABLE_FOLDER,
+#                           SPECIFIC_DECODING,
+#             ('_'.join([RESULTS_DATE, 'bars', plot_name])) +
+#             FIGURE_SUFFIX))
 
 #%%
 sns.set_theme(style="whitegrid")
