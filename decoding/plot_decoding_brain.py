@@ -98,6 +98,7 @@ def brain_SwansonFlat_results(acronyms, values,
                   filename=None, 
                   cmap='viridis',
                   clevels=[None, None],
+                  ticks=None,
                   extend=None,
                   value_title='',
                   FILE_PATH='/home/bensonb/IntBrainLab/prior-localization/decoding_figures/'):
@@ -132,7 +133,10 @@ def brain_SwansonFlat_results(acronyms, values,
     cb_ax = fig.add_axes([0.88, 0.25, 0.02, 0.5])
     cbar = plt.colorbar(mappable=ax_swan.images[0], cax=cb_ax, 
                         extend=extend)
+    #cbar.set_ticks
     cb_ax.set_title(value_title)
+    if not (ticks is None):
+        cb_ax.set_yticklabels(ticks[1])
     #cb_ax.set_visible(False)
     # cbar.set_ticks([0,.2,.4,.6,.8,1])
     # cb_ax.set_title(value_title)

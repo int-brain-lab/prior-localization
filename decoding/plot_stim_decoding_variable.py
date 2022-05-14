@@ -105,66 +105,66 @@ best_preds_discrete = discretize_target(np.copy(best_preds),
 best_preds_discrete_orb = discretize_target(np.copy(best_preds_orb),
                                         edge = edges)
 
-POOL = 'mean'
-FPOOL = (lambda *args,**kwargs:np.median(*args,**kwargs)) if POOL == 'median' else (lambda *args,**kwargs:np.mean(*args,**kwargs))
-plot_name = 'r2_pool'+POOL
-reg_nulls = np.array([FPOOL(all_null_scores[all_regions==reg],axis=0) for reg in np.unique(all_regions)])
-reg_values = np.array([all_scores[all_regions==reg] for reg in np.unique(all_regions)])
-reg_pvalue = np.array([np.mean(FPOOL(reg_values[i])<=reg_nulls[i]) \
-              for i in range(len(np.unique(all_regions)))])
-acronyms = np.unique(all_regions)[reg_pvalue<0.05]
-values = reg_values[reg_pvalue<0.05]
-nulls_m = np.median(reg_nulls,axis=1)[reg_pvalue<0.05]
-nulls_l = np.min(reg_nulls,axis=1)[reg_pvalue<0.05]
-nulls_h = np.array([scipy.stats.scoreatpercentile(reg_nulls[i,:], 
-                    95, interpolation_method='fraction') for i in range(reg_nulls.shape[0])])[reg_pvalue<0.05]
-nulls = np.vstack((nulls_l,nulls_m,nulls_h))
+# POOL = 'mean'
+# FPOOL = (lambda *args,**kwargs:np.median(*args,**kwargs)) if POOL == 'median' else (lambda *args,**kwargs:np.mean(*args,**kwargs))
+# plot_name = 'r2_pool'+POOL
+# reg_nulls = np.array([FPOOL(all_null_scores[all_regions==reg],axis=0) for reg in np.unique(all_regions)])
+# reg_values = np.array([all_scores[all_regions==reg] for reg in np.unique(all_regions)])
+# reg_pvalue = np.array([np.mean(FPOOL(reg_values[i])<=reg_nulls[i]) \
+#               for i in range(len(np.unique(all_regions)))])
+# acronyms = np.unique(all_regions)[reg_pvalue<0.05]
+# values = reg_values[reg_pvalue<0.05]
+# nulls_m = np.median(reg_nulls,axis=1)[reg_pvalue<0.05]
+# nulls_l = np.min(reg_nulls,axis=1)[reg_pvalue<0.05]
+# nulls_h = np.array([scipy.stats.scoreatpercentile(reg_nulls[i,:], 
+#                     95, interpolation_method='fraction') for i in range(reg_nulls.shape[0])])[reg_pvalue<0.05]
+# nulls = np.vstack((nulls_l,nulls_m,nulls_h))
 
-clevels, extend = brain_results(acronyms, 
-                np.array([FPOOL(v) for v in values]), 
-                os.path.join(VARIABLE_FOLDER,
-                              SPECIFIC_DECODING,
-                            ('_'.join([RESULTS_DATE, 'brains', plot_name])) +
-                            FIGURE_SUFFIX), 
-                FILE_PATH = FIGURE_PATH,
-                cmap='Blues',
-                YMIN=0,
-                YMAX=0.08,
-                value_title='     $r^2$ \n       %d/%d sig.'%(np.sum(reg_pvalue<0.05),len(reg_pvalue)))#: %.3f'%(len(np.unique(np.random.choice(all_regions,size=int(len(all_regions)*0.05),replace=False)))/len(np.unique(all_regions))))
-brain_cortex_results(acronyms, 
-                np.array([FPOOL(v) for v in values]), 
-                cmap='Blues', 
-                clevels=clevels,
-                filename = os.path.join(VARIABLE_FOLDER,
-                              SPECIFIC_DECODING,
-                            ('_'.join([RESULTS_DATE, 'brainscorticalflat', plot_name])) +
-                            FIGURE_SUFFIX), 
-                FILE_PATH = FIGURE_PATH)
+# clevels, extend = brain_results(acronyms, 
+#                 np.array([FPOOL(v) for v in values]), 
+#                 os.path.join(VARIABLE_FOLDER,
+#                               SPECIFIC_DECODING,
+#                             ('_'.join([RESULTS_DATE, 'brains', plot_name])) +
+#                             FIGURE_SUFFIX), 
+#                 FILE_PATH = FIGURE_PATH,
+#                 cmap='Blues',
+#                 YMIN=0,
+#                 YMAX=0.08,
+#                 value_title='     $r^2$ \n       %d/%d sig.'%(np.sum(reg_pvalue<0.05),len(reg_pvalue)))#: %.3f'%(len(np.unique(np.random.choice(all_regions,size=int(len(all_regions)*0.05),replace=False)))/len(np.unique(all_regions))))
+# brain_cortex_results(acronyms, 
+#                 np.array([FPOOL(v) for v in values]), 
+#                 cmap='Blues', 
+#                 clevels=clevels,
+#                 filename = os.path.join(VARIABLE_FOLDER,
+#                               SPECIFIC_DECODING,
+#                             ('_'.join([RESULTS_DATE, 'brainscorticalflat', plot_name])) +
+#                             FIGURE_SUFFIX), 
+#                 FILE_PATH = FIGURE_PATH)
 
-brain_SwansonFlat_results(acronyms, 
-                np.array([FPOOL(v) for v in values]), 
-                cmap='Blues',
-                clevels=clevels,
-                extend=extend,
-                value_title='  $r^2$ \n    %d/%d sig.'%(np.sum(reg_pvalue<0.05),len(reg_pvalue)),
-                filename = os.path.join(VARIABLE_FOLDER,
-                              SPECIFIC_DECODING,
-                            ('_'.join([RESULTS_DATE, 'brainswansonflat', plot_name])) +
-                            FIGURE_SUFFIX), 
-                FILE_PATH = FIGURE_PATH)
+# brain_SwansonFlat_results(acronyms, 
+#                 np.array([FPOOL(v) for v in values]), 
+#                 cmap='Blues',
+#                 clevels=clevels,
+#                 extend=extend,
+#                 value_title='  $r^2$ \n    %d/%d sig.'%(np.sum(reg_pvalue<0.05),len(reg_pvalue)),
+#                 filename = os.path.join(VARIABLE_FOLDER,
+#                               SPECIFIC_DECODING,
+#                             ('_'.join([RESULTS_DATE, 'brainswansonflat', plot_name])) +
+#                             FIGURE_SUFFIX), 
+#                 FILE_PATH = FIGURE_PATH)
 
 
-bar_results(acronyms,
-            values,
-            nulls,
-            os.path.join(VARIABLE_FOLDER,
-                          SPECIFIC_DECODING,
-            ('_'.join([RESULTS_DATE, 'bars', plot_name])) +
-            FIGURE_SUFFIX),
-            YMIN=-0.1,
-            ylab='$R^2$',
-            TOP_N=15,
-            POOL_PROTOCOL=POOL)
+# bar_results(acronyms,
+#             values,
+#             nulls,
+#             os.path.join(VARIABLE_FOLDER,
+#                           SPECIFIC_DECODING,
+#             ('_'.join([RESULTS_DATE, 'bars', plot_name])) +
+#             FIGURE_SUFFIX),
+#             YMIN=-0.1,
+#             ylab='$R^2$',
+#             TOP_N=15,
+#             POOL_PROTOCOL=POOL)
 
 
 # plot_name = 'mediansignificantr2'
@@ -230,6 +230,29 @@ bar_results(acronyms,
 #             YMIN=0,
 #             ylab='$R^2$')
 
+plot_name = 'r2_mediansig'
+MIN_NUMBER_SESSIONS = 1
+all_sigs = (all_pvalues<=0.05)
+use_region = lambda reg: len(np.nonzero((all_regions==reg)&all_sigs)[0]) and len(np.nonzero(all_regions==reg)[0])>=MIN_NUMBER_SESSIONS
+#get_region_nsigsess = lambda reg: len(all_scores[(all_regions==reg)&all_sigs])
+#get_region_nsess = lambda reg: len(all_scores[all_regions==reg])
+get_region_value = lambda reg: np.median(all_scores[(all_regions==reg)&all_sigs])
+
+regions = np.array([reg for reg in np.unique(all_regions) if use_region(reg)])
+reg_values = np.array([get_region_value(reg) for reg in regions])
+acronyms, values = regions, reg_values
+
+brain_SwansonFlat_results(acronyms, 
+                values, 
+                cmap='viridis',
+                value_title='Median sig. \n$r^2$',
+                clevels=[None, None],
+                filename = os.path.join(VARIABLE_FOLDER,
+                              SPECIFIC_DECODING,
+                            ('_'.join([RESULTS_DATE, 'brainswansonflat', plot_name])) +
+                            FIGURE_SUFFIX), 
+                FILE_PATH = FIGURE_PATH)
+
 plot_name = 'fsessionssignificant'
 MIN_NUMBER_SESSIONS = 1
 all_sigs = (all_pvalues<=0.05)
@@ -255,9 +278,9 @@ acronyms, values, errs = regions, reg_values, np.vstack((reg_errsm, reg_errsp))
 
 brain_SwansonFlat_results(acronyms, 
                 values, 
-                cmap='Blues',
+                cmap='viridis',
                 value_title='fraction sig.',
-                clevels=[None, None],
+                clevels=[0,1],
                 filename = os.path.join(VARIABLE_FOLDER,
                               SPECIFIC_DECODING,
                             ('_'.join([RESULTS_DATE, 'brainswansonflat', plot_name])) +
@@ -281,22 +304,21 @@ brain_SwansonFlat_results(acronyms,
 #             ('_'.join([RESULTS_DATE, 'bars', plot_name])) +
 #             FIGURE_SUFFIX))
 
-plot_name = 'nsessionssignificant'
-MIN_NUMBER_SESSIONS = 1
+plot_name = 'nsessions'
+MIN_NUMBER_SESSIONS = 0
 all_sigs = (all_pvalues<=0.05)
-use_region = lambda reg: len(np.nonzero((all_regions==reg)&all_sigs)[0]) and len(np.nonzero(all_regions==reg)[0])>=MIN_NUMBER_SESSIONS
-get_region_value = lambda reg: len(all_scores[(all_regions==reg)&all_sigs])
-get_region_err = lambda reg: 0
+use_region = lambda reg: len(np.nonzero((all_regions==reg))[0]) and len(np.nonzero(all_regions==reg)[0])>=MIN_NUMBER_SESSIONS
+get_region_value = lambda reg: len(all_scores[(all_regions==reg)])
 
 regions = np.array([reg for reg in np.unique(all_regions) if use_region(reg)])
 reg_values = np.array([get_region_value(reg) for reg in regions])
-reg_errs = np.array([get_region_err(reg) for reg in regions])
-acronyms, values, errs = regions, reg_values, reg_errs
+acronyms, values = regions, np.log(reg_values)/np.log(2)
 
 brain_SwansonFlat_results(acronyms, 
                 values, 
-                cmap='Blues',
+                cmap='viridis',
                 clevels=[None, None],
+                ticks=([0,1,2,3,4,5],['1','2','4','8','16','32']),
                 value_title='n sig.',
                 filename = os.path.join(VARIABLE_FOLDER,
                               SPECIFIC_DECODING,
