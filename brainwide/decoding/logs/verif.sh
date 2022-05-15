@@ -6,9 +6,6 @@ do
         if cat ${file} | grep Error
         then echo ${file}
         fi
-        if cat ${file} | grep error
-        then echo ${file}
-        fi
 done
 
 
@@ -18,3 +15,4 @@ done
 #         then echo ${file}
 #         fi
 # done
+
