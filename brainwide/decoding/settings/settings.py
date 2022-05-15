@@ -1,8 +1,9 @@
 import logging
 import numpy as np
-from functions import utils as dut
+from functions.utils import optimal_Bayesian, modeldispatcher
+from models.expSmoothing_prevAction import expSmoothing_prevAction
+
 import sklearn.linear_model as sklm
-from datetime import date
 from pathlib import Path
 import warnings
 
@@ -33,7 +34,7 @@ if TARGET not in ['pLeft', 'signcont', 'choice', 'feedback']:
     raise ValueError('TARGET can only be pLeft, signcont or choice')
 BALANCED_CONTINUOUS_TARGET = True  # is target continuous or discrete FOR BALANCED WEIGHTING
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
-MODEL = dut.expSmoothing_prevAction  # expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
+MODEL = expSmoothing_prevAction  # expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
 BEH_MOUSELEVEL_TRAINING = False  # if True, trains the behavioral model session-wise else mouse-wise
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
@@ -97,7 +98,7 @@ if ESTIMATOR == sklm.LogisticRegression and BALANCED_CONTINUOUS_TARGET:
 if not SINGLE_REGION and not MERGED_PROBES:
     raise ValueError('full probes analysis can only be done with merged probes')
 
-if MODEL not in list(dut.modeldispatcher.keys()):
+if MODEL not in list(modeldispatcher.keys()):
     raise NotImplementedError('this MODEL is not supported yet')
 
 if COMPUTE_NEUROMETRIC and TARGET != 'signcont':
@@ -112,7 +113,7 @@ if len(BORDER_QUANTILES_NEUROMETRIC) != 0 and MODEL is None:
 fit_metadata = {
     'criterion': SESS_CRITERION,
     'target': TARGET,
-    'model_type': dut.modeldispatcher[MODEL],
+    'model_type': modeldispatcher[MODEL],
     'decoding_path': DECODING_PATH,
     'align_time': ALIGN_TIME,
     'time_window': TIME_WINDOW,

@@ -8,10 +8,8 @@ from iblutil.numerical import ismember
 from one.api import ONE
 from models.expSmoothing_prevAction import expSmoothing_prevAction
 from models.expSmoothing_stimside import expSmoothing_stimside
-from models.biasedApproxBayesian import biased_ApproxBayesian
-from models.biasedBayesian import biased_Bayesian
 from sklearn.model_selection import train_test_split
-from sklearn.model_selection import GridSearchCV, KFold
+from sklearn.model_selection import KFold
 from sklearn.linear_model._coordinate_descent import LinearModelCV
 from sklearn.metrics import r2_score
 from sklearn.metrics import balanced_accuracy_score
@@ -20,7 +18,6 @@ from sklearn.utils.class_weight import compute_sample_weight
 from tqdm import tqdm
 import torch
 import pickle
-import one.alf.io as alfio
 import openturns
 from brainbox.task.closed_loop import generate_pseudo_blocks, _draw_position, _draw_contrast
 import sklearn.linear_model as sklm
