@@ -7,6 +7,7 @@
 #SBATCH --mem=7000
 #SBATCH --time=12:00:00
 
+mamba activate iblenv
 # extracting settings from $SLURM_ARRAY_TASK_ID
 echo index $SLURM_ARRAY_TASK_ID
 
@@ -14,5 +15,4 @@ export PYTHONPATH="$PWD":$PYTHONPATH
 # calling script
 
 echo
-# change to conda  => which python
-~/.conda/envs/iblenv/bin/python  pipelines/05_slurm_decode.py $SLURM_ARRAY_TASK_ID
+python  pipelines/05_slurm_decode.py $SLURM_ARRAY_TASK_ID

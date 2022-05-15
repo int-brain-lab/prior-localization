@@ -5,7 +5,6 @@ import brainbox.io.one as bbone
 import models.utils as mut
 from pathlib import Path
 from functions.utils import save_region_results
-from one.api import ONE
 from one.api import One
 from brainbox.population.decode import get_spike_counts_in_bins
 from brainbox.task.closed_loop import generate_pseudo_session
