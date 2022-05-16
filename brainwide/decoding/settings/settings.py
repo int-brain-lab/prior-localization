@@ -19,8 +19,8 @@ strlut = {sklm.Lasso: "Lasso",
 
 # %% Run param definitions
 LOCAL = False
-if not LOCAL and Path("/home/users/f/findling/scratch").exists():
-        DECODING_PATH = Path("/home/users/f/findling/scratch")
+if not LOCAL and Path("/srv/beegfs/scratch/users/f/findling").exists():
+        DECODING_PATH = Path("/srv/beegfs/scratch/users/f/findling")
 else:
     DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/code/prior-localization/brainwide/decoding/")
 
