@@ -6,8 +6,8 @@ import pickle
 import re
 from datetime import datetime as dt
 from pathlib import Path
-from utils import load_primaries
-from utils import cache_primaries
+from brainwide.pipelines.utils import load_primaries
+from brainwide.pipelines.utils import cache_primaries
 
 # Third party libraries
 import dask
@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 from dask.distributed import Client
 from dask_jobqueue import SLURMCluster
+from dask.distributed import LocalCluster
 
 # IBL libraries
 import brainbox.io.one as bbone
@@ -63,7 +64,6 @@ params = {
     't_after': T_AFT,
     'binwidth': BINWIDTH,
     'abswheel': ABSWHEEL,
-    'resolved_alignment': True if re.match('resolved.*', SESS_CRITERION) else False,
     'ret_qc': QC
 }
 
@@ -81,6 +81,7 @@ for eid in sessdf.index.unique(level='eid'):
     dataset_futures.append([subject, eid, probes, save_future])
 
 N_CORES = 4
+'''
 cluster = SLURMCluster(cores=N_CORES,
                        memory='32GB',
                        processes=1,
@@ -96,6 +97,8 @@ cluster = SLURMCluster(cores=N_CORES,
                            f'export OPENBLAS_NUM_THREADS={N_CORES}'
                        ])
 cluster.scale(20)
+'''
+cluster = LocalCluster()
 client = Client(cluster)
 
 tmp_futures = [client.compute(future[3]) for future in dataset_futures]
