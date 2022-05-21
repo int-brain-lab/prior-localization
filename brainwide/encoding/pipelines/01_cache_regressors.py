@@ -17,7 +17,7 @@ from dask_jobqueue import SLURMCluster
 # IBL libraries
 import brainbox.io.one as bbone
 from one.api import ONE
-from brainwide.params import GLM_CACHE
+from brainwide.params import CACHE_PATH
 
 # Brainwide repo imports
 from brainwide.utils import query_sessions, get_impostor_df
@@ -117,5 +117,5 @@ dataset = [{
 dataset = pd.DataFrame(dataset)
 
 outdict = {'params': params, 'dataset_filenames': dataset}
-with open(Path(GLM_CACHE).joinpath(DATE + '_dataset_metadata.pkl'), 'wb') as fw:
+with open(Path(CACHE_PATH).joinpath(DATE + '_dataset_metadata.pkl'), 'wb') as fw:
     pickle.dump(outdict, fw)

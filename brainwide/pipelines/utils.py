@@ -1,16 +1,23 @@
-import pandas as pd
-from one.api import ONE
-import brainbox.io.one as bbone
-import numpy as np
-from pathlib import Path
-from brainwide.params import GLM_CACHE
-import brainbox.metrics.single_units as bbqc
-import pickle
+# Standard library
+import hashlib
 import logging
 import os
-import hashlib
-from datetime import datetime as dt
+import pickle
 import re
+from datetime import datetime as dt
+from pathlib import Path
+
+# Third party libraries
+import numpy as np
+import pandas as pd
+
+# IBL libraries
+import brainbox.io.one as bbone
+import brainbox.metrics.single_units as bbqc
+from one.api import ONE
+
+# Brainwide repo imports
+from brainwide.params import CACHE_PATH
 
 _logger = logging.getLogger('brainwide')
 
@@ -92,7 +99,7 @@ def cache_regressors(subject, session_id, probes, regressor_params, trialsdf, sp
 
     Returns the metadata filename and regressors filename.
     """
-    subpath = Path(GLM_CACHE).joinpath(subject)
+    subpath = Path(CACHE_PATH).joinpath(subject)
     if not subpath.exists():
         os.mkdir(subpath)
     sesspath = subpath.joinpath(session_id)

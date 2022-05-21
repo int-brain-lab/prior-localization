@@ -58,20 +58,20 @@ if __name__ == "__main__":
     from pathlib import Path
 
     # Brainwide repo imports
-    from brainwide.params import GLM_CACHE, GLM_FIT_PATH
+    from brainwide.params import CACHE_PATH, FIT_PATH
 
     currdate = "2022-02-14"  # Date on which fit was run
     n_cov = 8  # Modify if you change the model!
-    parpath = Path(GLM_FIT_PATH).joinpath(f'{currdate}_glm_fit_pars.pkl')
+    parpath = Path(FIT_PATH).joinpath(f'{currdate}_glm_fit_pars.pkl')
     with open(parpath, 'rb') as fo:
         params = pickle.load(fo)
-    datapath = Path(GLM_CACHE).joinpath(params['dataset_fn'])
+    datapath = Path(CACHE_PATH).joinpath(params['dataset_fn'])
     with open(datapath, 'rb') as fo:
         dataset = pickle.load(fo)
 
     filenames = []
-    for subj in os.listdir(Path(GLM_FIT_PATH)):
-        subjdir = Path(GLM_FIT_PATH).joinpath(subj)
+    for subj in os.listdir(Path(FIT_PATH)):
+        subjdir = Path(FIT_PATH).joinpath(subj)
         if not os.path.isdir(subjdir):
             continue
         for sess in os.listdir(subjdir):
@@ -127,5 +127,5 @@ if __name__ == "__main__":
         'fit_results': masterscores,
         'fit_files': filenames,
     }
-    with open(Path(GLM_FIT_PATH).joinpath(f'{currdate}_glm_fit.pkl'), 'wb') as fw:
+    with open(Path(FIT_PATH).joinpath(f'{currdate}_glm_fit.pkl'), 'wb') as fw:
         pickle.dump(outdict, fw)

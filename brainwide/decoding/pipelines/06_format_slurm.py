@@ -1,10 +1,8 @@
 import pickle
 import functions.utils as dut
 import pandas as pd
-import sys
 import glob
-import os
-from settings.settings import *
+from settings import *
 import models.utils as mut
 
 # import cached data

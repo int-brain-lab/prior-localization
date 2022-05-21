@@ -78,19 +78,19 @@ if __name__ == '__main__':
     from pathlib import Path
 
     # Brainwide repo imports
-    from brainwide.params import GLM_CACHE, GLM_FIT_PATH
+    from brainwide.params import CACHE_PATH, FIT_PATH
 
     FITDATE = '2022-02-24'  # Date on which fit was run
 
-    parpath = Path(GLM_FIT_PATH).joinpath(f'{FITDATE}_glm_fit_pars.pkl')
+    parpath = Path(FIT_PATH).joinpath(f'{FITDATE}_glm_fit_pars.pkl')
     with open(parpath, 'rb') as fo:
         params = pickle.load(fo)
-    datapath = Path(GLM_CACHE).joinpath(params['dataset_fn'])
+    datapath = Path(CACHE_PATH).joinpath(params['dataset_fn'])
     with open(datapath, 'rb') as fo:
         dataset = pickle.load(fo)
 
     # Make a directory to store results from this fit run
-    fitfolder = Path(GLM_FIT_PATH).joinpath('merged_results').joinpath(f'{FITDATE}_impostor_run')
+    fitfolder = Path(FIT_PATH).joinpath('merged_results').joinpath(f'{FITDATE}_impostor_run')
     try:
         os.mkdir(fitfolder)
     except FileExistsError:
@@ -100,10 +100,10 @@ if __name__ == '__main__':
     n_impostors = params['n_impostors']
 
     filenames = []
-    for subj in os.listdir(Path(GLM_FIT_PATH)):
+    for subj in os.listdir(Path(FIT_PATH)):
         if subj == 'merged_results':
             continue
-        subjdir = Path(GLM_FIT_PATH).joinpath(subj)
+        subjdir = Path(FIT_PATH).joinpath(subj)
         if not os.path.isdir(subjdir):
             continue
         for sess in os.listdir(subjdir):

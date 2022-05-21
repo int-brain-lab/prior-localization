@@ -11,7 +11,7 @@ from brainbox.io.one import SpikeSortingLoader
 import tracemalloc
 tracemalloc.start()
 from functions import utils as dut
-from settings.settings import SESS_CRITERION
+from settings import SESS_CRITERION
 
 #DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/behavior/prior-localization/decoding")
 DECODING_PATH = Path("/home/users/f/findling/scratch")

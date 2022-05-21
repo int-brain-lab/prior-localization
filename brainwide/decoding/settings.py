@@ -22,7 +22,7 @@ LOCAL = False
 if not LOCAL and Path("/srv/beegfs/scratch/users/f/findling").exists():
         DECODING_PATH = Path("/srv/beegfs/scratch/users/f/findling")
 else:
-    DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/code/prior-localization/brainwide/decoding/")
+    DECODING_PATH = Path("//")
 
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments

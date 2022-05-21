@@ -10,7 +10,7 @@ except:
     warnings.warn('dask import failed')
     pass
 
-from settings.settings import *
+from settings import *
 from functions.decoding import fit_eid
 import pickle
 

@@ -5,7 +5,7 @@
 
 import pandas as pd
 import sys
-from settings.settings import *
+from settings import *
 from functions.decoding import fit_eid
 import numpy as np
 from wide_field_imaging import utils as wut

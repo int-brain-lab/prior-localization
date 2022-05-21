@@ -18,7 +18,7 @@ import pandas as pd
 from brainwide.decoding.functions.utils import compute_target
 from brainwide.encoding.design import generate_design
 from brainwide.encoding.fit import fit_stepwise, fit_impostor
-from brainwide.params import BEH_MOD_PATH, GLM_FIT_PATH
+from brainwide.params import BEH_MOD_PATH, FIT_PATH
 
 
 def filter_nan(trialsdf):
@@ -44,7 +44,7 @@ def _create_sub_sess_path(parent, subject, session):
 
 
 def save_stepwise(subject, session_id, fitout, params, probes, input_fn, clu_reg, clu_qc, fitdate):
-    sesspath = _create_sub_sess_path(GLM_FIT_PATH, subject, session_id)
+    sesspath = _create_sub_sess_path(FIT_PATH, subject, session_id)
     fn = sesspath.joinpath(f'{fitdate}_stepwise_regression.pkl')
     outdict = {
         'params': params,
@@ -61,7 +61,7 @@ def save_stepwise(subject, session_id, fitout, params, probes, input_fn, clu_reg
 
 def save_impostor(subject, session_id, sessfit, nullfits, params, probes, input_fn, clu_reg,
                   clu_qc, fitdate):
-    sesspath = _create_sub_sess_path(GLM_FIT_PATH, subject, session_id)
+    sesspath = _create_sub_sess_path(FIT_PATH, subject, session_id)
     fn = sesspath.joinpath(f'{fitdate}_impostor_regression.pkl')
     outdict = {
         'params': params,
