@@ -7,7 +7,7 @@ import re
 from datetime import datetime as dt
 from pathlib import Path
 from brainwide.pipelines.utils import load_primaries
-from brainwide.pipelines.utils import cache_primaries
+from brainwide.pipelines.utils import cache_regressors
 
 # Third party libraries
 import dask
@@ -37,7 +37,7 @@ def delayed_load(session_id, probes, params):
 
 @dask.delayed(pure=False, traverse=False)
 def delayed_save(subject, session_id, probes, params, outputs):
-    return cache_primaries(subject, session_id, probes, params, *outputs)
+    return cache_regressors(subject, session_id, probes, params, *outputs)
 
 
 # Parameters
@@ -58,7 +58,8 @@ params = {
     't_after': T_AFT,
     'binwidth': BINWIDTH,
     'abswheel': ABSWHEEL,
-    'ret_qc': QC
+    'ret_qc': QC,
+    'type': 'primary',
 }
 
 one = ONE()

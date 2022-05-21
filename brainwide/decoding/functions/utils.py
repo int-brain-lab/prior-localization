@@ -314,6 +314,7 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
         datadict = {'stim_side': [], 'actions': [], 'stimuli': []}
         for eid in eids_train:
             if behavior_data_train is None:
+                raise ValueError('This feature is deprecated and will be removed')
                 data = mut.load_session(eid, one=one)
                 if data['choice'] is None:
                     raise ValueError('Session choices produced are None. Debug models.utils.load_session,'

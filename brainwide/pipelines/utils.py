@@ -85,11 +85,90 @@ def load_primaries(session_id,
                                      spk_amps,
                                      spk_depths,
                                      cluster_ids=np.arange(clu_regions.size))
-    return trialsdf, spk_times, spk_clu, clu_regions, clu_qc, allcludf
+
+    regressors = {
+        'trialsdf': trialsdf,
+        'spk_times': spk_times,
+        'spk_clu': spk_clu,
+        'clu_regions': clu_regions,
+        'clu_qc': clu_qc,
+        'clu_df': allcludf,
+    }
+    return regressors
 
 
-def cache_primaries(subject, session_id, probes, regressor_params, trialsdf, spk_times, spk_clu,
-                    clu_regions, clu_qc, clu_df):
+def load_secondaries_behavior(session_id, probes, one=None):
+    one = ONE() if one is None else one
+
+    trialsdf = bbone.load_trials_df(session_id,
+                                    one=one)
+
+    tvec = dut.compute_target(kwargs['target'],
+                              subject,
+                              subjeids,
+                              eid,
+                              kwargs['modelfit_path'],
+                              binarization_value=kwargs['binarization_value'],
+                              modeltype=kwargs['model'],
+                              behavior_data_train=behavior_data_train,
+                              beh_data_test=behavior_data,
+                              one=one)
+
+    spikes, clusters, cludfs = {}, {}, []
+    clumax = 0
+    for pid in probes:
+        ssl = bbone.SpikeSortingLoader(one=one, pid=pid)
+        spikes[pid], tmpclu, channels = ssl.load_spike_sorting()
+        if 'metrics' not in tmpclu:
+            tmpclu['metrics'] = np.ones(tmpclu['channels'].size)
+        clusters[pid] = ssl.merge_clusters(spikes[pid], tmpclu, channels)
+        clusters_df = pd.DataFrame(clusters[pid]).set_index(['cluster_id'])
+        clusters_df.index += clumax
+        clusters_df['pid'] = pid
+        cludfs.append(clusters_df)
+        clumax = clusters_df.index.max()
+    allcludf = pd.concat(cludfs)
+
+    allspikes, allclu, allreg, allamps, alldepths = [], [], [], [], []
+    clumax = 0
+    for pid in probes:
+        allspikes.append(spikes[pid].times)
+        allclu.append(spikes[pid].clusters + clumax)
+        allreg.append(clusters[pid].acronym)
+        allamps.append(spikes[pid].amps)
+        alldepths.append(spikes[pid].depths)
+        clumax += np.max(spikes[pid].clusters) + 1
+
+    allspikes, allclu, allamps, alldepths = [
+        np.hstack(x) for x in (allspikes, allclu, allamps, alldepths)
+    ]
+    sortinds = np.argsort(allspikes)
+    spk_times = allspikes[sortinds]
+    spk_clu = allclu[sortinds]
+    spk_amps = allamps[sortinds]
+    spk_depths = alldepths[sortinds]
+    clu_regions = np.hstack(allreg)
+    if not ret_qc:
+        return trialsdf, spk_times, spk_clu, clu_regions, allcludf
+
+    clu_qc = bbqc.quick_unit_metrics(spk_clu,
+                                     spk_times,
+                                     spk_amps,
+                                     spk_depths,
+                                     cluster_ids=np.arange(clu_regions.size))
+
+    regressors = {
+        'trialsdf': trialsdf,
+        'spk_times': spk_times,
+        'spk_clu': spk_clu,
+        'clu_regions': clu_regions,
+        'clu_qc': clu_qc,
+        'clu_df': allcludf,
+    }
+    return regressors
+
+
+def cache_regressors(subject, session_id, probes, regressor_params, regressors):
     """
     Take outputs of load_primaries() and cache them to disk in the folder defined in the params.py
     file in this repository, using a nested subject -> session folder structure.
@@ -107,16 +186,8 @@ def cache_primaries(subject, session_id, probes, regressor_params, trialsdf, spk
         os.mkdir(sesspath)
     curr_t = dt.now()
     fnbase = str(curr_t.date())
-    metadata_fn = sesspath.joinpath(fnbase + '_metadata.pkl')
-    data_fn = sesspath.joinpath(fnbase + '_regressors.pkl')
-    regressors = {
-        'trialsdf': trialsdf,
-        'spk_times': spk_times,
-        'spk_clu': spk_clu,
-        'clu_regions': clu_regions,
-        'clu_qc': clu_qc,
-        'clu_df': clu_df,
-    }
+    metadata_fn = sesspath.joinpath(fnbase + '_%s_metadata.pkl' % regressor_params['type'])
+    data_fn = sesspath.joinpath(fnbase + '_%s_regressors.pkl' % regressor_params['type'])
     reghash = _hash_dict(regressors)
     metadata = {
         'subject': subject,
