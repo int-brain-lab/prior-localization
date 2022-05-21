@@ -28,15 +28,11 @@ from brainwide.utils import query_sessions
 _logger = logging.getLogger('brainwide')
 
 @dask.delayed
-def delayed_load(session_id, probes, params, force_load=False):
+def delayed_load(session_id, probes, params):
     try:
         return load_primaries(session_id, probes, **params)
-    except KeyError as e:
-        if force_load:
-            params['resolved_alignment'] = False
-            return load_primaries(session_id, probes, **params)
-        else:
-            raise e
+    except KeyError:
+        pass
 
 
 @dask.delayed(pure=False, traverse=False)
@@ -53,8 +49,6 @@ T_AFT = 0.6
 BINWIDTH = 0.02
 ABSWHEEL = True
 QC = True
-EPHYS_IMPOSTOR = False
-FORCE = True  # If load_spike_sorting_fast doesn't return _channels, use _channels function
 # End parameters
 
 # Construct params dict from above
@@ -76,7 +70,7 @@ for eid in sessdf.index.unique(level='eid'):
     xsdf = sessdf.xs(eid, level='eid')
     subject = xsdf.index[0]
     probes = xsdf.pid.to_list()
-    load_outputs = delayed_load(eid, probes, params, force_load=FORCE)
+    load_outputs = delayed_load(eid, probes, params)
     save_future = delayed_save(subject, eid, probes, params, load_outputs)
     dataset_futures.append([subject, eid, probes, save_future])
 
