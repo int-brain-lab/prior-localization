@@ -14,7 +14,7 @@ import neurencoding.linear as lm
 import neurencoding.utils as mut
 
 # Brainwide repo imports
-from brainwide.params import GLM_CACHE, GLM_FIT_PATH
+from brainwide.params import CACHE_PATH, FIT_PATH
 from brainwide.utils import make_batch_slurm
 
 # SLURM params
@@ -69,9 +69,9 @@ params['verif_binwidth'] = params['binwidth']
 
 # Output parameters file for workers
 currdate = str(date.today())
-parpath = Path(GLM_FIT_PATH).joinpath(f'{currdate}_glm_fit_pars.pkl')
-datapath = Path(GLM_CACHE).joinpath(params['dataset_fn'])
-impostorpath = Path(GLM_CACHE).joinpath(params['impostor_fn'])
+parpath = Path(FIT_PATH).joinpath(f'{currdate}_glm_fit_pars.pkl')
+datapath = Path(CACHE_PATH).joinpath(params['dataset_fn'])
+impostorpath = Path(CACHE_PATH).joinpath(params['impostor_fn'])
 with open(parpath, 'wb') as fw:
     pickle.dump(params, fw)
 with open(datapath, 'rb') as fo:
