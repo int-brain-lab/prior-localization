@@ -6,8 +6,8 @@ import pickle
 import re
 from datetime import datetime as dt
 from pathlib import Path
-from utils import load_regressors
-from utils import cache_regressors
+from utils import load_primaries
+from utils import cache_primaries
 
 # Third party libraries
 import dask
@@ -29,18 +29,18 @@ _logger = logging.getLogger('brainwide')
 @dask.delayed
 def delayed_load(session_id, probes, params, force_load=False):
     try:
-        return load_regressors(session_id, probes, **params)
+        return load_primaries(session_id, probes, **params)
     except KeyError as e:
         if force_load:
             params['resolved_alignment'] = False
-            return load_regressors(session_id, probes, **params)
+            return load_primaries(session_id, probes, **params)
         else:
             raise e
 
 
 @dask.delayed(pure=False, traverse=False)
 def delayed_save(subject, session_id, probes, params, outputs):
-    return cache_regressors(subject, session_id, probes, params, *outputs)
+    return cache_primaries(subject, session_id, probes, params, *outputs)
 
 
 # Parameters

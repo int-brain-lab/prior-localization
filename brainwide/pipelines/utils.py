@@ -22,15 +22,15 @@ from brainwide.params import CACHE_PATH
 _logger = logging.getLogger('brainwide')
 
 
-def load_regressors(session_id,
-                    probes,
-                    max_len=2.,
-                    t_before=0.,
-                    t_after=0.,
-                    binwidth=0.02,
-                    abswheel=False,
-                    ret_qc=False,
-                    one=None):
+def load_primaries(session_id,
+                   probes,
+                   max_len=2.,
+                   t_before=0.,
+                   t_after=0.,
+                   binwidth=0.02,
+                   abswheel=False,
+                   ret_qc=False,
+                   one=None):
     one = ONE() if one is None else one
 
     trialsdf = bbone.load_trials_df(session_id,
@@ -88,10 +88,10 @@ def load_regressors(session_id,
     return trialsdf, spk_times, spk_clu, clu_regions, clu_qc, allcludf
 
 
-def cache_regressors(subject, session_id, probes, regressor_params, trialsdf, spk_times, spk_clu,
-                     clu_regions, clu_qc, clu_df):
+def cache_primaries(subject, session_id, probes, regressor_params, trialsdf, spk_times, spk_clu,
+                    clu_regions, clu_qc, clu_df):
     """
-    Take outputs of load_regressors() and cache them to disk in the folder defined in the params.py
+    Take outputs of load_primaries() and cache them to disk in the folder defined in the params.py
     file in this repository, using a nested subject -> session folder structure.
 
     If an existing file in the directory already contains identical data, will not write a new file
