@@ -10,17 +10,19 @@ import warnings
 logger = logging.getLogger('ibllib')
 logger.disabled = True
 
-strlut = {sklm.Lasso: "Lasso",
-          sklm.LassoCV: "LassoCV",
-          sklm.Ridge: "Ridge",
-          sklm.RidgeCV: "RidgeCV",
-          sklm.LinearRegression: "PureLinear",
-          sklm.LogisticRegression: "Logistic"}
+strlut = {
+    sklm.Lasso: "Lasso",
+    sklm.LassoCV: "LassoCV",
+    sklm.Ridge: "Ridge",
+    sklm.RidgeCV: "RidgeCV",
+    sklm.LinearRegression: "PureLinear",
+    sklm.LogisticRegression: "Logistic"
+}
 
 # %% Run param definitions
 LOCAL = False
 if not LOCAL and Path("/srv/beegfs/scratch/users/f/findling").exists():
-        DECODING_PATH = Path("/srv/beegfs/scratch/users/f/findling")
+    DECODING_PATH = Path("/srv/beegfs/scratch/users/f/findling")
 else:
     DECODING_PATH = Path("//")
 
@@ -69,18 +71,22 @@ SIMULATE_NEURAL_DATA = False
 BALANCED_WEIGHT = False  # seems to work better with BALANCED_WEIGHT=False, but putting True is important
 USE_OPENTURNS = False  # uses openturns to perform kernel density estimation
 BIN_SIZE_KDE = 0.05  # size of the kde bin
-HPARAM_GRID = ({'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])} if not (sklm.LogisticRegression == ESTIMATOR)
-               else {'C': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])})
+HPARAM_GRID = ({
+    'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])
+} if not (sklm.LogisticRegression == ESTIMATOR) else {
+    'C': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])
+})
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
-ADD_TO_SAVING_PATH = ('imposterSess_%i_balancedWeight_%i_RegionLevel_%i_mergedProbes_%i_behMouseLevelTraining_%i_simulated_%i_constrainImpSess_%i'
-                      % (USE_IMPOSTER_SESSION, BALANCED_WEIGHT, SINGLE_REGION, MERGED_PROBES, BEH_MOUSELEVEL_TRAINING, SIMULATE_NEURAL_DATA, CONSTRAIN_IMPOSTER_SESSION_WITH_BEH))
+ADD_TO_SAVING_PATH = (
+    'imposterSess_%i_balancedWeight_%i_RegionLevel_%i_mergedProbes_%i_behMouseLevelTraining_%i_simulated_%i_constrainImpSess_%i'
+    % (USE_IMPOSTER_SESSION, BALANCED_WEIGHT, SINGLE_REGION, MERGED_PROBES,
+       BEH_MOUSELEVEL_TRAINING, SIMULATE_NEURAL_DATA, CONSTRAIN_IMPOSTER_SESSION_WITH_BEH))
 
 # WIDE FIELD IMAGING
 WIDE_FIELD_IMAGING = False
 WFI_HEMISPHERES = ['left']  # 'left' and/or 'right'
 WFI_NB_FRAMES = -1  # signed number of frames from ALIGN_TIME. can not be zero
-
 
 # session to be excluded (by Olivier Winter)
 excludes = [
@@ -108,7 +114,9 @@ if len(BORDER_QUANTILES_NEUROMETRIC) == 0 and MODEL is not None:
     raise ValueError('BORDER_QUANTILES_NEUROMETRIC must be at least of 1 when MODEL is specified')
 
 if len(BORDER_QUANTILES_NEUROMETRIC) != 0 and MODEL is None:
-    raise ValueError('BORDER_QUANTILES_NEUROMETRIC must be empty when MODEL is not specified - oracle pLeft used')
+    raise ValueError(
+        'BORDER_QUANTILES_NEUROMETRIC must be empty when MODEL is not specified - oracle pLeft used'
+    )
 
 fit_metadata = {
     'criterion': SESS_CRITERION,
@@ -149,22 +157,47 @@ if WIDE_FIELD_IMAGING:
     fit_metadata['wfi_hemispheres'] = WFI_HEMISPHERES
     fit_metadata['wfi_nb_frames'] = WFI_HEMISPHERES
 
-kwargs = {'nb_runs': N_RUNS, 'single_region': SINGLE_REGION, 'merged_probes': MERGED_PROBES,
-          'modelfit_path': DECODING_PATH.joinpath('results', 'behavioral'),
-          'output_path': DECODING_PATH.joinpath('results', 'neural'), 'one': None, 'decoding_path': DECODING_PATH,
-          'estimator_kwargs': ESTIMATOR_KWARGS, 'hyperparam_grid': HPARAM_GRID,
-          'save_binned': SAVE_BINNED, 'shuffle': SHUFFLE, 'balanced_weight': BALANCED_WEIGHT,
-          'normalize_input': NORMALIZE_INPUT, 'normalize_output': NORMALIZE_OUTPUT,
-          'compute_on_each_fold': COMPUTE_NEURO_ON_EACH_FOLD, 'balanced_continuous_target': BALANCED_CONTINUOUS_TARGET,
-          'force_positive_neuro_slopes': FORCE_POSITIVE_NEURO_SLOPES, 'estimator': ESTIMATOR,
-          'target': TARGET, 'model': MODEL, 'align_time': ALIGN_TIME,
-          'no_unbias': NO_UNBIAS, 'min_rt': MIN_RT, 'min_behav_trials': MIN_BEHAV_TRIAS,
-          'qc_criteria': QC_CRITERIA, 'min_units': MIN_UNITS, 'time_window': TIME_WINDOW,
-          'use_imposter_session': USE_IMPOSTER_SESSION, 'compute_neurometric': COMPUTE_NEUROMETRIC,
-          'border_quantiles_neurometric': BORDER_QUANTILES_NEUROMETRIC, 'today': DATE,
-          'add_to_saving_path': ADD_TO_SAVING_PATH, 'use_openturns': USE_OPENTURNS,
-          'bin_size_kde': BIN_SIZE_KDE, 'wide_field_imaging': WIDE_FIELD_IMAGING, 'wfi_hemispheres': WFI_HEMISPHERES,
-          'wfi_nb_frames': WFI_NB_FRAMES, 'use_imposter_session_for_balancing': USE_IMPOSTER_SESSION_FOR_BALANCING,
-          'beh_mouseLevel_training': BEH_MOUSELEVEL_TRAINING, 'binarization_value': BINARIZATION_VALUE,
-          'simulate_neural_data': SIMULATE_NEURAL_DATA,
-          'constrain_imposter_session_with_beh': CONSTRAIN_IMPOSTER_SESSION_WITH_BEH}
+kwargs = {
+    'nb_runs': N_RUNS,
+    'single_region': SINGLE_REGION,
+    'merged_probes': MERGED_PROBES,
+    'modelfit_path': DECODING_PATH.joinpath('results', 'behavioral'),
+    'output_path': DECODING_PATH.joinpath('results', 'neural'),
+    'one': None,
+    'decoding_path': DECODING_PATH,
+    'estimator_kwargs': ESTIMATOR_KWARGS,
+    'hyperparam_grid': HPARAM_GRID,
+    'save_binned': SAVE_BINNED,
+    'shuffle': SHUFFLE,
+    'balanced_weight': BALANCED_WEIGHT,
+    'normalize_input': NORMALIZE_INPUT,
+    'normalize_output': NORMALIZE_OUTPUT,
+    'compute_on_each_fold': COMPUTE_NEURO_ON_EACH_FOLD,
+    'balanced_continuous_target': BALANCED_CONTINUOUS_TARGET,
+    'force_positive_neuro_slopes': FORCE_POSITIVE_NEURO_SLOPES,
+    'estimator': ESTIMATOR,
+    'target': TARGET,
+    'model': MODEL,
+    'align_time': ALIGN_TIME,
+    'no_unbias': NO_UNBIAS,
+    'min_rt': MIN_RT,
+    'min_behav_trials': MIN_BEHAV_TRIAS,
+    'qc_criteria': QC_CRITERIA,
+    'min_units': MIN_UNITS,
+    'time_window': TIME_WINDOW,
+    'use_imposter_session': USE_IMPOSTER_SESSION,
+    'compute_neurometric': COMPUTE_NEUROMETRIC,
+    'border_quantiles_neurometric': BORDER_QUANTILES_NEUROMETRIC,
+    'today': DATE,
+    'add_to_saving_path': ADD_TO_SAVING_PATH,
+    'use_openturns': USE_OPENTURNS,
+    'bin_size_kde': BIN_SIZE_KDE,
+    'wide_field_imaging': WIDE_FIELD_IMAGING,
+    'wfi_hemispheres': WFI_HEMISPHERES,
+    'wfi_nb_frames': WFI_NB_FRAMES,
+    'use_imposter_session_for_balancing': USE_IMPOSTER_SESSION_FOR_BALANCING,
+    'beh_mouseLevel_training': BEH_MOUSELEVEL_TRAINING,
+    'binarization_value': BINARIZATION_VALUE,
+    'simulate_neural_data': SIMULATE_NEURAL_DATA,
+    'constrain_imposter_session_with_beh': CONSTRAIN_IMPOSTER_SESSION_WITH_BEH
+}
