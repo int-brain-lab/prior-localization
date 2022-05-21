@@ -5,7 +5,7 @@ import brainbox.io.one as bbone
 import models.utils as mut
 from pathlib import Path
 from functions.utils import save_region_results
-from one.api import One
+from one.api import ONE
 from brainbox.population.decode import get_spike_counts_in_bins
 from brainbox.task.closed_loop import generate_pseudo_session
 import one.alf.io as alfio
@@ -38,7 +38,7 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
     if 0 in pseudo_ids:
         raise ValueError('pseudo id can be -1 (actual session) or strictly greater than 0 (pseudo session)')
 
-    one = One() if kwargs['one'] is None else kwargs['one']
+    one = ONE() if kwargs['one'] is None else kwargs['one']
     if sessiondf is None:
         df_insertions = bwmdf.loc[bwmdf['eid'] == eid]
         subject = df_insertions['subject'].to_numpy()[0]
