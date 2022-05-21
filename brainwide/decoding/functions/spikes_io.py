@@ -50,8 +50,10 @@ def get_neural_activity(df_insertions, eid, one, wideFieldImaging_dict=None, **k
                                                         orient='index',
                                                         columns=['probe']).iterrows()
 
+    activities = {}
     for i, ins in tqdm(df_insertions_iterrows, desc='Probe: ', leave=False):
         probe = ins['probe']
+        activities_probe = {}
         if not kwargs['merged_probes']:
             spike_sorting_path = Path(ins['session_path']).joinpath(ins['spike_sorting'])
             spikes = alfio.load_object(spike_sorting_path, 'spikes')
@@ -109,4 +111,6 @@ def get_neural_activity(df_insertions, eid, one, wideFieldImaging_dict=None, **k
                 binned = np.take(wideFieldImaging_dict['activity'][:, reg_mask], frames_idx, axis=0)
                 binned = binned.reshape(binned.shape[0], -1).T
 
-            return binned.T  # number of trials x nb bins
+            activities_probe[region] = binned.T
+        activities[probe] = activities_probe
+    return activities # number of trials x nb bins

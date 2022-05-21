@@ -1,9 +1,21 @@
+#import cProfile, pstats, io
+#from pstats import SortKey
+#pr = cProfile.Profile()
+#pr.enable()
+
 import pandas as pd
 import sys
 from settings.settings import *
 from functions.decoding import fit_eid
 import numpy as np
 from wide_field_imaging import utils as wut
+
+#pr.disable()
+#s = io.StringIO()
+#sortby = SortKey.CUMULATIVE
+#ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+#ps.print_stats()
+#print(s.getvalue())
 
 try:
     index = int(sys.argv[1]) - 1
