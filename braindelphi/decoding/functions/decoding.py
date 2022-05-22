@@ -14,7 +14,7 @@ from tqdm import tqdm
 import pickle
 
 
-def fit_eid(neural_dict, trials_df, dlc_dict=None, pseudo_ids=[-1], **kwargs):
+def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **kwargs):
     """
     Parameters
     ----------
@@ -58,242 +58,135 @@ def fit_eid(neural_dict, trials_df, dlc_dict=None, pseudo_ids=[-1], **kwargs):
         imposter_df : pandas.DataFrame
     """
 
-    if ((wideFieldImaging_dict is None and kwargs['wide_field_imaging']) or
-        (wideFieldImaging_dict is not None and not kwargs['wide_field_imaging'])):
-        raise ValueError(
-            'wideFieldImaging_dict must be defined for wide_field_imaging and reciprocally')
-
-    if kwargs['wide_field_imaging'] and kwargs['wfi_nb_frames'] == 0:
-        raise ValueError('wfi_nb_frames can not be 0. it is a signed non-null integer')
-
     if 0 in pseudo_ids:
         raise ValueError(
             'pseudo id can be -1 (actual session) or strictly greater than 0 (pseudo session)')
 
-    one = ONE() if kwargs['one'] is None else kwargs['one']
-    if sessiondf is None:
-        df_insertions = bwmdf.loc[bwmdf['eid'] == eid]
-        subject = df_insertions['subject'].to_numpy()[0]
-        if kwargs['beh_mouseLevel_training']:
-            subjeids = bwmdf.loc[bwmdf['subject'] == subject]['eid'].unique()
-        else:
-            subjeids = np.array([eid])
-        brainreg = dut.BrainRegions()
-        behavior_data = mut.load_session(eid, one=one)
-        behavior_data_train = None
-    else:
-        subject = sessiondf.subject.unique()[0]
-        subjeids = sessiondf.eid.unique()
-        behavior_data_train = sessiondf
-        behavior_data = {
-            k: np.array(v)
-            for (k, v) in sessiondf[sessiondf.session_to_decode].to_dict('list').items()
-        }
-
     # todo move compute_target to process_targets
     # todo make compute_mask from trials_df and 'others' and put this in utils
 
-    tvec = dut.compute_target(kwargs['target'],
-                              subject,
-                              subjeids,
-                              eid,
-                              kwargs['modelfit_path'],
-                              binarization_value=kwargs['binarization_value'],
-                              modeltype=kwargs['model'],
-                              behavior_data_train=behavior_data_train,
-                              beh_data_test=behavior_data)
+    from process_targets import compute_beh_target
+    tvec = compute_beh_target(trials_df)
 
+    from ibllib.atlas import BrainRegions
+    brainreg = BrainRegions()
 
-    mask_trials_df = dut.compute_mask(trials_df)
-    mask_dlc_df = dut.compute_mask(tvec)
+    from utils import compute_mask
+    mask_trials_df = compute_mask(trials_df)
     # todo multiply the two masks
 
     filenames = []
     if len(tvec[mask]) <= kwargs['min_behav_trials']:
         return filenames
 
-    print(f'Working on eid : {eid}')
+    print(f'Working on eid : %s' % metadata['eid'])
 
+    # warnings.filterwarnings('ignore')
+    regions = (
+        [[k] for k in np.unique(regressors['clu_regions'])]
+        if kwargs['single_region']
+        else [np.unique(regressors['clu_regions'])]
+    )
 
+    probe = metadata['probe']
+    beryl_reg = brainreg.acronym2acronym(regressors['clu_regions'], mapping='Beryl')
+    qc_pass = (regressors['clu_qc'] >= kwargs['qc_criteria']).values
+    regions = np.unique(beryl_reg)
 
-    if kwargs['merged_probes'] and wideFieldImaging_dict is None:
-        across_probes = {'regions': [], 'clusters': [], 'times': [], 'qc_pass': []}
-        for i_probe, (_, ins) in tqdm(enumerate(df_insertions.iterrows()),
-                                      desc='Probe: ',
-                                      leave=False):
-            probe = ins['probe']
-            spike_sorting_path = Path(ins['session_path']).joinpath(ins['spike_sorting'])
-            spikes = alfio.load_object(spike_sorting_path, 'spikes')
-            clusters = pd.read_parquet(spike_sorting_path.joinpath('clusters.pqt'))
-            beryl_reg = dut.remap_region(clusters.atlas_id, br=brainreg)
-            qc_pass = (clusters['label'] >= kwargs['qc_criteria']).values
-            across_probes['regions'].extend(beryl_reg)
-            across_probes['clusters'].extend(spikes.clusters if i_probe == 0 else (
-                spikes.clusters + max(across_probes['clusters']) + 1))
-            across_probes['times'].extend(spikes.times)
-            across_probes['qc_pass'].extend(qc_pass)
-        across_probes = {k: np.array(v) for k, v in across_probes.items()}
-        # warnings.filterwarnings('ignore')
-        if kwargs['single_region']:
-            regions = [[k] for k in np.unique(across_probes['regions'])]
-        else:
-            regions = [np.unique(across_probes['regions'])]
-        df_insertions_iterrows = pd.DataFrame.from_dict({
-            '1': 'mergedProbes'
-        },
-                                                        orient='index',
-                                                        columns=['probe']).iterrows()
-    elif wideFieldImaging_dict is None:
-        df_insertions_iterrows = df_insertions.iterrows()
-    else:
-        regions = wideFieldImaging_dict['atlas'].acronym.values
-        df_insertions_iterrows = pd.DataFrame.from_dict({
-            '1': 'mergedProbes'
-        },
-                                                        orient='index',
-                                                        columns=['probe']).iterrows()
+    for region in tqdm(regions, desc='Region: ', leave=False):
 
-    for i, ins in tqdm(df_insertions_iterrows, desc='Probe: ', leave=False):
-        probe = ins['probe']
-        if not kwargs['merged_probes']:
-            spike_sorting_path = Path(ins['session_path']).joinpath(ins['spike_sorting'])
-            spikes = alfio.load_object(spike_sorting_path, 'spikes')
-            clusters = pd.read_parquet(spike_sorting_path.joinpath('clusters.pqt'))
-            beryl_reg = dut.remap_region(clusters.atlas_id, br=brainreg)
-            qc_pass = (clusters['label'] >= kwargs['qc_criteria']).values
-            regions = np.unique(beryl_reg)
-        # warnings.filterwarnings('ignore')
-        for region in tqdm(regions, desc='Region: ', leave=False):
-            if kwargs['merged_probes'] and wideFieldImaging_dict is None:
-                reg_mask = np.isin(across_probes['regions'], region)
-                reg_clu_ids = np.argwhere(reg_mask & across_probes['qc_pass']).flatten()
-            elif wideFieldImaging_dict is None:
-                reg_mask = beryl_reg == region
-                reg_clu_ids = np.argwhere(reg_mask & qc_pass).flatten()
-            else:
-                region_labels = []
-                reg_lab = wideFieldImaging_dict['atlas'][wideFieldImaging_dict['atlas'].acronym ==
-                                                         region].label.values.squeeze()
-                if 'left' in kwargs['wfi_hemispheres']:
-                    region_labels.append(reg_lab)
-                if 'right' in kwargs['wfi_hemispheres']:
-                    region_labels.append(-reg_lab)
-                reg_mask = np.isin(wideFieldImaging_dict['regions'], region_labels)
-                reg_clu_ids = np.argwhere(reg_mask)
-            N_units = len(reg_clu_ids)
-            if N_units < kwargs['min_units']:
-                continue
-            # or get_spike_count_in_bins
-            if np.any(np.isnan(nb_trialsdf[kwargs['align_time']])):
-                # if this happens, verify scrub of NaN values in all aign times before get_spike_counts_in_bins
-                raise ValueError('this should not happen')
-            intervals = np.vstack([
-                nb_trialsdf[kwargs['align_time']] + kwargs['time_window'][0],
-                nb_trialsdf[kwargs['align_time']] + kwargs['time_window'][1]
-            ]).T
+        from process_inputs import select_ephys_regions
+        from process_inputs import select_widefield_imaging_regions
+        reg_clu_ids = (
+            select_widefield_imaging_regions() if kwargs['wide_field_imaging']
+            else select_ephys_regions()
+        )
 
-            if kwargs['merged_probes'] and wideFieldImaging_dict is None:
-                spikemask = np.isin(across_probes['clusters'], reg_clu_ids)
-                regspikes = across_probes['times'][spikemask]
-                regclu = across_probes['clusters'][spikemask]
-                arg_sortedSpikeTimes = np.argsort(regspikes)
-                binned, _ = get_spike_counts_in_bins(regspikes[arg_sortedSpikeTimes],
-                                                     regclu[arg_sortedSpikeTimes], intervals)
-            elif wideFieldImaging_dict is None:
-                spikemask = np.isin(spikes.clusters, reg_clu_ids)
-                regspikes = spikes.times[spikemask]
-                regclu = spikes.clusters[spikemask]
-                binned, _ = get_spike_counts_in_bins(regspikes, regclu, intervals)
-            else:
-                frames_idx = wideFieldImaging_dict['timings'][kwargs['align_time']].values
-                frames_idx = np.sort(
-                    frames_idx[:, None] +
-                    np.arange(0, kwargs['wfi_nb_frames'], np.sign(kwargs['wfi_nb_frames'])),
-                    axis=1,
-                )
-                binned = np.take(wideFieldImaging_dict['activity'][:, reg_mask],
-                                 frames_idx,
-                                 axis=0)
-                binned = binned.reshape(binned.shape[0], -1).T
+        N_units = len(reg_clu_ids)
+        if N_units < kwargs['min_units']:
+            continue
+        intervals = np.vstack([
+            trialsdf[kwargs['align_time']] + kwargs['time_window'][0],
+            trialsdf[kwargs['align_time']] + kwargs['time_window'][1]
+        ]).T
 
-            msub_binned = binned.T  # number of trials x nb bins
+        from process_inputs import preprocess_ephys
+        from process_inputs import proprocess_widefield_imaging
+        msub_binned = (
+            proprocess_widefield_imaging() if kwargs['wide_field_imaging']
+            else preprocess_ephys()
+        ).T
 
-            if kwargs['simulate_neural_data']:
-                # do simulations
+        if kwargs['simulate_neural_data']:
+            raise NotImplementedError
 
-            if len(msub_binned.shape) > 2:
-                raise ValueError('Multiple bins are being calculated per trial,'
-                                 'may be due to floating point representation error.'
-                                 'Check window.')
+        for pseudo_id in pseudo_ids:
+            if pseudo_id > 0:  # create pseudo session when necessary
+                msub_pseudo_tvec = dut.compute_target(
+                    kwargs['target'],
+                    subject,
+                    subjeids,
+                    eid,
+                    kwargs['modelfit_path'],
+                    binarization_value=kwargs['binarization_value'],
+                    modeltype=kwargs['model'],
+                    beh_data_test=pseudosess,
+                    one=one,
+                    behavior_data_train=behavior_data_train)[pseudomask]
 
-            for pseudo_id in pseudo_ids:
-                if pseudo_id > 0:  # create pseudo session when necessary
+            if kwargs['compute_neurometric']:  # compute prior for neurometric curve
+                # do neurometric stuff
 
-                    msub_pseudo_tvec = dut.compute_target(
-                        kwargs['target'],
-                        subject,
-                        subjeids,
-                        eid,
-                        kwargs['modelfit_path'],
-                        binarization_value=kwargs['binarization_value'],
-                        modeltype=kwargs['model'],
-                        beh_data_test=pseudosess,
-                        one=one,
-                        behavior_data_train=behavior_data_train)[pseudomask]
+            fit_results = []
+            for i_run in range(kwargs['nb_runs']):
+                fit_result = dut.regress_target(
+                    (tvec[mask & (nb_trialsdf.choice != 0)] if
+                     (pseudo_id == -1) else msub_pseudo_tvec),
+                    (msub_binned[nb_trialsdf.choice != 0] if
+                     (pseudo_id == -1) else msub_binned[pseudosess[mask].choice != 0]),
+                    kwargs['estimator'],
+                    use_openturns=kwargs['use_openturns'],
+                    target_distribution=target_distribution,
+                    bin_size_kde=kwargs['bin_size_kde'],
+                    balanced_continuous_target=kwargs['balanced_continuous_target'],
+                    estimator_kwargs=kwargs['estimator_kwargs'],
+                    hyperparam_grid=kwargs['hyperparam_grid'],
+                    save_binned=kwargs['save_binned'],
+                    shuffle=kwargs['shuffle'],
+                    balanced_weight=kwargs['balanced_weight'],
+                    normalize_input=kwargs['normalize_input'],
+                    normalize_output=kwargs['normalize_output'])
+                fit_result['mask'] = mask & (trialsdf.choice != 0)
+                fit_result['df'] = trialsdf if pseudo_id == -1 else pseudosess
+                fit_result['pseudo_id'] = pseudo_id
+                fit_result['run_id'] = i_run
+                # neurometric curve
+                if kwargs['compute_neurometric']:
+                    fit_result['full_neurometric'], fit_result['fold_neurometric'] = \
+                        get_neurometric_parameters(fit_result,
+                                                   trialsdf=trialsdf_neurometric,
+                                                   one=one,
+                                                   compute_on_each_fold=kwargs['compute_on_each_fold'],
+                                                   force_positive_neuro_slopes=kwargs['compute_on_each_fold'])
+                else:
+                    fit_result['full_neurometric'] = None
+                    fit_result['fold_neurometric'] = None
+                fit_results.append(fit_result)
 
-                if kwargs['compute_neurometric']:  # compute prior for neurometric curve
-                    # do neurometric stuff
-
-                fit_results = []
-                for i_run in range(kwargs['nb_runs']):
-                    fit_result = dut.regress_target(
-                        (tvec[mask & (nb_trialsdf.choice != 0)] if
-                         (pseudo_id == -1) else msub_pseudo_tvec),
-                        (msub_binned[nb_trialsdf.choice != 0] if
-                         (pseudo_id == -1) else msub_binned[pseudosess[mask].choice != 0]),
-                        kwargs['estimator'],
-                        use_openturns=kwargs['use_openturns'],
-                        target_distribution=target_distribution,
-                        bin_size_kde=kwargs['bin_size_kde'],
-                        balanced_continuous_target=kwargs['balanced_continuous_target'],
-                        estimator_kwargs=kwargs['estimator_kwargs'],
-                        hyperparam_grid=kwargs['hyperparam_grid'],
-                        save_binned=kwargs['save_binned'],
-                        shuffle=kwargs['shuffle'],
-                        balanced_weight=kwargs['balanced_weight'],
-                        normalize_input=kwargs['normalize_input'],
-                        normalize_output=kwargs['normalize_output'])
-                    fit_result['mask'] = mask & (trialsdf.choice != 0)
-                    fit_result['df'] = trialsdf if pseudo_id == -1 else pseudosess
-                    fit_result['pseudo_id'] = pseudo_id
-                    fit_result['run_id'] = i_run
-                    # neurometric curve
-                    if kwargs['compute_neurometric']:
-                        fit_result['full_neurometric'], fit_result['fold_neurometric'] = \
-                            get_neurometric_parameters(fit_result,
-                                                       trialsdf=trialsdf_neurometric,
-                                                       one=one,
-                                                       compute_on_each_fold=kwargs['compute_on_each_fold'],
-                                                       force_positive_neuro_slopes=kwargs['compute_on_each_fold'])
-                    else:
-                        fit_result['full_neurometric'] = None
-                        fit_result['fold_neurometric'] = None
-                    fit_results.append(fit_result)
-
-                filenames.append(
-                    save_region_results(
-                        fit_results,
-                        pseudo_id,
-                        subject,
-                        eid,
-                        probe,
-                        str(np.squeeze(region)) if kwargs['single_region'] else 'allRegions',
-                        N_units,
-                        output_path=kwargs['output_path'],
-                        time_window=kwargs['time_window'],
-                        today=kwargs['today'],
-                        target=kwargs['target'],
-                        add_to_saving_path=kwargs['add_to_saving_path']))
+            filenames.append(
+                save_region_results(
+                    fit_results,
+                    pseudo_id,
+                    subject,
+                    eid,
+                    probe,
+                    str(np.squeeze(region)) if kwargs['single_region'] else 'allRegions',
+                    N_units,
+                    output_path=kwargs['output_path'],
+                    time_window=kwargs['time_window'],
+                    today=kwargs['today'],
+                    target=kwargs['target'],
+                    add_to_saving_path=kwargs['add_to_saving_path']))
 
     return filenames
 

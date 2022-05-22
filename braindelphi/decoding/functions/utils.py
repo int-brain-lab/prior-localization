@@ -21,21 +21,6 @@ import openturns
 from brainbox.task.closed_loop import generate_pseudo_blocks, _draw_position, _draw_contrast
 import sklearn.linear_model as sklm
 
-
-def remap_region(ids, source='Allen-lr', dest='Beryl-lr', output='acronym', br=None):
-    br = br or BrainRegions()
-    _, inds = ismember(ids, br.id[br.mappings[source]])
-    ids = br.id[br.mappings[dest][inds]]
-    if output == 'id':
-        return br.id[br.mappings[dest][inds]]
-    elif output == 'acronym':
-        return br.get(br.id[br.mappings[dest][inds]])['acronym']
-    elif output == 'name':
-        return br.get(br.id[br.mappings[dest][inds]])['name']
-    else:
-        return br.get(br.id[br.mappings[dest][inds]])
-
-
 def return_regions(eid, sessdf, QC_CRITERIA=1, NUM_UNITS=10):
     df_insertions = sessdf.loc[sessdf['eid'] == eid]
     brainreg = BrainRegions()

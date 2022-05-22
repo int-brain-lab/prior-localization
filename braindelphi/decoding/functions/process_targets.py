@@ -1,3 +1,8 @@
+from pathlib import Path
+from behavior_models.models import utils as mut
+import os
+import numpy as np
+
 
 def check_bhv_fit_exists(subject, model, eids, resultpath):
     '''
@@ -91,16 +96,15 @@ def fit_load_bhvmod(target,
 
     return signal.squeeze()
 
+possible_targets = ['choice', 'feedback', 'signcont', 'pLeft']
 
-
-
-def compute_target(target,
+def compute_beh_target(target,
                    subject,
                    eids_train,
                    eid_test,
                    savepath,
                    binarization_value,
-                   modeltype=expSmoothing_prevAction,
+                   modeltype,
                    one=None,
                    behavior_data_train=None,
                    beh_data_test=None):
