@@ -14,7 +14,7 @@ from tqdm import tqdm
 import pickle
 
 
-def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=None, **kwargs):
+def fit_eid(regressors, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=None, **kwargs):
     """
     Parameters
     ----------
@@ -61,37 +61,15 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
             for (k, v) in sessiondf[sessiondf.session_to_decode].to_dict('list').items()
         }
 
-    try:
-        tvec = dut.compute_target(kwargs['target'],
-                                  subject,
-                                  subjeids,
-                                  eid,
-                                  kwargs['modelfit_path'],
-                                  binarization_value=kwargs['binarization_value'],
-                                  modeltype=kwargs['model'],
-                                  behavior_data_train=behavior_data_train,
-                                  beh_data_test=behavior_data,
-                                  one=one)
-        '''
-        from matplotlib import pyplot as plt
-        plt.figure()
-        plt.plot(tvec, label='pLeft')
-        plt.plot((behavior_data['choice'] == 1) * 1 + (behavior_data['choice'] == 0) * 0.5, label='action')
-        plt.legend()
-        plt.draw()
-        plt.show()
-        '''
-    except ValueError:
-        print('Model not fit.')
-        tvec = dut.compute_target(kwargs['target'],
-                                  subject,
-                                  subjeids,
-                                  eid,
-                                  kwargs['modelfit_path'],
-                                  binarization_value=kwargs['binarization_value'],
-                                  modeltype=kwargs['model'],
-                                  one=kwargs['one'],
-                                  beh_data_test=behavior_data)
+    tvec = dut.compute_target(kwargs['target'],
+                              subject,
+                              subjeids,
+                              eid,
+                              kwargs['modelfit_path'],
+                              binarization_value=kwargs['binarization_value'],
+                              modeltype=kwargs['model'],
+                              behavior_data_train=behavior_data_train,
+                              beh_data_test=behavior_data)
 
     try:
         if sessiondf is None:
@@ -410,3 +388,9 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
                         add_to_saving_path=kwargs['add_to_saving_path']))
 
     return filenames
+
+
+if __name__ == '__main__':
+    file = '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/code/prior-localization/decoding/cache/ibl_witten_32/7502ae93-7437-4bcd-9e14-d73b51193656/2022-05-22_regressors.pkl'
+    import pickle
+    regressors = pickle.load(open(file, 'rb'))

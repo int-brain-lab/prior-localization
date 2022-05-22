@@ -32,35 +32,40 @@ def query_sessions(selection='all', one=None):
     one = one or ONE()
     if selection == 'all':
         # Query all ephysChoiceWorld sessions
-        ins = one.alyx.rest('insertions', 'list',
+        ins = one.alyx.rest('insertions',
+                            'list',
                             django='session__project__name__icontains,ibl_neuropixel_brainwide_01,'
-                                   'session__qc__lt,50')
+                            'session__qc__lt,50')
     elif selection == 'aligned':
         # Query all sessions with at least one alignment
-        ins = one.alyx.rest('insertions', 'list',
+        ins = one.alyx.rest('insertions',
+                            'list',
                             django='session__project__name__icontains,ibl_neuropixel_brainwide_01,'
-                                   'session__qc__lt,50,'
-                                   'json__extended_qc__alignment_count__gt,0')
+                            'session__qc__lt,50,'
+                            'json__extended_qc__alignment_count__gt,0')
     elif selection == 'resolved':
         # Query all sessions with resolved alignment
-        ins = one.alyx.rest('insertions', 'list',
+        ins = one.alyx.rest('insertions',
+                            'list',
                             django='session__project__name__icontains,ibl_neuropixel_brainwide_01,'
-                                   'session__qc__lt,50,'
-                                   'json__extended_qc__alignment_resolved,True')
+                            'session__qc__lt,50,'
+                            'json__extended_qc__alignment_resolved,True')
     elif selection == 'aligned-behavior':
         # Query sessions with at least one alignment and that meet behavior criterion
-        ins = one.alyx.rest('insertions', 'list',
+        ins = one.alyx.rest('insertions',
+                            'list',
                             django='session__project__name__icontains,ibl_neuropixel_brainwide_01,'
-                                   'session__qc__lt,50,'
-                                   'json__extended_qc__alignment_count__gt,0,'
-                                   'session__extended_qc__behavior,1')
+                            'session__qc__lt,50,'
+                            'json__extended_qc__alignment_count__gt,0,'
+                            'session__extended_qc__behavior,1')
     elif selection == 'resolved-behavior':
         # Query sessions with resolved alignment and that meet behavior criterion
-        ins = one.alyx.rest('insertions', 'list',
+        ins = one.alyx.rest('insertions',
+                            'list',
                             django='session__project__name__icontains,ibl_neuropixel_brainwide_01,'
-                                   'session__qc__lt,50,'
-                                   'json__extended_qc__alignment_resolved,True,'
-                                   'session__extended_qc__behavior,1')
+                            'session__qc__lt,50,'
+                            'json__extended_qc__alignment_resolved,True,'
+                            'session__extended_qc__behavior,1')
     else:
         raise ValueError('Invalid selection was passed.'
                          'Must be in [\'all\', \'aligned\', \'resolved\', \'aligned-behavior\','
@@ -71,20 +76,35 @@ def query_sessions(selection='all', one=None):
     all_probes = np.array([i['name'] for i in ins])
     all_subjects = np.array([i['session_info']['subject'] for i in ins])
     all_pids = np.array([i['id'] for i in ins])
-    retdf = pd.DataFrame({'subject': all_subjects, 'eid': all_eids, 'probe': all_probes, 'pid': all_pids})
+    retdf = pd.DataFrame({
+        'subject': all_subjects,
+        'eid': all_eids,
+        'probe': all_probes,
+        'pid': all_pids
+    })
     retdf.sort_values('subject', inplace=True)
     return retdf
 
 
-def get_target_pLeft(nb_trials, nb_sessions, take_out_unbiased, bin_size_kde, subjModel=None, antithetic=True):
+def get_target_pLeft(nb_trials,
+                     nb_sessions,
+                     take_out_unbiased,
+                     bin_size_kde,
+                     subjModel=None,
+                     antithetic=True):
     # if subjModel is empty, compute the optimal Bayesian prior
     if subjModel is not None:
         istrained, fullpath = check_bhv_fit_exists(subjModel['subject'], subjModel['modeltype'],
-                                                   subjModel['subjeids'], subjModel['modelfit_path'].as_posix() + '/')
+                                                   subjModel['subjeids'],
+                                                   subjModel['modelfit_path'].as_posix() + '/')
         if not istrained:
             raise ValueError('Something is wrong. The model should be trained by this line')
-        model = subjModel['modeltype'](subjModel['modelfit_path'].as_posix() + '/', subjModel['subjeids'],
-                                       subjModel['subject'], actions=None, stimuli=None, stim_side=None)
+        model = subjModel['modeltype'](subjModel['modelfit_path'].as_posix() + '/',
+                                       subjModel['subjeids'],
+                                       subjModel['subject'],
+                                       actions=None,
+                                       stimuli=None,
+                                       stim_side=None)
         model.load_or_train(loadpath=str(fullpath))
     else:
         model = None
@@ -107,8 +127,10 @@ def get_target_pLeft(nb_trials, nb_sessions, take_out_unbiased, bin_size_kde, su
                               'signed_contrast'] = -pseudo_trials['contrastLeft']
             pseudo_trials['choice'] = np.NaN  # choice padding
         else:
-            pseudo_trials = generate_imposter_session(subjModel['imposterdf'], subjModel['eid'],
-                                                      nb_trials, nbSampledSess=10)
+            pseudo_trials = generate_imposter_session(subjModel['imposterdf'],
+                                                      subjModel['eid'],
+                                                      nb_trials,
+                                                      nbSampledSess=10)
         side, stim, act, _ = mut.format_data(pseudo_trials)
         if model is None:
             msub_pseudo_tvec = optimal_Bayesian(act.values, stim, side.values)
@@ -116,35 +138,49 @@ def get_target_pLeft(nb_trials, nb_sessions, take_out_unbiased, bin_size_kde, su
             arr_params = model.get_parameters(parameter_type='posterior_mean')[None]
             valid = np.ones([1, pseudo_trials.index.size], dtype=bool)
             stim, act, side = mut.format_input([stim], [act.values], [side.values])
-            act_sim, stim, side = model.simulate(arr_params, stim, side, torch.from_numpy(valid),
-                                                 nb_simul=10, only_perf=False)
+            act_sim, stim, side = model.simulate(arr_params,
+                                                 stim,
+                                                 side,
+                                                 torch.from_numpy(valid),
+                                                 nb_simul=10,
+                                                 only_perf=False)
             act_sim = act_sim.squeeze().T
             stim = torch.tile(stim.squeeze()[None], (act_sim.shape[0], 1))
             side = torch.tile(side.squeeze()[None], (act_sim.shape[0], 1))
-            msub_pseudo_tvec = model.compute_signal(signal=('prior' if subjModel['target'] == 'pLeft'
-                                                            else subjModel['target']),
-                                                    act=act_sim, stim=stim, side=side)
+            msub_pseudo_tvec = model.compute_signal(
+                signal=('prior' if subjModel['target'] == 'pLeft' else subjModel['target']),
+                act=act_sim,
+                stim=stim,
+                side=side)
             msub_pseudo_tvec = msub_pseudo_tvec['prior'].T
         else:
             stim, act, side = mut.format_input([stim], [act.values], [side.values])
-            msub_pseudo_tvec = model.compute_signal(signal=('prior' if subjModel['target'] == 'pLeft'
-                                                            else subjModel['target']),
-                                                    act=act, stim=stim, side=side)
-            msub_pseudo_tvec = msub_pseudo_tvec['prior' if subjModel['target'] == 'pLeft' else subjModel['target']]
+            msub_pseudo_tvec = model.compute_signal(
+                signal=('prior' if subjModel['target'] == 'pLeft' else subjModel['target']),
+                act=act,
+                stim=stim,
+                side=side)
+            msub_pseudo_tvec = msub_pseudo_tvec['prior' if subjModel['target'] ==
+                                                'pLeft' else subjModel['target']]
         if take_out_unbiased:
-            target_pLeft.append(msub_pseudo_tvec[(pseudo_trials.probabilityLeft != 0.5).values].ravel())
+            target_pLeft.append(
+                msub_pseudo_tvec[(pseudo_trials.probabilityLeft != 0.5).values].ravel())
         else:
             target_pLeft.append(msub_pseudo_tvec.ravel())
     target_pLeft = np.concatenate(target_pLeft)
     if antithetic:
         target_pLeft = np.concatenate([target_pLeft, 1 - target_pLeft])
-    out = np.histogram(target_pLeft, bins=(np.arange(-bin_size_kde, 1 + bin_size_kde/2., bin_size_kde)
-                                           + bin_size_kde/2.), density=True)
+    out = np.histogram(target_pLeft,
+                       bins=(np.arange(-bin_size_kde, 1 + bin_size_kde / 2., bin_size_kde) +
+                             bin_size_kde / 2.),
+                       density=True)
     return out, target_pLeft
 
+
 '''
 
 '''
+
 
 def check_bhv_fit_exists(subject, model, eids, resultpath):
     '''
@@ -163,7 +199,11 @@ def check_bhv_fit_exists(subject, model, eids, resultpath):
     return os.path.exists(fullpath), fullpath
 
 
-def generate_imposter_session(imposterdf, eid, nbtrials, nbSampledSess=10, pLeftChange_when_stitch=True):
+def generate_imposter_session(imposterdf,
+                              eid,
+                              nbtrials,
+                              nbSampledSess=10,
+                              pLeftChange_when_stitch=True):
     """
 
     Parameters
@@ -182,21 +222,25 @@ def generate_imposter_session(imposterdf, eid, nbtrials, nbSampledSess=10, pLeft
     # this is to correct for when the eid is not part of the imposterdf eids
     # which is very possible when using imposter sessions from biaisChoice world.
     if np.any(imposterdf.eid == eid):
-        raise ValueError('The eid of the current session was found in the imposter session df which is impossible as'
-                         'you generate the imposter sessions from biasChoice world and decoding from ehysChoice world')
+        raise ValueError(
+            'The eid of the current session was found in the imposter session df which is impossible as'
+            'you generate the imposter sessions from biasChoice world and decoding from ehysChoice world'
+        )
     temp_trick = list(imposterdf[imposterdf.eid == eid].template_sess.unique())
     temp_trick.append(-1)
-    template_sess_eid = temp_trick[0] 
+    template_sess_eid = temp_trick[0]
 
-    imposter_eids = np.random.choice(imposterdf[imposterdf.template_sess != template_sess_eid].eid.unique(),
-                                     size=nbSampledSess,
-                                     replace=False)
+    imposter_eids = np.random.choice(
+        imposterdf[imposterdf.template_sess != template_sess_eid].eid.unique(),
+        size=nbSampledSess,
+        replace=False)
     sub_imposterdf = imposterdf[imposterdf.eid.isin(imposter_eids)].reset_index(drop=True)
     sub_imposterdf['row_id'] = sub_imposterdf.index
-    sub_imposterdf['sorted_eids'] = sub_imposterdf.apply(lambda x: (np.argmax(imposter_eids == x['eid']) *
-                                                                    sub_imposterdf.index.size + x.row_id), axis=1)
+    sub_imposterdf['sorted_eids'] = sub_imposterdf.apply(
+        lambda x: (np.argmax(imposter_eids == x['eid']) * sub_imposterdf.index.size + x.row_id),
+        axis=1)
     identical_comp = np.argmax(sub_imposterdf.eid.values[None] == imposter_eids[:, None],
-                                              axis=0) * sub_imposterdf.index.size + sub_imposterdf.row_id
+                               axis=0) * sub_imposterdf.index.size + sub_imposterdf.row_id
     if np.any(identical_comp.values != sub_imposterdf['sorted_eids'].values):
         raise ValueError('There is certainly a bug in the code. Sorry!')
 
@@ -205,41 +249,50 @@ def generate_imposter_session(imposterdf, eid, nbtrials, nbSampledSess=10, pLeft
     sub_imposterdf = sub_imposterdf.sort_values(by=['sorted_eids'])
     # seems to work better when starting the imposter session as the actual session, with an unbiased block
     sub_imposterdf = sub_imposterdf[(sub_imposterdf.probabilityLeft != 0.5) |
-                     (sub_imposterdf.eid == imposter_eids[0])].reset_index(drop=True)
+                                    (sub_imposterdf.eid == imposter_eids[0])].reset_index(
+                                        drop=True)
     if pLeftChange_when_stitch:
         valid_imposter_eids, current_last_pLeft = [], 0
         for i, imposter_eid in enumerate(imposter_eids):
             #  get first pLeft
-            first_pLeft = sub_imposterdf[(sub_imposterdf.eid == imposter_eid)].probabilityLeft.values[0]
+            first_pLeft = sub_imposterdf[(
+                sub_imposterdf.eid == imposter_eid)].probabilityLeft.values[0]
 
             if np.abs(first_pLeft - current_last_pLeft) < 1e-8:
                 first_pLeft_idx = sub_imposterdf[sub_imposterdf.eid == imposter_eid].index[0]
-                second_pLeft_idx = sub_imposterdf[(sub_imposterdf.eid == imposter_eid) &
-                                                  (sub_imposterdf.probabilityLeft.values != first_pLeft)].index[0]
+                second_pLeft_idx = sub_imposterdf[(sub_imposterdf.eid == imposter_eid) & (
+                    sub_imposterdf.probabilityLeft.values != first_pLeft)].index[0]
                 sub_imposterdf = sub_imposterdf.drop(np.arange(first_pLeft_idx, second_pLeft_idx))
-                first_pLeft = sub_imposterdf[(sub_imposterdf.eid == imposter_eid)].probabilityLeft.values[0]
+                first_pLeft = sub_imposterdf[(
+                    sub_imposterdf.eid == imposter_eid)].probabilityLeft.values[0]
 
             if np.abs(first_pLeft - current_last_pLeft) < 1e-8:
                 raise ValueError('There is certainly a bug in the code. Sorry!')
 
             #  make it such that stitches correspond to pLeft changepoints
             if np.abs(first_pLeft - current_last_pLeft) > 1e-8:
-                valid_imposter_eids.append(imposter_eid)  # if first pLeft is different from current pLeft, accept sess
+                valid_imposter_eids.append(
+                    imposter_eid)  # if first pLeft is different from current pLeft, accept sess
                 #  take out the last block on the first session to stitch as it may not be a block with the right
                 #  statistics (given the mouse stops the task there)
-                second2last_pLeft = 1 - sub_imposterdf[(sub_imposterdf.eid == imposter_eid)].probabilityLeft.values[-1]
-                second2last_block_idx = sub_imposterdf[(sub_imposterdf.eid == imposter_eid) &
-                                                       (np.abs(sub_imposterdf.probabilityLeft -
-                                                               second2last_pLeft) < 1e-8)].index[-1]
+                second2last_pLeft = 1 - sub_imposterdf[
+                    (sub_imposterdf.eid == imposter_eid)].probabilityLeft.values[-1]
+                second2last_block_idx = sub_imposterdf[(sub_imposterdf.eid == imposter_eid) & (
+                    np.abs(sub_imposterdf.probabilityLeft - second2last_pLeft) < 1e-8)].index[-1]
                 last_block_idx = sub_imposterdf[(sub_imposterdf.eid == imposter_eid)].index[-1]
-                sub_imposterdf = sub_imposterdf.drop(np.arange(second2last_block_idx + 1, last_block_idx + 1))
+                sub_imposterdf = sub_imposterdf.drop(
+                    np.arange(second2last_block_idx + 1, last_block_idx + 1))
                 #  update current last pLeft
-                current_last_pLeft = sub_imposterdf[(sub_imposterdf.eid == imposter_eid)].probabilityLeft.values[-1]
+                current_last_pLeft = sub_imposterdf[(
+                    sub_imposterdf.eid == imposter_eid)].probabilityLeft.values[-1]
                 if np.abs(second2last_pLeft - current_last_pLeft) > 1e-8:
                     raise ValueError('There is most certainly a bug here')
-        sub_imposterdf = sub_imposterdf[sub_imposterdf.eid.isin(valid_imposter_eids)].sort_values(by=['sorted_eids'])
+        sub_imposterdf = sub_imposterdf[sub_imposterdf.eid.isin(valid_imposter_eids)].sort_values(
+            by=['sorted_eids'])
         if sub_imposterdf.index.size < nbtrials:
-            raise ValueError('you did not stitch enough imposter sessions. Simply increase the nbSampledSess argument')
+            raise ValueError(
+                'you did not stitch enough imposter sessions. Simply increase the nbSampledSess argument'
+            )
         sub_imposterdf = sub_imposterdf.reset_index(drop=True)
     # select a random first block index <- this doesn't seem to work well, it changes the block statistics too much
     # idx_chge = np.where(sub_imposterdf.probabilityLeft.values[1:] != sub_imposterdf.probabilityLeft.values[:-1])[0]+1
@@ -247,6 +300,7 @@ def generate_imposter_session(imposterdf, eid, nbtrials, nbSampledSess=10, pLeft
     # imposter_sess = sub_imposterdf.iloc[random_number:(random_number + trialsdf.index.size)].reset_index(drop=True)
     imposter_sess = sub_imposterdf.iloc[:nbtrials].reset_index(drop=True)
     return imposter_sess
+
 
 def generate_choices(pseudosess, trialsdf, subjModel):
 
@@ -257,20 +311,33 @@ def generate_choices(pseudosess, trialsdf, subjModel):
         raise ValueError('Something is wrong. The model should be trained by this line')
     model = subjModel['modeltype'](subjModel['modelfit_path'].as_posix() + '/',
                                    subjModel['subjeids'],
-                                   subjModel['subject'], actions=None, stimuli=None, stim_side=None)
+                                   subjModel['subject'],
+                                   actions=None,
+                                   stimuli=None,
+                                   stim_side=None)
     model.load_or_train(loadpath=str(fullpath))
 
     arr_params = model.get_parameters(parameter_type='posterior_mean')[None]
     valid = np.ones([1, pseudosess.index.size], dtype=bool)
     stim, act, side = mut.format_input([pseudosess.signed_contrast.values],
-                                       [trialsdf.choice.values],
-                                       [pseudosess.stim_side.values])
-    act_sim, stim, side = model.simulate(arr_params, stim, side, torch.from_numpy(valid),
-                                         nb_simul=1, only_perf=False)
+                                       [trialsdf.choice.values], [pseudosess.stim_side.values])
+    act_sim, stim, side = model.simulate(arr_params,
+                                         stim,
+                                         side,
+                                         torch.from_numpy(valid),
+                                         nb_simul=1,
+                                         only_perf=False)
     return np.array(act_sim.squeeze().T, dtype=np.int64)
 
-def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=False,
-                    modeltype=expSmoothing_prevAction, one=None, behavior_data_train=None, beh_data_test=None):
+
+def fit_load_bhvmod(target,
+                    subject,
+                    savepath,
+                    eids_train,
+                    behavior_data_train,
+                    modeltype,
+                    remove_old=False,
+                    beh_data_test=None):
     '''
     load/fit a behavioral model to compute target on a single session
     Params:
@@ -281,20 +348,16 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
         target can be pLeft or signcont. If target=pLeft, it will return the prior predicted by modeltype
                                          if modetype=None, then it will return the actual pLeft (.2, .5, .8)
     '''
-    one = one or ONE()
 
     # check if is trained
     istrained, fullpath = check_bhv_fit_exists(subject, modeltype, eids_train, savepath)
-
-    # load test session is beh_data_test is None
-    if beh_data_test is None:
-        beh_data_test = mut.load_session(eid_test, one=one)
 
     if target == 'signcont':
         if 'signedContrast' in beh_data_test.keys():
             out = beh_data_test['signedContrast']
         else:
-            out = np.nan_to_num(beh_data_test['contrastLeft']) - np.nan_to_num(beh_data_test['contrastRight'])
+            out = np.nan_to_num(beh_data_test['contrastLeft']) - np.nan_to_num(
+                beh_data_test['contrastRight'])
         return out
     if target == 'choice':
         return np.array(beh_data_test['choice'])
@@ -302,7 +365,8 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
         return np.array(beh_data_test['feedbackType'])
     elif (target == 'pLeft') and (modeltype is None):
         return np.array(beh_data_test['probabilityLeft'])
-    elif (target == 'pLeft') and (modeltype is optimal_Bayesian):  # bypass fitting and generate priors
+    elif (target
+          == 'pLeft') and (modeltype is optimal_Bayesian):  # bypass fitting and generate priors
         side, stim, act, _ = mut.format_data(beh_data_test)
         if isinstance(side, np.ndarray) and isinstance(act, np.ndarray):
             signal = optimal_Bayesian(act, stim, side)
@@ -313,27 +377,22 @@ def fit_load_bhvmod(target, subject, savepath, eids_train, eid_test, remove_old=
     if (not istrained) and (target != 'signcont') and (modeltype is not None):
         datadict = {'stim_side': [], 'actions': [], 'stimuli': []}
         for eid in eids_train:
-            if behavior_data_train is None:
-                raise ValueError('This feature is deprecated and will be removed')
-                data = mut.load_session(eid, one=one)
-                if data['choice'] is None:
-                    raise ValueError('Session choices produced are None. Debug models.utils.load_session,'
-                                     f' or remove the eid {eid} from your input list.')
-                stim_side, stimuli, actions, _ = mut.format_data(data)
-            else:
-                subdf = behavior_data_train[behavior_data_train.eid == eid]
-                stim_side, stimuli, actions = subdf.stim_side.values, subdf.signedContrast.values, subdf.choice.values
+            subdf = behavior_data_train[behavior_data_train.eid == eid]
+            stim_side, stimuli, actions = subdf.stim_side.values, subdf.signedContrast.values, subdf.choice.values
             datadict['stim_side'].append(stim_side)
             datadict['stimuli'].append(stimuli)
             datadict['actions'].append(actions)
         stimuli, actions, stim_side = mut.format_input(datadict['stimuli'], datadict['actions'],
                                                        datadict['stim_side'])
         eids = np.array(eids_train)
-        model = modeltype(savepath, eids, subject,
-                          actions, stimuli, stim_side)
+        model = modeltype(savepath, eids, subject, actions, stimuli, stim_side)
         model.load_or_train(remove_old=remove_old)
     elif (target != 'signcont') and (modeltype is not None):
-        model = modeltype(savepath, eids_train, subject, actions=None, stimuli=None,
+        model = modeltype(savepath,
+                          eids_train,
+                          subject,
+                          actions=None,
+                          stimuli=None,
                           stim_side=None)
         model.load_or_train(loadpath=str(fullpath))
 
@@ -362,8 +421,15 @@ def remap_region(ids, source='Allen-lr', dest='Beryl-lr', output='acronym', br=N
         return br.get(br.id[br.mappings[dest][inds]])
 
 
-def compute_target(target, subject, eids_train, eid_test, savepath, binarization_value,
-                   modeltype=expSmoothing_prevAction, one=None, behavior_data_train=None,
+def compute_target(target,
+                   subject,
+                   eids_train,
+                   eid_test,
+                   savepath,
+                   binarization_value,
+                   modeltype=expSmoothing_prevAction,
+                   one=None,
+                   behavior_data_train=None,
                    beh_data_test=None):
     """
     Computes regression target for use with regress_target, using subject, eid, and a string
@@ -399,20 +465,41 @@ def compute_target(target, subject, eids_train, eid_test, savepath, binarization
     if target not in possible_targets:
         raise ValueError('target should be in {}'.format(possible_targets))
 
-    tvec = fit_load_bhvmod(target, subject, savepath.as_posix() + '/', eids_train, eid_test, remove_old=False,
-                           modeltype=modeltype, one=one, behavior_data_train=behavior_data_train,
+    tvec = fit_load_bhvmod(target,
+                           subject,
+                           savepath.as_posix() + '/',
+                           eids_train,
+                           eid_test,
+                           remove_old=False,
+                           modeltype=modeltype,
+                           one=one,
+                           behavior_data_train=behavior_data_train,
                            beh_data_test=beh_data_test)
 
     if binarization_value is not None:
         tvec = (tvec > binarization_value) * 1
-    # todo make pd.Series
+
     return tvec
 
 
-def regress_target(tvec, binned, estimatorObject, estimator_kwargs, use_openturns, target_distribution, bin_size_kde,
-                   balanced_continuous_target=True, hyperparam_grid=None, test_prop=0.2, nFolds=5, save_binned=False,
-                   verbose=False, shuffle=True, outer_cv=True, balanced_weight=False,
-                   normalize_input=False, normalize_output=False):
+def regress_target(tvec,
+                   binned,
+                   estimatorObject,
+                   estimator_kwargs,
+                   use_openturns,
+                   target_distribution,
+                   bin_size_kde,
+                   balanced_continuous_target=True,
+                   hyperparam_grid=None,
+                   test_prop=0.2,
+                   nFolds=5,
+                   save_binned=False,
+                   verbose=False,
+                   shuffle=True,
+                   outer_cv=True,
+                   balanced_weight=False,
+                   normalize_input=False,
+                   normalize_output=False):
     """
     Regresses binned neural activity against a target, using a provided sklearn estimator
 
@@ -474,7 +561,8 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs, use_openturn
         outer_kfold = iter([train_test_split(indices, test_size=test_prop, shuffle=shuffle)])
 
     # scoring function
-    scoring_f = balanced_accuracy_score if (estimatorObject == sklm.LogisticRegression) else r2_score
+    scoring_f = balanced_accuracy_score if (estimatorObject
+                                            == sklm.LogisticRegression) else r2_score
 
     # Select either the GridSearchCV estimator for a normal estimator, or use the native estimator
     # in the case of CV-type estimators
@@ -509,12 +597,14 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs, use_openturn
                 for i_alpha, alpha in enumerate(hyperparam_grid[key]):
                     estimator = estimatorObject(**{**estimator_kwargs, key: alpha})
                     if balanced_weight:
-                        estimator.fit(X_train_inner, y_train_inner,
-                                      sample_weight=balanced_weighting(vec=y_train_inner,
-                                                                       continuous=balanced_continuous_target,
-                                                                       use_openturns=use_openturns,
-                                                                       bin_size_kde=bin_size_kde,
-                                                                       target_distribution=target_distribution))
+                        estimator.fit(X_train_inner,
+                                      y_train_inner,
+                                      sample_weight=balanced_weighting(
+                                          vec=y_train_inner,
+                                          continuous=balanced_continuous_target,
+                                          use_openturns=use_openturns,
+                                          bin_size_kde=bin_size_kde,
+                                          target_distribution=target_distribution))
                     else:
                         estimator.fit(X_train_inner, y_train_inner)
                     pred_test_inner = estimator.predict(X_test_inner) + mean_y_train_inner
@@ -532,11 +622,13 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs, use_openturn
             y_train = y_train - mean_y_train
 
             if balanced_weight:
-                clf.fit(X_train, y_train, sample_weight=balanced_weighting(vec=y_train,
-                                                                           continuous=balanced_continuous_target,
-                                                                           use_openturns=use_openturns,
-                                                                           bin_size_kde=bin_size_kde,
-                                                                           target_distribution=target_distribution))
+                clf.fit(X_train,
+                        y_train,
+                        sample_weight=balanced_weighting(vec=y_train,
+                                                         continuous=balanced_continuous_target,
+                                                         use_openturns=use_openturns,
+                                                         bin_size_kde=bin_size_kde,
+                                                         target_distribution=target_distribution))
             else:
                 clf.fit(X_train, y_train)
 
@@ -550,7 +642,8 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs, use_openturn
 
             # save the raw prediction in the case of linear and the predicted proba when working with logit
             prediction_to_save = (prediction if not (estimatorObject == sklm.LogisticRegression)
-                                  else clf.predict_proba(binned - mean_X_train)[:, 0] + mean_y_train)
+                                  else clf.predict_proba(binned - mean_X_train)[:, 0] +
+                                  mean_y_train)
 
             # prediction, target, idxes_test, idxes_train
             predictions.append(prediction)
@@ -608,14 +701,13 @@ def regress_target(tvec, binned, estimatorObject, estimator_kwargs, use_openturn
             print("%0.3f (+/-%0.03f) for %r" % (mean, std * 2, params))
         print("\n", "Detailed scores on {} validation sets:".format(nFolds))
         for i_fold in range(nFolds):
-            tscore_fold = list(np.round(clf.cv_results_['split{}_test_score'.format(int(i_fold))],
-                                        3))
+            tscore_fold = list(
+                np.round(clf.cv_results_['split{}_test_score'.format(int(i_fold))], 3))
             print("perf on fold {}: {}".format(int(i_fold), tscore_fold))
 
         print("\n", "Detailed classification report:", "\n")
         print("The model is trained on the full (train + validation) set.")
         # print("\n", "Rsquare on held-out test data: {}".format(np.round(Rsquared_test, 3)), "\n")
-
         '''
         import pickle
         outdict_verbose = dict()
@@ -642,7 +734,7 @@ def pdf_from_histogram(x, out):
 def test_df_from_histogram(target_distribution):
     v = 0.9
     out = np.histogram(np.array([v, v]), bins=target_distribution[-1], density=True)
-    assert(pdf_from_histogram(np.array([v]), out) > 0)
+    assert (pdf_from_histogram(np.array([v]), out) > 0)
 
 
 def balanced_weighting(vec, continuous, use_openturns, bin_size_kde, target_distribution):
@@ -658,7 +750,8 @@ def balanced_weighting(vec, continuous, use_openturns, bin_size_kde, target_dist
             balanced_weight = np.ones(vec.size) / proposal_weights
         else:
             emp_distribution = np.histogram(vec, bins=target_distribution[-1], density=True)
-            balanced_weight = pdf_from_histogram(vec, target_distribution)/pdf_from_histogram(vec, emp_distribution)
+            balanced_weight = pdf_from_histogram(vec, target_distribution) / pdf_from_histogram(
+                vec, emp_distribution)
         #  plt.hist(y_train_inner[:, None], density=True)
         #  plt.plot(sample, proposal_weights, '+')
     else:
@@ -689,20 +782,30 @@ def return_regions(eid, sessdf, QC_CRITERIA=1, NUM_UNITS=10):
 
 
 # %% Define helper functions for dask workers to use
-def save_region_results(fit_result, pseudo_id, subject, eid, probe, region, N,
-                        output_path, time_window, today, target, add_to_saving_path):
+def save_region_results(fit_result, pseudo_id, subject, eid, probe, region, N, output_path,
+                        time_window, today, target, add_to_saving_path):
     subjectfolder = Path(output_path).joinpath(subject)
     eidfolder = subjectfolder.joinpath(eid)
     probefolder = eidfolder.joinpath(probe)
     start_tw, end_tw = time_window
-    fn = '_'.join([today, region, 'target', target,
-                   'timeWindow', str(start_tw).replace('.', '_'), str(end_tw).replace('.', '_'),
-                   'pseudo_id', str(pseudo_id), add_to_saving_path]) + '.pkl'
+    fn = '_'.join([
+        today, region, 'target', target, 'timeWindow',
+        str(start_tw).replace('.', '_'),
+        str(end_tw).replace('.', '_'), 'pseudo_id',
+        str(pseudo_id), add_to_saving_path
+    ]) + '.pkl'
     for folder in [subjectfolder, eidfolder, probefolder]:
         if not os.path.exists(folder):
             os.mkdir(folder)
-    outdict = {'fit': fit_result, 'pseudo_id': pseudo_id,
-               'subject': subject, 'eid': eid, 'probe': probe, 'region': region, 'N_units': N}
+    outdict = {
+        'fit': fit_result,
+        'pseudo_id': pseudo_id,
+        'subject': subject,
+        'eid': eid,
+        'probe': probe,
+        'region': region,
+        'N_units': N
+    }
     fw = open(probefolder.joinpath(fn), 'wb')
     pickle.dump(outdict, fw)
     fw.close()
@@ -737,17 +840,21 @@ def optimal_Bayesian(act, stim, side):
     n = torch.arange(1, nb_blocklengths + 1)
     ref = torch.exp(-n / tau) * (lb <= n) * (ub >= n)
     torch.flip(ref.double(), (0,))
-    hazard = torch.cummax(ref / torch.flip(torch.cumsum(torch.flip(ref.double(), (0,)), 0) + eps, (0,)), 0)[0]
-    l = torch.cat((torch.unsqueeze(hazard, -1),
-                   torch.cat((torch.diag(1 - hazard[:-1]),
-                              torch.zeros(nb_blocklengths - 1)[None]),
-                             axis=0)), axis=-1)  # l_{t-1}, l_t
-    transition = eps + torch.transpose(l[:, :, None, None] * b[None], 1, 2).reshape(nb_typeblocks * nb_blocklengths, -1)
+    hazard = torch.cummax(
+        ref / torch.flip(torch.cumsum(torch.flip(ref.double(), (0,)), 0) + eps, (0,)), 0)[0]
+    l = torch.cat(
+        (torch.unsqueeze(hazard, -1),
+         torch.cat((torch.diag(1 - hazard[:-1]), torch.zeros(nb_blocklengths - 1)[None]), axis=0)),
+        axis=-1)  # l_{t-1}, l_t
+    transition = eps + torch.transpose(l[:, :, None, None] * b[None], 1, 2).reshape(
+        nb_typeblocks * nb_blocklengths, -1)
 
     # likelihood
-    lks = torch.hstack([gamma * (side[:, None] == -1) + (1 - gamma) * (side[:, None] == 1),
-                        torch.ones_like(act[:, None]) * 1. / 2,
-                        gamma * (side[:, None] == 1) + (1 - gamma) * (side[:, None] == -1)])
+    lks = torch.hstack([
+        gamma * (side[:, None] == -1) + (1 - gamma) * (side[:, None] == 1),
+        torch.ones_like(act[:, None]) * 1. / 2,
+        gamma * (side[:, None] == 1) + (1 - gamma) * (side[:, None] == -1)
+    ])
     to_update = torch.unsqueeze(torch.unsqueeze(act.not_equal(0), -1), -1) * 1
 
     for i_trial in range(act.shape[-1]):
@@ -799,7 +906,9 @@ def return_path(eid, sessdf, pseudo_ids=[-1], **kwargs):
             regions = [[k] for k in np.unique(across_probes['regions'])]
         else:
             regions = [np.unique(across_probes['regions'])]
-        df_insertions_iterrows = pd.DataFrame.from_dict({'1': 'mergedProbes'},
+        df_insertions_iterrows = pd.DataFrame.from_dict({
+            '1': 'mergedProbes'
+        },
                                                         orient='index',
                                                         columns=['probe']).iterrows()
     else:
@@ -825,20 +934,27 @@ def return_path(eid, sessdf, pseudo_ids=[-1], **kwargs):
                 continue
 
             for pseudo_id in pseudo_ids:
-                filenames.append(save_region_results(None, pseudo_id, subject, eid, probe,
-                                                     str(np.squeeze(region)) if kwargs[
-                                                         'single_region'] else 'allRegions',
-                                                     N_units, output_path=kwargs['output_path'],
-                                                     time_window=kwargs['time_window'],
-                                                     today=kwargs['today'],
-                                                     compute=False))
+                filenames.append(
+                    save_region_results(
+                        None,
+                        pseudo_id,
+                        subject,
+                        eid,
+                        probe,
+                        str(np.squeeze(region)) if kwargs['single_region'] else 'allRegions',
+                        N_units,
+                        output_path=kwargs['output_path'],
+                        time_window=kwargs['time_window'],
+                        today=kwargs['today'],
+                        compute=False))
     return filenames
 
 
 possible_targets = ['choice', 'feedback', 'signcont', 'pLeft']
 
-modeldispatcher = {expSmoothing_prevAction: expSmoothing_prevAction.name,
-                   expSmoothing_stimside: expSmoothing_stimside.name,
-                   optimal_Bayesian: 'optBay',
-                   None: 'oracle'
-                   }
+modeldispatcher = {
+    expSmoothing_prevAction: expSmoothing_prevAction.name,
+    expSmoothing_stimside: expSmoothing_stimside.name,
+    optimal_Bayesian: 'optBay',
+    None: 'oracle'
+}
