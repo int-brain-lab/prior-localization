@@ -19,15 +19,20 @@ import functions.utils as dut
 import functions.utils_continuous as dutc
 
 
-def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=None, **kwargs):
+def fit_eid(
+        eid, bwm_df, imposter_df=None, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=None,
+        **kwargs):
     """
 
     Parameters
     ----------
     eid : str
         eid of session
-    bwmdf : pandas.DataFrame
+    bwm_df : pandas.DataFrame
         dataframe of bwm session
+    imposter_df : pandas.DataFrame
+        concatenated dataframe of bwm sessions; for computing null distribution with imposter
+        sessions
     pseudo_ids : list
         whether to compute a pseudosession or not. if pseudo_id=-1, the true session is considered;
         cannot be 0
@@ -48,7 +53,6 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
             number of independent runs performed. this was added after consequent variability was
             observed across runs.
         shuffle : bool
-        use_imposter_session : bool
         min_units : int
         qc_criteria : float
         single_region : bool
@@ -62,6 +66,7 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
         output_path : str
             outputs of decoding fits
         add_to_saving_path : str
+        imposter_df : pandas.DataFrame
 
     """
 
@@ -76,19 +81,15 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
     if kwargs['wide_field_imaging'] and kwargs['wfi_nb_frames'] == 0:
         raise ValueError('wfi_nb_frames can not be 0. it is a signed non-null integer')
 
-    if 0 in pseudo_ids:
-        raise ValueError(
-            'pseudo id can be -1 (actual session) or strictly greater than 0 (pseudo session)')
-
     one = One() if kwargs.get('one', None) is None else kwargs['one']
     brainreg = BrainRegions()
 
     # get session info for the selected eid
     if sessiondf is None:
-        df_insertions = bwmdf.loc[bwmdf['eid'] == eid]
+        df_insertions = bwm_df.loc[bwm_df['eid'] == eid]
         subject = df_insertions['subject'].to_numpy()[0]
         if 'beh_mouseLevel_training' in kwargs.keys():
-            subjeids = bwmdf.loc[bwmdf['subject'] == subject]['eid'].unique()
+            subjeids = bwm_df.loc[bwm_df['subject'] == subject]['eid'].unique()
         else:
             subjeids = np.array([eid])
     else:
@@ -108,7 +109,7 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
     # ---------------------------------------------------------------------------------------------
     # load and filter interval data
     # ---------------------------------------------------------------------------------------------
-    trialsdf, skip_session = dutc.load_interval_data(
+    trialsdf, _, skip_session = dutc.load_interval_data(
         one, eid, kwargs['align_time'], kwargs['time_window'], no_unbias=kwargs['no_unbias'],
         min_rt=kwargs['min_rt'])
     if skip_session:
@@ -117,7 +118,7 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
     # ---------------------------------------------------------------------------------------------
     # split target data per trial
     # ---------------------------------------------------------------------------------------------
-    target_times_list, target_val_list, trialsdf, skip_session = \
+    target_times_list, target_val_list, trialsdf, _, skip_session = \
         dutc.get_target_data_per_trial_error_check(
             target_times, target_vals, trialsdf, kwargs['align_time'], kwargs['time_window'],
             kwargs['binsize'], kwargs['min_behav_trials'])
@@ -179,7 +180,7 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
         # -----------------------------------------------------------------------------------------
         for region in tqdm(regions, desc='Region: ', leave=False):
 
-            if region == 'root':
+            if region == 'root' or region == 'void':
                 continue
 
             # select good units from this insertion/region
@@ -232,6 +233,11 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
                 # binned = np.take(wideFieldImaging_dict['activity'][:, reg_mask], frames_idx, axis=0)
                 # binned = binned.reshape(binned.shape[0], -1).T
 
+            # build predictor matrix
+            predictor_list = [
+                dutc.build_predictor_matrix(s.T, kwargs['n_bins_lag']) for s in spikes_list
+            ]
+
             # -------------------------------------------------------------------------------------
             # loop through real/pseudo/imposter sessions
             # -------------------------------------------------------------------------------------
@@ -252,25 +258,19 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
                         '%s (id=%i) already exists, skipping' % (region, pseudo_id))
                     continue
 
-                # create pseudo session/imposter session targets when necessary
-                if pseudo_id > 0:
-                    if kwargs['use_imposter_session']:
-                        raise NotImplementedError
-                        # pseudosess = dut.generate_imposter_session(
-                        #     kwargs['imposterdf'], eid, trialsdf.index.size, nbSampledSess=10)
-                        # pseudomask = mask & (pseudosess.choice != 0)
-                    else:
-                        raise NotImplementedError(
-                            "Must use imposter session for decoding %s" % kwargs['target'])
+                # create imposter session targets when necessary
+                if pseudo_id > -1:
 
-                    # msub_pseudo_tvec = dut.compute_target(
-                    #     kwargs['target'], subject, subjeids, eid,
-                    #     kwargs['modelfit_path'],
-                    #     binarization_value=kwargs['binarization_value'],
-                    #     modeltype=kwargs['model'],
-                    #     beh_data_test=pseudosess, one=one,
-                    #     behavior_data_train=behavior_data_train
-                    # )[pseudomask]
+                    # generate imposter session from concatenated sessions
+                    # remove current eid from concatenated sessions
+                    df_clean = imposter_df[imposter_df.eid != eid].reset_index()
+                    # randomly select imposter trial to start sequence
+                    n_trials = trialsdf.shape[0]
+                    total_imposter_trials = df_clean.shape[0]
+                    idx_beg = np.random.choice(total_imposter_trials - n_trials)
+                    imposter_df_curr = df_clean.iloc[idx_beg:idx_beg + n_trials]
+
+                    target_list = list(imposter_df_curr[kwargs['target']].to_numpy())
 
                 else:
                     target_list = target_val_list
@@ -278,11 +278,6 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
                 # fit decoder on multiple runs
                 fit_results = []
                 for i_run in range(kwargs['n_runs']):
-
-                    # build predictor matrix
-                    predictor_list = [
-                        dutc.build_predictor_matrix(s.T, kwargs['n_bins_lag']) for s in spikes_list
-                    ]
 
                     # train models
                     fit_result = dutc.decode(
@@ -296,8 +291,10 @@ def fit_eid(eid, bwmdf, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
                         rng_seed=i_run,
                     )
 
-                    # fit_result['mask'] = mask & (trialsdf.choice != 0)
-                    fit_result['df'] = trialsdf if pseudo_id == -1 else pseudosess
+                    if pseudo_id == -1:
+                        fit_result['df'] = trialsdf
+                    else:
+                        fit_result['df'] = imposter_df_curr.drop(kwargs['target'], axis=1)
                     fit_result['pseudo_id'] = pseudo_id
                     fit_result['run_id'] = i_run
                     fit_results.append(fit_result)

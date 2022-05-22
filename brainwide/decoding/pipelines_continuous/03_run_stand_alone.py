@@ -19,7 +19,7 @@ from settings.settings_continuous import fit_metadata
 
 # set up logging
 log_file = fit_metadata['output_path'].joinpath(
-    'results', 'neural', 'decoding_%s.log' % fit_metadata['target'])
+    'results', 'neural', 'decoding_%s_%s.log' % (fit_metadata['target'], fit_metadata['today']))
 logging.basicConfig(
     filename=log_file, filemode='w', level=logging.DEBUG,
     format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %H:%M:%S',
@@ -29,11 +29,14 @@ logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))  # add logging
 # create necessary empty directories if not existing
 fit_metadata['output_path'].joinpath('results').mkdir(exist_ok=True)
 fit_metadata['output_path'].joinpath('results', 'neural').mkdir(exist_ok=True)
-insdf = pd.read_parquet(fit_metadata['output_path'].joinpath('insertions.pqt'))
-insdf = insdf[insdf.spike_sorting != ""]
+ins_df = pd.read_parquet(fit_metadata['output_path'].joinpath('insertions.pqt'))
+ins_df = ins_df[ins_df.spike_sorting != ""]
+eids = ins_df['eid'].unique()
 
-eids = insdf['eid'].unique()
-# sessdf = insdf.sort_values('subject').set_index(['subject', 'eid'])
+# load imposter session df
+imposter_path = fit_metadata['output_path'].joinpath(
+    'imposterSessions_%s.pqt' % fit_metadata['target'])
+imposter_df = pd.read_parquet(imposter_path)
 
 one = ONE()
 
@@ -45,12 +48,11 @@ excludes = [
     '56b57c38-2699-4091-90a8-aba35103155e',  # load obect pickle error
     '09394481-8dd2-4d5c-9327-f2753ede92d7',  # same same
 ]
-IMIN = 0
-IMAX = 1000
-nb_common_regions = np.zeros(len(eids))
 
 output_path = fit_metadata.pop('output_path').joinpath('results', 'neural')
 
+IMIN = 0
+IMAX = 10
 for i, eid in enumerate(eids):
 
     if i >= IMAX:
@@ -59,21 +61,21 @@ for i, eid in enumerate(eids):
         continue
     if eid in excludes:
         continue
-    if np.any(insdf[insdf['eid'] == eid]['spike_sorting'] == ""):
+    curr_df = ins_df[ins_df['eid'] == eid]
+    if np.any(curr_df['spike_sorting'] == ""):
         print(f"dud {eid}")
         continue
 
-    logging.log(logging.DEBUG, f"{i}, session: {eid}")
-    regions = dut.return_regions(
-        eid, insdf, QC_CRITERIA=fit_metadata['qc_criteria'], NUM_UNITS=fit_metadata['min_units'])
-    if len(regions.keys()) > 1:
-        nb_common_regions[i] = len(list(set(regions['probe01']).intersection(regions['probe00'])))
+    subject = curr_df.subject.iloc[0]
+    logging.log(logging.DEBUG, f"{i}, session: {eid}, subject: {subject}")
 
     fns = decode.fit_eid(
-        eid,
-        insdf,
+        eid=eid,
+        bwm_df=ins_df,
+        imposter_df=imposter_df,
         output_path=output_path,
-        pseudo_ids=[-1],
+        # pseudo_ids=[-1],
+        pseudo_ids=np.arange(fit_metadata['n_pseudo']),
         one=one,
         **fit_metadata,
     )

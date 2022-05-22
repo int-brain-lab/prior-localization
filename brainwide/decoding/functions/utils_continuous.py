@@ -1,5 +1,6 @@
 
 import logging
+import matplotlib
 import numpy as np
 import os
 import pandas as pd
@@ -14,7 +15,8 @@ from sklearn.metrics import r2_score
 from brainbox.behavior.wheel import interpolate_position, velocity_smoothed
 import brainbox.io.one as bbone
 from brainbox.processing import bincount2D
-from ibllib.atlas import BrainRegions
+from ibllib.atlas import BrainRegions, AllenAtlas
+from one.alf.exceptions import ALFObjectNotFound
 from one.api import ONE
 
 """
@@ -342,7 +344,7 @@ def remove_bad_trials(
 
     trialsdf_masked = trialsdf[mask]
 
-    return trialsdf_masked
+    return trialsdf_masked, mask
 
 
 def get_target_data_per_trial(
@@ -644,6 +646,10 @@ def load_target_data(one, eid, target):
             msg = '%s timestamps/data mismatch' % target
             logging.exception(msg)
             skip_session = True
+        except ALFObjectNotFound:
+            msg = 'ALF object not found for %s target' % target
+            logging.exception(msg)
+            skip_session = True
     elif target == 'pupil':
         try:
             target_times, target_vals = load_pupil_data(one, eid, snr_thresh=5)
@@ -719,7 +725,7 @@ def load_interval_data(one, eid, align_event, align_interval, no_unbias=False, m
     # - no movement onset time detected
     # - trial too short
     # - trial too long
-    trialsdf_masked = remove_bad_trials(
+    trialsdf_masked, mask = remove_bad_trials(
         trialsdf, align_event=align_event, align_interval=align_interval, no_unbias=no_unbias,
         min_rt=min_rt)
 
@@ -729,7 +735,7 @@ def load_interval_data(one, eid, align_event, align_interval, no_unbias=False, m
         logging.exception(msg)
         skip_session = True
 
-    return trialsdf_masked, skip_session
+    return trialsdf_masked, mask, skip_session
 
 
 def get_target_data_per_trial_error_check(
@@ -772,7 +778,37 @@ def get_target_data_per_trial_error_check(
         logging.exception(msg)
         skip_session = True
 
-    return target_times_list, target_val_list, trialsdf, skip_session
+    return target_times_list, target_val_list, trialsdf, good_trials, skip_session
+
+
+def get_target_variable_in_df(one, eid, kwargs):
+
+    target_times, target_vals, skip_session = load_target_data(one, eid, kwargs['target'])
+    if skip_session:
+        raise Exception("Error loading %s data" % kwargs['target'])
+
+    # ---------------------------------------------------------------------------------------------
+    # load and filter interval data
+    # ---------------------------------------------------------------------------------------------
+    trialsdf, _, skip_session = load_interval_data(
+        one, eid, kwargs['align_time'], kwargs['time_window'], no_unbias=kwargs['no_unbias'],
+        min_rt=kwargs['min_rt'])
+    if skip_session:
+        raise Exception("Error loading interval data")
+
+    # ---------------------------------------------------------------------------------------------
+    # split target data per trial
+    # ---------------------------------------------------------------------------------------------
+    target_times_list, target_val_list, trialsdf, _, skip_session = \
+        get_target_data_per_trial_error_check(
+            target_times, target_vals, trialsdf, kwargs['align_time'], kwargs['time_window'],
+            kwargs['binsize'], kwargs['min_behav_trials'])
+    if skip_session:
+        raise Exception("Error formatting %s data per trial" % kwargs['target'])
+
+    trialsdf[kwargs['target']] = target_val_list
+
+    return trialsdf
 
 
 # -------------------------------------------------------------------------------------------------
@@ -964,6 +1000,236 @@ def decode(
     outdict['nFolds'] = nFolds
 
     return outdict
+
+
+# -------------------------------------------------------------------------------------------------
+# plotting
+# -------------------------------------------------------------------------------------------------
+
+def plot_scalar_on_slice(regions,
+                         values,
+                         coord=-1000,
+                         slice='coronal',
+                         mapping='Allen',
+                         hemisphere='left',
+                         cmap='viridis',
+                         background='image',
+                         clevels=None,
+                         brain_atlas=None,
+                         ax=None):
+    """
+    Function to plot scalar value per allen region on histology slice
+    :param regions: array of acronyms of Allen regions
+    :param values: array of scalar value per acronym. If hemisphere is 'both' and different values
+        want to be shown on each
+    hemispheres, values should contain 2 columns, 1st column for LH values, 2nd column for RH
+        values
+    :param coord: coordinate of slice in um (not needed when slice='top')
+    :param slice: orientation of slice, options are 'coronal', 'sagittal', 'horizontal', 'top'
+        (top view of brain)
+    :param mapping: atlas mapping to use, options are 'Allen', 'Beryl' or 'Cosmos'
+    :param hemisphere: hemisphere to display, options are 'left', 'right', 'both'
+    :param background: background slice to overlay onto, options are 'image' or 'boundary'
+    :param cmap: colormap to use
+    :param clevels: min max color levels [cim, cmax]
+    :param brain_atlas: AllenAtlas object
+    :param ax: optional axis object to plot on
+    :return:
+    """
+
+    if clevels is None:
+        clevels = (np.min(values), np.max(values))
+
+    ba = brain_atlas or AllenAtlas()
+    br = ba.regions
+
+    # Find the mapping to use
+    map_ext = '-lr'
+    map = mapping + map_ext
+
+    region_values = np.zeros_like(br.id) * np.nan
+
+    if len(values.shape) == 2:
+        for r, vL, vR in zip(regions, values[:, 0], values[:, 1]):
+            region_values[np.where(br.acronym[br.mappings[map]] == r)[0][0]] = vR
+            region_values[np.where(br.acronym[br.mappings[map]] == r)[0][1]] = vL
+    else:
+        for r, v in zip(regions, values):
+            region_values[np.where(br.acronym[br.mappings[map]] == r)[0]] = v
+
+        lr_divide = int((br.id.shape[0] - 1) / 2)
+        if hemisphere == 'left':
+            region_values[0:lr_divide] = np.nan
+        elif hemisphere == 'right':
+            region_values[lr_divide:] = np.nan
+            region_values[0] = np.nan
+
+    if ax:
+        fig = ax.figure
+    else:
+        fig, ax = plt.subplots()
+
+    if background == 'boundary':
+        cmap_bound = matplotlib.cm.get_cmap("bone_r").copy()
+        cmap_bound.set_under([1, 1, 1], 0)
+
+    if slice == 'coronal':
+
+        if background == 'image':
+            ba.plot_cslice(coord / 1e6, volume='image', mapping=map, ax=ax)
+            ba.plot_cslice(coord / 1e6,
+                           volume='value',
+                           region_values=region_values,
+                           mapping=map,
+                           cmap=cmap,
+                           vmin=clevels[0],
+                           vmax=clevels[1],
+                           ax=ax)
+        else:
+            ba.plot_cslice(coord / 1e6,
+                           volume='value',
+                           region_values=region_values,
+                           mapping=map,
+                           cmap=cmap,
+                           vmin=clevels[0],
+                           vmax=clevels[1],
+                           ax=ax)
+            ba.plot_cslice(coord / 1e6,
+                           volume='boundary',
+                           mapping=map,
+                           ax=ax,
+                           cmap=cmap_bound,
+                           vmin=0.01,
+                           vmax=0.8)
+
+    elif slice == 'sagittal':
+        if background == 'image':
+            ba.plot_sslice(coord / 1e6, volume='image', mapping=map, ax=ax)
+            ba.plot_sslice(coord / 1e6,
+                           volume='value',
+                           region_values=region_values,
+                           mapping=map,
+                           cmap=cmap,
+                           vmin=clevels[0],
+                           vmax=clevels[1],
+                           ax=ax)
+        else:
+            ba.plot_sslice(coord / 1e6,
+                           volume='value',
+                           region_values=region_values,
+                           mapping=map,
+                           cmap=cmap,
+                           vmin=clevels[0],
+                           vmax=clevels[1],
+                           ax=ax)
+            ba.plot_sslice(coord / 1e6,
+                           volume='boundary',
+                           mapping=map,
+                           ax=ax,
+                           cmap=cmap_bound,
+                           vmin=0.01,
+                           vmax=0.8)
+
+    elif slice == 'horizontal':
+        if background == 'image':
+            ba.plot_hslice(coord / 1e6, volume='image', mapping=map, ax=ax)
+            ba.plot_hslice(coord / 1e6,
+                           volume='value',
+                           region_values=region_values,
+                           mapping=map,
+                           cmap=cmap,
+                           vmin=clevels[0],
+                           vmax=clevels[1],
+                           ax=ax)
+        else:
+            ba.plot_hslice(coord / 1e6,
+                           volume='value',
+                           region_values=region_values,
+                           mapping=map,
+                           cmap=cmap,
+                           vmin=clevels[0],
+                           vmax=clevels[1],
+                           ax=ax)
+            ba.plot_hslice(coord / 1e6,
+                           volume='boundary',
+                           mapping=map,
+                           ax=ax,
+                           cmap=cmap_bound,
+                           vmin=0.01,
+                           vmax=0.8)
+
+    elif slice == 'top':
+        if background == 'image':
+            ba.plot_top(volume='image', mapping=map, ax=ax)
+            ba.plot_top(volume='value',
+                        region_values=region_values,
+                        mapping=map,
+                        cmap=cmap,
+                        vmin=clevels[0],
+                        vmax=clevels[1],
+                        ax=ax)
+        else:
+            ba.plot_top(volume='value',
+                        region_values=region_values,
+                        mapping=map,
+                        cmap=cmap,
+                        vmin=clevels[0],
+                        vmax=clevels[1],
+                        ax=ax)
+            ba.plot_top(volume='boundary',
+                        mapping=map,
+                        ax=ax,
+                        cmap=cmap_bound,
+                        vmin=0.01,
+                        vmax=0.8)
+
+    return fig, ax
+
+
+def plot_decoding_results(acronyms, values, cmap='viridis', title=None, save_file=None):
+
+    extend = None
+    if np.min(values) < 0:
+        extend = 'min'
+    values = np.maximum(values, 0)
+
+    fig, axes = plt.subplots(1, 4, figsize=(16, 4))
+
+    _, ax = plot_scalar_on_slice(
+        acronyms, values, coord=-1000, slice='top', mapping='Beryl', hemisphere='left',
+        background='boundary', brain_atlas=ba, cmap=cmap, ax=axes[0, 0])
+    ax.set_axis_off()
+
+    _, ax = plot_scalar_on_slice(
+        acronyms, values, coord=-3000, slice='horizontal', mapping='Beryl', hemisphere='left',
+        background='boundary', brain_atlas=ba, cmap=cmap, ax=axes[1, 0])
+    ax.set_axis_off()
+
+    _, ax = plot_scalar_on_slice(
+        acronyms, values, coord=-1000, slice='sagittal', mapping='Beryl', hemisphere='left',
+        background='boundary', brain_atlas=ba, cmap=cmap, ax=axes[0, 1])
+    ax.set_axis_off()
+
+    _, ax = plot_scalar_on_slice(
+        acronyms, values, coord=-500, slice='coronal', mapping='Beryl', hemisphere='left',
+        background='boundary', brain_atlas=ba, cmap=cmap, ax=axes[1, 1])
+    ax.set_axis_off()
+
+    if title is not None:
+        fig.suptitle(title)
+
+    fig.subplots_adjust(right=0.85)
+    # lower left corner in [0.88, 0.3]
+    # axes width 0.02 and height 0.4
+    cb_ax = fig.add_axes([0.88, 0.3, 0.02, 0.4])
+
+    cbar = plt.colorbar(mappable=ax.images[0], cax=cb_ax, extend=extend)
+    # cbar.set_ticks([0,.2,.4,.6,.8,1])
+    cb_ax.set_title('$R^2$')
+
+    if save_file is not None:
+        plt.savefig(save_file, dpi=600)
+    plt.show()
 
 
 # -------------------------------------------------------------------------------------------------

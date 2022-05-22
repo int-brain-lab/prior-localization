@@ -48,7 +48,7 @@ DATE = '2022-05-03'  # str(date.today())
 # data processing params
 # -------------------------------------------------------------------------------------------------
 
-TARGET = 'wheel-speed'
+TARGET = 'wheel-vel'
 
 # time window params
 ALIGN_TIME = 'firstMovement_times'  # firstMovement_times | stimOn_times | feedback_times
@@ -60,10 +60,9 @@ N_BINS_LAG = 10  # number of bins to use for prediction
 ESTIMATOR = sklm.Ridge
 # ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
 HPARAM_GRID = {'alpha': np.array([1, 10, 100, 1000, 10000])}
-N_PSEUDO = 0
+N_PSEUDO = 100
 N_RUNS = 5
 SHUFFLE = True  # interleaved cross validation
-USE_IMPOSTER_SESSION = False  # if false, it uses pseudosessions
 # NORMALIZE_INPUT = False  # take out mean of the neural activity per unit across trials
 # NORMALIZE_OUTPUT = False  # take out mean of output to predict
 
@@ -108,33 +107,40 @@ if TARGET not in TARGET_OPTIONS:
     raise ValueError('TARGET can only be on of {}'.format(TARGET_OPTIONS))
 
 fit_metadata = {
+
     'target': TARGET,
+
+    # time window params
     'align_time': ALIGN_TIME,
     'time_window': TIME_WINDOW,
     'binsize': BINSIZE,
     'n_bins_lag': N_BINS_LAG,
 
+    # decoder params
     'estimator': ESTIMATOR,
     'hyperparameter_grid': HPARAM_GRID,
     'n_pseudo': N_PSEUDO,
     'n_runs': N_RUNS,
     'shuffle': SHUFFLE,
-    'use_imposter_session': USE_IMPOSTER_SESSION,
     # 'normalize_input': NORMALIZE_INPUT,
     # 'normalize_output': NORMALIZE_OUTPUT,
 
+    # cluster params
     'min_units': MIN_UNITS,
     'qc_criteria': QC_CRITERIA,
     'single_region': SINGLE_REGION,
     'merged_probes': MERGED_PROBES,
 
+    # session/behavior params
     'criterion': SESS_CRITERION,
     'min_behav_trials': MIN_BEHAV_TRIAS,
     'min_rt': MIN_RT,
     'no_unbias': NO_UNBIAS,
 
+    # widefield params
     'wide_field_imaging': WIDE_FIELD_IMAGING,
 
+    # i/o params
     'today': DATE,
     'output_path': DECODING_PATH,
     'add_to_saving_path': '_binsize=%i_lags=%i_mergedProbes_%i' % \
