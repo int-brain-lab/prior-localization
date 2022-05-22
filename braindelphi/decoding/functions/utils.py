@@ -1,25 +1,29 @@
 import os
 import numpy as np
 import pandas as pd
-import models.utils as mut
 from pathlib import Path
 from ibllib.atlas import BrainRegions
-from iblutil.numerical import ismember
-from models.expSmoothing_prevAction import expSmoothing_prevAction
-from models.expSmoothing_stimside import expSmoothing_stimside
-from sklearn.model_selection import train_test_split
-from sklearn.model_selection import KFold
-from sklearn.linear_model._coordinate_descent import LinearModelCV
-from sklearn.metrics import r2_score
-from sklearn.metrics import balanced_accuracy_score
-from sklearn.metrics import accuracy_score
-from sklearn.utils.class_weight import compute_sample_weight
 from tqdm import tqdm
-import torch
 import pickle
-import openturns
-from brainbox.task.closed_loop import generate_pseudo_blocks, _draw_position, _draw_contrast
-import sklearn.linear_model as sklm
+from braindelphi.decoding.settings import modeldispatcher
+from behavior_models.models.utils import build_path as build_path_mut
+
+def check_bhv_fit_exists(subject, model, eids, resultpath):
+    '''
+    subject: subject_name
+    eids: sessions on which the model was fitted
+    check if the behavioral fits exists
+    return Bool and filename
+    '''
+    if model not in modeldispatcher.keys():
+        raise KeyError('Model is not an instance of a model from behavior_models')
+    path_results_mouse = 'model_%s_' % modeldispatcher[model]
+    trunc_eids = [eid.split('-')[0] for eid in eids]
+    filen = build_path_mut(path_results_mouse, trunc_eids)
+    subjmodpath = Path(resultpath).joinpath(Path(subject))
+    fullpath = subjmodpath.joinpath(filen)
+    return os.path.exists(fullpath), fullpath
+
 
 def compute_mask(trialsdf, **kwargs):
     mask = trialsdf[kwargs['align_time']].notna() & trialsdf['firstMovement_times'].notna()
@@ -37,7 +41,7 @@ def return_regions(eid, sessdf, QC_CRITERIA=1, NUM_UNITS=10):
         probe = ins['probe']
         spike_sorting_path = Path(ins['session_path']).joinpath(ins['spike_sorting'])
         clusters = pd.read_parquet(spike_sorting_path.joinpath('clusters.pqt'))
-        beryl_reg = remap_region(clusters.atlas_id, br=brainreg)
+        beryl_reg = brainreg.acronym2acronym(clusters.atlas_id, mapping='Beryl')
         qc_pass = (clusters['label'] >= QC_CRITERIA).values
         regions = np.unique(beryl_reg)
         # warnings.filterwarnings('ignore')
@@ -107,7 +111,7 @@ def return_path(eid, sessdf, pseudo_ids=[-1], **kwargs):
         for _, ins in df_insertions.iterrows():
             spike_sorting_path = Path(ins['session_path']).joinpath(ins['spike_sorting'])
             clusters = pd.read_parquet(spike_sorting_path.joinpath('clusters.pqt'))
-            beryl_reg = remap_region(clusters.atlas_id, br=brainreg)
+            beryl_reg = brainreg.acronym2acronym(clusters.atlas_id, mapping='Beryl')
             qc_pass = (clusters['label'] >= kwargs['qc_criteria']).values
             across_probes['regions'].extend(beryl_reg)
             across_probes['qc_pass'].extend(qc_pass)
@@ -130,7 +134,7 @@ def return_path(eid, sessdf, pseudo_ids=[-1], **kwargs):
         if not kwargs['merged_probes']:
             spike_sorting_path = Path(ins['session_path']).joinpath(ins['spike_sorting'])
             clusters = pd.read_parquet(spike_sorting_path.joinpath('clusters.pqt'))
-            beryl_reg = remap_region(clusters.atlas_id, br=brainreg)
+            beryl_reg = brainreg.acronym2acronym(clusters.atlas_id, mapping='Beryl')
             qc_pass = (clusters['label'] >= kwargs['qc_criteria']).values
             regions = np.unique(beryl_reg)
         for region in regions:
