@@ -14,6 +14,8 @@ from braindelphi.decoding.functions.process_inputs import select_ephys_regions
 from braindelphi.decoding.functions.process_inputs import select_widefield_imaging_regions
 from braindelphi.decoding.functions.process_inputs import preprocess_ephys
 from braindelphi.decoding.functions.process_inputs import proprocess_widefield_imaging
+from braindelphi.decoding.functions.process_targets import compute_beh_target
+from ibllib.atlas import BrainRegions
 
 
 def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **kwargs):
@@ -69,10 +71,9 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
     # todo move compute_target to process_targets
     # todo make compute_mask from trials_df and 'others' and put this in utils
 
-    from process_targets import compute_beh_target
+
     tvec = compute_beh_target(trials_df)
 
-    from ibllib.atlas import BrainRegions
     brainreg = BrainRegions()
 
     from braindelphi.decoding.functions.utils import compute_mask
@@ -189,3 +190,4 @@ if __name__ == '__main__':
     import pickle
     regressors = pickle.load(open(file, 'rb'))
     trials_df = regressors['trialsdf']
+    metadata = {'eid':'test'}
