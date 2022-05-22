@@ -118,6 +118,8 @@ if len(BORDER_QUANTILES_NEUROMETRIC) != 0 and MODEL is None:
         'BORDER_QUANTILES_NEUROMETRIC must be empty when MODEL is not specified - oracle pLeft used'
     )
 
+possible_targets = ['choice', 'feedback', 'signcont', 'pLeft']
+
 fit_metadata = {
     'criterion': SESS_CRITERION,
     'target': TARGET,
