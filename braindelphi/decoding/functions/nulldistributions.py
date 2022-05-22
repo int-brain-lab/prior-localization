@@ -1,42 +1,50 @@
-if kwargs['use_imposter_session']:
-    if not kwargs['constrain_imposter_session_with_beh']:
-        pseudosess = dut.generate_imposter_session(kwargs['imposterdf'],
-                                                   eid,
-                                                   trialsdf.index.size,
-                                                   nbSampledSess=10)
-    else:
-        feedback_0contrast = trialsdf[(trialsdf.contrastLeft == 0).values + (
-                trialsdf.contrastRight == 0).values].feedbackType.mean()
+import numpy as np
+from braindelphi.decoding.functions.utils import check_bhv_fit_exists
+import torch
+from behavior_models.models.utils import format_input as mut_format_input
+from brainbox.task.closed_loop import generate_pseudo_session
 
-        pseudosess_s = [
-            dut.generate_imposter_session(kwargs['imposterdf'],
-                                          eid,
-                                          trialsdf.index.size,
-                                          nbSampledSess=10) for _ in range(50)
-        ]
-        feedback_pseudo_0cont = [
-            pseudo[(pseudo.contrastLeft == 0).values +
-                   (pseudo.contrastRight == 0).values].feedbackType.mean()
-            for pseudo in pseudosess_s
-        ]
-        pseudosess = pseudosess_s[np.argmin(
-            np.abs(np.array(feedback_pseudo_0cont) - feedback_0contrast))]
-    pseudomask = mask & (pseudosess.choice != 0)
-else:
-    pseudosess = generate_pseudo_session(trialsdf, generate_choices=False)
-    if kwargs['model'].name == 'actKernel':
-        subjModel = {
-            'modeltype': kwargs['model'],
-            'subjeids': subjeids,
-            'subject': subject,
-            'modelfit_path': kwargs['modelfit_path'],
-            'eid': eid
-        }
-        pseudosess['choice'] = dut.generate_choices(
-            pseudosess, trialsdf, subjModel)
+
+def generate_null_distribution_session(trialsdf, eid, **kwargs):
+    if kwargs['use_imposter_session']:
+        if not kwargs['constrain_imposter_session_with_beh']:
+            pseudosess = generate_imposter_session(kwargs['imposterdf'],
+                                                       eid,
+                                                       trialsdf.index.size,
+                                                       nbSampledSess=10)
+        else:
+            feedback_0contrast = trialsdf[(trialsdf.contrastLeft == 0).values + (
+                    trialsdf.contrastRight == 0).values].feedbackType.mean()
+
+            pseudosess_s = [
+                generate_imposter_session(kwargs['imposterdf'],
+                                              eid,
+                                              trialsdf.index.size,
+                                              nbSampledSess=10) for _ in range(50)
+            ]
+            feedback_pseudo_0cont = [
+                pseudo[(pseudo.contrastLeft == 0).values +
+                       (pseudo.contrastRight == 0).values].feedbackType.mean()
+                for pseudo in pseudosess_s
+            ]
+            pseudosess = pseudosess_s[np.argmin(
+                np.abs(np.array(feedback_pseudo_0cont) - feedback_0contrast))]
+        pseudomask = None  # mask & (pseudosess.choice != 0)
     else:
-        pseudosess['choice'] = trialsdf.choice
-    pseudomask = mask & (trialsdf.choice != 0)
+        pseudosess = generate_pseudo_session(trialsdf, generate_choices=False)
+        if kwargs['model'].name == 'actKernel':
+            subjModel = {
+                'modeltype': kwargs['model'],
+                'subjeids': metadata['subjeids'],
+                'subject': metadata['subject'],
+                'modelfit_path': kwargs['modelfit_path'],
+                'eid': eid
+            }
+            pseudosess['choice'] = generate_choices(
+                pseudosess, trialsdf, subjModel)
+        else:
+            pseudosess['choice'] = trialsdf.choice
+        pseudomask = None  # mask & (trialsdf.choice != 0)
 
 
 
@@ -57,7 +65,7 @@ def generate_choices(pseudosess, trialsdf, subjModel):
 
     arr_params = model.get_parameters(parameter_type='posterior_mean')[None]
     valid = np.ones([1, pseudosess.index.size], dtype=bool)
-    stim, act, side = mut.format_input([pseudosess.signed_contrast.values],
+    stim, act, side = mut_format_input([pseudosess.signed_contrast.values],
                                        [trialsdf.choice.values], [pseudosess.stim_side.values])
     act_sim, stim, side = model.simulate(arr_params,
                                          stim,

@@ -1,19 +1,13 @@
+from pathlib import Path
+from behavior_models.models import utils as mut
+from behavior_models.models import expSmoothing_prevAction, expSmoothing_stimside
+import os
+import numpy as np
+import torch
+import pandas as pd
+from brainbox.task.closed_loop import generate_pseudo_blocks, _draw_position, _draw_contrast
+from braindelphi.decoding.functions.nulldistributions import generate_imposter_session
 
-def check_bhv_fit_exists(subject, model, eids, resultpath):
-    '''
-    subject: subject_name
-    eids: sessions on which the model was fitted
-    check if the behavioral fits exists
-    return Bool and filename
-    '''
-    if model not in modeldispatcher.keys():
-        raise KeyError('Model is not an instance of a model from behavior_models')
-    path_results_mouse = 'model_%s_' % modeldispatcher[model]
-    trunc_eids = [eid.split('-')[0] for eid in eids]
-    filen = mut.build_path(path_results_mouse, trunc_eids)
-    subjmodpath = Path(resultpath).joinpath(Path(subject))
-    fullpath = subjmodpath.joinpath(filen)
-    return os.path.exists(fullpath), fullpath
 
 def fit_load_bhvmod(target,
                     subject,
@@ -91,19 +85,17 @@ def fit_load_bhvmod(target,
 
     return signal.squeeze()
 
+possible_targets = ['choice', 'feedback', 'signcont', 'pLeft']
 
-
-
-def compute_target(target,
-                   subject,
-                   eids_train,
-                   eid_test,
-                   savepath,
-                   binarization_value,
-                   modeltype=expSmoothing_prevAction,
-                   one=None,
-                   behavior_data_train=None,
-                   beh_data_test=None):
+def compute_beh_target(target,
+                       subject,
+                       eids_train,
+                       eid_test,
+                       savepath,
+                       binarization_value,
+                       modeltype,
+                       behavior_data_train=None,
+                       beh_data_test=None):
     """
     Computes regression target for use with regress_target, using subject, eid, and a string
     identifying the target parameter to output a vector of N_trials length containing the target
@@ -145,7 +137,6 @@ def compute_target(target,
                            eid_test,
                            remove_old=False,
                            modeltype=modeltype,
-                           one=one,
                            behavior_data_train=behavior_data_train,
                            beh_data_test=beh_data_test)
 
@@ -212,14 +203,6 @@ def optimal_Bayesian(act, stim, side):
     Pis = predictive[:, 0] * gamma + predictive[:, 1] * 0.5 + predictive[:, 2] * (1 - gamma)
 
     return 1 - Pis
-
-modeldispatcher = {
-    expSmoothing_prevAction: expSmoothing_prevAction.name,
-    expSmoothing_stimside: expSmoothing_stimside.name,
-    optimal_Bayesian: 'optBay',
-    None: 'oracle'
-}
-
 
 def get_target_pLeft(nb_trials,
                      nb_sessions,
