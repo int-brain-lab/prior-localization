@@ -13,9 +13,9 @@ from sklearn.model_selection import GridSearchCV
 import neurencoding.linear as lm
 import neurencoding.utils as mut
 
-# Delphi repo imports
-from delphi.params import CACHE_PATH, FIT_PATH
-from delphi.utils import make_batch_slurm
+# braindelphi repo imports
+from braindelphi.params import CACHE_PATH, FIT_PATH
+from braindelphi.utils import make_batch_slurm
 
 # SLURM params
 BATCHFILE = '/home/gercek/bwm_stepwise_glm_signwheel.sh'

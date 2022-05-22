@@ -11,7 +11,7 @@ from tqdm import tqdm
 from ibllib.atlas import BrainRegions
 
 # Brainwide repo imports
-from delphi.utils import get_id, remap
+from braindelphi.utils import get_id, remap
 
 
 def generate_da_dict(
@@ -77,8 +77,8 @@ if __name__ == '__main__':
     import pickle
     from pathlib import Path
 
-    # Delphi repo imports
-    from delphi.params import CACHE_PATH, FIT_PATH
+    # braindelphi repo imports
+    from braindelphi.params import CACHE_PATH, FIT_PATH
 
     FITDATE = '2022-02-24'  # Date on which fit was run
 

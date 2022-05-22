@@ -1,7 +1,7 @@
 Metadata-Version: 2.1
-Name: delphi
+Name: braindelphi
 Version: 0.0.1
-Summary: Delphi package for encoding and decoding brainwide neural activity
+Summary: braindelphi package for encoding and decoding brainwide neural activity
 Home-page: https://www.internationalbrainlab.com/
 Author: IBL
 License: MIT

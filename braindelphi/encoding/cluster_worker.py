@@ -14,11 +14,11 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-# delphi repo imports
-from delphi.decoding.functions.utils import compute_target
-from delphi.encoding.design import generate_design
-from delphi.encoding.fit import fit_stepwise, fit_impostor
-from delphi.params import BEH_MOD_PATH, FIT_PATH
+# braindelphi repo imports
+from braindelphi.decoding.functions.utils import compute_target
+from braindelphi.encoding.design import generate_design
+from braindelphi.encoding.fit import fit_stepwise, fit_impostor
+from braindelphi.params import BEH_MOD_PATH, FIT_PATH
 
 
 def filter_nan(trialsdf):

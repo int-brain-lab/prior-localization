@@ -6,9 +6,9 @@ from tqdm import tqdm
 # IBL libraries
 import neurencoding.utils as mut  # XXX: check this
 
-# Delphi repo imports
-from delphi.encoding.design import generate_design, sample_impostor
-from delphi.decoding.functions.utils import compute_target
+# braindelphi repo imports
+from braindelphi.encoding.design import generate_design, sample_impostor
+from braindelphi.decoding.functions.utils import compute_target
 
 
 def fit(design, spk_t, spk_clu, binwidth, model, estimator, n_folds=5, contiguous=False, **kwargs):
