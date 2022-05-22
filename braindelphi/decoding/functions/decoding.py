@@ -13,6 +13,8 @@ from functions.neurometric import get_neurometric_parameters
 from tqdm import tqdm
 import pickle
 
+from braindelphi.decoding.functions.decoding import decode_cv
+
 
 def fit_eid(neural_dict, trials_df, dlc_dict=None, pseudo_ids=[-1], **kwargs):
     """
@@ -246,17 +248,18 @@ def fit_eid(neural_dict, trials_df, dlc_dict=None, pseudo_ids=[-1], **kwargs):
 
                 fit_results = []
                 for i_run in range(kwargs['nb_runs']):
-                    fit_result = dut.regress_target(
-                        (tvec[mask & (nb_trialsdf.choice != 0)] if
-                         (pseudo_id == -1) else msub_pseudo_tvec),
-                        (msub_binned[nb_trialsdf.choice != 0] if
-                         (pseudo_id == -1) else msub_binned[pseudosess[mask].choice != 0]),
-                        kwargs['estimator'],
+                    fit_result = decode_cv(
+                        ys=(tvec[mask & (nb_trialsdf.choice != 0)] if
+                           (pseudo_id == -1) else msub_pseudo_tvec),
+                        Xs=(msub_binned[nb_trialsdf.choice != 0] if
+                            (pseudo_id == -1) else msub_binned[
+                            pseudosess[mask].choice != 0]),
+                        estimator=kwargs['estimator'],
+                        estimator_kwargs=kwargs['estimator_kwargs'],
                         use_openturns=kwargs['use_openturns'],
                         target_distribution=target_distribution,
                         bin_size_kde=kwargs['bin_size_kde'],
                         balanced_continuous_target=kwargs['balanced_continuous_target'],
-                        estimator_kwargs=kwargs['estimator_kwargs'],
                         hyperparam_grid=kwargs['hyperparam_grid'],
                         save_binned=kwargs['save_binned'],
                         shuffle=kwargs['shuffle'],
