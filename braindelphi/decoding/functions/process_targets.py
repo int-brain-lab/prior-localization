@@ -88,15 +88,15 @@ def fit_load_bhvmod(target,
 possible_targets = ['choice', 'feedback', 'signcont', 'pLeft']
 
 def compute_beh_target(target,
-                   subject,
-                   eids_train,
-                   eid_test,
-                   savepath,
-                   binarization_value,
-                   modeltype,
-                   one=None,
-                   behavior_data_train=None,
-                   beh_data_test=None):
+                       subject,
+                       eids_train,
+                       eid_test,
+                       savepath,
+                       binarization_value,
+                       modeltype,
+                       one=None,
+                       behavior_data_train=None,
+                       beh_data_test=None):
     """
     Computes regression target for use with regress_target, using subject, eid, and a string
     identifying the target parameter to output a vector of N_trials length containing the target
