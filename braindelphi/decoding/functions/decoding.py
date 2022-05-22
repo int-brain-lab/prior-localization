@@ -185,6 +185,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
 
 
 if __name__ == '__main__':
-    file = '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/code/prior-localization/decoding/cache/ibl_witten_32/7502ae93-7437-4bcd-9e14-d73b51193656/2022-05-22_regressors.pkl'
+    file = 'example_neural_and_behavioral_data.pkl'
     import pickle
     regressors = pickle.load(open(file, 'rb'))
+    trials_df = regressors['trialsdf']

@@ -1,7 +1,8 @@
 import logging
 import numpy as np
-from functions.utils import optimal_Bayesian, modeldispatcher
-from models.expSmoothing_prevAction import expSmoothing_prevAction
+from braindelphi.decoding.functions.process_targets import optimal_Bayesian
+from behavior_models.models.expSmoothing_prevAction import expSmoothing_prevAction
+from behavior_models.models.expSmoothing_stimside import expSmoothing_stimside
 
 import sklearn.linear_model as sklm
 from pathlib import Path
@@ -97,6 +98,13 @@ excludes = [
     '09394481-8dd2-4d5c-9327-f2753ede92d7',  # same same
 ]
 
+modeldispatcher = {
+    expSmoothing_prevAction: expSmoothing_prevAction.name,
+    expSmoothing_stimside: expSmoothing_stimside.name,
+    optimal_Bayesian: 'optBay',
+    None: 'oracle'
+}
+
 if ESTIMATOR == sklm.LogisticRegression and BALANCED_CONTINUOUS_TARGET:
     raise ValueError('you can not have a continuous target with logistic regression')
 
@@ -117,6 +125,7 @@ if len(BORDER_QUANTILES_NEUROMETRIC) != 0 and MODEL is None:
     raise ValueError(
         'BORDER_QUANTILES_NEUROMETRIC must be empty when MODEL is not specified - oracle pLeft used'
     )
+
 
 fit_metadata = {
     'criterion': SESS_CRITERION,
