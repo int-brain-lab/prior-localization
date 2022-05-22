@@ -3,22 +3,17 @@ Utility functions for the prior-localization repository
 """
 # Standard library
 import logging
+import pickle
 from pathlib import Path
-import sys
-import os
 
 # Third party libraries
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
 
 # IBL libraries
-import brainbox.io.one as bbone
-from ibllib.atlas import BrainRegions
-from iblutil.numerical import ismember
 from one.api import ONE
 
-_logger = logging.getLogger('braindelphi')
+log = logging.getLogger('braindelphi')
 
 
 def query_sessions(selection='all', one=None):
@@ -129,3 +124,12 @@ def make_batch_slurm(filename,
     fw.write(f'python {scriptpath} {" ".join(f_args)}\n')
     fw.close()
     return
+
+
+def load_pickle_data(pkl_path):
+    '''
+    Loads pkl file and returns data in a dictionary
+    '''
+    with open(pkl_path, 'rb') as f:
+        data = pickle.load(f)
+    return data
