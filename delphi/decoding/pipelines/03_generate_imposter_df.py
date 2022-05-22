@@ -6,7 +6,7 @@ from brainbox.task.closed_loop import generate_pseudo_session
 
 FAKE_IMPOSTER_SESSION = False  # only here for debugging
 GENERATE_FROM_EPHYS = False  # the number of ephys session template is too small
-# DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/code/prior-localization/brainwide/decoding/")
+# DECODING_PATH = Path("/Users/csmfindling/Documents/Postdoc-Geneva/IBL/code/prior-localization/delphi/decoding/")
 DECODING_PATH = Path("/home/users/f/findling/scratch")
 
 one = ONE()
@@ -63,7 +63,7 @@ for u in eids:
         # do stuff
         det = one.get_details(u, full=True)
         session_id = det['json']['SESSION_ORDER'][det['json']['SESSION_IDX']]
-        
+
 # original code used when I did now know how to get the session id
 pLeft_MIN_BEHAV_TRIAS = np.vstack([all_trialsdf[(all_trialsdf.trial_id < MIN_BEHAV_TRIAS) & (all_trialsdf.eid == u)]
                                    .probabilityLeft.values

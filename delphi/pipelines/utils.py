@@ -16,10 +16,10 @@ import brainbox.io.one as bbone
 import brainbox.metrics.single_units as bbqc
 from one.api import ONE
 
-# Brainwide repo imports
-from brainwide.params import CACHE_PATH
+# delphi repo imports
+from delphi.params import CACHE_PATH
 
-_logger = logging.getLogger('brainwide')
+_logger = logging.getLogger('delphi')
 
 
 def load_primaries(session_id,

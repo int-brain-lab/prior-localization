@@ -4,11 +4,11 @@ from sklearn.model_selection import GridSearchCV, KFold
 from tqdm import tqdm
 
 # IBL libraries
-import neurencoding.utils as mut
+import neurencoding.utils as mut  # XXX: check this
 
-# Brainwide repo imports
-from .design import generate_design, sample_impostor
-from brainwide.decoding.functions.utils import compute_target
+# Delphi repo imports
+from delphi.encoding.design import generate_design, sample_impostor
+from delphi.decoding.functions.utils import compute_target
 
 
 def fit(design, spk_t, spk_clu, binwidth, model, estimator, n_folds=5, contiguous=False, **kwargs):

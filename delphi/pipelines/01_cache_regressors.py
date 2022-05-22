@@ -6,9 +6,9 @@ import pickle
 import re
 from datetime import datetime as dt
 from pathlib import Path
-from brainwide.pipelines.utils import load_primaries
-from brainwide.pipelines.utils import cache_regressors
-from brainwide.decoding.settings import kwargs
+from delphi.pipelines.utils import load_primaries
+from delphi.pipelines.utils import cache_regressors
+from delphi.decoding.settings import kwargs
 
 # Third party libraries
 import dask
@@ -21,12 +21,12 @@ from dask.distributed import LocalCluster
 # IBL libraries
 import brainbox.io.one as bbone
 from one.api import ONE
-from brainwide.params import CACHE_PATH
+from delphi.params import CACHE_PATH
 
-# Brainwide repo imports
-from brainwide.utils import query_sessions
+# Delphi repo imports
+from delphi.utils import query_sessions
 
-_logger = logging.getLogger('brainwide')
+_logger = logging.getLogger('delphi')
 
 @dask.delayed
 def delayed_load(session_id, probes, params):

@@ -57,8 +57,8 @@ if __name__ == "__main__":
     import pickle
     from pathlib import Path
 
-    # Brainwide repo imports
-    from brainwide.params import CACHE_PATH, FIT_PATH
+    # Delphi repo imports
+    from delphi.params import CACHE_PATH, FIT_PATH
 
     currdate = "2022-02-14"  # Date on which fit was run
     n_cov = 8  # Modify if you change the model!
