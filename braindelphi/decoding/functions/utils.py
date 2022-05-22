@@ -26,6 +26,7 @@ def check_bhv_fit_exists(subject, model, eids, resultpath):
 
 
 def compute_mask(trialsdf, **kwargs):
+    trialsdf['react_times'] = trialsdf['firstMovement_times'] - trialsdf[kwargs['align_time']]
     mask = trialsdf[kwargs['align_time']].notna() & trialsdf['firstMovement_times'].notna()
     if kwargs['no_unbias']:
         mask = mask & (trialsdf.probabilityLeft != 0.5).values

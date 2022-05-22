@@ -13,6 +13,7 @@ def preprocess_ephys(reg_clu_ids, regressors, trials_df, **kwargs):
     binned, _ = get_spike_counts_in_bins(regspikes, regclu, intervals)
     return binned
 
+
 def proprocess_widefield_imaging():
     frames_idx = wideFieldImaging_dict['timings'][kwargs['align_time']].values
     frames_idx = np.sort(
@@ -40,7 +41,7 @@ def select_widefield_imaging_regions():
     return reg_clu_ids
 
 def select_ephys_regions(regressors, beryl_reg, region, **kwargs):
-    qc_pass = (regressors['clu_qc'] >= kwargs['qc_criteria']).values
+    qc_pass = (regressors['clu_qc']['label'] >= kwargs['qc_criteria'])
     reg_mask = np.isin(beryl_reg, region)
     reg_clu_ids = np.argwhere(reg_mask & qc_pass).flatten()
     return reg_clu_ids

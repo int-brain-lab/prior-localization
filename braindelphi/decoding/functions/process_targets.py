@@ -94,7 +94,6 @@ def compute_beh_target(target,
                        savepath,
                        binarization_value,
                        modeltype,
-                       one=None,
                        behavior_data_train=None,
                        beh_data_test=None):
     """
@@ -138,7 +137,6 @@ def compute_beh_target(target,
                            eid_test,
                            remove_old=False,
                            modeltype=modeltype,
-                           one=one,
                            behavior_data_train=behavior_data_train,
                            beh_data_test=beh_data_test)
 

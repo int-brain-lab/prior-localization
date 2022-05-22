@@ -71,7 +71,6 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
     # todo move compute_target to process_targets
     # todo make compute_mask from trials_df and 'others' and put this in utils
 
-
     tvec = compute_beh_target(trials_df)
 
     brainreg = BrainRegions()
@@ -85,15 +84,12 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
     print(f'Working on eid : %s' % metadata['eid'])
 
     # warnings.filterwarnings('ignore')
-    regions = (
-        [[k] for k in np.unique(regressors['clu_regions'])]
-        if kwargs['single_region']
-        else [np.unique(regressors['clu_regions'])]
-    )
-
-    probe = metadata['probe']
     beryl_reg = brainreg.acronym2acronym(regressors['clu_regions'], mapping='Beryl')
-    regions = np.unique(beryl_reg)
+    regions = (
+        [[k] for k in np.unique(beryl_reg)]
+        if kwargs['single_region']
+        else [np.unique(beryl_reg)]
+    )
 
     for region in tqdm(regions, desc='Region: ', leave=False):
 
@@ -190,4 +186,4 @@ if __name__ == '__main__':
     import pickle
     regressors = pickle.load(open(file, 'rb'))
     trials_df = regressors['trialsdf']
-    metadata = {'eid':'test'}
+    metadata = {'eids_train':['test'], 'eid_test': 'test', 'subject':'mouse_name'}

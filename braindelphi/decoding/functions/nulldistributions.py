@@ -4,6 +4,7 @@ import torch
 from behavior_models.models.utils import format_input as mut_format_input
 from brainbox.task.closed_loop import generate_pseudo_session
 
+
 def generate_null_distribution_session(trialsdf, eid, **kwargs):
     if kwargs['use_imposter_session']:
         if not kwargs['constrain_imposter_session_with_beh']:
