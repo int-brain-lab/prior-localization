@@ -8,6 +8,7 @@ from datetime import datetime as dt
 from pathlib import Path
 from brainwide.pipelines.utils import load_primaries
 from brainwide.pipelines.utils import cache_regressors
+from brainwide.decoding.settings import kwargs
 
 # Third party libraries
 import dask
