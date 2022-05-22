@@ -21,6 +21,14 @@ import openturns
 from brainbox.task.closed_loop import generate_pseudo_blocks, _draw_position, _draw_contrast
 import sklearn.linear_model as sklm
 
+def compute_mask(trialsdf, **kwargs):
+    mask = trialsdf[kwargs['align_time']].notna() & trialsdf['firstMovement_times'].notna()
+    if kwargs['no_unbias']:
+        mask = mask & (trialsdf.probabilityLeft != 0.5).values
+    if kwargs['min_rt'] is not None:
+        mask = mask & (~(trialsdf.react_times < kwargs['min_rt'])).values
+    return mask & (trialsdf.choice != 0)
+
 def return_regions(eid, sessdf, QC_CRITERIA=1, NUM_UNITS=10):
     df_insertions = sessdf.loc[sessdf['eid'] == eid]
     brainreg = BrainRegions()

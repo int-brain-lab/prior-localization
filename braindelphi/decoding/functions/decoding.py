@@ -1,17 +1,19 @@
 import numpy as np
 import pandas as pd
-import functions.utils as dut
 import brainbox.io.one as bbone
 import models.utils as mut
 from pathlib import Path
-from functions.utils import save_region_results
+from braindelphi.decoding.functions import save_region_results
 from one.api import ONE
-from brainbox.population.decode import get_spike_counts_in_bins
 from brainbox.task.closed_loop import generate_pseudo_session
 import one.alf.io as alfio
 from functions.neurometric import get_neurometric_parameters
 from tqdm import tqdm
 import pickle
+from braindelphi.decoding.functions.process_inputs import select_ephys_regions
+from braindelphi.decoding.functions.process_inputs import select_widefield_imaging_regions
+from braindelphi.decoding.functions.process_inputs import preprocess_ephys
+from braindelphi.decoding.functions.process_inputs import proprocess_widefield_imaging
 
 
 def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **kwargs):
@@ -62,6 +64,8 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
         raise ValueError(
             'pseudo id can be -1 (actual session) or strictly greater than 0 (pseudo session)')
 
+    filenames = []
+
     # todo move compute_target to process_targets
     # todo make compute_mask from trials_df and 'others' and put this in utils
 
@@ -71,12 +75,10 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
     from ibllib.atlas import BrainRegions
     brainreg = BrainRegions()
 
-    from utils import compute_mask
-    mask_trials_df = compute_mask(trials_df)
-    # todo multiply the two masks
+    from braindelphi.decoding.functions.utils import compute_mask
+    mask_trials_df = compute_mask(trials_df, **kwargs)
 
-    filenames = []
-    if len(tvec[mask]) <= kwargs['min_behav_trials']:
+    if len(tvec[mask_trials_df]) <= kwargs['min_behav_trials']:
         return filenames
 
     print(f'Working on eid : %s' % metadata['eid'])
@@ -90,31 +92,22 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
 
     probe = metadata['probe']
     beryl_reg = brainreg.acronym2acronym(regressors['clu_regions'], mapping='Beryl')
-    qc_pass = (regressors['clu_qc'] >= kwargs['qc_criteria']).values
     regions = np.unique(beryl_reg)
 
     for region in tqdm(regions, desc='Region: ', leave=False):
 
-        from process_inputs import select_ephys_regions
-        from process_inputs import select_widefield_imaging_regions
         reg_clu_ids = (
             select_widefield_imaging_regions() if kwargs['wide_field_imaging']
-            else select_ephys_regions()
+            else select_ephys_regions(regressors, beryl_reg, region, **kwargs)
         )
 
         N_units = len(reg_clu_ids)
         if N_units < kwargs['min_units']:
             continue
-        intervals = np.vstack([
-            trialsdf[kwargs['align_time']] + kwargs['time_window'][0],
-            trialsdf[kwargs['align_time']] + kwargs['time_window'][1]
-        ]).T
 
-        from process_inputs import preprocess_ephys
-        from process_inputs import proprocess_widefield_imaging
         msub_binned = (
             proprocess_widefield_imaging() if kwargs['wide_field_imaging']
-            else preprocess_ephys()
+            else preprocess_ephys(reg_clu_ids, regressors, trials_df, **kwargs)
         ).T
 
         if kwargs['simulate_neural_data']:

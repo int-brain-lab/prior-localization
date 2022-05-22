@@ -1,8 +1,12 @@
 from pathlib import Path
 from behavior_models.models import utils as mut
+from behavior_models.models import expSmoothing_prevAction, expSmoothing_stimside
 import os
 import numpy as np
-
+import torch
+import pandas as pd
+from brainbox.task.closed_loop import generate_pseudo_blocks, _draw_position, _draw_contrast
+from braindelphi.decoding.functions.nulldistributions import generate_imposter_session
 
 def check_bhv_fit_exists(subject, model, eids, resultpath):
     '''
