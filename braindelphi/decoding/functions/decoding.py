@@ -16,8 +16,7 @@ from braindelphi.decoding.functions.process_inputs import preprocess_ephys
 from braindelphi.decoding.functions.process_inputs import proprocess_widefield_imaging
 from braindelphi.decoding.functions.process_targets import compute_beh_target
 from ibllib.atlas import BrainRegions
-
-from braindelphi.decoding.functions.decoding import decode_cv
+from braindelphi.decoding.functions.decoder import decode_cv
 
 
 def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **kwargs):
@@ -109,11 +108,14 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
             else preprocess_ephys(reg_clu_ids, regressors, trials_df, **kwargs)
         ).T
 
+
+
         if kwargs['simulate_neural_data']:
             raise NotImplementedError
 
         for pseudo_id in pseudo_ids:
             if pseudo_id > 0:  # create pseudo session when necessary
+
                 msub_pseudo_tvec = dut.compute_target(
                     kwargs['target'],
                     subject,
@@ -129,9 +131,26 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
             if kwargs['compute_neurometric']:  # compute prior for neurometric curve
                 # do neurometric stuff
 
+                y = (np.random.rand(476) < 0.5) * 1
+                fit_result = decode_cv(
+                    y,
+                    msub_binned,
+                    kwargs['estimator'],
+                    use_openturns=kwargs['use_openturns'],
+                    target_distribution=None,
+                    bin_size_kde=kwargs['bin_size_kde'],
+                    balanced_continuous_target=kwargs['balanced_continuous_target'],
+                    estimator_kwargs=kwargs['estimator_kwargs'],
+                    hyperparam_grid=kwargs['hyperparam_grid'],
+                    save_binned=kwargs['save_binned'],
+                    shuffle=kwargs['shuffle'],
+                    balanced_weight=kwargs['balanced_weight'],
+                    normalize_input=kwargs['normalize_input'],
+                    normalize_output=kwargs['normalize_output'])
+
             fit_results = []
             for i_run in range(kwargs['nb_runs']):
-                fit_result = dut.regress_target(
+                fit_result = decode_cv(
                     (tvec[mask & (nb_trialsdf.choice != 0)] if
                      (pseudo_id == -1) else msub_pseudo_tvec),
                     (msub_binned[nb_trialsdf.choice != 0] if
@@ -179,7 +198,6 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                     today=kwargs['today'],
                     target=kwargs['target'],
                     add_to_saving_path=kwargs['add_to_saving_path']))
->>>>>>> 15d2dc6b05fadbd484040b69c5ff7a2048203951
 
     return filenames
 

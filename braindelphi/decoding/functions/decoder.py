@@ -136,12 +136,11 @@ def decode_cv(
 
     # Select either the GridSearchCV estimator for a normal estimator, or use the native estimator
     # in the case of CV-type estimators
-    if isinstance(estimator, sklm.LinearModelCV):
+    if isinstance(estimator, sklm._coordinate_descent.LinearModelCV):
         raise NotImplemented('the code does not support a CV-type estimator for the moment.')
     else:
         # loop over outer folds
         for train_idxs_outer, test_idxs_outer in outer_kfold:
-
             # outer fold data split
             # X_train = np.vstack([Xs[i] for i in train_idxs])
             # y_train = np.concatenate([ys[i] for i in train_idxs], axis=0)
@@ -245,14 +244,13 @@ def decode_cv(
             for i_fold, i_global in enumerate(test_idxs_outer):
                 if bins_per_trial == 1:
                     # we already computed these estimates, take from above
-                    predictions[i_global] = y_pred[i_fold]
+                    predictions[i_global] = np.array([y_pred[i_fold]])
                     if isinstance(estimator, sklm.LogisticRegression):
-                        predictions_to_save[i_global] = y_pred_probs[i_fold]
+                        predictions_to_save[i_global] = np.array([y_pred_probs[i_fold]])
                     else:
-                        predictions_to_save[i_global] = predictions[i_global]
+                        predictions_to_save[i_global] = np.array([y_pred[i_fold]])
                 else:
-                    # we already computed these above, but after all trials were stacked; recompute
-                    # per-trial
+                    # we already computed these above, but after all trials were stacked; recompute per-trial
                     predictions[i_global] = model.predict(
                         X_test[i_fold] - mean_X_train) + mean_y_train
                     if isinstance(estimator, sklm.LogisticRegression):
