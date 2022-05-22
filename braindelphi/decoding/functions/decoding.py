@@ -14,10 +14,11 @@ from tqdm import tqdm
 import pickle
 
 
-def fit_eid(regressors, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=None, **kwargs):
+def fit_eid(neural_dict, trials_df, dlc_dict=None, pseudo_ids=[-1], **kwargs):
     """
     Parameters
     ----------
+    dlc_dict: dlc_dict with dlc, pupil dilation, wheel velocity
     eid: eid of session
     bwmdf: dataframe of bwm session
     pseudo_id: whether to compute a pseudosession or not. if pseudo_id=-1, the true session is considered.
@@ -27,6 +28,34 @@ def fit_eid(regressors, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
     output_path: outputs of decoding fits
     one: ONE object -- this is not to be used with dask, this option is given for debugging purposes
     sessiondf: the behavioral and neural dataframe when you want to bypass the bwm encoding phase
+    kwargs
+        target : str
+        align_time : str
+        time_window : tuple
+            (window_start, window_end) relative to align_time
+        binsize : float
+        n_bins_lag : int
+        estimator : sklearn.linear_model object
+        hyperparameter_grid : dict
+        n_pseudo : int
+        n_runs : int
+            number of independent runs performed. this was added after consequent variability was
+            observed across runs.
+        shuffle : bool
+        min_units : int
+        qc_criteria : float
+        single_region : bool
+        merged_probes : bool
+        criterion : str
+        min_behav_trials : int
+        min_rt : float
+        no_unbias : bool
+        wide_field_imaging : bool
+        today : str
+        output_path : str
+            outputs of decoding fits
+        add_to_saving_path : str
+        imposter_df : pandas.DataFrame
     """
 
     if ((wideFieldImaging_dict is None and kwargs['wide_field_imaging']) or
@@ -61,6 +90,9 @@ def fit_eid(regressors, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
             for (k, v) in sessiondf[sessiondf.session_to_decode].to_dict('list').items()
         }
 
+    # todo move compute_target to process_targets
+    # todo make compute_mask from trials_df and 'others' and put this in utils
+
     tvec = dut.compute_target(kwargs['target'],
                               subject,
                               subjeids,
@@ -71,64 +103,18 @@ def fit_eid(regressors, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
                               behavior_data_train=behavior_data_train,
                               beh_data_test=behavior_data)
 
-    try:
-        if sessiondf is None:
-            trialsdf = bbone.load_trials_df(eid, one=one, addtl_types=['firstMovement_times'])
-        else:
-            trialsdf = sessiondf[sessiondf.session_to_decode]
-            if 'react_times' in trialsdf.columns:
-                trialsdf = trialsdf.drop('react_times', axis=1)
-        if len(trialsdf) != len(tvec):
-            raise IndexError
-    except IndexError:
-        raise IndexError('Problem in the dimensions of dataframe of session')
-    trialsdf['react_times'] = trialsdf['firstMovement_times'] - trialsdf[kwargs['align_time']]
-    mask = trialsdf[kwargs['align_time']].notna() & trialsdf['firstMovement_times'].notna()
-    if kwargs['no_unbias']:
-        mask = mask & (trialsdf.probabilityLeft != 0.5).values
-    if kwargs['min_rt'] is not None:
-        mask = mask & (~(trialsdf.react_times < kwargs['min_rt'])).values
-    nb_trialsdf = trialsdf[mask]  # take out when mouse doesn't perform any action
 
-    if kwargs['balanced_weight'] and kwargs['balanced_continuous_target']:
-        if (kwargs['no_unbias'] and not kwargs['use_imposter_session_for_balancing'] and
-            (kwargs['model'] == dut.optimal_Bayesian)):
-            with open(
-                    kwargs['decoding_path'].joinpath(
-                        'targetpLeft_optBay_%s.pkl' %
-                        str(kwargs['bin_size_kde']).replace('.', '_')), 'rb') as f:
-                target_distribution = pickle.load(f)
-        elif not kwargs['use_imposter_session_for_balancing'] and (kwargs['model']
-                                                                   == dut.optimal_Bayesian):
-            target_distribution, _ = dut.get_target_pLeft(nb_trials=trialsdf.index.size,
-                                                          nb_sessions=250,
-                                                          take_out_unbiased=False,
-                                                          bin_size_kde=kwargs['bin_size_kde'])
-        else:
-            subjModel = {
-                'modeltype': kwargs['model'],
-                'subjeids': subjeids,
-                'subject': subject,
-                'modelfit_path': kwargs['modelfit_path'],
-                'imposterdf': kwargs['imposterdf'],
-                'use_imposter_session_for_balancing': kwargs['use_imposter_session_for_balancing'],
-                'eid': eid,
-                'target': kwargs['target']
-            }
-            target_distribution, allV_t = dut.get_target_pLeft(
-                nb_trials=trialsdf.index.size,
-                nb_sessions=250,
-                take_out_unbiased=kwargs['no_unbias'],
-                bin_size_kde=kwargs['bin_size_kde'],
-                subjModel=subjModel)
-    else:
-        target_distribution = None
+    mask_trials_df = dut.compute_mask(trials_df)
+    mask_dlc_df = dut.compute_mask(tvec)
+    # todo multiply the two masks
 
     filenames = []
     if len(tvec[mask]) <= kwargs['min_behav_trials']:
         return filenames
 
     print(f'Working on eid : {eid}')
+
+
 
     if kwargs['merged_probes'] and wideFieldImaging_dict is None:
         across_probes = {'regions': [], 'clusters': [], 'times': [], 'qc_pass': []}
@@ -233,21 +219,7 @@ def fit_eid(regressors, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
             msub_binned = binned.T  # number of trials x nb bins
 
             if kwargs['simulate_neural_data']:
-                x_range = np.arange(len(msub_binned))
-                polyfit = np.polyfit(x_range, msub_binned, deg=3)
-                ypred = np.polyval(polyfit, x_range[:, None])
-                ypred = np.maximum(
-                    np.nan_to_num((tvec[mask][:, None] * ypred) /
-                                  (tvec[mask][:, None] * ypred).mean(axis=0) *
-                                  np.mean(msub_binned, axis=0)[None], 0), 0)
-                msub_binned = np.random.poisson(ypred)
-                '''
-                from matplotlib import pyplot as plt
-                plt.figure()
-                iplot=12
-                plt.plot(msub_binned[:, iplot]); plt.plot(ypred[:, iplot])
-                plt.draw(); plt.show()
-                '''
+                # do simulations
 
             if len(msub_binned.shape) > 2:
                 raise ValueError('Multiple bins are being calculated per trial,'
@@ -256,45 +228,6 @@ def fit_eid(regressors, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
 
             for pseudo_id in pseudo_ids:
                 if pseudo_id > 0:  # create pseudo session when necessary
-                    if kwargs['use_imposter_session']:
-                        if not kwargs['constrain_imposter_session_with_beh']:
-                            pseudosess = dut.generate_imposter_session(kwargs['imposterdf'],
-                                                                       eid,
-                                                                       trialsdf.index.size,
-                                                                       nbSampledSess=10)
-                        else:
-                            feedback_0contrast = trialsdf[(trialsdf.contrastLeft == 0).values + (
-                                trialsdf.contrastRight == 0).values].feedbackType.mean()
-
-                            pseudosess_s = [
-                                dut.generate_imposter_session(kwargs['imposterdf'],
-                                                              eid,
-                                                              trialsdf.index.size,
-                                                              nbSampledSess=10) for _ in range(50)
-                            ]
-                            feedback_pseudo_0cont = [
-                                pseudo[(pseudo.contrastLeft == 0).values +
-                                       (pseudo.contrastRight == 0).values].feedbackType.mean()
-                                for pseudo in pseudosess_s
-                            ]
-                            pseudosess = pseudosess_s[np.argmin(
-                                np.abs(np.array(feedback_pseudo_0cont) - feedback_0contrast))]
-                        pseudomask = mask & (pseudosess.choice != 0)
-                    else:
-                        pseudosess = generate_pseudo_session(trialsdf, generate_choices=False)
-                        if kwargs['model'].name == 'actKernel':
-                            subjModel = {
-                                'modeltype': kwargs['model'],
-                                'subjeids': subjeids,
-                                'subject': subject,
-                                'modelfit_path': kwargs['modelfit_path'],
-                                'eid': eid
-                            }
-                            pseudosess['choice'] = dut.generate_choices(
-                                pseudosess, trialsdf, subjModel)
-                        else:
-                            pseudosess['choice'] = trialsdf.choice
-                        pseudomask = mask & (trialsdf.choice != 0)
 
                     msub_pseudo_tvec = dut.compute_target(
                         kwargs['target'],
@@ -309,32 +242,7 @@ def fit_eid(regressors, pseudo_ids=[-1], sessiondf=None, wideFieldImaging_dict=N
                         behavior_data_train=behavior_data_train)[pseudomask]
 
                 if kwargs['compute_neurometric']:  # compute prior for neurometric curve
-                    trialsdf_neurometric = nb_trialsdf.reset_index() if (pseudo_id == -1) else \
-                        pseudosess[pseudomask].reset_index()
-                    if kwargs['model'] is not None:
-                        blockprob_neurometric = dut.compute_target(
-                            'pLeft',
-                            subject,
-                            subjeids,
-                            eid,
-                            kwargs['modelfit_path'],
-                            binarization_value=kwargs['binarization_value'],
-                            modeltype=kwargs['model'],
-                            beh_data_test=trialsdf if pseudo_id == -1 else pseudosess,
-                            behavior_data_train=behavior_data_train,
-                            one=one)
-
-                        trialsdf_neurometric['blockprob_neurometric'] = np.stack([
-                            np.greater_equal(
-                                blockprob_neurometric[(mask & (trialsdf.choice != 0) if pseudo_id
-                                                       == -1 else pseudomask)], border).astype(int)
-                            for border in kwargs['border_quantiles_neurometric']
-                        ]).sum(0)
-
-                    else:
-                        blockprob_neurometric = trialsdf_neurometric['probabilityLeft'].replace(
-                            0.2, 0).replace(0.8, 1)
-                        trialsdf_neurometric['blockprob_neurometric'] = blockprob_neurometric
+                    # do neurometric stuff
 
                 fit_results = []
                 for i_run in range(kwargs['nb_runs']):
