@@ -80,12 +80,12 @@ best_probe = all_probes[index_max]
 best_region = all_regions[index_max]
 best_masks = all_masks[index_max]
 index_max_orb = np.argmax(all_scores - (999*(all_regions!='MOs')))
-index_max_orb = np.nonzero(((all_eids=='4d8c7767-981c-4347-8e5e-5d5fffe38534')&(all_regions=='MOs'))&(all_probes=='probe01'))[0] #best choice mos
-index_max_orb = np.nonzero(((all_eids=='360eac0c-7d2d-4cc1-9dcf-79fc7afc56e7')&(all_regions=='CP'))&(all_probes=='probe00'))[0] #best block cp
-index_max_orb = np.nonzero(((all_eids=='9eec761e-9762-4897-b308-a3a08c311e69')&(all_regions=='PRNr'))&(all_probes=='probe01'))[0] #best reward prnr
-index_max_orb = np.nonzero(((all_eids=='aec5d3cc-4bb2-4349-80a9-0395b76f04e2')&(all_regions=='GRN'))&(all_probes=='probe01'))[0] #best reward prnr
-assert len(index_max_orb)==1
-index_max_orb = index_max_orb[0]
+# index_max_orb = np.nonzero(((all_eids=='4d8c7767-981c-4347-8e5e-5d5fffe38534')&(all_regions=='MOs'))&(all_probes=='probe01'))[0] #best choice mos
+# index_max_orb = np.nonzero(((all_eids=='360eac0c-7d2d-4cc1-9dcf-79fc7afc56e7')&(all_regions=='CP'))&(all_probes=='probe00'))[0] #best block cp
+# index_max_orb = np.nonzero(((all_eids=='9eec761e-9762-4897-b308-a3a08c311e69')&(all_regions=='PRNr'))&(all_probes=='probe01'))[0] #best reward prnr
+# index_max_orb = np.nonzero(((all_eids=='aec5d3cc-4bb2-4349-80a9-0395b76f04e2')&(all_regions=='GRN'))&(all_probes=='probe01'))[0] #best reward prnr
+# assert len(index_max_orb)==1
+# index_max_orb = index_max_orb[0]
 best_targets_orb = all_targets[index_max_orb]
 best_score_orb = all_scores[index_max_orb]
 best_preds_orb = all_preds[index_max_orb]
