@@ -12,7 +12,7 @@ from braindelphi.decoding.functions.process_inputs import select_widefield_imagi
 from braindelphi.decoding.functions.process_inputs import preprocess_ephys
 from braindelphi.decoding.functions.process_inputs import proprocess_widefield_imaging
 from braindelphi.decoding.functions.process_targets import compute_beh_target
-from braindelphi.decoding.functions.process_targets import get_target_data_per_trial_error_check
+from braindelphi.decoding.functions.process_targets import get_target_data_per_trial_wrapper
 from braindelphi.decoding.functions.decoder import decode_cv
 from braindelphi.decoding.functions.utils import compute_mask
 from braindelphi.decoding.functions.utils import save_region_results
@@ -26,7 +26,8 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
     neural_dict : dict
         keys: 'trials_df', 'spk_times', 'spk_clu', 'clu_regions', 'clu_qc', 'clu_df'
     trials_df : dict
-        columns: ...
+        columns: 'choice', 'feedback', 'pLeft', 'firstMovement_times', 'stimOn_times',
+        'feedback_times'
     metadata : dict
         'eid', 'eid_train', 'subject', 'probe'
     dlc_dict: dict, optional
@@ -36,39 +37,48 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
         if pseudo_id>0, a pseudo session is used. cannot be 0.
     kwargs
         target : str
-            single-bin targets: 'pLeft', 'signcont', 'choice', 'feedback'
-            multi-bin targets: 'wheel-vel', 'wheel-speed', 'pupil', '[l/r]-paw-pos',
-                '[l/r]-paw-vel', '[l/r]-paw-speed', '[l/r]-whisker-me'
+            single-bin targets: 'pLeft' | 'signcont' | 'choice' | 'feedback'
+            multi-bin targets: 'wheel-vel' | 'wheel-speed' | 'pupil' | '[l/r]-paw-pos'
+                | '[l/r]-paw-vel' | '[l/r]-paw-speed' | '[l/r]-whisker-me'
         align_time : str
             event in trial on which to align intervals
-            'firstMovement_times', 'stimOn_times', 'feedback_times'
+            'firstMovement_times' | 'stimOn_times' | 'feedback_times'
         time_window : tuple
-            (window_start, window_end) relative to align_time
+            (window_start, window_end), relative to align_time
         binsize : float
-            size of bins for multi-bin decoding
+            size of bins in seconds for multi-bin decoding
         n_bins_lag : int
             number of lagged bins to use for predictors for multi-bin decoding
         estimator : sklearn.linear_model object
+            sklm.Lasso | sklm.Ridge | sklm.LinearRegression | sklm.LogisticRegression
         hyperparameter_grid : dict
             regularization values to search over
         n_runs : int
-            number of independent runs performed. this was added after consequent variability was
-            observed across runs.
+            number of independent runs performed. this was added after variability was observed
+            across runs.
         shuffle : bool
             True for interleaved cross-validation, False for contiguous blocks
         min_units : int
             minimum units per region to use for decoding
         qc_criteria : float
-        criterion : str
+            fraction between 0 and 1 that describes the number of qc tests that need to be passed
+            in order to use each unit. 0 means all units are used; 1 means a unit has to pass
+            every qc test in order to be used
         min_behav_trials : int
+            minimum number of trials (after filtering) that must be present to proceed with fits
         min_rt : float
+            minimum reaction time per trial; can be used to filter out trials with negative
+            reaction times
         no_unbias : bool
+            True to remove unbiased trials; False to keep
         neural_dtype : str
+            'ephys' | 'widefield'
         today : str
+            date string for specifying filenames
         output_path : str
-            outputs of decoding fits
+            absolute path where decoding fits are saved
         add_to_saving_path : str
-        imposter_df : pandas.DataFrame
+            additional string to append to filenames
 
     """
 
@@ -84,7 +94,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
         target_vals_list = compute_beh_target(trials_df, metadata, **kwargs)
         mask_target = np.ones(len(target_vals_list), dtype=bool)
     else:
-        _, target_vals_list, mask_target = get_target_data_per_trial_error_check(
+        _, target_vals_list, mask_target = get_target_data_per_trial_wrapper(
             dlc_dict['times'], dlc_dict['values'], trials_df, kwargs['align_event'],
             kwargs['align_interval'], kwargs['binsize'])
 
@@ -115,8 +125,8 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
         else:
             raise NotImplementedError
 
-        N_units = len(reg_clu_ids)
-        if N_units < kwargs['min_units']:
+        n_units = len(reg_clu_ids)
+        if n_units < kwargs['min_units']:
             continue
 
         if kwargs['neural_dtype'] == 'ephys':
@@ -213,7 +223,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                                     metadata['eid'],
                                     metadata['probe'],
                                     region,
-                                    N_units,
+                                    n_units,
                                     save_path)
             )
 
@@ -226,5 +236,4 @@ if __name__ == '__main__':
     regressors = pickle.load(open(file, 'rb'))
     trials_df = regressors['trialsdf']
     neural_dict = regressors
-    metadata = {'eids_train':['test'], 'eid': 'test', 'subject':'mouse_name'}
-
+    metadata = {'eids_train': ['test'], 'eid': 'test', 'subject': 'mouse_name'}

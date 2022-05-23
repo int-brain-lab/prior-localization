@@ -12,6 +12,7 @@ from braindelphi.decoding.functions.utils import check_bhv_fit_exists
 
 possible_targets = ['choice', 'feedback', 'signcont', 'pLeft']
 
+
 def compute_beh_target(trials_df, metadata, remove_old=False, **kwargs):
     """
     Computes regression target for use with regress_target, using subject, eid, and a string
@@ -175,6 +176,7 @@ def optimal_Bayesian(act, stim, side):
     Pis = predictive[:, 0] * gamma + predictive[:, 1] * 0.5 + predictive[:, 2] * (1 - gamma)
 
     return 1 - Pis
+
 
 def get_target_pLeft(nb_trials,
                      nb_sessions,
@@ -341,9 +343,9 @@ def get_target_data_per_trial(
     return target_times_list, target_data_list, np.array(good_trial)
 
 
-def get_target_data_per_trial_error_check(
+def get_target_data_per_trial_wrapper(
         target_times, target_vals, trials_df, align_event, align_interval, binsize):
-    """High-level function to split target data over trials, with error checking.
+    """Format a single session-wide array of target data into a list of trial-based arrays.
 
     Parameters
     ----------
