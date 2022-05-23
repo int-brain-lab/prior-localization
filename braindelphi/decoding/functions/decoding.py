@@ -11,7 +11,7 @@ from one.api import ONE
 
 import models.utils as mut
 
-from braindelphi.decoding.functions import save_region_results
+from braindelphi.decoding.functions import get_save_path, save_region_results
 from braindelphi.decoding.functions.process_inputs import build_predictor_matrix
 from braindelphi.decoding.functions.process_inputs import select_ephys_regions
 from braindelphi.decoding.functions.process_inputs import select_widefield_imaging_regions
@@ -24,42 +24,46 @@ from braindelphi.decoding.functions.utils import compute_mask
 
 
 def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **kwargs):
-    """
+    """High-level function to decode a given target variable from brain regions for a single eid.
+
     Parameters
     ----------
     neural_dict : dict
         keys: 'trials_df', 'spk_times', 'spk_clu', 'clu_regions', 'clu_qc', 'clu_df'
-    dlc_dict: dlc_dict with dlc, pupil dilation, wheel velocity
-        'times', 'values'
-    metadata
+    trials_df : dict
+        columns: ...
+    metadata : dict
         'eid', 'eid_train', 'subject', 'probe'
-    eid: eid of session
-    bwmdf: dataframe of bwm session
-    pseudo_id: whether to compute a pseudosession or not. if pseudo_id=-1, the true session is considered.
-    can not be 0
-    nb_runs: nb of independent runs performed. this was added after consequent variability was observed across runs.
-    modelfit_path: outputs of behavioral fits
-    output_path: outputs of decoding fits
-    one: ONE object -- this is not to be used with dask, this option is given for debugging purposes
-    sessiondf: the behavioral and neural dataframe when you want to bypass the bwm encoding phase
+    dlc_dict: dict, optional
+        keys: 'times', 'values'
+    pseudo_ids : array-like
+        whether to compute a pseudosession or not. if pseudo_id=-1, the true session is considered.
+        if pseudo_id>0, a pseudo session is used. cannot be 0.
     kwargs
         target : str
+            single-bin targets: 'pLeft', 'signcont', 'choice', 'feedback'
+            multi-bin targets: 'wheel-vel', 'wheel-speed', 'pupil', '[l/r]-paw-pos',
+                '[l/r]-paw-vel', '[l/r]-paw-speed', '[l/r]-whisker-me'
         align_time : str
+            event in trial on which to align intervals
+            'firstMovement_times', 'stimOn_times', 'feedback_times'
         time_window : tuple
             (window_start, window_end) relative to align_time
         binsize : float
+            size of bins for multi-bin decoding
         n_bins_lag : int
+            number of lagged bins to use for predictors for multi-bin decoding
         estimator : sklearn.linear_model object
         hyperparameter_grid : dict
-        n_pseudo : int
+            regularization values to search over
         n_runs : int
             number of independent runs performed. this was added after consequent variability was
             observed across runs.
         shuffle : bool
+            True for interleaved cross-validation, False for contiguous blocks
         min_units : int
+            minimum units per region to use for decoding
         qc_criteria : float
-        single_region : bool
-        merged_probes : bool
         criterion : str
         min_behav_trials : int
         min_rt : float
@@ -148,6 +152,8 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                     beh_data_test=pseudosess,
                     one=one,
                     behavior_data_train=behavior_data_train)[pseudomask]
+            else:
+                pseudo_targets = None
 
             if kwargs['compute_neurometric']:  # compute prior for neurometric curve
                 raise NotImplementedError
@@ -197,19 +203,26 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                     fit_result['fold_neurometric'] = None
                 fit_results.append(fit_result)
 
+            save_path = get_save_path(
+                pseudo_id, metadata['subject'], metadata['eid'], metadata['probe'],
+                str(np.squeeze(region)) if kwargs['single_region'] else 'allRegions',
+                output_path=kwargs['output_path'],
+                time_window=kwargs['time_window'],
+                today=kwargs['today'],
+                target=kwargs['target'],
+                add_to_saving_path=kwargs['add_to_saving_path']
+            )
+
             filenames.append(
                 save_region_results(fit_results,
                                     pseudo_id,
+                                    metadata['subject'],
+                                    metadata['eid'],
+                                    metadata['probe'],
                                     region,
                                     N_units,
-                                    metadata,
-                                    **kwargs)
+                                    save_path)
             )
-                    #output_path=kwargs['output_path'],
-                    #time_window=kwargs['time_window'],
-                    #today=kwargs['today'],
-                    #target=kwargs['target'],
-                    #add_to_saving_path=kwargs['add_to_saving_path']))
 
     return filenames
 

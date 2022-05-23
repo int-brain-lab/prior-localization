@@ -3,16 +3,35 @@ import scipy
 from brainbox.population.decode import get_spike_counts_in_bins
 
 
-def preprocess_ephys(reg_clu_ids, regressors, trials_df, **kwargs):
+def preprocess_ephys(reg_clu_ids, neural_df, trials_df, **kwargs):
+
+    # compute time intervals for each trial
     intervals = np.vstack([
         trials_df[kwargs['align_time']] + kwargs['time_window'][0],
         trials_df[kwargs['align_time']] + kwargs['time_window'][1]
     ]).T
-    spikemask = np.isin(regressors['spk_clu'], reg_clu_ids)
-    regspikes = regressors['spk_times'][spikemask]
-    regclu = regressors['spk_clu'][spikemask]
-    binned, _ = get_spike_counts_in_bins(regspikes, regclu, intervals)
-    return binned.T
+
+    # subselect spikes for this region
+    spikemask = np.isin(neural_df['spk_clu'], reg_clu_ids)
+    regspikes = neural_df['spk_times'][spikemask]
+    regclu = neural_df['spk_clu'][spikemask]
+
+    trial_len = kwargs['time_window'][1] - kwargs['time_window'][0]
+    binsize = kwargs.get('binsize', trial_len)
+    if trial_len / binsize == 1.0:
+        # one vector of neural activity per trial
+        binned, _ = get_spike_counts_in_bins(regspikes, regclu, intervals)
+        binned = binned.T  # binned is a 2D array
+    else:
+        # multiple vectors of neural activity per trial
+        spike_times_list, binned = get_spike_data_per_trial(
+            regspikes, regclu,
+            interval_begs=intervals[0] - kwargs['n_bins_lag'] * kwargs['binsize'],
+            interval_ends=intervals[1],
+            binsize=kwargs['binsize'])
+        # binned is a list of 2D arrays
+
+    return binned
 
 
 def get_spike_data_per_trial(times, clusters, interval_begs, interval_ends, binsize):
