@@ -1,5 +1,6 @@
 from pathlib import Path
-from behavior_models.models import utils as mut
+from behavior_models.models.utils import format_data as format_data_mut
+from behavior_models.models.utils import format_input as format_input_mut
 from behavior_models.models import expSmoothing_prevAction, expSmoothing_stimside
 import os
 import numpy as np
@@ -7,95 +8,11 @@ import torch
 import pandas as pd
 from brainbox.task.closed_loop import generate_pseudo_blocks, _draw_position, _draw_contrast
 from braindelphi.decoding.functions.nulldistributions import generate_imposter_session
-
-
-def fit_load_bhvmod(target,
-                    subject,
-                    savepath,
-                    eids_train,
-                    behavior_data_train,
-                    modeltype,
-                    remove_old=False,
-                    beh_data_test=None):
-    '''
-    load/fit a behavioral model to compute target on a single session
-    Params:
-        eids_train: list of eids on which we train the network
-        eid_test: eid on which we want to compute the target signals, only one string
-        beh_data_test: if you have to launch the model on beh_data_test.
-                       if beh_data_test is explicited, the eid_test will not be considered
-        target can be pLeft or signcont. If target=pLeft, it will return the prior predicted by modeltype
-                                         if modetype=None, then it will return the actual pLeft (.2, .5, .8)
-    '''
-
-    # check if is trained
-    istrained, fullpath = check_bhv_fit_exists(subject, modeltype, eids_train, savepath)
-
-    if target == 'signcont':
-        if 'signedContrast' in beh_data_test.keys():
-            out = beh_data_test['signedContrast']
-        else:
-            out = np.nan_to_num(beh_data_test['contrastLeft']) - np.nan_to_num(
-                beh_data_test['contrastRight'])
-        return out
-    if target == 'choice':
-        return np.array(beh_data_test['choice'])
-    if target == 'feedback':
-        return np.array(beh_data_test['feedbackType'])
-    elif (target == 'pLeft') and (modeltype is None):
-        return np.array(beh_data_test['probabilityLeft'])
-    elif (target
-          == 'pLeft') and (modeltype is optimal_Bayesian):  # bypass fitting and generate priors
-        side, stim, act, _ = mut.format_data(beh_data_test)
-        if isinstance(side, np.ndarray) and isinstance(act, np.ndarray):
-            signal = optimal_Bayesian(act, stim, side)
-        else:
-            signal = optimal_Bayesian(act.values, stim, side.values)
-        return signal.numpy().squeeze()
-
-    if (not istrained) and (target != 'signcont') and (modeltype is not None):
-        datadict = {'stim_side': [], 'actions': [], 'stimuli': []}
-        for eid in eids_train:
-            subdf = behavior_data_train[behavior_data_train.eid == eid]
-            stim_side, stimuli, actions = subdf.stim_side.values, subdf.signedContrast.values, subdf.choice.values
-            datadict['stim_side'].append(stim_side)
-            datadict['stimuli'].append(stimuli)
-            datadict['actions'].append(actions)
-        stimuli, actions, stim_side = mut.format_input(datadict['stimuli'], datadict['actions'],
-                                                       datadict['stim_side'])
-        eids = np.array(eids_train)
-        model = modeltype(savepath, eids, subject, actions, stimuli, stim_side)
-        model.load_or_train(remove_old=remove_old)
-    elif (target != 'signcont') and (modeltype is not None):
-        model = modeltype(savepath,
-                          eids_train,
-                          subject,
-                          actions=None,
-                          stimuli=None,
-                          stim_side=None)
-        model.load_or_train(loadpath=str(fullpath))
-
-    # compute signal
-    stim_side, stimuli, actions, _ = mut.format_data(beh_data_test)
-    stimuli, actions, stim_side = mut.format_input([stimuli], [actions], [stim_side])
-    signal = model.compute_signal(signal='prior' if target == 'pLeft' else target,
-                                  act=actions,
-                                  stim=stimuli,
-                                  side=stim_side)['prior' if target == 'pLeft' else target]
-
-    return signal.squeeze()
+from braindelphi.decoding.functions.utils import check_bhv_fit_exists
 
 possible_targets = ['choice', 'feedback', 'signcont', 'pLeft']
 
-def compute_beh_target(target,
-                       subject,
-                       eids_train,
-                       eid_test,
-                       savepath,
-                       binarization_value,
-                       modeltype,
-                       behavior_data_train=None,
-                       beh_data_test=None):
+def compute_beh_target(trials_df, metadata, remove_old=False, **kwargs):
     """
     Computes regression target for use with regress_target, using subject, eid, and a string
     identifying the target parameter to output a vector of N_trials length containing the target
@@ -127,21 +44,76 @@ def compute_beh_target(target,
     pandas.Series
         Pandas series in which index is trial number, and value is the target
     """
-    if target not in possible_targets:
+    if kwargs['target'] not in possible_targets:
         raise ValueError('target should be in {}'.format(possible_targets))
 
-    tvec = fit_load_bhvmod(target,
-                           subject,
-                           savepath.as_posix() + '/',
-                           eids_train,
-                           eid_test,
-                           remove_old=False,
-                           modeltype=modeltype,
-                           behavior_data_train=behavior_data_train,
-                           beh_data_test=beh_data_test)
+    '''
+    load/fit a behavioral model to compute target on a single session
+    Params:
+        eids_train: list of eids on which we train the network
+        eid_test: eid on which we want to compute the target signals, only one string
+        beh_data_test: if you have to launch the model on beh_data_test.
+                       if beh_data_test is explicited, the eid_test will not be considered
+        target can be pLeft or signcont. If target=pLeft, it will return the prior predicted by modeltype
+                                         if modetype=None, then it will return the actual pLeft (.2, .5, .8)
+    '''
 
-    if binarization_value is not None:
-        tvec = (tvec > binarization_value) * 1
+    # check if is trained
+    eids_train = ([metadata['eid']] if 'eids_train' not in metadata.keys()
+                   else metadata['eids_train'])
+
+    istrained, fullpath = check_bhv_fit_exists(metadata['subject'], kwargs['model'], eids_train, kwargs['modelfit_path'])
+
+    if kwargs['target'] == 'signcont':
+        if 'signedContrast' in trials_df.keys():
+            out = trials_df['signedContrast']
+        else:
+            out = np.nan_to_num(trials_df.contrastLeft) - np.nan_to_num(trials_df.contrastRight)
+        return out
+    if kwargs['target'] == 'choice':
+        return trials_df.choice.values
+    if kwargs['target'] == 'feedback':
+        return trials_df.feedbackType.values
+    elif (kwargs['target'] == 'pLeft') and (kwargs['model'] is None):
+        return trials_df.probabilityLeft.values
+    elif (kwargs['target'] == 'pLeft') and (kwargs['model'] is optimal_Bayesian):  # bypass fitting and generate priors
+        side, stim, act, _ = format_data_mut(trials_df)
+        signal = optimal_Bayesian(act, stim, side)
+        return signal.numpy().squeeze()
+
+    if (not istrained) and (kwargs['target'] != 'signcont') and (kwargs['model'] is not None):
+        datadict = {'stim_side': [], 'actions': [], 'stimuli': []}
+        if 'eids_train' in kwargs.keys() or len(eids_train) >= 2:
+            raise NotImplementedError('Sorry, this features is not implemented yet')
+        for _ in eids_train:  # this seems superfluous but this is a relevant structure for when eids_train != [eid]
+            side, stim, act, _ = format_data_mut(trials_df)
+            datadict['stim_side'].append(side)
+            datadict['stimuli'].append(stim)
+            datadict['actions'].append(act)
+        stimuli, actions, stim_side = format_input_mut(datadict['stimuli'], datadict['actions'], datadict['stim_side'])
+        model = kwargs['model'](kwargs['modelfit_path'], np.array(eids_train), metadata['subject'],
+                                actions, stimuli, stim_side)
+        model.load_or_train(remove_old=remove_old)
+    elif (kwargs['target'] != 'signcont') and (kwargs['model'] is not None):
+        model = kwargs['model'](kwargs['modelfit_path'],
+                                eids_train,
+                                metadata['subject'],
+                                actions=None,
+                                stimuli=None,
+                                stim_side=None)
+        model.load_or_train(loadpath=str(fullpath))
+
+    # compute signal
+    stim_side, stimuli, actions, _ = format_data_mut(trials_df)
+    stimuli, actions, stim_side = format_input_mut([stimuli], [actions], [stim_side])
+    signal = model.compute_signal(signal='prior' if kwargs['target'] == 'pLeft' else kwargs['target'],
+                                  act=actions,
+                                  stim=stimuli,
+                                  side=stim_side)['prior' if kwargs['target'] == 'pLeft' else kwargs['target']]
+
+    tvec = signal.squeeze()
+    if kwargs['binarization_value'] is not None:
+        tvec = (tvec > kwargs['binarization_value']) * 1
 
     return tvec
 

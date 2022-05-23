@@ -69,7 +69,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
     filenames = []
 
     if kwargs['target'] == 'prior':
-        tvec = compute_beh_target(trials_df)
+        tvec = compute_beh_target(trials_df, metadata, **kwargs)
     else:
         tvec = compute_beh_target(trials_df)  # todo Matt, function of dlc
 
@@ -185,4 +185,4 @@ if __name__ == '__main__':
     import pickle
     regressors = pickle.load(open(file, 'rb'))
     trials_df = regressors['trialsdf']
-    metadata = {'eids_train':['test'], 'eid_test': 'test', 'subject':'mouse_name'}
+    metadata = {'eids_train':['test'], 'eid': 'test', 'subject':'mouse_name'}
