@@ -6,6 +6,8 @@ import os
 import numpy as np
 import torch
 import pandas as pd
+import scipy
+
 from brainbox.task.closed_loop import generate_pseudo_blocks, _draw_position, _draw_contrast
 from braindelphi.decoding.functions.nulldistributions import generate_imposter_session
 from braindelphi.decoding.functions.utils import check_bhv_fit_exists

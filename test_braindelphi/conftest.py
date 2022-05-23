@@ -14,4 +14,4 @@ def data_dict() -> dict:
     """Load example data."""
     pkl_path = Path(__file__).parent.joinpath("test_data.pkl")
     data = load_pickle_data(pkl_path)
-    return OmegaConf.create(data)
+    return data
