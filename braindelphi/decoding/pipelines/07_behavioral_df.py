@@ -37,8 +37,8 @@ for eid in eids:
     oracle_pLefts.append(oracle_pLeft)
     priors_pLefts.append(prior)
 
-    #trialsdf = bbone.load_trials_df(eid, one=one, addtl_types=['firstMovement_times'])
-    #reaction_times = (trialsdf['firstMovement_times'] - trialsdf['goCue_times']).values
+    #trials_df = bbone.load_trials_df(eid, one=one, addtl_types=['firstMovement_times'])
+    #reaction_times = (trials_df['firstMovement_times'] - trials_df['goCue_times']).values
 
     # take out negative reaction times and when the mouse doesn't perform an action
     stim = stim[(act != 0)]

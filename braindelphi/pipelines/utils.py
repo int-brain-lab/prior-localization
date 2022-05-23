@@ -87,7 +87,7 @@ def load_primaries(session_id,
                                      cluster_ids=np.arange(clu_regions.size))
 
     regressors = {
-        'trialsdf': trialsdf,
+        'trials_df': trialsdf,
         'spk_times': spk_times,
         'spk_clu': spk_clu,
         'clu_regions': clu_regions,

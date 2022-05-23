@@ -32,7 +32,8 @@ def compute_mask(trialsdf, **kwargs):
         mask = mask & (trialsdf.probabilityLeft != 0.5).values
     if kwargs['min_rt'] is not None:
         mask = mask & (~(trialsdf.react_times < kwargs['min_rt'])).values
-    return mask & (trialsdf.choice != 0)
+    mask = mask & (trialsdf.choice != 0)
+    return mask
 
 def return_regions(eid, sessdf, QC_CRITERIA=1, NUM_UNITS=10):
     df_insertions = sessdf.loc[sessdf['eid'] == eid]

@@ -30,7 +30,7 @@ def filter_nan(trialsdf):
 def get_cached_regressors(fpath):
     with open(fpath, 'rb') as fo:
         d = pickle.load(fo)
-    return d['trialsdf'], d['spk_times'], d['spk_clu'], d['clu_regions'], d['clu_qc']
+    return d['trials_df'], d['spk_times'], d['spk_clu'], d['clu_regions'], d['clu_qc']
 
 
 def _create_sub_sess_path(parent, subject, session):
