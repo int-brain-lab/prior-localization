@@ -23,7 +23,11 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
     """
     Parameters
     ----------
+    neural_dict : dict
+        keys: 'trialsdf', 'spk_times', 'spk_clu', 'clu_regions', 'clu_qc', 'clu_df'
     dlc_dict: dlc_dict with dlc, pupil dilation, wheel velocity
+    metadata
+        'eid', 'eid_train', 'subject', 'probe'
     eid: eid of session
     bwmdf: dataframe of bwm session
     pseudo_id: whether to compute a pseudosession or not. if pseudo_id=-1, the true session is considered.
