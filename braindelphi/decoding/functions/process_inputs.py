@@ -11,7 +11,7 @@ def preprocess_ephys(reg_clu_ids, regressors, trials_df, **kwargs):
     regspikes = regressors['spk_times'][spikemask]
     regclu = regressors['spk_clu'][spikemask]
     binned, _ = get_spike_counts_in_bins(regspikes, regclu, intervals)
-    return binned
+    return binned.T
 
 
 def proprocess_widefield_imaging():
