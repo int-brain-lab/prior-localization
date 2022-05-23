@@ -38,9 +38,9 @@ def generate_design(trialsdf,
         Trials dataframe with trial timings in absolute (since session start) time
     prior : array-like
         Vector containing the prior estimate or true prior for each trial. Must be same length as
-        trialsdf.
+        trials_df.
     t_before : float
-        Time, in seconds, before stimulus onset that was used to define trial_start in trialsdf
+        Time, in seconds, before stimulus onset that was used to define trial_start in trials_df
     bases : dict
         Dictionary of basis functions for each regressor. Needs keys 'stim', 'feedback', 'fmove',
         (first movement) and 'wheel'.

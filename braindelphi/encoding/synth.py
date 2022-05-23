@@ -316,11 +316,11 @@ if __name__ == "__main__":
                      dataset_types=['spikes.times'])
     trialsdf = bbone.load_trials_df(ids[0], maxlen=2., ret_wheel=True)
     # wts, stds = fit_sess_psytrack(ids[0], maxlength=2., as_df=True)
-    # trialsdf = pd.concat((trialsdf, wts['bias']), axis=1)
-    # trialsdf = trialsdf[np.isfinite(trialsdf.bias)]
-    # bias_next = np.roll(trialsdf['bias'], -1)
-    # bias_next = pd.Series(bias_next, index=trialsdf['bias'].index)[:-1]
-    # trialsdf['bias_next'] = bias_next
+    # trials_df = pd.concat((trials_df, wts['bias']), axis=1)
+    # trials_df = trials_df[np.isfinite(trials_df.bias)]
+    # bias_next = np.roll(trials_df['bias'], -1)
+    # bias_next = pd.Series(bias_next, index=trials_df['bias'].index)[:-1]
+    # trials_df['bias_next'] = bias_next
 
     nvals = np.linspace(100, len(trialsdf) - 5, 3, dtype=int)
     gain = np.log(10)

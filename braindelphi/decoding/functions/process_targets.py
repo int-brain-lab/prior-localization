@@ -294,3 +294,116 @@ def get_target_pLeft(nb_trials,
                        density=True)
     return out, target_pLeft
 
+
+def get_target_data_per_trial(
+        target_times, target_data, interval_begs, interval_ends, binsize, allow_nans=False):
+    """Select wheel data for specified interval on each trial.
+
+    Parameters
+    ----------
+    target_times : array-like
+        time in seconds for each sample
+    target_data : array-like
+        data samples
+    interval_begs : array-like
+        beginning of each interval in seconds
+    interval_ends : array-like
+        end of each interval in seconds
+    binsize : float
+        width of each bin in seconds
+    allow_nans : bool, optional
+        False to skip trials with >0 NaN values in target data
+
+    Returns
+    -------
+    tuple
+        - (list): time in seconds for each trial
+        - (list): data for each trial
+
+    """
+
+    n_bins = int((interval_ends[0] - interval_begs[0]) / binsize) + 1
+    idxs_beg = np.searchsorted(target_times, interval_begs, side='right')
+    idxs_end = np.searchsorted(target_times, interval_ends, side='left')
+    target_times_og_list = [target_times[ib:ie] for ib, ie in zip(idxs_beg, idxs_end)]
+    target_data_og_list = [target_data[ib:ie] for ib, ie in zip(idxs_beg, idxs_end)]
+
+    # interpolate and store
+    target_times_list = []
+    target_data_list = []
+    good_trial = [None for _ in range(len(target_times_og_list))]
+    for i, (target_time, target_vals) in enumerate(zip(target_times_og_list, target_data_og_list)):
+        if len(target_vals) == 0:
+            print('target data not present on trial %i; skipping' % i)
+            good_trial[i] = False
+            continue
+        if np.sum(np.isnan(target_vals)) > 0 and not allow_nans:
+            print('nans in target data on trial %i; skipping' % i)
+            good_trial[i] = False
+            continue
+        if np.abs(interval_begs[i] - target_time[0]) > binsize:
+            print('target data starts too late on trial %i; skipping' % i)
+            good_trial[i] = False
+            continue
+        if np.abs(interval_ends[i] - target_time[-1]) > binsize:
+            print('target data ends too early on trial %i; skipping' % i)
+            good_trial[i] = False
+            continue
+        # x_interp = np.arange(target_time[0], target_time[-1] + binsize / 2, binsize)
+        x_interp = np.linspace(target_time[0], target_time[-1], n_bins)
+        if len(target_vals.shape) > 1 and target_vals.shape[1] > 1:
+            n_dims = target_vals.shape[1]
+            y_interp_tmps = []
+            for n in range(n_dims):
+                y_interp_tmps.append(scipy.interpolate.interp1d(
+                    target_time, target_vals[:, n], kind='linear',
+                    fill_value='extrapolate')(x_interp))
+            y_interp = np.hstack([y[:, None] for y in y_interp_tmps])
+        else:
+            y_interp = scipy.interpolate.interp1d(
+                target_time, target_vals, kind='linear', fill_value='extrapolate')(x_interp)
+        target_times_list.append(x_interp)
+        target_data_list.append(y_interp)
+        good_trial[i] = True
+
+    return target_times_list, target_data_list, np.array(good_trial)
+
+
+def get_target_data_per_trial_error_check(
+        target_times, target_vals, trials_df, align_event, align_interval, binsize):
+    """High-level function to split target data over trials, with error checking.
+
+    Parameters
+    ----------
+    target_times : array-like
+        time in seconds for each sample
+    target_vals : array-like
+        data samples
+    trials_df : pd.DataFrame
+        requires a column that matches `align_event`
+    align_event : str
+        event to align interval to
+        firstMovement_times | stimOn_times | feedback_times
+    align_interval : tuple
+        (align_begin, align_end); time in seconds relative to align_event
+    binsize : float
+        size of individual bins in interval
+
+    Returns
+    -------
+    tuple
+        - (list): time in seconds for each trial
+        - (list): data for each trial
+        - (array-like): mask of good trials (True) and bad trials (False)
+
+    """
+
+    align_times = trials_df[align_event].values
+    interval_beg_times = align_times + align_interval[0]
+    interval_end_times = align_times + align_interval[1]
+
+    # split data by trial
+    target_times_list, target_val_list, good_trials = get_target_data_per_trial(
+        target_times, target_vals, interval_beg_times, interval_end_times, binsize)
+
+    return target_times_list, target_val_list, good_trials

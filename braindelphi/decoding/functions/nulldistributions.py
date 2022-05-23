@@ -44,7 +44,7 @@ def generate_null_distribution_session(trialsdf, eid, **kwargs):
                 pseudosess, trialsdf, subjModel)
         else:
             pseudosess['choice'] = trialsdf.choice
-        pseudomask = None  # mask & (trialsdf.choice != 0)
+        pseudomask = None  # mask & (trials_df.choice != 0)
 
 
 
@@ -87,7 +87,7 @@ def generate_imposter_session(imposterdf,
     ----------
     imposterd: all sessions concatenated in pandas dataframe (generated with pipelines/03_generate_imposter_df.py)
     eid: eid of session of interest
-    trialsdf: dataframe of trials of interest
+    trials_df: dataframe of trials of interest
     nbSampledSess: number of imposter sessions sampled to generate the final imposter session. NB: the length
     of the nbSampledSess stitched sessions must be greater than the session of interest, so typically choose a large
     number. If that condition is not verified a ValueError will be raised.
@@ -173,8 +173,8 @@ def generate_imposter_session(imposterdf,
         sub_imposterdf = sub_imposterdf.reset_index(drop=True)
     # select a random first block index <- this doesn't seem to work well, it changes the block statistics too much
     # idx_chge = np.where(sub_imposterdf.probabilityLeft.values[1:] != sub_imposterdf.probabilityLeft.values[:-1])[0]+1
-    # random_number = np.random.choice(idx_chge[idx_chge < (sub_imposterdf.index.size - trialsdf.index.size)])
-    # imposter_sess = sub_imposterdf.iloc[random_number:(random_number + trialsdf.index.size)].reset_index(drop=True)
+    # random_number = np.random.choice(idx_chge[idx_chge < (sub_imposterdf.index.size - trials_df.index.size)])
+    # imposter_sess = sub_imposterdf.iloc[random_number:(random_number + trials_df.index.size)].reset_index(drop=True)
     imposter_sess = sub_imposterdf.iloc[:nbtrials].reset_index(drop=True)
     return imposter_sess
 
