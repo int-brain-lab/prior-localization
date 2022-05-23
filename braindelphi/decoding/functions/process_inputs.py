@@ -118,7 +118,7 @@ def get_spike_data_per_trial(times, clusters, interval_begs, interval_ends, bins
     return spike_times_list, binned_spikes
 
 
-def build_predictor_matrix(array, n_lags):
+def build_predictor_matrix(array, n_lags, return_valid=True):
     """Build predictor matrix with time-lagged datapoints.
 
     Parameters
@@ -127,14 +127,22 @@ def build_predictor_matrix(array, n_lags):
         shape (n_time, n_clusters)
     n_lags : int
         number of lagged timepoints (includes zero lag)
+    return_valid : bool, optional
+        True to crop first n_lags rows, False to leave all
 
     Returns
     -------
     np.ndarray
-        shape (n_time, n_clusters * (n_lags + 1))
+        shape (n_time - n_lags, n_clusters * (n_lags + 1)) if return_valid==True
+        shape (n_time, n_clusters * (n_lags + 1)) if return_valid==False
 
     """
-    return np.hstack([np.roll(array, i, axis=0) for i in range(n_lags + 1)])[n_lags:]
+    if n_lags < 0:
+        raise ValueError('`n_lags` must be >=0, not {}'.format(n_lags))
+    mat = np.hstack([np.roll(array, i, axis=0) for i in range(n_lags + 1)])
+    if return_valid:
+        mat = mat[n_lags:]
+    return mat
 
 
 def preprocess_widefield_imaging():
