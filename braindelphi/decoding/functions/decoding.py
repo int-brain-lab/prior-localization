@@ -6,10 +6,8 @@ from pathlib import Path
 from braindelphi.decoding.functions import save_region_results
 from one.api import ONE
 from brainbox.task.closed_loop import generate_pseudo_session
-import one.alf.io as alfio
 from functions.neurometric import get_neurometric_parameters
 from tqdm import tqdm
-import pickle
 from braindelphi.decoding.functions.process_inputs import select_ephys_regions
 from braindelphi.decoding.functions.process_inputs import select_widefield_imaging_regions
 from braindelphi.decoding.functions.process_inputs import preprocess_ephys
@@ -17,6 +15,7 @@ from braindelphi.decoding.functions.process_inputs import proprocess_widefield_i
 from braindelphi.decoding.functions.process_targets import compute_beh_target
 from ibllib.atlas import BrainRegions
 from braindelphi.decoding.functions.decoder import decode_cv
+from braindelphi.decoding.functions.utils import compute_mask
 
 
 def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **kwargs):
@@ -69,14 +68,12 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
 
     filenames = []
 
-    # todo move compute_target to process_targets
-    # todo make compute_mask from trials_df and 'others' and put this in utils
-
-    tvec = compute_beh_target(trials_df)
+    if kwargs['target'] == 'prior':
+        tvec = compute_beh_target(trials_df)
+    else:
+        tvec = compute_beh_target(trials_df)  # todo Matt, function of dlc
 
     brainreg = BrainRegions()
-
-    from braindelphi.decoding.functions.utils import compute_mask
     mask_trials_df = compute_mask(trials_df, **kwargs)
 
     if len(tvec[mask_trials_df]) <= kwargs['min_behav_trials']:
@@ -96,7 +93,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
 
         reg_clu_ids = (
             select_widefield_imaging_regions() if kwargs['wide_field_imaging']
-            else select_ephys_regions(regressors, beryl_reg, region, **kwargs)
+            else select_ephys_regions(neural_dict, beryl_reg, region, **kwargs)
         )
 
         N_units = len(reg_clu_ids)
@@ -105,17 +102,15 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
 
         msub_binned = (
             proprocess_widefield_imaging() if kwargs['wide_field_imaging']
-            else preprocess_ephys(reg_clu_ids, regressors, trials_df, **kwargs)
-        ).T
-
-
+            else preprocess_ephys(reg_clu_ids, neural_dict, trials_df, **kwargs)
+        )
 
         if kwargs['simulate_neural_data']:
             raise NotImplementedError
 
         for pseudo_id in pseudo_ids:
             if pseudo_id > 0:  # create pseudo session when necessary
-
+                # todo  generate pseudo session
                 msub_pseudo_tvec = dut.compute_target(
                     kwargs['target'],
                     subject,
@@ -129,24 +124,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                     behavior_data_train=behavior_data_train)[pseudomask]
 
             if kwargs['compute_neurometric']:  # compute prior for neurometric curve
-                # do neurometric stuff
-
-                y = (np.random.rand(476) < 0.5) * 1
-                fit_result = decode_cv(
-                    y,
-                    msub_binned,
-                    kwargs['estimator'],
-                    use_openturns=kwargs['use_openturns'],
-                    target_distribution=None,
-                    bin_size_kde=kwargs['bin_size_kde'],
-                    balanced_continuous_target=kwargs['balanced_continuous_target'],
-                    estimator_kwargs=kwargs['estimator_kwargs'],
-                    hyperparam_grid=kwargs['hyperparam_grid'],
-                    save_binned=kwargs['save_binned'],
-                    shuffle=kwargs['shuffle'],
-                    balanced_weight=kwargs['balanced_weight'],
-                    normalize_input=kwargs['normalize_input'],
-                    normalize_output=kwargs['normalize_output'])
+                raise NotImplementedError
 
             fit_results = []
             for i_run in range(kwargs['nb_runs']):
@@ -173,6 +151,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                 fit_result['run_id'] = i_run
                 # neurometric curve
                 if kwargs['compute_neurometric']:
+                    raise NotImplementedError
                     fit_result['full_neurometric'], fit_result['fold_neurometric'] = \
                         get_neurometric_parameters(fit_result,
                                                    trialsdf=trialsdf_neurometric,
@@ -185,19 +164,18 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                 fit_results.append(fit_result)
 
             filenames.append(
-                save_region_results(
-                    fit_results,
-                    pseudo_id,
-                    subject,
-                    eid,
-                    probe,
-                    str(np.squeeze(region)) if kwargs['single_region'] else 'allRegions',
-                    N_units,
-                    output_path=kwargs['output_path'],
-                    time_window=kwargs['time_window'],
-                    today=kwargs['today'],
-                    target=kwargs['target'],
-                    add_to_saving_path=kwargs['add_to_saving_path']))
+                save_region_results(fit_results,
+                                    pseudo_id,
+                                    region,
+                                    N_units,
+                                    metadata,
+                                    **kwargs)
+            )
+                    #output_path=kwargs['output_path'],
+                    #time_window=kwargs['time_window'],
+                    #today=kwargs['today'],
+                    #target=kwargs['target'],
+                    #add_to_saving_path=kwargs['add_to_saving_path']))
 
     return filenames
 
