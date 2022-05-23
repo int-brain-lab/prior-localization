@@ -3,13 +3,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from tqdm import tqdm
-
-import brainbox.io.one as bbone
-from brainbox.task.closed_loop import generate_pseudo_session
 from ibllib.atlas import BrainRegions
-from one.api import ONE
-
-import models.utils as mut
 
 from braindelphi.decoding.functions import get_save_path, save_region_results
 from braindelphi.decoding.functions.process_inputs import build_predictor_matrix
@@ -21,6 +15,7 @@ from braindelphi.decoding.functions.process_targets import compute_beh_target
 from braindelphi.decoding.functions.process_targets import get_target_data_per_trial_error_check
 from braindelphi.decoding.functions.decoder import decode_cv
 from braindelphi.decoding.functions.utils import compute_mask
+from braindelphi.decoding.functions.utils import save_region_results
 
 
 def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **kwargs):
@@ -86,17 +81,15 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
 
     # TODO: stim, choice, feedback, etc
     if kwargs['target'] == 'prior':
-        target_vals_list = compute_beh_target(trials_df)
-        target_times_list = None
+        target_vals_list = compute_beh_target(trials_df, metadata, **kwargs)
         mask_target = np.ones(len(target_vals_list), dtype=bool)
     else:
-        target_times_list, target_vals_list, mask_target = get_target_data_per_trial_error_check(
+        _, target_vals_list, mask_target = get_target_data_per_trial_error_check(
             dlc_dict['times'], dlc_dict['values'], trials_df, kwargs['align_event'],
             kwargs['align_interval'], kwargs['binsize'])
 
-    mask_trials = compute_mask(trials_df, **kwargs)
+    mask = compute_mask(trials_df, **kwargs) & mask_target
 
-    mask = mask_target & mask_trials  # combine mask from trials and from targets
     n_trials = np.sum(mask)
     if n_trials <= kwargs['min_behav_trials']:
         msg = 'session contains %i trials, below the threshold of %i' % (
@@ -231,5 +224,7 @@ if __name__ == '__main__':
     file = 'example_neural_and_behavioral_data.pkl'
     import pickle
     regressors = pickle.load(open(file, 'rb'))
-    trials_df = regressors['trials_df']
-    metadata = {'eids_train':['test'], 'eid_test': 'test', 'subject':'mouse_name'}
+    trials_df = regressors['trialsdf']
+    neural_dict = regressors
+    metadata = {'eids_train':['test'], 'eid': 'test', 'subject':'mouse_name'}
+
