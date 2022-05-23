@@ -6,7 +6,7 @@ Created on Thu Jan 20 19:54:53 2022
 @author: bensonb
 """
 import os
-from plot_decoding_brain import brain_results, bar_results, bar_results_basic, aggregate_data
+from plot_decoding_brain import brain_results, bar_results, brain_cortex_results, bar_results_basic, aggregate_data, discretize_target
 from bernoulli_confidenceinterval import Bernoulli_ci
 import numpy as np
 import pandas as pd
@@ -68,39 +68,6 @@ plt.xlabel('p-value')
 plt.ylabel('density')
 plt.show()
 
-# plt.title('prior: random example')
-# plt.plot(all_targets[100:400])
-# plt.plot(all_preds[100:400])
-# plt.legend(['targets','predictions'])
-# plt.savefig(os.path.join(FIGURE_PATH,
-#                          VARIABLE_FOLDER,
-#                          SPECIFIC_DECODING,
-#             ('_'.join([RESULTS_DATE, 'predictionsTraceRandomExample'])) +
-#             FIGURE_SUFFIX), 
-#             dpi=600)
-# plt.show()
-
-# plt.title('prior: best example')
-# plt.plot(best_targets[100:400])
-# plt.plot(best_preds[100:400])
-# plt.legend(['targets','predictions'])
-# plt.savefig(os.path.join(FIGURE_PATH,
-#                          VARIABLE_FOLDER,
-#                          SPECIFIC_DECODING,
-#             ('_'.join([RESULTS_DATE, 'predictionsTraceBestExample'])) +
-#             FIGURE_SUFFIX), 
-#             dpi=600)
-# plt.show()
-
-# plotting
-
-# all_targets, best_targets = np.array(all_targets), np.array(best_targets)
-# best_targets_continuous = np.copy(best_targets)
-# edge = np.linspace(0,1,11)
-
-# for i in range(len(edge)-1):
-#     all_targets[(all_targets >= edge[i])&(all_targets < edge[i+1])] = .5*(edge[i]+edge[i+1])
-#     best_targets[(best_targets >= edge[i])&(best_targets < edge[i+1])] = .5*(edge[i]+edge[i+1])
 assert np.max(all_scores)-np.min(all_scores) < 999
 index_max = np.argmax(all_scores - (999*(all_regions!='CP')))
 best_targets = all_targets[index_max]
@@ -114,28 +81,17 @@ best_probe = all_probes[index_max]
 best_region = all_regions[index_max]
 best_masks = all_masks[index_max]
 
-all_probs_discrete = np.concatenate(all_probs)
-all_probs_continuous = np.concatenate(all_probs)
-best_probs_discrete = np.copy(best_probs)
-best_probs_continuous = np.copy(best_probs)
-edge = np.linspace(0,1,11)
-for i in range(len(edge)-1):
-    if i == len(edge)-2: # last edge includes boundary
-        all_probs_discrete[(all_probs_continuous >= edge[i])&
-                           (all_probs_continuous <= edge[i+1])] = .5*(edge[i]+edge[i+1])
-        best_probs_discrete[(best_probs_continuous >= edge[i])&
-                            (best_probs_continuous <= edge[i+1])] = .5*(edge[i]+edge[i+1])
-    else:
-        all_probs_discrete[(all_probs_continuous >= edge[i])&
-                           (all_probs_continuous < edge[i+1])] = .5*(edge[i]+edge[i+1])
-        best_probs_discrete[(best_probs_continuous >= edge[i])&
-                            (best_probs_continuous < edge[i+1])] = .5*(edge[i]+edge[i+1])
+all_probs_discrete = discretize_target(np.concatenate(all_probs),
+                                       edge = np.linspace(0,1,11))
+best_probs_discrete = discretize_target(np.copy(best_probs),
+                                        edge = np.linspace(0,1,11))
 
-
-plot_name = 'medianaccuracy'
-reg_nulls = np.array([np.median(all_null_scores[all_regions==reg],axis=0) for reg in np.unique(all_regions)])
+POOL = 'mean'
+FPOOL = (lambda *args,**kwargs:np.median(*args,**kwargs)) if POOL == 'median' else (lambda *args,**kwargs:np.mean(*args,**kwargs))
+plot_name = 'accuracy_pool'+POOL
+reg_nulls = np.array([FPOOL(all_null_scores[all_regions==reg],axis=0) for reg in np.unique(all_regions)])
 reg_values = np.array([all_scores[all_regions==reg] for reg in np.unique(all_regions)])
-reg_pvalue = np.array([np.mean(np.median(reg_values[i])<=reg_nulls[i]) \
+reg_pvalue = np.array([np.mean(FPOOL(reg_values[i])<=reg_nulls[i]) \
               for i in range(len(np.unique(all_regions)))])
 acronyms = np.unique(all_regions)[reg_pvalue<0.05]
 values = reg_values[reg_pvalue<0.05]
@@ -145,8 +101,8 @@ nulls_h = np.array([scipy.stats.scoreatpercentile(reg_nulls[i,:],
                     95, interpolation_method='fraction') for i in range(reg_nulls.shape[0])])[reg_pvalue<0.05]
 nulls = np.vstack((nulls_l,nulls_m,nulls_h))
 
-brain_results(acronyms, 
-                np.array([np.median(v) for v in values]), 
+clevels = brain_results(acronyms, 
+                np.array([FPOOL(v) for v in values]), 
                 os.path.join(VARIABLE_FOLDER,
                               SPECIFIC_DECODING,
                             ('_'.join([RESULTS_DATE, 'brains', plot_name])) +
@@ -155,6 +111,15 @@ brain_results(acronyms,
                 cmap='Purples',
                 YMIN=0.5,
                 value_title='       Accuracy \n              %d of %d sig.'%(np.sum(reg_pvalue<0.05),len(reg_pvalue)))#: %.3f'%(len(np.unique(np.random.choice(all_regions,size=int(len(all_regions)*0.05),replace=False)))/len(np.unique(all_regions))))
+brain_cortex_results(acronyms, 
+                np.array([FPOOL(v) for v in values]), 
+                cmap='Purples', 
+                clevels=clevels,
+                filename = os.path.join(VARIABLE_FOLDER,
+                              SPECIFIC_DECODING,
+                            ('_'.join([RESULTS_DATE, 'brainscorticalflat', plot_name])) +
+                            FIGURE_SUFFIX), 
+                FILE_PATH = FIGURE_PATH)
 bar_results(acronyms,
             values,
             nulls,
@@ -164,7 +129,8 @@ bar_results(acronyms,
             FIGURE_SUFFIX),
             YMIN=0.5,
             ylab='Accuracy',
-            TOP_N=15)
+            TOP_N=15,
+            POOL_PROTOCOL=POOL)
 
 plot_name = 'maxsignificantaccuracy'
 MIN_NUMBER_SESSIONS = 1
@@ -350,7 +316,7 @@ plt.show()
 best_trials = np.arange(len(best_masks))[[m=='1' for m in best_masks]]
 assert len(best_trials) == len(best_targets)
 plt.figure(figsize=(10,2.5))
-plt.title(best_eid+' ['+best_probe+'] ['+best_region+']'+'\n accuracy$=$%.4f'%best_score)
+plt.title(best_eid+' ['+best_probe+'] ['+best_region+']'+'\n accuracy$=$%.4f, $n=$%d'%(best_score,best_actn))
 plt.plot(best_trials, best_targets, '-', c='k')
 plt.plot(best_trials, best_probs, '-', c='indigo')
 plt.yticks([0,.5,1])

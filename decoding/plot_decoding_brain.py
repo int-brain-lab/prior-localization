@@ -11,8 +11,17 @@ import matplotlib.pyplot as plt
 import matplotlib.colors
 import numpy as np
 import pandas as pd
-from ibllib.atlas import AllenAtlas
+from ibllib.atlas import AllenAtlas, FlatMap
+from ibllib.atlas.plots import plot_scalar_on_flatmap
 from sklearn.metrics import r2_score
+from ibllib.atlas.flatmaps import plot_swanson
+from ibllib.atlas import BrainRegions
+
+# res = 25
+# flmap = FlatMap(flatmap='dorsal_cortex', res_um=res)
+# Plot flatmap at depth = 0
+# flmap.plot_flatmap(int(0 / res))
+
 ba=AllenAtlas()
 
 import sys
@@ -38,12 +47,113 @@ def hex2rgba(hex):
 reg2rgba_dict = {allen_color_data[i,3]:
                  hex2rgba(allen_color_data[i,13]) for i in range(1,allen_color_data.shape[0])}
 
+def discretize_target(target_continuous,
+                      edge = np.linspace(0,1,11)):
+    
+    target_discrete = np.copy(target_continuous)
+    for i in range(len(edge)-1):
+        if i == len(edge)-2: # last edge includes boundary
+            target_discrete[(target_continuous >= edge[i])&
+                               (target_continuous <= edge[i+1])] = .5*(edge[i]+edge[i+1])
+        else:
+            target_discrete[(target_continuous >= edge[i])&
+                               (target_continuous < edge[i+1])] = .5*(edge[i]+edge[i+1])
+    return target_discrete
+    
+def brain_cortex_results(acronyms, values, 
+                  filename=None, 
+                  cmap='viridis',
+                  clevels=[None, None],
+                  FILE_PATH='/home/bensonb/IntBrainLab/prior-localization/decoding_figures/'):
 
+    # Plot region values on the left hemisphere at depth=0um overlaid on boundary image using Allen mapping
+    # fig, ax = plot_scalar_on_flatmap(acronyms, values, depth=0, mapping='Allen', hemisphere='left', background='boundary',
+    #                             cmap='viridis', flmap_atlas=FlatMap(flatmap='dorsal_cortex', res_um=25))
+    # Plot two column region values on the both hemispheres at depth=0um on boundary image using Allen mapping
+    if clevels[0] is None:
+        clevels[0] = np.min(values)
+    if clevels[1] is None:
+        clevels[1] = np.max(values)
+    
+    fig, ax = plot_scalar_on_flatmap(acronyms, values, depth=0, 
+                                     mapping='Beryl', hemisphere='left',
+                                     background='boundary', 
+                                     cmap=cmap, 
+                                     clevels=clevels,
+                                     show_cbar = False,
+                                     flmap_atlas=FlatMap(flatmap='dorsal_cortex', res_um=25))
+    
+    #plt.colorbar() doesn't work
+    #cbar.set_colorbar(extend='both')
+    plt.grid(False)
+    plt.yticks([])
+    plt.xticks([])
+    if not filename is None:
+        SAVE_PATH = os.path.join(FILE_PATH, filename)
+        plt.savefig(SAVE_PATH, dpi=600)
+    plt.show()
+    return
+
+def brain_SwansonFlat_results(acronyms, values, 
+                  filename=None, 
+                  cmap='viridis',
+                  clevels=[None, None],
+                  ticks=None,
+                  extend=None,
+                  value_title='',
+                  FILE_PATH='/home/bensonb/IntBrainLab/prior-localization/decoding_figures/'):
+    print(clevels)
+    if clevels[0] is None:
+        print('min')
+        clevels[0] = np.min(values)
+    if clevels[1] is None:
+        print('max')
+        clevels[1] = np.max(values)
+    values = np.clip(values, clevels[0], clevels[1])
+    print(clevels, np.min(values), np.max(values))
+    #extend = 'both'
+    
+    
+    # plt.imshow([[0,1]], cmap=cmap, vmin=clevels[0], vmax=clevels[1], ax=axes[0,1])
+    # plt.gca().set_visible(False)
+    # plt.colorbar()# doesn't work
+    # fig, axes = plt.subplots(1,10)
+    fig = plt.figure()
+    ax_swan = plot_swanson(acronyms, 
+                    values, 
+                    cmap=cmap,
+                    hemisphere='left',
+                    br=BrainRegions())#,ax=axes[0:9])
+    ax_swan.grid(False)
+    # ax_swan.yticks([])
+    # ax_swan.xticks([])
+    
+    fig.subplots_adjust(right=0.85)
+    
+    cb_ax = fig.add_axes([0.88, 0.25, 0.02, 0.5])
+    cbar = plt.colorbar(mappable=ax_swan.images[0], cax=cb_ax, 
+                        extend=extend)
+    #cbar.set_ticks
+    cb_ax.set_title(value_title)
+    if not (ticks is None):
+        cb_ax.set_yticklabels(ticks[1])
+    #cb_ax.set_visible(False)
+    # cbar.set_ticks([0,.2,.4,.6,.8,1])
+    # cb_ax.set_title(value_title)
+    #cbar.set_colorbar(extend='both')
+    #plt.tight_layout()
+    if not filename is None:
+        SAVE_PATH = os.path.join(FILE_PATH, filename)
+        plt.savefig(SAVE_PATH, dpi=1200)
+    plt.show()
+    return
+    
 def brain_results(acronyms_unordered, values_unordered, 
                   filename, 
                 FILE_PATH='/home/bensonb/IntBrainLab/prior-localization/decoding_figures/',
                 cmap='viridis',
                 YMIN=None,
+                YMAX=None,
                 value_title='$R^2$',
                 TOP_N_TEXT=np.nan):
     '''
@@ -63,6 +173,8 @@ def brain_results(acronyms_unordered, values_unordered,
         DESCRIPTION. The default is 'viridis'.
     YMIN : TYPE, optional
         DESCRIPTION. The default is None.
+    YMAX : TYPE, optional
+        DESCRIPTION. The default is None.
     value_title : TYPE, optional
         DESCRIPTION. The default is '$R^2$'.
 
@@ -79,12 +191,28 @@ def brain_results(acronyms_unordered, values_unordered,
     
     extend = None
     clevels = None
-    if not (YMIN is None):
+    if (not (YMIN is None)) and (not (YMAX is None)):
+        clevels = [YMIN, YMAX]
+        if (np.min(values) < YMIN) and (np.max(values) > YMAX):
+            extend = 'both'
+            values = np.minimum(np.maximum(values,YMIN),YMAX)
+        elif np.min(values) < YMIN:
+            extend = 'min'
+            values = np.maximum(values,YMIN)
+        elif np.max(values) > YMAX:
+            extend = 'max'
+            values = np.minimum(values,YMAX)
+    elif not (YMIN is None):
         clevels = [YMIN, np.max(values)]
         if np.min(values) < YMIN:
             extend = 'min'
             values = np.maximum(values,YMIN)
-        
+    elif not (YMAX is None):
+        clevels = [np.min(values), YMAX]
+        if np.max(values) > YMAX:
+            extend = 'max'
+            values = np.minimum(values,YMAX)
+
     
     fig, axes = plt.subplots(2,2)
         
@@ -126,7 +254,7 @@ def brain_results(acronyms_unordered, values_unordered,
         fig.text(.38, .2, top_regions_string)
     plt.savefig(SAVE_PATH, dpi=600)
     plt.show()
-    return
+    return clevels, extend
 
 def bar_results_basic(acronyms_unordered, values_unordered, errs_unordered=None, 
                 filename='test.png', 
@@ -201,7 +329,8 @@ def bar_results(acronyms_unordered, values_eids_unordered, nulls_unordered,
                 ylab='',
                 FILE_PATH='/home/bensonb/IntBrainLab/prior-localization/decoding_figures/',
                 YMIN=None,
-                TOP_N=np.nan):
+                TOP_N=np.nan,
+                POOL_PROTOCOL='median'):
     '''
     
 
@@ -224,14 +353,21 @@ def bar_results(acronyms_unordered, values_eids_unordered, nulls_unordered,
         DESCRIPTION. The default is None.
     TOP_N : int, optional
         only plot the top n values. The default is np.nan.
-
+    POOL_PROTOCOL : str, optional
+        'median' or 'mean'.  how to do per-region pooling across sessions.
+        The default is 'median'.
     Returns
     -------
     None.
 
     '''
-    
-    values_unordered = np.array([np.median(vs) for vs in values_eids_unordered])
+    if POOL_PROTOCOL == 'median':
+        values_unordered = np.array([np.median(vs) for vs in values_eids_unordered])
+    elif POOL_PROTOCOL == 'mean':
+        values_unordered = np.array([np.mean(vs) for vs in values_eids_unordered])
+    else:
+        raise ValueError('This value of POOL_PROTOCOL is not implemented.')
+        
     if not np.isnan(TOP_N):
         sinds = np.argsort(values_unordered)[::-1][:TOP_N]
         acronyms_unordered = acronyms_unordered[sinds]
@@ -361,7 +497,7 @@ def get_saved_data(results,result_index,
     
     if return_number_of_active_neurons:
         all_weights = np.concatenate(datafit_df['weights'])
-        average_neurons_active = np.mean(all_weights>0.01) * data_df['N_units']
+        average_neurons_active = data_df['N_units']#np.mean(all_weights>0.01) * 
     
         return target, preds, block_pLeft, masks, average_neurons_active
     return target, preds, block_pLeft, masks
