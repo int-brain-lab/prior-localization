@@ -54,7 +54,7 @@ MODELFIT_PATH = os.path.join(GROUP_HOME,'bensonb/international-brain-lab/prior-l
 OUTPUT_PATH = os.path.join(GROUP_HOME,'bensonb/international-brain-lab/prior-localization/decoding/')
 
 TARGET = 'signcont'  # 'pLeft','prior','choice','feedback','signcont'
-CONTROL_FEATURES = [] # subset of the following including empty: 'pLeft','choice','feedback','signcont'
+CONTROL_FEATURES = ['pLeft'] # subset of the following including empty: 'pLeft','choice','feedback','signcont'
 ALIGN_TIME = 'goCue_times' #'goCue_times' #'feedback_times' #'firstMovement_times'
 TIME_WINDOW = (0, 0.1)  # (-0.4, -0.1), (-0.1,0), (0, 0.1), (0, 0.2)
 USE_FAKE_DATA = False
@@ -69,7 +69,7 @@ ESTIMATOR = sklm.Lasso #sklm.LogisticRegression #sklm.Lasso  # Must be in keys o
 ESTIMATOR_KWARGS = {'tol': 0.001, 'max_iter': 100000, 'fit_intercept': True}#'penalty': 'l1', 'solver':'saga', 
 SCORE = 'r2' #r2 or accuracy
 N_PSEUDO = 100
-NULL_TYPE = 'pseudo-session' # 'pseudo-session', 'impostor-session'
+NULL_TYPE = 'pseudo-session' # 'pseudo-session', 'impostor-session' # relative_targets not implemented for impostor-session
 
 NO_UNBIAS = False
 SHUFFLE = True
@@ -310,8 +310,8 @@ def fit_eid(eid, sessdf, impostordict = None):
                                             hyperparam_grid=HPARAM_GRID,
                                             save_binned=SAVE_BINNED, shuffle=SHUFFLE,
                                             balanced_weight=BALANCED_WEIGHT,
-                                            control_features=fvecs,
-                                            SCORE=SCORE)
+                                            SCORE=SCORE,
+                                            relative_targets=fvecs)
 
             fit_result['mask'] = mask
             fit_result['pLeft_vec'] = pLeft_vec
@@ -349,6 +349,10 @@ def fit_eid(eid, sessdf, impostordict = None):
                                                           MODELFIT_PATH, modeltype=MODEL,
                                                           beh_data=pseudosess, one=one)
                     msub_pseudo_tvec = TRANSFORM_DATA(pseudo_tvec[mask])  
+                    pseudo_fvecs = [dut.compute_target(feature, subject, subjeids, eid, 
+                                                          MODELFIT_PATH, modeltype=MODEL, 
+                                                          beh_data=pseudosess, one=one) for feature in CONTROL_FEATURES]
+                    pseudo_fvecs = [pseudo_fvec[mask] for pseudo_fvec in pseudo_fvecs]
                     msub_pseudo_binned = np.copy(msub_binned)
                     
                 elif NULL_TYPE == 'impostor-session':
@@ -358,6 +362,7 @@ def fit_eid(eid, sessdf, impostordict = None):
                     pseudo_tvec = dut.get_impostor_target(all_impostor_targets, all_impostor_labels, current_label=eid)
                     msub_pseudo_tvec = TRANSFORM_DATA(pseudo_tvec[mask])  
                     msub_pseudo_binned = np.copy(msub_binned)
+                    # TODO pseudo_fvecs not implemented
                     
                 elif NULL_TYPE == 'linear-shift':
                     #TODO
@@ -365,19 +370,21 @@ def fit_eid(eid, sessdf, impostordict = None):
                     msub_unshift_tvec = TRANSFORM_DATA(pseudo_tvec[mask])  
                     msub_pseudo_tvec = np.copy(msub_unshift_tvec[shift + N:shift + len_tvec - N])
                     msub_pseudo_binned = np.copy(msub_binned[N:len_tvec - N, :])
+                    # TODO pseudo_fvecs not implemented
                 
                 assert len(msub_pseudo_tvec) == len(msub_tvec)
                 
                 # doubledipping
                 if DOUBLEDIP:
-                    msub_pseudo_tvec = msub_pseudo_tvec - np.mean(msub_pseudo_tvec)
+                    msub_pseudo_tvec = msub_pseudo_tvec - np.mean(msub_pseudo_tvec)                
 
                 pseudo_result = dut.regress_target(msub_pseudo_tvec, msub_pseudo_binned, estimator,
                                                    estimator_kwargs=ESTIMATOR_KWARGS,
                                                    hyperparam_grid=HPARAM_GRID,
                                                    save_binned=SAVE_BINNED, shuffle=SHUFFLE,
                                                    balanced_weight=BALANCED_WEIGHT,
-                                                   SCORE=SCORE)
+                                                   SCORE=SCORE,
+                                                   relative_targets=pseudo_fvecs)
 
                 # neurometric curve
                 if COMPUTE_NEUROMETRIC:

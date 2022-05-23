@@ -61,10 +61,16 @@ def gather_save_outputs(SUBDIRECTORY, SLURM_DIRECTORY, OUTPUT_PATH, DATE = str(d
     indexers_neurometric = ['low_slope', 'high_slope', 'low_range', 'high_range', 'shift']
     resultslist = []
     for fn in finished:
-        fo = open(fn, 'rb')
-        result = pickle.load(fo)
-        N_PSEUDO = len(result['pseudosessions'])
-        fo.close()
+        try:
+            fo = open(fn, 'rb')
+            result = pickle.load(fo)
+            N_PSEUDO = len(result['pseudosessions'])
+            fo.close()
+        except:
+            print('failed to open file %s'%fn)
+            continue
+        if np.any(np.array([('_neuralplustarget' in k) for k in result['fit'].keys()])):
+            print('successfully ran relative target')
         tmpdict = {**{x: result[x] for x in indexers},
                    'fold': -1,
                    'mask': ''.join([str(item) for item in list(result['fit']['mask'].values * 1)]),

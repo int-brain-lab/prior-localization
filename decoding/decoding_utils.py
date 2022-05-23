@@ -255,12 +255,45 @@ def compute_target(target, subject, eids_train, eid_test, savepath,
     # todo make pd.Series
     return target
 
+def regress_relative_to_other_target(func):
+    '''
+    if relative_target kwarg is not None, it is assumed to be a list 
+    '''
+    def regress_target_relative(tvec, binned, *args, **kwargs):
+        
+        if kwargs.get('relative_targets') is None:
+            return func(tvec, binned, *args, **kwargs)
+        
+        tvecs_relative = kwargs.pop('relative_targets')
+        
+        if not len(tvecs_relative):
+            return func(tvec, binned, *args, **kwargs)
+        
+        
+        # add relative targets to neural activity
+        all_features = [binned[:,i] for i in range(binned.shape[1])]
+        for tvec_relative in tvecs_relative:
+            all_features.append(tvec_relative)
+        try:
+            binned_plustargets = np.vstack(all_features).T
+        except ValueError:
+            raise ValueError('additional relative targets may have different lengths than the neural data')        
+        
+        out_neuralplustarget = func(tvec, binned_plustargets, *args, **kwargs) # neural and other target regressors
+        out_target = func(tvec, np.vstack(tvecs_relative).T, *args, **kwargs) # neural and other target regressors
+        out_deltarget = {**{knpt+'_neuralplustarget': out_neuralplustarget[knpt] for knpt in out_neuralplustarget.keys()}, 
+                 **{kt+'_onlytarget': out_target[kt] for kt in out_target.keys()}, 
+                 **out_neuralplustarget}
+        out_deltarget['Score_test_full'] = out_neuralplustarget['Score_test_full'] - out_target['Score_test_full']
+        return out_deltarget
+    
+    return regress_target_relative
 
+@regress_relative_to_other_target
 def regress_target(tvec, binned, estimatorObject, estimator_kwargs,
                    hyperparam_grid=None, test_prop=0.2, nFolds=5, save_binned=False,
                    verbose=False, shuffle=True, outer_cv=True, 
-                   balanced_weight=False, 
-                   control_features=[],
+                   balanced_weight=False,
                    SCORE='r2'):
     """
     Regresses binned neural activity against a target, using a provided sklearn estimator
