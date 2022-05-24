@@ -1,8 +1,5 @@
-from pathlib import Path
 from behavior_models.models.utils import format_data as format_data_mut
 from behavior_models.models.utils import format_input as format_input_mut
-from behavior_models.models import expSmoothing_prevAction, expSmoothing_stimside
-import os
 import numpy as np
 import torch
 import pandas as pd
@@ -12,113 +9,8 @@ from braindelphi.decoding.functions.utils import check_bhv_fit_exists
 
 possible_targets = ['choice', 'feedback', 'signcont', 'pLeft']
 
-def compute_beh_target(trials_df, metadata, remove_old=False, **kwargs):
-    """
-    Computes regression target for use with regress_target, using subject, eid, and a string
-    identifying the target parameter to output a vector of N_trials length containing the target
 
-    Parameters
-    ----------
-    target : str
-        String in ['prior', 'prederr', 'signcont'], indication model-based prior, prediction error,
-        or simple signed contrast per trial
-    subject : str
-        Subject identity in the IBL database, e.g. KS022
-    eids_train : list of str
-        list of UUID identifying sessions on which the model is trained.
-    eids_test : str
-        UUID identifying sessions on which the target signal is computed
-    savepath : str
-        where the beh model outputs are saved
-    behmodel : str
-        behmodel to use
-    pseudo : bool
-        Whether or not to compute a pseudosession result, rather than a real result.
-    modeltype : behavior_models model object
-        Instantiated object of behavior models. Needs to be instantiated for pseudosession target
-        generation in the case of a 'prior' or 'prederr' target.
-    beh_data : behavioral data feed to the model when using pseudo-sessions
-
-    Returns
-    -------
-    pandas.Series
-        Pandas series in which index is trial number, and value is the target
-    """
-    if kwargs['target'] not in possible_targets:
-        raise ValueError('target should be in {}'.format(possible_targets))
-
-    '''
-    load/fit a behavioral model to compute target on a single session
-    Params:
-        eids_train: list of eids on which we train the network
-        eid_test: eid on which we want to compute the target signals, only one string
-        beh_data_test: if you have to launch the model on beh_data_test.
-                       if beh_data_test is explicited, the eid_test will not be considered
-        target can be pLeft or signcont. If target=pLeft, it will return the prior predicted by modeltype
-                                         if modetype=None, then it will return the actual pLeft (.2, .5, .8)
-    '''
-
-    # check if is trained
-    eids_train = ([metadata['eid']] if 'eids_train' not in metadata.keys()
-                   else metadata['eids_train'])
-
-    istrained, fullpath = check_bhv_fit_exists(metadata['subject'], kwargs['model'], eids_train, kwargs['modelfit_path'])
-
-    if kwargs['target'] == 'signcont':
-        if 'signedContrast' in trials_df.keys():
-            out = trials_df['signedContrast']
-        else:
-            out = np.nan_to_num(trials_df.contrastLeft) - np.nan_to_num(trials_df.contrastRight)
-        return out
-    if kwargs['target'] == 'choice':
-        return trials_df.choice.values
-    if kwargs['target'] == 'feedback':
-        return trials_df.feedbackType.values
-    elif (kwargs['target'] == 'pLeft') and (kwargs['model'] is None):
-        return trials_df.probabilityLeft.values
-    elif (kwargs['target'] == 'pLeft') and (kwargs['model'] is optimal_Bayesian):  # bypass fitting and generate priors
-        side, stim, act, _ = format_data_mut(trials_df)
-        signal = optimal_Bayesian(act, stim, side)
-        return signal.numpy().squeeze()
-
-    if (not istrained) and (kwargs['target'] != 'signcont') and (kwargs['model'] is not None):
-        datadict = {'stim_side': [], 'actions': [], 'stimuli': []}
-        if 'eids_train' in kwargs.keys() or len(eids_train) >= 2:
-            raise NotImplementedError('Sorry, this features is not implemented yet')
-        for _ in eids_train:  # this seems superfluous but this is a relevant structure for when eids_train != [eid]
-            side, stim, act, _ = format_data_mut(trials_df)
-            datadict['stim_side'].append(side)
-            datadict['stimuli'].append(stim)
-            datadict['actions'].append(act)
-        stimuli, actions, stim_side = format_input_mut(datadict['stimuli'], datadict['actions'], datadict['stim_side'])
-        model = kwargs['model'](kwargs['modelfit_path'], np.array(eids_train), metadata['subject'],
-                                actions, stimuli, stim_side)
-        model.load_or_train(remove_old=remove_old)
-    elif (kwargs['target'] != 'signcont') and (kwargs['model'] is not None):
-        model = kwargs['model'](kwargs['modelfit_path'],
-                                eids_train,
-                                metadata['subject'],
-                                actions=None,
-                                stimuli=None,
-                                stim_side=None)
-        model.load_or_train(loadpath=str(fullpath))
-
-    # compute signal
-    stim_side, stimuli, actions, _ = format_data_mut(trials_df)
-    stimuli, actions, stim_side = format_input_mut([stimuli], [actions], [stim_side])
-    signal = model.compute_signal(signal='prior' if kwargs['target'] == 'pLeft' else kwargs['target'],
-                                  act=actions,
-                                  stim=stimuli,
-                                  side=stim_side)['prior' if kwargs['target'] == 'pLeft' else kwargs['target']]
-
-    tvec = signal.squeeze()
-    if kwargs['binarization_value'] is not None:
-        tvec = (tvec > kwargs['binarization_value']) * 1
-
-    return tvec
-
-
-def optimal_Bayesian(act, stim, side):
+def optimal_Bayesian(act, side):
     '''
     Generates the optimal prior
     Params:
@@ -175,6 +67,114 @@ def optimal_Bayesian(act, stim, side):
     Pis = predictive[:, 0] * gamma + predictive[:, 1] * 0.5 + predictive[:, 2] * (1 - gamma)
 
     return 1 - Pis
+
+
+def compute_beh_target(trials_df, metadata, remove_old=False, **kwargs):
+    """
+    Computes regression target for use with regress_target, using subject, eid, and a string
+    identifying the target parameter to output a vector of N_trials length containing the target
+
+    Parameters
+    ----------
+    target : str
+        String in ['prior', 'prederr', 'signcont'], indication model-based prior, prediction error,
+        or simple signed contrast per trial
+    subject : str
+        Subject identity in the IBL database, e.g. KS022
+    eids_train : list of str
+        list of UUID identifying sessions on which the model is trained.
+    eids_test : str
+        UUID identifying sessions on which the target signal is computed
+    savepath : str
+        where the beh model outputs are saved
+    behmodel : str
+        behmodel to use
+    pseudo : bool
+        Whether or not to compute a pseudosession result, rather than a real result.
+    modeltype : behavior_models model object
+        Instantiated object of behavior models. Needs to be instantiated for pseudosession target
+        generation in the case of a 'prior' or 'prederr' target.
+    beh_data : behavioral data feed to the model when using pseudo-sessions
+
+    Returns
+    -------
+    pandas.Series
+        Pandas series in which index is trial number, and value is the target
+    """
+    if kwargs['target'] not in possible_targets:
+        raise ValueError('target should be in {}'.format(possible_targets))
+
+    '''
+    load/fit a behavioral model to compute target on a single session
+    Params:
+        eids_train: list of eids on which we train the network
+        eid_test: eid on which we want to compute the target signals, only one string
+        beh_data_test: if you have to launch the model on beh_data_test.
+                       if beh_data_test is explicited, the eid_test will not be considered
+        target can be pLeft or signcont. If target=pLeft, it will return the prior predicted by modeltype
+                                         if modetype=None, then it will return the actual pLeft (.2, .5, .8)
+    '''
+
+    # check if is trained
+    eids_train = ([metadata['eid']] if 'eids_train' not in metadata.keys()
+                   else metadata['eids_train'])
+
+    istrained, fullpath = check_bhv_fit_exists(metadata['subject'], kwargs['model'], eids_train, kwargs['modelfit_path'],
+                                               modeldispatcher=kwargs['modeldispatcher'])
+
+    if kwargs['target'] == 'signcont':
+        if 'signedContrast' in trials_df.keys():
+            out = trials_df['signedContrast']
+        else:
+            out = np.nan_to_num(trials_df.contrastLeft) - np.nan_to_num(trials_df.contrastRight)
+        return out
+    if kwargs['target'] == 'choice':
+        return trials_df.choice.values
+    if kwargs['target'] == 'feedback':
+        return trials_df.feedbackType.values
+    elif (kwargs['target'] == 'pLeft') and (kwargs['model'] is None):
+        return trials_df.probabilityLeft.values
+    elif (kwargs['target'] == 'pLeft') and (kwargs['model'] is optimal_Bayesian):  # bypass fitting and generate priors
+        side, stim, act, _ = format_data_mut(trials_df)
+        signal = optimal_Bayesian(act, stim, side)
+        return signal.numpy().squeeze()
+
+    if (not istrained) and (kwargs['target'] != 'signcont') and (kwargs['model'] is not None):
+        datadict = {'stim_side': [], 'actions': [], 'stimuli': []}
+        if 'eids_train' in kwargs.keys() or len(eids_train) >= 2:
+            raise NotImplementedError('Sorry, this features is not implemented yet')
+        for _ in eids_train:  # this seems superfluous but this is a relevant structure for when eids_train != [eid]
+            side, stim, act, _ = format_data_mut(trials_df)
+            datadict['stim_side'].append(side)
+            datadict['stimuli'].append(stim)
+            datadict['actions'].append(act)
+        stimuli, actions, stim_side = format_input_mut(datadict['stimuli'], datadict['actions'], datadict['stim_side'])
+        model = kwargs['model'](kwargs['modelfit_path'], np.array(eids_train), metadata['subject'],
+                                actions, stimuli, stim_side)
+        model.load_or_train(remove_old=remove_old)
+    elif (kwargs['target'] != 'signcont') and (kwargs['model'] is not None):
+        model = kwargs['model'](kwargs['modelfit_path'],
+                                eids_train,
+                                metadata['subject'],
+                                actions=None,
+                                stimuli=None,
+                                stim_side=None)
+        model.load_or_train(loadpath=str(fullpath))
+
+    # compute signal
+    stim_side, stimuli, actions, _ = format_data_mut(trials_df)
+    stimuli, actions, stim_side = format_input_mut([stimuli], [actions], [stim_side])
+    signal = model.compute_signal(signal='prior' if kwargs['target'] == 'pLeft' else kwargs['target'],
+                                  act=actions,
+                                  stim=stimuli,
+                                  side=stim_side)['prior' if kwargs['target'] == 'pLeft' else kwargs['target']]
+
+    tvec = signal.squeeze()
+    if kwargs['binarization_value'] is not None:
+        tvec = (tvec > kwargs['binarization_value']) * 1
+
+    return tvec
+
 
 def get_target_pLeft(nb_trials,
                      nb_sessions,
@@ -379,3 +379,4 @@ def get_target_data_per_trial_error_check(
         target_times, target_vals, interval_beg_times, interval_end_times, binsize)
 
     return target_times_list, target_val_list, good_trials
+

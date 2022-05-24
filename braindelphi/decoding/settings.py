@@ -3,9 +3,8 @@ import numpy as np
 from braindelphi.decoding.functions.process_targets import optimal_Bayesian
 from behavior_models.models.expSmoothing_prevAction import expSmoothing_prevAction
 from behavior_models.models.expSmoothing_stimside import expSmoothing_stimside
-
+from braindelphi.params import FIT_PATH as DECODING_PATH
 import sklearn.linear_model as sklm
-from pathlib import Path
 import warnings
 
 logger = logging.getLogger('ibllib')
@@ -19,13 +18,6 @@ strlut = {
     sklm.LinearRegression: "PureLinear",
     sklm.LogisticRegression: "Logistic"
 }
-
-# %% Run param definitions
-LOCAL = False
-if not LOCAL and Path("/srv/beegfs/scratch/users/f/findling").exists():
-    DECODING_PATH = Path("/srv/beegfs/scratch/users/f/findling")
-else:
-    DECODING_PATH = Path("//")
 
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
@@ -172,7 +164,7 @@ kwargs = {
     'merged_probes': MERGED_PROBES,
     'modelfit_path': DECODING_PATH.joinpath('results', 'behavioral'),
     'output_path': DECODING_PATH.joinpath('results', 'neural'),
-    'one': None,
+    'modeldispatcher': modeldispatcher,
     'decoding_path': DECODING_PATH,
     'estimator_kwargs': ESTIMATOR_KWARGS,
     'hyperparam_grid': HPARAM_GRID,

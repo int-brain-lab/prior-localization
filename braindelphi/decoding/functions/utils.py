@@ -5,10 +5,10 @@ from pathlib import Path
 from ibllib.atlas import BrainRegions
 from tqdm import tqdm
 import pickle
-from braindelphi.decoding.settings import modeldispatcher
 from behavior_models.models.utils import build_path as build_path_mut
 
-def check_bhv_fit_exists(subject, model, eids, resultpath):
+
+def check_bhv_fit_exists(subject, model, eids, resultpath, modeldispatcher):
     '''
     subject: subject_name
     eids: sessions on which the model was fitted
@@ -34,6 +34,7 @@ def compute_mask(trialsdf, **kwargs):
         mask = mask & (~(trialsdf.react_times < kwargs['min_rt'])).values
     mask = mask & (trialsdf.choice != 0)
     return mask
+
 
 def return_regions(eid, sessdf, QC_CRITERIA=1, NUM_UNITS=10):
     df_insertions = sessdf.loc[sessdf['eid'] == eid]
