@@ -3,6 +3,8 @@ from behavior_models.models.utils import format_input as format_input_mut
 import numpy as np
 import torch
 import pandas as pd
+import scipy
+
 from brainbox.task.closed_loop import generate_pseudo_blocks, _draw_position, _draw_contrast
 from braindelphi.decoding.functions.nulldistributions import generate_imposter_session
 from braindelphi.decoding.functions.utils import check_bhv_fit_exists
@@ -176,6 +178,7 @@ def compute_beh_target(trials_df, metadata, remove_old=False, **kwargs):
     return tvec
 
 
+
 def get_target_pLeft(nb_trials,
                      nb_sessions,
                      take_out_unbiased,
@@ -341,9 +344,9 @@ def get_target_data_per_trial(
     return target_times_list, target_data_list, np.array(good_trial)
 
 
-def get_target_data_per_trial_error_check(
+def get_target_data_per_trial_wrapper(
         target_times, target_vals, trials_df, align_event, align_interval, binsize):
-    """High-level function to split target data over trials, with error checking.
+    """Format a single session-wide array of target data into a list of trial-based arrays.
 
     Parameters
     ----------

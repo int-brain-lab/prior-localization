@@ -3,16 +3,64 @@ import scipy
 from brainbox.population.decode import get_spike_counts_in_bins
 
 
-def preprocess_ephys(reg_clu_ids, regressors, trials_df, **kwargs):
+def preprocess_ephys(reg_clu_ids, neural_df, trials_df, **kwargs):
+    """Format a single session-wide array of spikes into a list of trial-based arrays.
+
+    Parameters
+    ----------
+    reg_clu_ids : array-like
+        array of cluster ids for each spike
+    neural_df : pd.DataFrame
+        keys: 'trials_df', 'spk_times', 'spk_clu', 'clu_regions', 'clu_qc', 'clu_df'
+    trials_df : pd.DataFrame
+        columns: 'choice', 'feedback', 'pLeft', 'firstMovement_times', 'stimOn_times',
+        'feedback_times'
+    kwargs
+        align_time : str
+            event in trial on which to align intervals
+            'firstMovement_times' | 'stimOn_times' | 'feedback_times'
+        time_window : tuple
+            (window_start, window_end), relative to align_time
+        binsize : float, optional
+            size of bins in seconds for multi-bin decoding
+        n_bins_lag : int, optional
+            number of lagged bins to use for predictors for multi-bin decoding
+
+    Returns
+    -------
+    list
+        each element is a 2D numpy.ndarray for a single trial
+
+    """
+
+    # compute time intervals for each trial
     intervals = np.vstack([
         trials_df[kwargs['align_time']] + kwargs['time_window'][0],
         trials_df[kwargs['align_time']] + kwargs['time_window'][1]
     ]).T
-    spikemask = np.isin(regressors['spk_clu'], reg_clu_ids)
-    regspikes = regressors['spk_times'][spikemask]
-    regclu = regressors['spk_clu'][spikemask]
-    binned, _ = get_spike_counts_in_bins(regspikes, regclu, intervals)
-    return binned.T
+
+    # subselect spikes for this region
+    spikemask = np.isin(neural_df['spk_clu'], reg_clu_ids)
+    regspikes = neural_df['spk_times'][spikemask]
+    regclu = neural_df['spk_clu'][spikemask]
+
+    # for each trial, put spiking data into a 2D array; collect trials in a list
+    trial_len = kwargs['time_window'][1] - kwargs['time_window'][0]
+    binsize = kwargs.get('binsize', trial_len)
+    if trial_len / binsize == 1.0:
+        # one vector of neural activity per trial
+        binned, _ = get_spike_counts_in_bins(regspikes, regclu, intervals)
+        binned = binned.T  # binned is a 2D array
+        binned_list = [x[None, :] for x in binned]
+    else:
+        # multiple vectors of neural activity per trial
+        spike_times_list, binned_list = get_spike_data_per_trial(
+            regspikes, regclu,
+            interval_begs=intervals[0] - kwargs['n_bins_lag'] * kwargs['binsize'],
+            interval_ends=intervals[1],
+            binsize=kwargs['binsize'])
+
+    return binned_list
 
 
 def get_spike_data_per_trial(times, clusters, interval_begs, interval_ends, binsize):
@@ -70,7 +118,7 @@ def get_spike_data_per_trial(times, clusters, interval_begs, interval_ends, bins
     return spike_times_list, binned_spikes
 
 
-def build_predictor_matrix(array, n_lags):
+def build_predictor_matrix(array, n_lags, return_valid=True):
     """Build predictor matrix with time-lagged datapoints.
 
     Parameters
@@ -79,17 +127,25 @@ def build_predictor_matrix(array, n_lags):
         shape (n_time, n_clusters)
     n_lags : int
         number of lagged timepoints (includes zero lag)
+    return_valid : bool, optional
+        True to crop first n_lags rows, False to leave all
 
     Returns
     -------
     np.ndarray
-        shape (n_time, n_clusters * (n_lags + 1))
+        shape (n_time - n_lags, n_clusters * (n_lags + 1)) if return_valid==True
+        shape (n_time, n_clusters * (n_lags + 1)) if return_valid==False
 
     """
-    return np.hstack([np.roll(array, i, axis=0) for i in range(n_lags + 1)])[n_lags:]
+    if n_lags < 0:
+        raise ValueError('`n_lags` must be >=0, not {}'.format(n_lags))
+    mat = np.hstack([np.roll(array, i, axis=0) for i in range(n_lags + 1)])
+    if return_valid:
+        mat = mat[n_lags:]
+    return mat
 
 
-def proprocess_widefield_imaging():
+def preprocess_widefield_imaging():
     frames_idx = wideFieldImaging_dict['timings'][kwargs['align_time']].values
     frames_idx = np.sort(
         frames_idx[:, None] +
@@ -102,7 +158,17 @@ def proprocess_widefield_imaging():
     binned = binned.reshape(binned.shape[0], -1).T
     return binned
 
+
+def select_ephys_regions(regressors, beryl_reg, region, **kwargs):
+    """Select units based on QC criteria and brain region."""
+    qc_pass = (regressors['clu_qc']['label'] >= kwargs['qc_criteria'])
+    reg_mask = np.isin(beryl_reg, region)
+    reg_clu_ids = np.argwhere(reg_mask & qc_pass).flatten()
+    return reg_clu_ids
+
+
 def select_widefield_imaging_regions():
+    """Select pixels based on brain region."""
     region_labels = []
     reg_lab = wideFieldImaging_dict['atlas'][wideFieldImaging_dict['atlas'].acronym ==
                                              region].label.values.squeeze()
@@ -113,10 +179,4 @@ def select_widefield_imaging_regions():
 
     reg_mask = np.isin(wideFieldImaging_dict['clu_regions'], region_labels)
     reg_clu_ids = np.argwhere(reg_mask)
-    return reg_clu_ids
-
-def select_ephys_regions(regressors, beryl_reg, region, **kwargs):
-    qc_pass = (regressors['clu_qc']['label'] >= kwargs['qc_criteria'])
-    reg_mask = np.isin(beryl_reg, region)
-    reg_clu_ids = np.argwhere(reg_mask & qc_pass).flatten()
     return reg_clu_ids
