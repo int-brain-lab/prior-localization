@@ -1,30 +1,23 @@
 # Standard library
-import hashlib
 import logging
-import os
 import pickle
-import re
 from datetime import datetime as dt
 from pathlib import Path
-from braindelphi.pipelines.utils import load_primaries
-from braindelphi.pipelines.utils import cache_regressors
-from braindelphi.decoding.settings import kwargs
+from braindelphi.pipelines.utils_common_pipelines import load_primaries
+from braindelphi.pipelines.utils_common_pipelines import cache_regressors
 
 # Third party libraries
 import dask
-import numpy as np
 import pandas as pd
 from dask.distributed import Client
 from dask_jobqueue import SLURMCluster
 from dask.distributed import LocalCluster
 
 # IBL libraries
-import brainbox.io.one as bbone
-from one.api import ONE
 from braindelphi.params import CACHE_PATH
 
 # braindelphi repo imports
-from braindelphi.utils import query_sessions
+from braindelphi.utils_root import query_sessions
 
 _logger = logging.getLogger('braindelphi')
 
@@ -38,7 +31,7 @@ def delayed_load(session_id, probes, params):
 
 @dask.delayed(pure=False, traverse=False)
 def delayed_save(subject, session_id, probes, params, outputs):
-    return cache_regressors(subject, session_id, probes, params, *outputs)
+    return cache_regressors(subject, session_id, probes, params, outputs)
 
 
 # Parameters
@@ -50,6 +43,7 @@ T_AFT = 0.6
 BINWIDTH = 0.02
 ABSWHEEL = True
 QC = True
+TYPE = 'primaries'
 # End parameters
 
 # Construct params dict from above
@@ -59,11 +53,9 @@ params = {
     't_after': T_AFT,
     'binwidth': BINWIDTH,
     'abswheel': ABSWHEEL,
-    'ret_qc': QC,
-    'type': 'primary',
+    'ret_qc': QC
 }
 
-one = ONE()
 dataset_futures = []
 
 sessdf = query_sessions(SESS_CRITERION).set_index(['subject', 'eid'])
@@ -73,7 +65,7 @@ for eid in sessdf.index.unique(level='eid'):
     subject = xsdf.index[0]
     probes = xsdf.pid.to_list()
     load_outputs = delayed_load(eid, probes, params)
-    save_future = delayed_save(subject, eid, probes, params, load_outputs)
+    save_future = delayed_save(subject, eid, probes, {**params, 'type': TYPE}, load_outputs)
     dataset_futures.append([subject, eid, probes, save_future])
 
 N_CORES = 4
@@ -97,7 +89,7 @@ cluster.scale(20)
 cluster = LocalCluster()
 client = Client(cluster)
 
-tmp_futures = [client.compute(future[3]) for future in dataset_futures]
+tmp_futures = [client.compute(future[3]) for future in dataset_futures[:5]]
 
 # Run below code AFTER futures have finished!
 dataset = [{

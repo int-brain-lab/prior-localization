@@ -5,22 +5,22 @@ from behavior_models.models.utils import format_input as mut_format_input
 from brainbox.task.closed_loop import generate_pseudo_session
 
 
-def generate_null_distribution_session(trialsdf, eid, **kwargs):
+def generate_null_distribution_session(trials_df, metadata, **kwargs):
     if kwargs['use_imposter_session']:
         if not kwargs['constrain_imposter_session_with_beh']:
             pseudosess = generate_imposter_session(kwargs['imposterdf'],
-                                                       eid,
-                                                       trialsdf.index.size,
-                                                       nbSampledSess=10)
+                                                   metadata['eid'],
+                                                   trials_df.index.size,
+                                                   nbSampledSess=10)
         else:
-            feedback_0contrast = trialsdf[(trialsdf.contrastLeft == 0).values + (
-                    trialsdf.contrastRight == 0).values].feedbackType.mean()
+            feedback_0contrast = trials_df[(trials_df.contrastLeft == 0).values + (
+                    trials_df.contrastRight == 0).values].feedbackType.mean()
 
             pseudosess_s = [
                 generate_imposter_session(kwargs['imposterdf'],
-                                              eid,
-                                              trialsdf.index.size,
-                                              nbSampledSess=10) for _ in range(50)
+                                          metadata['eid'],
+                                          trials_df.index.size,
+                                          nbSampledSess=10) for _ in range(50)
             ]
             feedback_pseudo_0cont = [
                 pseudo[(pseudo.contrastLeft == 0).values +
@@ -29,34 +29,31 @@ def generate_null_distribution_session(trialsdf, eid, **kwargs):
             ]
             pseudosess = pseudosess_s[np.argmin(
                 np.abs(np.array(feedback_pseudo_0cont) - feedback_0contrast))]
-        pseudomask = None  # mask & (pseudosess.choice != 0)
     else:
-        pseudosess = generate_pseudo_session(trialsdf, generate_choices=False)
+        pseudosess = generate_pseudo_session(trials_df, generate_choices=False)
         if kwargs['model'].name == 'actKernel':
             subjModel = {
+                **metadata,
                 'modeltype': kwargs['model'],
-                'subjeids': metadata['subjeids'],
-                'subject': metadata['subject'],
-                'modelfit_path': kwargs['modelfit_path'],
-                'eid': eid
+                'behfit_path': kwargs['behfit_path'],
             }
             pseudosess['choice'] = generate_choices(
-                pseudosess, trialsdf, subjModel)
+                pseudosess, trials_df, subjModel, kwargs['modeldispatcher'])
         else:
-            pseudosess['choice'] = trialsdf.choice
-        pseudomask = None  # mask & (trials_df.choice != 0)
+            pseudosess['choice'] = trials_df.choice
+    return pseudosess
 
 
-
-def generate_choices(pseudosess, trialsdf, subjModel):
+def generate_choices(pseudosess, trials_df, subjModel, modeldispatcher):
 
     istrained, fullpath = check_bhv_fit_exists(subjModel['subject'], subjModel['modeltype'],
-                                               subjModel['subjeids'],
-                                               subjModel['modelfit_path'].as_posix() + '/')
+                                               subjModel['eids_train'],
+                                               subjModel['behfit_path'].as_posix() + '/',
+                                               modeldispatcher)
     if not istrained:
         raise ValueError('Something is wrong. The model should be trained by this line')
-    model = subjModel['modeltype'](subjModel['modelfit_path'].as_posix() + '/',
-                                   subjModel['subjeids'],
+    model = subjModel['modeltype'](subjModel['behfit_path'],
+                                   subjModel['eids_train'],
                                    subjModel['subject'],
                                    actions=None,
                                    stimuli=None,
@@ -65,8 +62,8 @@ def generate_choices(pseudosess, trialsdf, subjModel):
 
     arr_params = model.get_parameters(parameter_type='posterior_mean')[None]
     valid = np.ones([1, pseudosess.index.size], dtype=bool)
-    stim, act, side = mut_format_input([pseudosess.signed_contrast.values],
-                                       [trialsdf.choice.values], [pseudosess.stim_side.values])
+    stim, _, side = mut_format_input([pseudosess.signed_contrast.values],
+                                     [trials_df.choice.values], [pseudosess.stim_side.values])
     act_sim, stim, side = model.simulate(arr_params,
                                          stim,
                                          side,

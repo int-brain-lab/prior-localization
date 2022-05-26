@@ -11,7 +11,7 @@ from tqdm import tqdm
 from ibllib.atlas import BrainRegions
 
 # Brainwide repo imports
-from braindelphi.utils import get_id, remap
+from braindelphi.utils_root import get_id, remap
 
 
 def generate_da_dict(

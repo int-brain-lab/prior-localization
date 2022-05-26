@@ -5,8 +5,7 @@ import torch
 import pandas as pd
 import scipy
 
-from brainbox.task.closed_loop import generate_pseudo_blocks, _draw_position, _draw_contrast
-from braindelphi.decoding.functions.nulldistributions import generate_imposter_session
+
 from braindelphi.decoding.functions.utils import check_bhv_fit_exists
 
 possible_targets = ['choice', 'feedback', 'signcont', 'pLeft']
@@ -117,12 +116,8 @@ def compute_beh_target(trials_df, metadata, remove_old=False, **kwargs):
                                          if modetype=None, then it will return the actual pLeft (.2, .5, .8)
     '''
 
-    # check if is trained
-    eids_train = ([metadata['eid']] if 'eids_train' not in metadata.keys()
-                   else metadata['eids_train'])
-
-    istrained, fullpath = check_bhv_fit_exists(metadata['subject'], kwargs['model'], eids_train, kwargs['modelfit_path'],
-                                               modeldispatcher=kwargs['modeldispatcher'])
+    istrained, fullpath = check_bhv_fit_exists(metadata['subject'], kwargs['model'], metadata['eids_train'],
+                                               kwargs['behfit_path'], modeldispatcher=kwargs['modeldispatcher'])
 
     if kwargs['target'] == 'signcont':
         if 'signedContrast' in trials_df.keys():
@@ -143,20 +138,20 @@ def compute_beh_target(trials_df, metadata, remove_old=False, **kwargs):
 
     if (not istrained) and (kwargs['target'] != 'signcont') and (kwargs['model'] is not None):
         datadict = {'stim_side': [], 'actions': [], 'stimuli': []}
-        if 'eids_train' in kwargs.keys() or len(eids_train) >= 2:
+        if 'eids_train' in kwargs.keys() or len(metadata['eids_train']) >= 2:
             raise NotImplementedError('Sorry, this features is not implemented yet')
-        for _ in eids_train:  # this seems superfluous but this is a relevant structure for when eids_train != [eid]
+        for _ in metadata['eids_train']:  # this seems superfluous but this is a relevant structure for when eids_train != [eid]
             side, stim, act, _ = format_data_mut(trials_df)
             datadict['stim_side'].append(side)
             datadict['stimuli'].append(stim)
             datadict['actions'].append(act)
         stimuli, actions, stim_side = format_input_mut(datadict['stimuli'], datadict['actions'], datadict['stim_side'])
-        model = kwargs['model'](kwargs['modelfit_path'], np.array(eids_train), metadata['subject'],
+        model = kwargs['model'](kwargs['behfit_path'], np.array(metadata['eids_train']), metadata['subject'],
                                 actions, stimuli, stim_side)
         model.load_or_train(remove_old=remove_old)
     elif (kwargs['target'] != 'signcont') and (kwargs['model'] is not None):
-        model = kwargs['model'](kwargs['modelfit_path'],
-                                eids_train,
+        model = kwargs['model'](kwargs['behfit_path'],
+                                metadata['eids_train'],
                                 metadata['subject'],
                                 actions=None,
                                 stimuli=None,
@@ -176,98 +171,6 @@ def compute_beh_target(trials_df, metadata, remove_old=False, **kwargs):
         tvec = (tvec > kwargs['binarization_value']) * 1
 
     return tvec
-
-
-
-def get_target_pLeft(nb_trials,
-                     nb_sessions,
-                     take_out_unbiased,
-                     bin_size_kde,
-                     subjModel=None,
-                     antithetic=True):
-    # if subjModel is empty, compute the optimal Bayesian prior
-    if subjModel is not None:
-        istrained, fullpath = check_bhv_fit_exists(subjModel['subject'], subjModel['modeltype'],
-                                                   subjModel['subjeids'],
-                                                   subjModel['modelfit_path'].as_posix() + '/')
-        if not istrained:
-            raise ValueError('Something is wrong. The model should be trained by this line')
-        model = subjModel['modeltype'](subjModel['modelfit_path'].as_posix() + '/',
-                                       subjModel['subjeids'],
-                                       subjModel['subject'],
-                                       actions=None,
-                                       stimuli=None,
-                                       stim_side=None)
-        model.load_or_train(loadpath=str(fullpath))
-    else:
-        model = None
-    contrast_set = np.array([0., 0.0625, 0.125, 0.25, 1])
-    target_pLeft = []
-    for _ in np.arange(nb_sessions):
-        if model is None or not subjModel['use_imposter_session_for_balancing']:
-            pseudo_trials = pd.DataFrame()
-            pseudo_trials['probabilityLeft'] = generate_pseudo_blocks(nb_trials)
-            for i in range(pseudo_trials.shape[0]):
-                position = _draw_position([-1, 1], pseudo_trials['probabilityLeft'][i])
-                contrast = _draw_contrast(contrast_set, 'uniform')
-                if position == -1:
-                    pseudo_trials.loc[i, 'contrastLeft'] = contrast
-                elif position == 1:
-                    pseudo_trials.loc[i, 'contrastRight'] = contrast
-                pseudo_trials.loc[i, 'stim_side'] = position
-            pseudo_trials['signed_contrast'] = pseudo_trials['contrastRight']
-            pseudo_trials.loc[pseudo_trials['signed_contrast'].isnull(),
-                              'signed_contrast'] = -pseudo_trials['contrastLeft']
-            pseudo_trials['choice'] = np.NaN  # choice padding
-        else:
-            pseudo_trials = generate_imposter_session(subjModel['imposterdf'],
-                                                      subjModel['eid'],
-                                                      nb_trials,
-                                                      nbSampledSess=10)
-        side, stim, act, _ = mut.format_data(pseudo_trials)
-        if model is None:
-            msub_pseudo_tvec = optimal_Bayesian(act.values, stim, side.values)
-        elif not subjModel['use_imposter_session_for_balancing']:
-            arr_params = model.get_parameters(parameter_type='posterior_mean')[None]
-            valid = np.ones([1, pseudo_trials.index.size], dtype=bool)
-            stim, act, side = mut.format_input([stim], [act.values], [side.values])
-            act_sim, stim, side = model.simulate(arr_params,
-                                                 stim,
-                                                 side,
-                                                 torch.from_numpy(valid),
-                                                 nb_simul=10,
-                                                 only_perf=False)
-            act_sim = act_sim.squeeze().T
-            stim = torch.tile(stim.squeeze()[None], (act_sim.shape[0], 1))
-            side = torch.tile(side.squeeze()[None], (act_sim.shape[0], 1))
-            msub_pseudo_tvec = model.compute_signal(
-                signal=('prior' if subjModel['target'] == 'pLeft' else subjModel['target']),
-                act=act_sim,
-                stim=stim,
-                side=side)
-            msub_pseudo_tvec = msub_pseudo_tvec['prior'].T
-        else:
-            stim, act, side = mut.format_input([stim], [act.values], [side.values])
-            msub_pseudo_tvec = model.compute_signal(
-                signal=('prior' if subjModel['target'] == 'pLeft' else subjModel['target']),
-                act=act,
-                stim=stim,
-                side=side)
-            msub_pseudo_tvec = msub_pseudo_tvec['prior' if subjModel['target'] ==
-                                                'pLeft' else subjModel['target']]
-        if take_out_unbiased:
-            target_pLeft.append(
-                msub_pseudo_tvec[(pseudo_trials.probabilityLeft != 0.5).values].ravel())
-        else:
-            target_pLeft.append(msub_pseudo_tvec.ravel())
-    target_pLeft = np.concatenate(target_pLeft)
-    if antithetic:
-        target_pLeft = np.concatenate([target_pLeft, 1 - target_pLeft])
-    out = np.histogram(target_pLeft,
-                       bins=(np.arange(-bin_size_kde, 1 + bin_size_kde / 2., bin_size_kde) +
-                             bin_size_kde / 2.),
-                       density=True)
-    return out, target_pLeft
 
 
 def get_target_data_per_trial(

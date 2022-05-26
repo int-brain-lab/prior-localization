@@ -15,7 +15,7 @@ import neurencoding.utils as mut
 
 # braindelphi repo imports
 from braindelphi.params import CACHE_PATH, FIT_PATH
-from braindelphi.utils import make_batch_slurm
+from braindelphi.utils_root import make_batch_slurm
 
 # SLURM params
 BATCHFILE = '/home/gercek/bwm_stepwise_glm_signwheel.sh'

@@ -3,7 +3,8 @@ import numpy as np
 from braindelphi.decoding.functions.process_targets import optimal_Bayesian
 from behavior_models.models.expSmoothing_prevAction import expSmoothing_prevAction
 from behavior_models.models.expSmoothing_stimside import expSmoothing_stimside
-from braindelphi.params import FIT_PATH as DECODING_PATH
+from braindelphi.params import FIT_PATH as NEURAL_MOD_PATH
+from braindelphi.params import BEH_MOD_PATH as BEHAVIOR_MOD_PATH
 import sklearn.linear_model as sklm
 import warnings
 
@@ -18,6 +19,8 @@ strlut = {
     sklm.LinearRegression: "PureLinear",
     sklm.LogisticRegression: "Logistic"
 }
+
+NEURAL_DTYPE = 'ephys'  #  or 'widefield'
 
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
@@ -77,7 +80,6 @@ ADD_TO_SAVING_PATH = (
        BEH_MOUSELEVEL_TRAINING, SIMULATE_NEURAL_DATA, CONSTRAIN_IMPOSTER_SESSION_WITH_BEH))
 
 # WIDE FIELD IMAGING
-WIDE_FIELD_IMAGING = False
 WFI_HEMISPHERES = ['left']  # 'left' and/or 'right'
 WFI_NB_FRAMES = -1  # signed number of frames from ALIGN_TIME. can not be zero
 
@@ -123,7 +125,6 @@ fit_metadata = {
     'criterion': SESS_CRITERION,
     'target': TARGET,
     'model_type': modeldispatcher[MODEL],
-    'decoding_path': DECODING_PATH,
     'align_time': ALIGN_TIME,
     'time_window': TIME_WINDOW,
     'estimator': strlut[ESTIMATOR],
@@ -147,14 +148,14 @@ fit_metadata = {
     'balanced_continuous_target': BALANCED_CONTINUOUS_TARGET,
     'use_openturns': USE_OPENTURNS,
     'bin_size_kde': BIN_SIZE_KDE,
-    'wide_field_imaging': WIDE_FIELD_IMAGING,
     'use_imposter_session_for_balancing': USE_IMPOSTER_SESSION_FOR_BALANCING,
     'beh_mouseLevel_training': BEH_MOUSELEVEL_TRAINING,
     'simulate_neural_data': SIMULATE_NEURAL_DATA,
-    'constrain_imposter_session_with_beh': CONSTRAIN_IMPOSTER_SESSION_WITH_BEH
+    'constrain_imposter_session_with_beh': CONSTRAIN_IMPOSTER_SESSION_WITH_BEH,
+    'neural_dtype': NEURAL_DTYPE
 }
 
-if WIDE_FIELD_IMAGING:
+if NEURAL_DTYPE == 'widefield':
     fit_metadata['wfi_hemispheres'] = WFI_HEMISPHERES
     fit_metadata['wfi_nb_frames'] = WFI_HEMISPHERES
 
@@ -162,10 +163,9 @@ kwargs = {
     'nb_runs': N_RUNS,
     'single_region': SINGLE_REGION,
     'merged_probes': MERGED_PROBES,
-    'modelfit_path': DECODING_PATH.joinpath('results', 'behavioral'),
-    'output_path': DECODING_PATH.joinpath('results', 'neural'),
+    'neuralfit_path': NEURAL_MOD_PATH,
+    'behfit_path': BEHAVIOR_MOD_PATH,
     'modeldispatcher': modeldispatcher,
-    'decoding_path': DECODING_PATH,
     'estimator_kwargs': ESTIMATOR_KWARGS,
     'hyperparam_grid': HPARAM_GRID,
     'save_binned': SAVE_BINNED,
@@ -193,7 +193,7 @@ kwargs = {
     'add_to_saving_path': ADD_TO_SAVING_PATH,
     'use_openturns': USE_OPENTURNS,
     'bin_size_kde': BIN_SIZE_KDE,
-    'wide_field_imaging': WIDE_FIELD_IMAGING,
+    'neural_dtype': NEURAL_DTYPE,
     'wfi_hemispheres': WFI_HEMISPHERES,
     'wfi_nb_frames': WFI_NB_FRAMES,
     'use_imposter_session_for_balancing': USE_IMPOSTER_SESSION_FOR_BALANCING,

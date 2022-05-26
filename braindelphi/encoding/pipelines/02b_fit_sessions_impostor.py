@@ -15,7 +15,7 @@ import neurencoding.utils as mut
 
 # Brainwide repo imports
 from braindelphi.params import CACHE_PATH, FIT_PATH
-from braindelphi.utils import make_batch_slurm
+from braindelphi.utils_root import make_batch_slurm
 
 # SLURM params
 BATCHFILE = '/home/gercek/bwm_impostor_glm.sh'

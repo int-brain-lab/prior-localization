@@ -9,17 +9,19 @@ from tqdm import tqdm
 
 from ibllib.atlas import BrainRegions
 
-from braindelphi.decoding.functions import get_save_path, save_region_results
 from braindelphi.decoding.functions.balancedweightings import balanced_weighting
 from braindelphi.decoding.functions.process_inputs import build_predictor_matrix
 from braindelphi.decoding.functions.process_inputs import select_ephys_regions
 from braindelphi.decoding.functions.process_inputs import select_widefield_imaging_regions
 from braindelphi.decoding.functions.process_inputs import preprocess_ephys
-from braindelphi.decoding.functions.process_inputs import proprocess_widefield_imaging
+from braindelphi.decoding.functions.process_inputs import preprocess_widefield_imaging
 from braindelphi.decoding.functions.process_targets import compute_beh_target
 from braindelphi.decoding.functions.process_targets import get_target_data_per_trial_wrapper
 from braindelphi.decoding.functions.utils import compute_mask
 from braindelphi.decoding.functions.utils import save_region_results
+from braindelphi.decoding.functions.utils import get_save_path
+from braindelphi.decoding.functions.balancedweightings import get_balanced_weighting
+from braindelphi.decoding.functions.nulldistributions import generate_null_distribution_session
 
 
 def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **kwargs):
@@ -93,8 +95,23 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
         raise ValueError(
             'pseudo id can be -1 (actual session) or strictly greater than 0 (pseudo session)')
 
+    if not np.all(np.sort(pseudo_ids) == pseudo_ids):
+        raise ValueError('pseudo_ids must be sorted')
+
+    # check if is trained
+    eids_train = ([metadata['eid']] if 'eids_train' not in metadata.keys()
+                   else metadata['eids_train'])
+
+    if 'eids_train' not in metadata.keys():
+        metadata['eids_train'] = eids_train
+    else:
+        raise ValueError('eids_train are not supported yet. If you do not understand this error, just take out'
+                         'the eids_train key in the metadata to solve it')
+
+    target_distribution = get_balanced_weighting(trials_df, metadata, **kwargs)
+
     # TODO: stim, choice, feedback, etc
-    if kwargs['target'] == 'prior':
+    if kwargs['target'] == 'pLeft':
         target_vals_list = compute_beh_target(trials_df, metadata, **kwargs)
         mask_target = np.ones(len(target_vals_list), dtype=bool)
     else:
@@ -115,8 +132,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
     brainreg = BrainRegions()
     beryl_reg = brainreg.acronym2acronym(regressors['clu_regions'], mapping='Beryl')
     regions = (
-        [[k] for k in np.unique(beryl_reg)]
-        if kwargs['single_region']
+        [[k] for k in np.unique(beryl_reg)] if kwargs['single_region']
         else [np.unique(beryl_reg)]
     )
 
@@ -136,7 +152,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
         if kwargs['neural_dtype'] == 'ephys':
             msub_binned = preprocess_ephys(reg_clu_ids, neural_dict, trials_df, **kwargs)
         elif kwargs['neural_dtype'] == 'widefield':
-            msub_binned = proprocess_widefield_imaging()
+            msub_binned = preprocess_widefield_imaging()
         else:
             raise NotImplementedError
 
@@ -147,26 +163,16 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
 
             # create pseudo session when necessary
             if pseudo_id > 0:
-                # todo  generate pseudo session
-                pseudo_targets = dut.compute_target(
-                    kwargs['target'],
-                    subject,
-                    subjeids,
-                    eid,
-                    kwargs['modelfit_path'],
-                    binarization_value=kwargs['binarization_value'],
-                    modeltype=kwargs['model'],
-                    beh_data_test=pseudosess,
-                    one=one,
-                    behavior_data_train=behavior_data_train)[pseudomask]
-            else:
-                pseudo_targets = None
+                controlsess_df = generate_null_distribution_session(trials_df, metadata, **kwargs)
+                target_vals_list = compute_beh_target(trials_df, metadata, **kwargs)
+                if kwargs['use_imposter_session']:
+                    mask = compute_mask(controlsess_df, **kwargs) & mask_target
 
             if kwargs['compute_neurometric']:  # compute prior for neurometric curve
                 raise NotImplementedError
 
             # make design matrix if multiple bins per trial
-            bins_per_trial = len(msub_binned[0])
+            bins_per_trial = msub_binned[0].shape[0]
             if bins_per_trial == 1:
                 Xs = msub_binned
             else:
@@ -176,7 +182,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
             fit_results = []
             for i_run in range(kwargs['nb_runs']):
                 fit_result = decode_cv(
-                    ys=target_vals_list if (pseudo_id == -1) else pseudo_targets,
+                    ys=target_vals_list,
                     Xs=Xs,
                     estimator=kwargs['estimator'],
                     use_openturns=kwargs['use_openturns'],
@@ -190,8 +196,8 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                     balanced_weight=kwargs['balanced_weight'],
                     normalize_input=kwargs['normalize_input'],
                     normalize_output=kwargs['normalize_output'])
-                fit_result['mask'] = mask & (trialsdf.choice != 0)
-                fit_result['df'] = trialsdf if pseudo_id == -1 else pseudosess
+                fit_result['mask'] = mask
+                fit_result['df'] = trials_df if pseudo_id == -1 else controlsess_df
                 fit_result['pseudo_id'] = pseudo_id
                 fit_result['run_id'] = i_run
 
@@ -201,7 +207,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                     # fit_result['full_neurometric'], fit_result['fold_neurometric'] = \
                     #     get_neurometric_parameters(
                     #         fit_result,
-                    #         trialsdf=trialsdf_neurometric,
+                    #         trials_df=trialsdf_neurometric,
                     #         one=one,
                     #         compute_on_each_fold=kwargs['compute_on_each_fold'],
                     #         force_positive_neuro_slopes=kwargs['compute_on_each_fold'])
@@ -213,7 +219,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
             save_path = get_save_path(
                 pseudo_id, metadata['subject'], metadata['eid'], metadata['probe'],
                 str(np.squeeze(region)) if kwargs['single_region'] else 'allRegions',
-                output_path=kwargs['output_path'],
+                output_path=kwargs['neuralfit_path'],
                 time_window=kwargs['time_window'],
                 today=kwargs['today'],
                 target=kwargs['target'],
@@ -550,4 +556,7 @@ if __name__ == '__main__':
     regressors = pickle.load(open(file, 'rb'))
     trials_df = regressors['trialsdf']
     neural_dict = regressors
-    metadata = {'eids_train': ['test'], 'eid': 'test', 'subject': 'mouse_name'}
+    metadata = {'eid': 'test', 'subject': 'mouse_name'}
+    dlc_dict = None
+    from braindelphi.decoding.settings import *
+    out = fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **kwargs)

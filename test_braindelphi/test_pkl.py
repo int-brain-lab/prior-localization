@@ -7,7 +7,7 @@ from pathlib import Path
 import iblutil.util
 import numpy as np
 import pandas as pd
-from braindelphi.utils import load_pickle_data
+from braindelphi.utils_root import load_pickle_data
 
 
 def test_load_pickle_data():
