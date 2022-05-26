@@ -1,3 +1,5 @@
+import numpy as np
+
 x_range = np.arange(len(msub_binned))
 polyfit = np.polyfit(x_range, msub_binned, deg=3)
 ypred = np.polyval(polyfit, x_range[:, None])

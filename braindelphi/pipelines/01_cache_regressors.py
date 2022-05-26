@@ -3,7 +3,7 @@ import logging
 import pickle
 from datetime import datetime as dt
 from pathlib import Path
-from braindelphi.pipelines.utils_common_pipelines import load_primaries
+from braindelphi.pipelines.utils_common_pipelines import load_ephys
 from braindelphi.pipelines.utils_common_pipelines import cache_regressors
 
 # Third party libraries
@@ -24,7 +24,7 @@ _logger = logging.getLogger('braindelphi')
 @dask.delayed
 def delayed_load(eid, pids, params):
     try:
-        return load_primaries(eid, pids, **params)
+        return load_ephys(eid, pids, **params)
     except KeyError:
         pass
 
@@ -93,7 +93,7 @@ cluster.scale(20)
 cluster = LocalCluster()
 client = Client(cluster)
 
-tmp_futures = [client.compute(future[3]) for future in dataset_futures[:5]]
+tmp_futures = [client.compute(future[3]) for future in dataset_futures]
 
 # Run below code AFTER futures have finished!
 dataset = [{

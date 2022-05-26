@@ -30,9 +30,8 @@ ALIGN_TIME = 'goCue_times'
 TARGET = 'pLeft'  # 'signcont' or 'pLeft'
 if TARGET not in ['pLeft', 'signcont', 'choice', 'feedback']:
     raise ValueError('TARGET can only be pLeft, signcont, choice or feedback')
-BALANCED_CONTINUOUS_TARGET = True  # is target continuous or discrete FOR BALANCED WEIGHTING
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
-MODEL = expSmoothing_prevAction  # expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
+MODEL = optimal_Bayesian  # expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
 BEH_MOUSELEVEL_TRAINING = False  # if True, trains the behavioral model session-wise else mouse-wise
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
@@ -65,6 +64,7 @@ USE_IMPOSTER_SESSION_FOR_BALANCING = False  # if false, it simulates the model (
 SIMULATE_NEURAL_DATA = False
 
 BALANCED_WEIGHT = False  # seems to work better with BALANCED_WEIGHT=False, but putting True is important
+BALANCED_CONTINUOUS_TARGET = True  # is target continuous or discrete FOR BALANCED WEIGHTING
 USE_OPENTURNS = False  # uses openturns to perform kernel density estimation
 BIN_SIZE_KDE = 0.05  # size of the kde bin
 HPARAM_GRID = ({

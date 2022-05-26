@@ -1,11 +1,10 @@
 import numpy as np
 import pandas as pd
-import functions.utils as dut
 from pathlib import Path
 from brainbox.population.decode import get_spike_counts_in_bins
 import one.alf.io as alfio
 from tqdm import tqdm
-from functions import utils as dut
+from braindelphi.decoding.functions import utils as dut
 import brainbox.io.one as bbone
 
 

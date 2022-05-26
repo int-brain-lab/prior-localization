@@ -217,8 +217,9 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                 fit_results.append(fit_result)
 
             save_path = get_save_path(
-                pseudo_id, metadata['subject'], metadata['eid'], metadata['probe'],
-                str(np.squeeze(region)) if kwargs['single_region'] else 'allRegions',
+                pseudo_id, metadata['subject'], metadata['eid'],
+                probe='merged_probes' if metadata['merge_probes'] else metadata['probes'][0],
+                region=str(np.squeeze(region)) if kwargs['single_region'] else 'allRegions',
                 output_path=kwargs['neuralfit_path'],
                 time_window=kwargs['time_window'],
                 today=kwargs['today'],
@@ -231,7 +232,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                                     pseudo_id,
                                     metadata['subject'],
                                     metadata['eid'],
-                                    metadata['probe'],
+                                    'merged_probes' if metadata['merge_probes'] else metadata['probes'][0],
                                     region,
                                     n_units,
                                     save_path)
@@ -551,12 +552,14 @@ def decode_cv(
 
 
 if __name__ == '__main__':
-    file = 'example_neural_and_behavioral_data.pkl'
-    import pickle
-    regressors = pickle.load(open(file, 'rb'))
-    trials_df = regressors['trialsdf']
-    neural_dict = regressors
-    metadata = {'eid': 'test', 'subject': 'mouse_name'}
-    dlc_dict = None
     from braindelphi.decoding.settings import *
-    out = fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **kwargs)
+    from braindelphi.params import *
+    import pickle
+    regressors = pickle.load(open(CACHE_PATH.joinpath(
+        'CSHL045/034e726f-b35f-41e0-8d6c-a22cc32391fb/probe00/2022-05-26_primaries_regressors.pkl'
+    ), 'rb'))
+    metadata = pickle.load(open(CACHE_PATH.joinpath(
+        'CSHL045/034e726f-b35f-41e0-8d6c-a22cc32391fb/probe00/2022-05-26_primaries_metadata.pkl'
+    ), 'rb'))
+
+    out = fit_eid(regressors, regressors['trials_df'], metadata, dlc_dict=None, pseudo_ids=[-1], **kwargs)

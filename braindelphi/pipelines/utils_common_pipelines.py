@@ -22,15 +22,15 @@ from braindelphi.params import CACHE_PATH
 _logger = logging.getLogger('braindelphi')
 
 
-def load_primaries(session_id,
-                   pids,
-                   max_len=2.,
-                   t_before=0.,
-                   t_after=0.,
-                   binwidth=0.02,
-                   abswheel=False,
-                   ret_qc=False,
-                   one=None):
+def load_ephys(session_id,
+               pids,
+               max_len=2.,
+               t_before=0.,
+               t_after=0.,
+               binwidth=0.02,
+               abswheel=False,
+               ret_qc=False,
+               one=None):
     one = ONE() if one is None else one
 
     trialsdf = bbone.load_trials_df(session_id,
@@ -99,7 +99,7 @@ def load_primaries(session_id,
 
 def cache_regressors(subject, eid, probes, params, regressors):
     """
-    Take outputs of load_primaries() and cache them to disk in the folder defined in the params.py
+    Take outputs of load_ephys() and cache them to disk in the folder defined in the params.py
     file in this repository, using a nested subject -> session folder structure.
 
     If an existing file in the directory already contains identical data, will not write a new file
