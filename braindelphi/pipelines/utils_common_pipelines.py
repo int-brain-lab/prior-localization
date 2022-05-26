@@ -23,7 +23,7 @@ _logger = logging.getLogger('braindelphi')
 
 
 def load_primaries(session_id,
-                   probes,
+                   pids,
                    max_len=2.,
                    t_before=0.,
                    t_after=0.,
@@ -45,7 +45,7 @@ def load_primaries(session_id,
 
     spikes, clusters, cludfs = {}, {}, []
     clumax = 0
-    for pid in probes:
+    for pid in pids:
         ssl = bbone.SpikeSortingLoader(one=one, pid=pid)
         spikes[pid], tmpclu, channels = ssl.load_spike_sorting()
         if 'metrics' not in tmpclu:
@@ -60,7 +60,7 @@ def load_primaries(session_id,
 
     allspikes, allclu, allreg, allamps, alldepths = [], [], [], [], []
     clumax = 0
-    for pid in probes:
+    for pid in pids:
         allspikes.append(spikes[pid].times)
         allclu.append(spikes[pid].clusters + clumax)
         allreg.append(clusters[pid].acronym)
@@ -97,7 +97,7 @@ def load_primaries(session_id,
     return regressors
 
 
-def cache_regressors(subject, session_id, probes, regressor_params, regressors):
+def cache_regressors(subject, eid, probes, params, regressors):
     """
     Take outputs of load_primaries() and cache them to disk in the folder defined in the params.py
     file in this repository, using a nested subject -> session folder structure.
@@ -107,23 +107,22 @@ def cache_regressors(subject, session_id, probes, regressor_params, regressors):
 
     Returns the metadata filename and regressors filename.
     """
-    subpath = Path(CACHE_PATH).joinpath(subject)
-    if not subpath.exists():
-        os.mkdir(subpath)
-    sesspath = subpath.joinpath(session_id)
-    if not sesspath.exists():
-        os.mkdir(sesspath)
+    if len(probes) > 1 and not params['merge_probes']:
+        raise ValueError('There is a problem in the script')
+    probe_specifications = 'merged_probes' if params['merge_probes'] else probes[0]
+    sesspath = Path(CACHE_PATH).joinpath(subject).joinpath(eid).joinpath(probe_specifications)
+    sesspath.mkdir(parents=True, exist_ok=True)
     curr_t = dt.now()
     fnbase = str(curr_t.date())
-    metadata_fn = sesspath.joinpath(fnbase + '_%s_metadata.pkl' % regressor_params['type'])
-    data_fn = sesspath.joinpath(fnbase + '_%s_regressors.pkl' % regressor_params['type'])
+    metadata_fn = sesspath.joinpath(fnbase + '_%s_metadata.pkl' % params['type'])
+    data_fn = sesspath.joinpath(fnbase + '_%s_regressors.pkl' % params['type'])
     reghash = _hash_dict(regressors)
     metadata = {
         'subject': subject,
-        'session_id': session_id,
+        'eid': eid,
         'probes': probes,
         'regressor_hash': reghash,
-        **regressor_params
+        **params
     }
     prevdata = [
         sesspath.joinpath(f) for f in os.listdir(sesspath) if re.match(r'.*_metadata\.pkl', f)
@@ -135,7 +134,7 @@ def cache_regressors(subject, session_id, probes, regressor_params, regressors):
             if metadata == frdata:
                 matchfile = True
         if matchfile:
-            _logger.info(f'Existing cache file found for {subject}: {session_id}, '
+            _logger.info(f'Existing cache file found for {subject}: {eid}, '
                          'not writing data.')
             old_data_fn = sesspath.joinpath(f.name.split('_')[0] + '_regressors.pkl')
             return f, old_data_fn

@@ -22,16 +22,16 @@ from braindelphi.utils_root import query_sessions
 _logger = logging.getLogger('braindelphi')
 
 @dask.delayed
-def delayed_load(session_id, probes, params):
+def delayed_load(eid, pids, params):
     try:
-        return load_primaries(session_id, probes, **params)
+        return load_primaries(eid, pids, **params)
     except KeyError:
         pass
 
 
 @dask.delayed(pure=False, traverse=False)
-def delayed_save(subject, session_id, probes, params, outputs):
-    return cache_regressors(subject, session_id, probes, params, outputs)
+def delayed_save(subject, eid, probes, params, outputs):
+    return cache_regressors(subject, eid, probes, params, outputs)
 
 
 # Parameters
@@ -44,6 +44,7 @@ BINWIDTH = 0.02
 ABSWHEEL = True
 QC = True
 TYPE = 'primaries'
+MERGE_PROBES = False
 # End parameters
 
 # Construct params dict from above
@@ -63,10 +64,13 @@ sessdf = query_sessions(SESS_CRITERION).set_index(['subject', 'eid'])
 for eid in sessdf.index.unique(level='eid'):
     xsdf = sessdf.xs(eid, level='eid')
     subject = xsdf.index[0]
-    probes = xsdf.pid.to_list()
-    load_outputs = delayed_load(eid, probes, params)
-    save_future = delayed_save(subject, eid, probes, {**params, 'type': TYPE}, load_outputs)
-    dataset_futures.append([subject, eid, probes, save_future])
+    pids_lst = [[pid] for pid in xsdf.pid.to_list()] if not MERGE_PROBES else [xsdf.pid.to_list()]
+    probe_lst = [[n] for n in xsdf.probe.to_list()] if not MERGE_PROBES else [xsdf.probe.to_list()]
+    for (probes, pids) in zip(probe_lst, pids_lst):
+        load_outputs = delayed_load(eid, pids, params)
+        save_future = delayed_save(subject, eid, probes, {**params, 'type': TYPE, 'merge_probes':MERGE_PROBES},
+                                   load_outputs)
+        dataset_futures.append([subject, eid, probes, save_future])
 
 N_CORES = 4
 '''

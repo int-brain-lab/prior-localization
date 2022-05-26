@@ -62,7 +62,7 @@ for u in eids:
     if 'ephys' in det['json']['PYBPOD_BOARD']: # mice are on the ephys rig but no neural recordings
         # do stuff
         det = one.get_details(u, full=True)
-        session_id = det['json']['SESSION_ORDER'][det['json']['SESSION_IDX']]
+        eid = det['json']['SESSION_ORDER'][det['json']['SESSION_IDX']]
 
 # original code used when I did now know how to get the session id
 pLeft_MIN_BEHAV_TRIAS = np.vstack([all_trialsdf[(all_trialsdf.trial_id < MIN_BEHAV_TRIAS) & (all_trialsdf.eid == u)]

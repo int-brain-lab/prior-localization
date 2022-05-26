@@ -1,7 +1,7 @@
 """
 Downloads trials, wheel, spikes and clusters for the BWM
 We compute clusters locations and metrics within the clusters objects and save it as a parquet table
-The output is a pandas dataframe of insertions, containing eids, pids, subjects, and the location of
+The output is a pandas dataframe of insertions, containing eids, probes, subjects, and the location of
 the cached datasets on disk for future loading
 """
 from pathlib import Path
