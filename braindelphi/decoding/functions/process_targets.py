@@ -133,7 +133,7 @@ def compute_beh_target(trials_df, metadata, remove_old=False, **kwargs):
         return trials_df.probabilityLeft.values
     elif (kwargs['target'] == 'pLeft') and (kwargs['model'] is optimal_Bayesian):  # bypass fitting and generate priors
         side, stim, act, _ = format_data_mut(trials_df)
-        signal = optimal_Bayesian(act, stim, side)
+        signal = optimal_Bayesian(act, side)
         return signal.numpy().squeeze()
 
     if (not istrained) and (kwargs['target'] != 'signcont') and (kwargs['model'] is not None):

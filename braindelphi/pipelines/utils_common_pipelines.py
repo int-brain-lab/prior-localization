@@ -110,7 +110,7 @@ def cache_regressors(subject, eid, probes, params, regressors):
     if len(probes) > 1 and not params['merge_probes']:
         raise ValueError('There is a problem in the script')
     probe_specifications = 'merged_probes' if params['merge_probes'] else probes[0]
-    sesspath = Path(CACHE_PATH).joinpath(subject).joinpath(eid).joinpath(probe_specifications)
+    sesspath = Path(CACHE_PATH).joinpath('ephys').joinpath(subject).joinpath(eid).joinpath(probe_specifications)
     sesspath.mkdir(parents=True, exist_ok=True)
     curr_t = dt.now()
     fnbase = str(curr_t.date())
