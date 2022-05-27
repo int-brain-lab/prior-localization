@@ -286,4 +286,3 @@ def get_target_data_per_trial_wrapper(
         target_times, target_vals, interval_beg_times, interval_end_times, binsize)
 
     return target_times_list, target_val_list, good_trials
-

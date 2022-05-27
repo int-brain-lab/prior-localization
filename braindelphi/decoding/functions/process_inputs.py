@@ -1,6 +1,8 @@
 import numpy as np
 import scipy
+
 from brainbox.population.decode import get_spike_counts_in_bins
+from brainbox.processing import bincount2D
 
 
 def preprocess_ephys(reg_clu_ids, neural_df, trials_df, **kwargs):
@@ -11,7 +13,7 @@ def preprocess_ephys(reg_clu_ids, neural_df, trials_df, **kwargs):
     reg_clu_ids : array-like
         array of cluster ids for each spike
     neural_df : pd.DataFrame
-        keys: 'trials_df', 'spk_times', 'spk_clu', 'clu_regions', 'clu_qc', 'clu_df'
+        keys: 'spk_times', 'spk_clu', 'clu_regions', 'clu_qc', 'clu_df'
     trials_df : pd.DataFrame
         columns: 'choice', 'feedback', 'pLeft', 'firstMovement_times', 'stimOn_times',
         'feedback_times'
@@ -29,7 +31,7 @@ def preprocess_ephys(reg_clu_ids, neural_df, trials_df, **kwargs):
     Returns
     -------
     list
-        each element is a 2D numpy.ndarray for a single trial
+        each element is a 2D numpy.ndarray for a single trial of shape (n_bins, n_clusters)
 
     """
 
@@ -47,6 +49,7 @@ def preprocess_ephys(reg_clu_ids, neural_df, trials_df, **kwargs):
     # for each trial, put spiking data into a 2D array; collect trials in a list
     trial_len = kwargs['time_window'][1] - kwargs['time_window'][0]
     binsize = kwargs.get('binsize', trial_len)
+    # TODO: can likely combine get_spike_counts_in_bins and get_spike_data_per_trial
     if trial_len / binsize == 1.0:
         # one vector of neural activity per trial
         binned, _ = get_spike_counts_in_bins(regspikes, regclu, intervals)
@@ -54,11 +57,12 @@ def preprocess_ephys(reg_clu_ids, neural_df, trials_df, **kwargs):
         binned_list = [x[None, :] for x in binned]
     else:
         # multiple vectors of neural activity per trial
-        spike_times_list, binned_list = get_spike_data_per_trial(
+        spike_times_list, binned_array = get_spike_data_per_trial(
             regspikes, regclu,
-            interval_begs=intervals[0] - kwargs['n_bins_lag'] * kwargs['binsize'],
-            interval_ends=intervals[1],
+            interval_begs=intervals[:, 0] - kwargs['n_bins_lag'] * kwargs['binsize'],
+            interval_ends=intervals[:, 1],
             binsize=kwargs['binsize'])
+        binned_list = [x.T for x in binned_array]
 
     return binned_list
 

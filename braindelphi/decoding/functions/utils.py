@@ -26,7 +26,7 @@ def check_bhv_fit_exists(subject, model, eids, resultpath, modeldispatcher):
 
 
 def compute_mask(trialsdf, **kwargs):
-    trialsdf['react_times'] = trialsdf['firstMovement_times'] - trialsdf[kwargs['align_time']]
+    trialsdf['react_times'] = trialsdf['firstMovement_times'] - trialsdf['goCue_times']
     mask = trialsdf[kwargs['align_time']].notna() & trialsdf['firstMovement_times'].notna()
     if kwargs['no_unbias']:
         mask = mask & (trialsdf.probabilityLeft != 0.5).values
@@ -34,28 +34,6 @@ def compute_mask(trialsdf, **kwargs):
         mask = mask & (~(trialsdf.react_times < kwargs['min_rt'])).values
     mask = mask & (trialsdf.choice != 0)
     return mask
-
-
-def return_regions(eid, sessdf, QC_CRITERIA=1, NUM_UNITS=10):
-    df_insertions = sessdf.loc[sessdf['eid'] == eid]
-    brainreg = BrainRegions()
-    my_regions = {}
-    for i, ins in tqdm(df_insertions.iterrows(), desc='Probe: ', leave=False):
-        probe = ins['probe']
-        spike_sorting_path = Path(ins['session_path']).joinpath(ins['spike_sorting'])
-        clusters = pd.read_parquet(spike_sorting_path.joinpath('clusters.pqt'))
-        beryl_reg = brainreg.acronym2acronym(clusters.atlas_id, mapping='Beryl')
-        qc_pass = (clusters['label'] >= QC_CRITERIA).values
-        regions = np.unique(beryl_reg)
-        # warnings.filterwarnings('ignore')
-        probe_regions = []
-        for region in tqdm(regions, desc='Region: ', leave=False):
-            reg_mask = (beryl_reg == region)
-            reg_clu_ids = np.argwhere(reg_mask & qc_pass).flatten()
-            if len(reg_clu_ids) > NUM_UNITS:
-                probe_regions.append(region)
-        my_regions[probe] = probe_regions
-    return my_regions
 
 
 def get_save_path(

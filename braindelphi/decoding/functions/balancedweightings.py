@@ -27,7 +27,8 @@ def test_df_from_histogram(target_distribution):
 
 def balanced_weighting(vec, continuous, use_openturns, bin_size_kde, target_distribution):
     # https://openturns.github.io/openturns/latest/user_manual/_generated/openturns.KernelSmoothing.html?highlight=kernel%20smoothing
-    # This plug-in method for bandwidth estimation is based on the solve-the-equation rule from (Sheather, Jones, 1991).
+    # This plug-in method for bandwidth estimation is based on the solve-the-equation rule from
+    # (Sheather, Jones, 1991).
     if continuous:
         if use_openturns:
             factory = openturns.KernelSmoothing()
@@ -47,7 +48,8 @@ def balanced_weighting(vec, continuous, use_openturns, bin_size_kde, target_dist
     return balanced_weight
 
 
-def get_target_pLeft(nb_trials, nb_sessions, take_out_unbiased, bin_size_kde, subjModel=None, antithetic=False):
+def get_target_pLeft(
+        nb_trials, nb_sessions, take_out_unbiased, bin_size_kde, subjModel=None, antithetic=False):
     # if subjModel is empty, compute the optimal Bayesian prior
     if subjModel is not None:
         istrained, fullpath = check_bhv_fit_exists(subjModel['subject'], subjModel['modeltype'],
@@ -135,8 +137,9 @@ def get_target_pLeft(nb_trials, nb_sessions, take_out_unbiased, bin_size_kde, su
 
 def get_balanced_weighting(trials_df, metadata, **kwargs):
     if kwargs['balanced_weight'] and kwargs['balanced_continuous_target']:
-        if (kwargs['no_unbias'] and not kwargs['use_imposter_session_for_balancing'] and
-            (kwargs['model'] == optimal_Bayesian)):
+        if (kwargs['no_unbias']
+                and not kwargs['use_imposter_session_for_balancing']
+                and (kwargs['model'] == optimal_Bayesian)):
             with open(
                     kwargs['decoding_path'].joinpath(
                         'targetpLeft_optBay_%s.pkl' %
@@ -145,9 +148,9 @@ def get_balanced_weighting(trials_df, metadata, **kwargs):
         elif not kwargs['use_imposter_session_for_balancing'] and (kwargs['model']
                                                                    == optimal_Bayesian):
             target_distribution, _ = get_target_pLeft(nb_trials=trials_df.index.size,
-                                                          nb_sessions=250,
-                                                          take_out_unbiased=False,
-                                                          bin_size_kde=kwargs['bin_size_kde'])
+                                                      nb_sessions=250,
+                                                      take_out_unbiased=False,
+                                                      bin_size_kde=kwargs['bin_size_kde'])
         else:
             subjModel = {
                 'modeltype': kwargs['model'],

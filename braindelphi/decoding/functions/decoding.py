@@ -30,7 +30,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
     Parameters
     ----------
     neural_dict : dict
-        keys: 'trials_df', 'spk_times', 'spk_clu', 'clu_regions', 'clu_qc', 'clu_df'
+        keys: 'spk_times', 'spk_clu', 'clu_regions', 'clu_qc', 'clu_df'
     trials_df : dict
         columns: 'choice', 'feedback', 'pLeft', 'firstMovement_times', 'stimOn_times',
         'feedback_times'
@@ -484,7 +484,8 @@ def decode_cv(
                     else:
                         predictions_to_save[i_global] = np.array([y_pred[i_fold]])
                 else:
-                    # we already computed these above, but after all trials were stacked; recompute per-trial
+                    # we already computed these above, but after all trials were stacked;
+                    # recompute per-trial
                     predictions[i_global] = model.predict(
                         X_test[i_fold] - mean_X_train) + mean_y_train
                     if isinstance(estimator, sklm.LogisticRegression):
@@ -552,6 +553,7 @@ def decode_cv(
 
 
 if __name__ == '__main__':
+
     from braindelphi.decoding.settings import *
     from braindelphi.params import *
     import pickle
@@ -562,4 +564,5 @@ if __name__ == '__main__':
         'CSHL045/034e726f-b35f-41e0-8d6c-a22cc32391fb/probe00/2022-05-26_primaries_metadata.pkl'
     ), 'rb'))
 
-    out = fit_eid(regressors, regressors['trials_df'], metadata, dlc_dict=None, pseudo_ids=[-1], **kwargs)
+    out = fit_eid(
+        regressors, regressors['trials_df'], metadata, dlc_dict=None, pseudo_ids=[-1], **kwargs)
