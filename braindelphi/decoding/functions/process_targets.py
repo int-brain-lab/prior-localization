@@ -3,7 +3,6 @@ from behavior_models.models.utils import format_input as format_input_mut
 import numpy as np
 import torch
 import pandas as pd
-import scipy
 
 
 from braindelphi.decoding.functions.utils import check_bhv_fit_exists
@@ -200,6 +199,8 @@ def get_target_data_per_trial(
 
     """
 
+    from scipy.interpolate import interp1d
+
     n_bins = int((interval_ends[0] - interval_begs[0]) / binsize) + 1
     idxs_beg = np.searchsorted(target_times, interval_begs, side='right')
     idxs_end = np.searchsorted(target_times, interval_ends, side='left')
@@ -233,12 +234,12 @@ def get_target_data_per_trial(
             n_dims = target_vals.shape[1]
             y_interp_tmps = []
             for n in range(n_dims):
-                y_interp_tmps.append(scipy.interpolate.interp1d(
+                y_interp_tmps.append(interp1d(
                     target_time, target_vals[:, n], kind='linear',
                     fill_value='extrapolate')(x_interp))
             y_interp = np.hstack([y[:, None] for y in y_interp_tmps])
         else:
-            y_interp = scipy.interpolate.interp1d(
+            y_interp = interp1d(
                 target_time, target_vals, kind='linear', fill_value='extrapolate')(x_interp)
         target_times_list.append(x_interp)
         target_data_list.append(y_interp)

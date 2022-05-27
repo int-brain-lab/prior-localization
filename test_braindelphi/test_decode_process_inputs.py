@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 
 from braindelphi.decoding.functions.process_inputs import build_predictor_matrix
@@ -17,7 +18,7 @@ def test_build_predictor_matrix():
     # invalid lags
     n_lags = -1
     with pytest.raises(ValueError):
-        mat = build_predictor_matrix(array, n_lags, return_valid=True)
+        build_predictor_matrix(array, n_lags, return_valid=True)
 
     # positive lags, with and without valid returns
     for n_lags in [1, 2, 3]:

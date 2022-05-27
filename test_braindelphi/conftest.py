@@ -3,7 +3,7 @@
 These fixtures create data and data modules that can be reused by other tests.
 """
 
-import Pathlib
+from pathlib import Path
 import pytest
 
 from braindelphi.utils_root import load_pickle_data

@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 
 from braindelphi.decoding.functions.process_targets import get_target_data_per_trial
@@ -15,7 +16,6 @@ def test_get_target_data_per_trial():
     interval_begs = np.arange(0, 100, n_trials)
     interval_ends = int_len + interval_begs
     binsize = 0.2
-    allow_nans = False
 
     target_times_list, target_data_list, mask = get_target_data_per_trial(
         target_times, target_vals, interval_begs, interval_ends, binsize)
