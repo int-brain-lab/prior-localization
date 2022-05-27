@@ -127,10 +127,12 @@ fit_metadata = {
     'model_type': modeldispatcher[MODEL],
     'align_time': ALIGN_TIME,
     'time_window': TIME_WINDOW,
-    'estimator': strlut[ESTIMATOR],
+    'estimator': ESTIMATOR,
+    'nb_runs': N_RUNS,
     'n_pseudo': N_PSEUDO,
     'min_units': MIN_UNITS,
     'min_behav_trials': MIN_BEHAV_TRIAS,
+    'min_rt': MIN_RT,
     'qc_criteria': QC_CRITERIA,
     'date': DATE,
     'shuffle': SHUFFLE,
@@ -152,7 +154,14 @@ fit_metadata = {
     'beh_mouseLevel_training': BEH_MOUSELEVEL_TRAINING,
     'simulate_neural_data': SIMULATE_NEURAL_DATA,
     'constrain_imposter_session_with_beh': CONSTRAIN_IMPOSTER_SESSION_WITH_BEH,
-    'neural_dtype': NEURAL_DTYPE
+    'neural_dtype': NEURAL_DTYPE,
+    'modeldispatcher': modeldispatcher,
+    'behfit_path': BEHAVIOR_MOD_PATH,
+    'neuralfit_path': NEURAL_MOD_PATH,
+    'estimator_kwargs': ESTIMATOR_KWARGS,
+    'hyperparam_grid': HPARAM_GRID,
+    'today': DATE,
+    'add_to_saving_path': ADD_TO_SAVING_PATH,
 }
 
 if NEURAL_DTYPE == 'widefield':

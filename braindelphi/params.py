@@ -1,5 +1,12 @@
+import os
 from pathlib import Path
-braindelphi_PATH = Path('/Users/csmfindling/Documents/Postdoc-Geneva/IBL/code/prior-localization/braindelphi')
+
+if os.getlogin() == 'mattw':
+    braindelphi_PATH = Path('/media/mattw/ibl/')
+else:
+    braindelphi_PATH = Path(
+        '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/code/prior-localization/braindelphi')
+
 CACHE_PATH = braindelphi_PATH.joinpath('cache')
 FIT_PATH = braindelphi_PATH.joinpath('decoding', 'results', 'neural')
 BEH_MOD_PATH = braindelphi_PATH.joinpath('decoding', 'results', 'behavior')

@@ -115,8 +115,9 @@ def compute_beh_target(trials_df, metadata, remove_old=False, **kwargs):
                                          if modetype=None, then it will return the actual pLeft (.2, .5, .8)
     '''
 
-    istrained, fullpath = check_bhv_fit_exists(metadata['subject'], kwargs['model'], metadata['eids_train'],
-                                               kwargs['behfit_path'], modeldispatcher=kwargs['modeldispatcher'])
+    istrained, fullpath = check_bhv_fit_exists(
+        metadata['subject'], kwargs['model'], metadata['eids_train'], kwargs['behfit_path'],
+        modeldispatcher=kwargs['modeldispatcher'])
 
     if kwargs['target'] == 'signcont':
         if 'signedContrast' in trials_df.keys():

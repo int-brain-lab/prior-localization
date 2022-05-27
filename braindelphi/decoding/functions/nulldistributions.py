@@ -31,7 +31,7 @@ def generate_null_distribution_session(trials_df, metadata, **kwargs):
                 np.abs(np.array(feedback_pseudo_0cont) - feedback_0contrast))]
     else:
         pseudosess = generate_pseudo_session(trials_df, generate_choices=False)
-        if kwargs['model'].name == 'actKernel':
+        if kwargs['model'] is not None and kwargs['model'].name == 'actKernel':
             subjModel = {
                 **metadata,
                 'modeltype': kwargs['model'],

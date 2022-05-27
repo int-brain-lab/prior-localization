@@ -130,7 +130,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
 
     # select brain regions from beryl atlas to loop over
     brainreg = BrainRegions()
-    beryl_reg = brainreg.acronym2acronym(regressors['clu_regions'], mapping='Beryl')
+    beryl_reg = brainreg.acronym2acronym(neural_dict['clu_regions'], mapping='Beryl')
     regions = (
         [[k] for k in np.unique(beryl_reg)] if kwargs['single_region']
         else [np.unique(beryl_reg)]
@@ -370,8 +370,10 @@ def decode_cv(
 
     # Select either the GridSearchCV estimator for a normal estimator, or use the native estimator
     # in the case of CV-type estimators
-    if isinstance(estimator, sklm._coordinate_descent.LinearModelCV):
-        raise NotImplemented('the code does not support a CV-type estimator for the moment.')
+    if estimator == sklm.RidgeCV \
+            or estimator == sklm.LassoCV \
+            or estimator == sklm.LogisticRegressionCV:
+        raise NotImplementedError('the code does not support a CV-type estimator for the moment.')
     else:
         # loop over outer folds
         for train_idxs_outer, test_idxs_outer in outer_kfold:
