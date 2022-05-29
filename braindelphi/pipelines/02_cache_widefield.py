@@ -8,6 +8,7 @@ import numpy as np
 # Third party libraries
 import pandas as pd
 import glob
+from tqdm import tqdm
 
 # IBL libraries
 from braindelphi.params import CACHE_PATH
@@ -15,6 +16,7 @@ from braindelphi.wide_field_imaging.utils import load_wfi_session
 
 _logger = logging.getLogger('braindelphi')
 
+DATE = str(dt.today())
 HEMISPHERES = ['left'] # 'left', 'right'
 if np.any([k not in ['left', 'right'] for k in HEMISPHERES]):
     raise ValueError('Hemispheres must be left or right')
@@ -24,7 +26,7 @@ subjects = glob.glob('wide_field_imaging/CSK-im-*')
 nb_eids_per_subject = np.array([np.load(s + '/behavior.npy', allow_pickle=True).size for s in subjects])
 
 dataset_files = []
-for index in range(nb_eids_per_subject.sum()):
+for index in tqdm(range(nb_eids_per_subject.sum())):
     subj_id = np.sum(index >= nb_eids_per_subject.cumsum())
     sess_id = index - np.hstack((0, nb_eids_per_subject)).cumsum()[:-1][subj_id]
     if sess_id < 0:
@@ -60,5 +62,5 @@ dataset = [{
 dataset = pd.DataFrame(dataset)
 
 outdict = {'params': {'hemisphere_specif': hemisphere_specif}, 'dataset_filenames': dataset}
-with open(Path(CACHE_PATH).joinpath(DATE + '_dataset_metadata.pkl'), 'wb') as fw:
+with open(Path(CACHE_PATH).joinpath(DATE + '_widefield_metadata.pkl'), 'wb') as fw:
     pickle.dump(outdict, fw)

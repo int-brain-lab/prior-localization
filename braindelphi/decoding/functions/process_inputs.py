@@ -149,17 +149,17 @@ def build_predictor_matrix(array, n_lags, return_valid=True):
     return mat
 
 
-def preprocess_widefield_imaging():
-    frames_idx = wideFieldImaging_dict['timings'][kwargs['align_time']].values
+def preprocess_widefield_imaging(neural_dict, reg_mask, **kwargs):
+    frames_idx = neural_dict['timings'][kwargs['align_time']].values
     frames_idx = np.sort(
         frames_idx[:, None] +
         np.arange(0, kwargs['wfi_nb_frames'], np.sign(kwargs['wfi_nb_frames'])),
         axis=1,
     )
-    binned = np.take(wideFieldImaging_dict['activity'][:, reg_mask],
+    binned = np.take(neural_dict['activity'][:, reg_mask],
                      frames_idx,
                      axis=0)
-    binned = binned.reshape(binned.shape[0], -1).T
+    binned = list(binned.reshape(binned.shape[0], -1)[:, None])
     return binned
 
 
@@ -171,16 +171,14 @@ def select_ephys_regions(regressors, beryl_reg, region, **kwargs):
     return reg_clu_ids
 
 
-def select_widefield_imaging_regions():
+def select_widefield_imaging_regions(neural_dict, region, **kwargs):
     """Select pixels based on brain region."""
     region_labels = []
-    reg_lab = wideFieldImaging_dict['atlas'][wideFieldImaging_dict['atlas'].acronym ==
-                                             region].label.values.squeeze()
+    reg_lab = neural_dict['atlas'][np.isin(neural_dict['atlas'].acronym, region)].label.values.squeeze()
     if 'left' in kwargs['wfi_hemispheres']:
         region_labels.append(reg_lab)
     if 'right' in kwargs['wfi_hemispheres']:
         region_labels.append(-reg_lab)
 
-    reg_mask = np.isin(wideFieldImaging_dict['clu_regions'], region_labels)
-    reg_clu_ids = np.argwhere(reg_mask)
-    return reg_clu_ids
+    reg_mask = np.isin(neural_dict['regions'], region_labels)
+    return reg_mask

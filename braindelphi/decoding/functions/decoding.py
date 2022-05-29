@@ -130,7 +130,12 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
 
     # select brain regions from beryl atlas to loop over
     brainreg = BrainRegions()
-    beryl_reg = brainreg.acronym2acronym(neural_dict['clu_regions'], mapping='Beryl')
+    beryl_reg = (
+        brainreg.acronym2acronym(neural_dict['clu_regions'], mapping='Beryl') if kwargs['neural_dtype'] == 'ephys'
+        else neural_dict['atlas'].acronym[np.array([k in np.unique(neural_dict['regions'])
+                                                    for k in neural_dict['atlas'].label])]
+    )
+
     regions = (
         [[k] for k in np.unique(beryl_reg)] if kwargs['single_region']
         else [np.unique(beryl_reg)]
@@ -141,18 +146,17 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
         if kwargs['neural_dtype'] == 'ephys':
             reg_clu_ids = select_ephys_regions(neural_dict, beryl_reg, region, **kwargs)
         elif kwargs['neural_dtype'] == 'widefield':
-            reg_clu_ids = select_widefield_imaging_regions()
+            reg_mask = select_widefield_imaging_regions(neural_dict, region, **kwargs)
         else:
             raise NotImplementedError
 
-        n_units = len(reg_clu_ids)
-        if n_units < kwargs['min_units']:
+        if kwargs['neural_dtype'] == 'ephys' and len(reg_clu_ids) < kwargs['min_units']:
             continue
 
         if kwargs['neural_dtype'] == 'ephys':
             msub_binned = preprocess_ephys(reg_clu_ids, neural_dict, trials_df, **kwargs)
         elif kwargs['neural_dtype'] == 'widefield':
-            msub_binned = preprocess_widefield_imaging()
+            msub_binned = preprocess_widefield_imaging(neural_dict, reg_mask, **kwargs)
         else:
             raise NotImplementedError
 
@@ -164,7 +168,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
             # create pseudo session when necessary
             if pseudo_id > 0:
                 controlsess_df = generate_null_distribution_session(trials_df, metadata, **kwargs)
-                target_vals_list = compute_beh_target(trials_df, metadata, **kwargs)
+                target_vals_list = compute_beh_target(controlsess_df, metadata, **kwargs)
                 if kwargs['use_imposter_session']:
                     mask = compute_mask(controlsess_df, **kwargs) & mask_target
 
@@ -173,17 +177,17 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
 
             # make design matrix if multiple bins per trial
             bins_per_trial = msub_binned[0].shape[0]
-            if bins_per_trial == 1:
-                Xs = msub_binned
-            else:
-                Xs = [build_predictor_matrix(s.T, kwargs['n_bins_lag']) for s in msub_binned]
+            Xs = (
+                msub_binned if bins_per_trial == 1
+                else [build_predictor_matrix(s.T, kwargs['n_bins_lag']) for s in msub_binned]
+            )
 
             # compute
             fit_results = []
             for i_run in range(kwargs['nb_runs']):
                 fit_result = decode_cv(
-                    ys=target_vals_list,
-                    Xs=Xs,
+                    ys=target_vals_list[mask],
+                    Xs=[Xs[m] for m in np.squeeze(np.where(mask))],
                     estimator=kwargs['estimator'],
                     use_openturns=kwargs['use_openturns'],
                     target_distribution=target_distribution,
@@ -216,9 +220,13 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                     fit_result['fold_neurometric'] = None
                 fit_results.append(fit_result)
 
+            if 'merge_probes' in metadata.keys():
+                probe = 'merged_probes' if metadata['merge_probes'] else metadata['probes'][0],
+            else:
+                probe = metadata['hemispheres']
             save_path = get_save_path(
                 pseudo_id, metadata['subject'], metadata['eid'],
-                probe='merged_probes' if metadata['merge_probes'] else metadata['probes'][0],
+                probe=probe,
                 region=str(np.squeeze(region)) if kwargs['single_region'] else 'allRegions',
                 output_path=kwargs['neuralfit_path'],
                 time_window=kwargs['time_window'],
@@ -232,9 +240,9 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                                     pseudo_id,
                                     metadata['subject'],
                                     metadata['eid'],
-                                    'merged_probes' if metadata['merge_probes'] else metadata['probes'][0],
+                                    probe,
                                     region,
-                                    n_units,
+                                    len(msub_binned),
                                     save_path)
             )
 
@@ -559,12 +567,23 @@ if __name__ == '__main__':
     from braindelphi.decoding.settings import *
     from braindelphi.params import *
     import pickle
-    regressors = pickle.load(open(CACHE_PATH.joinpath(
-        'CSHL045/034e726f-b35f-41e0-8d6c-a22cc32391fb/probe00/2022-05-26_primaries_regressors.pkl'
-    ), 'rb'))
-    metadata = pickle.load(open(CACHE_PATH.joinpath(
-        'CSHL045/034e726f-b35f-41e0-8d6c-a22cc32391fb/probe00/2022-05-26_primaries_metadata.pkl'
-    ), 'rb'))
+    from braindelphi.decoding.settings import kwargs
+    if kwargs['neural_dtype'] == 'ephys':
+        regressors = pickle.load(open(CACHE_PATH.joinpath(
+            'ephys/CSH_ZAD_001/3e7ae7c0-fe8b-487c-9354-036236fa1010/probe00/2022-05-26_primaries_regressors.pkl'
+        ), 'rb'))
+        metadata = pickle.load(open(CACHE_PATH.joinpath(
+            'ephys/CSH_ZAD_001/3e7ae7c0-fe8b-487c-9354-036236fa1010/probe00/2022-05-26_primaries_metadata.pkl'
+        ), 'rb'))
+        neural_dict = regressors
+        trials_df = regressors['trials_df']
+    else:
+        trials_df, neural_dict = pickle.load(open(CACHE_PATH.joinpath(
+            'widefield/wfi2/wfi2s6/left/2022-05-29_widefield_regressors.pkl'
+        ), 'rb'))
+        metadata = pickle.load(open(CACHE_PATH.joinpath(
+            'widefield/wfi2/wfi2s6/left/2022-05-29_widefield_metadata.pkl'
+        ), 'rb'))
 
     out = fit_eid(
         regressors, regressors['trials_df'], metadata, dlc_dict=None, pseudo_ids=[-1], **kwargs)

@@ -20,7 +20,7 @@ strlut = {
     sklm.LogisticRegression: "Logistic"
 }
 
-NEURAL_DTYPE = 'ephys'  #  or 'widefield'
+NEURAL_DTYPE = 'widefield'  #  'ephys' or 'widefield'
 
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
@@ -38,7 +38,7 @@ ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 BINARIZATION_VALUE = None  # to binarize the target -> could be useful with logistic regression estimator
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
 N_PSEUDO = 250
-N_PSEUDO_PER_JOB = 125
+N_PSEUDO_PER_JOB = 10
 N_JOBS_PER_SESSION = N_PSEUDO // N_PSEUDO_PER_JOB
 N_RUNS = 10
 MIN_UNITS = 10

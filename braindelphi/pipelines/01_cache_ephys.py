@@ -106,5 +106,5 @@ dataset = [{
 dataset = pd.DataFrame(dataset)
 
 outdict = {'params': params, 'dataset_filenames': dataset}
-with open(Path(CACHE_PATH).joinpath(DATE + '_dataset_metadata.pkl'), 'wb') as fw:
+with open(Path(CACHE_PATH).joinpath(DATE + '_ephys_metadata.pkl'), 'wb') as fw:
     pickle.dump(outdict, fw)

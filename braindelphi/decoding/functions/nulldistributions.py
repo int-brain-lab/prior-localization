@@ -3,6 +3,7 @@ from braindelphi.decoding.functions.utils import check_bhv_fit_exists
 import torch
 from behavior_models.models.utils import format_input as mut_format_input
 from brainbox.task.closed_loop import generate_pseudo_session
+from braindelphi.decoding.functions.process_targets import optimal_Bayesian
 
 
 def generate_null_distribution_session(trials_df, metadata, **kwargs):
@@ -31,7 +32,7 @@ def generate_null_distribution_session(trials_df, metadata, **kwargs):
                 np.abs(np.array(feedback_pseudo_0cont) - feedback_0contrast))]
     else:
         pseudosess = generate_pseudo_session(trials_df, generate_choices=False)
-        if kwargs['model'] is not None and kwargs['model'].name == 'actKernel':
+        if kwargs['model'] is not None and kwargs['model'] != optimal_Bayesian and kwargs['model'].name == 'actKernel':
             subjModel = {
                 **metadata,
                 'modeltype': kwargs['model'],
