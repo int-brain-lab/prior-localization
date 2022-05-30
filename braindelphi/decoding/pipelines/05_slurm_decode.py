@@ -9,11 +9,11 @@ import pickle
 try:
     index = int(sys.argv[1]) - 1
 except:
-    index = 85
+    index = 5
     pass
 
 # import cached data
-bwmdf = pickle.load(open(CACHE_PATH.joinpath('2022-05-29 14:02:17.889010_%s_metadata.pkl' % kwargs['neural_dtype']), 'rb'))
+bwmdf = pickle.load(open(CACHE_PATH.joinpath('2022-05-30 09:33:57.655433_%s_metadata.pkl' % kwargs['neural_dtype']), 'rb'))
 
 if kwargs['use_imposter_session']:
     imposterdf = pd.read_parquet(IMPOSTER_SESSION_PATH.joinpath('imposterSessions_beforeRecordings.pqt'))

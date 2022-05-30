@@ -73,13 +73,13 @@ for eid in sessdf.index.unique(level='eid'):
         dataset_futures.append([subject, eid, probes, save_future])
 
 N_CORES = 4
-'''
+
 cluster = SLURMCluster(cores=N_CORES,
                        memory='32GB',
                        processes=1,
                        queue="shared-cpu",
                        walltime="01:15:00",
-                       log_directory='/home/gercek/dask-worker-logs',
+                       log_directory='/srv/beegfs/scratch/users/f/findling/dask-worker-logs',
                        interface='ib0',
                        extra=["--lifetime", "60m", "--lifetime-stagger", "10m"],
                        job_cpu=N_CORES,
@@ -89,8 +89,8 @@ cluster = SLURMCluster(cores=N_CORES,
                            f'export OPENBLAS_NUM_THREADS={N_CORES}'
                        ])
 cluster.scale(20)
-'''
-cluster = LocalCluster()
+
+#cluster = LocalCluster()
 client = Client(cluster)
 
 tmp_futures = [client.compute(future[3]) for future in dataset_futures]
