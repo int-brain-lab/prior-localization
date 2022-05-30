@@ -20,7 +20,7 @@ strlut = {
     sklm.LogisticRegression: "Logistic"
 }
 
-NEURAL_DTYPE = 'widefield'  #  'ephys' or 'widefield'
+NEURAL_DTYPE = 'ephys'  #  'ephys' or 'widefield'
 
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
