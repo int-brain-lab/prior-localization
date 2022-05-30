@@ -31,7 +31,7 @@ def load_ephys(session_id,
                abswheel=False,
                ret_qc=False,
                one=None):
-    one = ONE(mode='local') if one is None else one
+    one = ONE() if one is None else one
 
     trialsdf = bbone.load_trials_df(session_id,
                                     maxlen=max_len,
