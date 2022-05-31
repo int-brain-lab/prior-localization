@@ -1,10 +1,14 @@
-import os
+import copy
+from datetime import date
 import numpy as np
+import os
 import pandas as pd
 from pathlib import Path
-from ibllib.atlas import BrainRegions
-from tqdm import tqdm
 import pickle
+import sklearn.linear_model as sklm
+from tqdm import tqdm
+
+from ibllib.atlas import BrainRegions
 from behavior_models.models.utils import build_path as build_path_mut
 
 
@@ -62,3 +66,75 @@ def save_region_results(fit_result, pseudo_id, subject, eid, probe, region, N, s
     pickle.dump(outdict, fw)
     fw.close()
     return save_path
+
+
+def check_settings(settings):
+    """Error check on pipeline settings.
+
+    Parameters
+    ----------
+    settings : dict
+
+    Returns
+    -------
+    dict
+
+    """
+
+    # options for decoding targets
+    target_options_singlebin = [
+        'prior'
+    ]
+    target_options_multibin = [
+        'wheel-vel',
+        'wheel-speed',
+        'pupil',
+        'l-paw-pos',
+        'l-paw-vel',
+        'l-paw-speed',
+        'l-whisker-me',
+        'r-paw-pos',
+        'r-paw-vel',
+        'r-paw-speed',
+        'r-whisker-me',
+    ]
+
+    # options for align events
+    align_event_options = [
+        'firstMovement_times',
+        'stimOn_times',
+        'feedback_times',
+    ]
+
+    # options for decoder
+    decoder_options = {
+        'linear': sklm.LinearRegression,
+        'lasso': sklm.Lasso,
+        'ridge': sklm.Ridge,
+        'logistic': sklm.LogisticRegression
+    }
+
+    params = copy.copy(settings)
+
+    if params['target'] not in target_options_singlebin + target_options_multibin:
+        raise NotImplementedError('provided target option \'{}\' invalid; must be in {}'.format(
+            params['target'], target_options_singlebin + target_options_multibin
+        ))
+
+    if params['align_time'] not in align_event_options:
+        raise NotImplementedError('provided align event \'{}\' invalid; must be in {}'.format(
+            params['align_event'], align_event_options
+        ))
+
+    # map estimator string to sklm class
+    params['estimator'] = decoder_options[settings['estimator']]
+
+    # update date if not given
+    if params['date'] is None or params['date'] == 'today':
+        params['date'] = str(date.today())
+
+    params['add_to_saving_path'] = '_binsize=%i_lags=%i_mergedProbes_%i' % (
+        1000 * params['binsize'], params['n_bins_lags'], params['merged_probes'],
+    )
+
+    return params

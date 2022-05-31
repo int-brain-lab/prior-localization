@@ -7,10 +7,20 @@ else:
     braindelphi_PATH = Path(
         '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/code/prior-localization/braindelphi')
 
+# path to user-specific settings file
+SETTINGS_PATH = braindelphi_PATH.joinpath('decoding', 'settings.yaml')
+
+# store cached data for simpler loading
 CACHE_PATH = braindelphi_PATH.joinpath('cache')
-FIT_PATH = braindelphi_PATH.joinpath('decoding', 'results', 'neural')
-BEH_MOD_PATH = braindelphi_PATH.joinpath('decoding', 'results', 'behavior')
-IMPOSTER_SESSION_PATH = braindelphi_PATH.joinpath('decoding')
 CACHE_PATH.mkdir(parents=True, exist_ok=True)
+
+# store neural decoding models
+FIT_PATH = braindelphi_PATH.joinpath('decoding', 'results', 'neural')
 FIT_PATH.mkdir(parents=True, exist_ok=True)
+
+# store behavioral models
+BEH_MOD_PATH = braindelphi_PATH.joinpath('decoding', 'results', 'behavior')
 BEH_MOD_PATH.mkdir(parents=True, exist_ok=True)
+
+# store imposter session data used for creating null distributions
+IMPOSTER_SESSION_PATH = braindelphi_PATH.joinpath('decoding')
