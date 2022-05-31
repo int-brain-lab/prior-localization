@@ -54,13 +54,13 @@ def get_save_path(
     return save_path
 
 
-def save_region_results(fit_result, pseudo_id, subject, eid, probe, region, N, save_path):
+def save_region_results(fit_result, pseudo_id, subject, eid, probe, region, n_units, save_path):
     save_dir = os.path.dirname(save_path)
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     outdict = {
         'fit': fit_result, 'pseudo_id': pseudo_id, 'subject': subject, 'eid': eid, 'probe': probe,
-        'region': region, 'N_units': N
+        'region': region, 'N_units': n_units
     }
     fw = open(save_path, 'wb')
     pickle.dump(outdict, fw)
@@ -83,7 +83,10 @@ def check_settings(settings):
 
     # options for decoding targets
     target_options_singlebin = [
-        'prior'
+        'prior',     # some estimate of the block prior
+        'choice',    # subject's choice (L/R)
+        'feedback',  # correct/incorrect
+        'signcont',  # signed contrast of stimulus
     ]
     target_options_multibin = [
         'wheel-vel',
@@ -102,6 +105,7 @@ def check_settings(settings):
     # options for align events
     align_event_options = [
         'firstMovement_times',
+        'goCue_times',
         'stimOn_times',
         'feedback_times',
     ]
@@ -123,18 +127,29 @@ def check_settings(settings):
 
     if params['align_time'] not in align_event_options:
         raise NotImplementedError('provided align event \'{}\' invalid; must be in {}'.format(
-            params['align_event'], align_event_options
+            params['align_time'], align_event_options
         ))
 
     # map estimator string to sklm class
     params['estimator'] = decoder_options[settings['estimator']]
+    if settings['estimator'] == 'logistic':
+        params['hyperparam_grid'] = {'C': settings['hyperparam_grid']['C']}
+    else:
+        params['hyperparam_grid'] = {'alpha': settings['hyperparam_grid']['alpha']}
 
+    params['n_jobs_per_session'] = params['n_pseudo'] // params['n_pseudo_per_job']
+
+    # TODO: settle on 'date' or 'today'
     # update date if not given
     if params['date'] is None or params['date'] == 'today':
         params['date'] = str(date.today())
+    params['today'] = params['date']
 
-    params['add_to_saving_path'] = '_binsize=%i_lags=%i_mergedProbes_%i' % (
-        1000 * params['binsize'], params['n_bins_lags'], params['merged_probes'],
-    )
+    # TODO: settle on n_runs or nb_runs
+    if 'n_runs' in params:
+        params['nb_runs'] = params['n_runs']
+
+    # TODO: settle on align_time or align_event
+    params['align_event'] = params['align_time']
 
     return params

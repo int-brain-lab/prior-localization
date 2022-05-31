@@ -87,6 +87,6 @@ def test_check_setting():
     with pytest.raises(NotImplementedError):
         check_settings(settings)
 
-    settings = {'target': 'prior', 'align_event': 'bad_align_str'}
+    settings = {'target': 'prior', 'align_time': 'bad_align_str'}
     with pytest.raises(NotImplementedError):
         check_settings(settings)

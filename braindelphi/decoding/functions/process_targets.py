@@ -213,22 +213,38 @@ def get_target_data_per_trial(
     target_data_list = []
     good_trial = [None for _ in range(len(target_times_og_list))]
     for i, (target_time, target_vals) in enumerate(zip(target_times_og_list, target_data_og_list)):
+
         if len(target_vals) == 0:
             print('target data not present on trial %i; skipping' % i)
             good_trial[i] = False
+            target_times_list.append(None)
+            target_data_list.append(None)
             continue
         if np.sum(np.isnan(target_vals)) > 0 and not allow_nans:
             print('nans in target data on trial %i; skipping' % i)
             good_trial[i] = False
+            target_times_list.append(None)
+            target_data_list.append(None)
+            continue
+        if np.isnan(interval_begs[i]) or np.isnan(interval_ends[i]):
+            print('bad trial interval data on trial %i; skipping' % i)
+            good_trial[i] = False
+            target_times_list.append(None)
+            target_data_list.append(None)
             continue
         if np.abs(interval_begs[i] - target_time[0]) > binsize:
             print('target data starts too late on trial %i; skipping' % i)
             good_trial[i] = False
+            target_times_list.append(None)
+            target_data_list.append(None)
             continue
         if np.abs(interval_ends[i] - target_time[-1]) > binsize:
             print('target data ends too early on trial %i; skipping' % i)
             good_trial[i] = False
+            target_times_list.append(None)
+            target_data_list.append(None)
             continue
+
         # x_interp = np.arange(target_time[0], target_time[-1] + binsize / 2, binsize)
         x_interp = np.linspace(target_time[0], target_time[-1], n_bins)
         if len(target_vals.shape) > 1 and target_vals.shape[1] > 1:
@@ -242,6 +258,7 @@ def get_target_data_per_trial(
         else:
             y_interp = interp1d(
                 target_time, target_vals, kind='linear', fill_value='extrapolate')(x_interp)
+
         target_times_list.append(x_interp)
         target_data_list.append(y_interp)
         good_trial[i] = True

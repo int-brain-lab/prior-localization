@@ -2,13 +2,18 @@
 On the second part of the pipeline example, we loop over the dataframe
 The analysis tools load the downloaded and cached version of the data.
 """
+import copy
 import logging
 import numpy as np
 from pathlib import Path
 import pandas as pd
+import sys
 import yaml
 
+from one.api import ONE
+
 from braindelphi.params import braindelphi_PATH, SETTINGS_PATH, FIT_PATH
+from braindelphi.pipelines.utils_common_pipelines import load_ephys, load_behavior
 from braindelphi.decoding.functions.decoding import fit_eid
 from braindelphi.decoding.functions.utils import check_settings
 
@@ -25,6 +30,12 @@ excludes = [
 # load settings as a dict
 settings = yaml.safe_load(open(SETTINGS_PATH))
 kwargs = check_settings(settings)
+# add path info
+kwargs['add_to_saving_path'] = '_binsize=%i_lags=%i_mergedProbes_%i' % (
+    1000 * kwargs['binsize'], kwargs['n_bins_lag'], kwargs['merge_probes'],
+)
+kwargs['neuralfit_path'] = FIT_PATH
+print(kwargs)
 
 # set up logging
 log_file = FIT_PATH.joinpath('decoding_%s_%s.log' % (kwargs['target'], kwargs['date']))
@@ -40,33 +51,64 @@ insdf = insdf[insdf.spike_sorting != ""]
 eids = insdf['eid'].unique()
 
 # load imposter session df
-imposter_path = braindelphi_PATH.joinpath('decoding', 'imposterSessions_%s.pqt' % params['target'])
-imposter_df = pd.read_parquet(imposter_path)
+# imposter_path = braindelphi_PATH.joinpath('decoding', 'imposterSessions_%s.pqt' % kwargs['target'])
+# imposter_df = pd.read_parquet(imposter_path)
 
 # loop over sessions: load data and decode
+one = ONE()
 IMIN = 0
-for i, eid in enumerate(eids[:1]):
+IMAX = 20
+for i, eid in enumerate(eids):
 
     # determine if we should proceed with decoding session
     if i < IMIN:
         continue
+    if i >= IMAX:
+        continue
     if eid in excludes:
         continue
-    if np.any(insdf[insdf['eid'] == eid]['spike_sorting'] == ""):
-        print(f"dud {eid}")
+    curr_df = insdf[insdf['eid'] == eid]
+    subject = curr_df.subject.iloc[0]
+    if np.any(curr_df['spike_sorting'] == ""):
+        logging.log(logging.DEBUG, f"{i}, session: {eid}, subject: {subject} - NO SPIKE SORTING")
         continue
 
-    print(f"{i}, session: {eid}")
+    logging.log(logging.DEBUG, f"{i}, session: {eid}, subject: {subject}")
 
-    # load data
+    # format probe/pid info depending on whether or not we want to merge units across probes
+    pids_lst = [
+        [pid] for pid in curr_df.pid.to_list()] if not kwargs['merge_probes'] \
+        else [curr_df.pid.to_list()]
+    probe_lst = [
+        [n] for n in curr_df.probe.to_list()] if not kwargs['merge_probes'] \
+        else [curr_df.probe.to_list()]
 
-    # fit model
-    fns = fit_eid(
-        eid,
-        insdf,
-        modelfit_path=DECODING_PATH.joinpath('results', 'behavioral'),
-        output_path=DECODING_PATH.joinpath('results', 'neural'),
-        pseudo_id=-1,
-        nb_runs=3,
-        one=one
-    )
+    # load behavioral data (same for all probes); logging occurs within load_behavior function
+    dlc_dict = load_behavior(eid, kwargs['target'], one=one)
+    if dlc_dict['skip']:
+        continue
+
+    for (probes, pids) in zip(probe_lst, pids_lst):
+
+        # load neural data
+        if kwargs['neural_dtype'] == 'ephys':
+            neural_dict = load_ephys(eid, pids, one=one, ret_qc=True)
+        else:
+            raise NotImplementedError
+
+        # fit model
+        metadata = {
+            'eid': eid,
+            'subject': subject,
+            'probes': probes,
+            'merge_probes': kwargs['merge_probes']
+        }
+
+        filenames = fit_eid(
+            neural_dict=neural_dict,
+            trials_df=neural_dict['trials_df'],
+            metadata=metadata,
+            dlc_dict=dlc_dict,
+            pseudo_ids=[-1],
+            **copy.copy(kwargs)
+        )

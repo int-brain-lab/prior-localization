@@ -106,7 +106,10 @@ def get_spike_data_per_trial(times, clusters, interval_begs, interval_ends, bins
         if times_curr.shape[0] == 0:
             # no spikes in this trial
             binned_spikes_tmp = np.zeros((n_clusters_in_region, n_bins))
-            t_idxs = np.arange(t_beg, t_end + binsize / 2, binsize)
+            if np.isnan(t_beg) or np.isnan(t_end):
+                t_idxs = np.nan * np.ones(n_bins)
+            else:
+                t_idxs = np.arange(t_beg, t_end + binsize / 2, binsize)
             idxs_tmp = np.arange(n_clusters_in_region)
         else:
             # bin spikes
