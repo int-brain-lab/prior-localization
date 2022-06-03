@@ -3,6 +3,7 @@ import logging
 import pickle
 from datetime import datetime as dt
 from pathlib import Path
+import yaml
 
 # Third party libraries
 import pandas as pd
@@ -63,18 +64,21 @@ dataset_futures = []
 
 sessdf = query_sessions(SESS_CRITERION).set_index(['subject', 'eid'])
 
-for eid in sessdf.index.unique(level='eid'):
+for i, eid in enumerate(sessdf.index.unique(level='eid')):
+    if i >= 10:
+        continue
     xsdf = sessdf.xs(eid, level='eid')
     subject = xsdf.index[0]
     pids_lst = [[pid] for pid in xsdf.pid.to_list()] if not MERGE_PROBES else [xsdf.pid.to_list()]
     probe_lst = [[n] for n in xsdf.probe.to_list()] if not MERGE_PROBES else [xsdf.probe.to_list()]
     for (probes, pids) in zip(probe_lst, pids_lst):
         load_outputs = delayed_load(eid, pids, params)
-        save_future = delayed_save(
-            subject, eid, probes,
-            {**params, 'type': TYPE, 'merge_probes': MERGE_PROBES},
-            load_outputs)
-        dataset_futures.append([subject, eid, probes, save_future])
+        if load_outputs is not None:
+            save_future = delayed_save(
+                subject, eid, probes,
+                {**params, 'type': TYPE, 'merge_probes': MERGE_PROBES},
+                load_outputs)
+            dataset_futures.append([subject, eid, probes, save_future])
 
 
 # Run below code AFTER futures have finished!

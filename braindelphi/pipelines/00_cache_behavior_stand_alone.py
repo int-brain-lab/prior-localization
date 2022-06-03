@@ -43,8 +43,9 @@ for eid in sessdf.index.unique(level='eid'):
     xsdf = sessdf.xs(eid, level='eid')
     subject = xsdf.index[0]
     load_outputs = delayed_load(eid, kwargs['target'])
-    save_future = delayed_save(subject, eid, kwargs['target'], load_outputs)
-    dataset_futures.append([subject, eid, save_future])
+    if not load_outputs['skip']:
+        save_future = delayed_save(subject, eid, kwargs['target'], load_outputs)
+        dataset_futures.append([subject, eid, save_future])
 
 # Run below code AFTER futures have finished!
 dataset = [{

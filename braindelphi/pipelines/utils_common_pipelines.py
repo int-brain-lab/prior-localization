@@ -16,6 +16,7 @@ import brainbox.io.one as bbone
 import brainbox.metrics.single_units as bbqc
 from ibllib.dsp.smooth import smooth_interpolate_savgol
 from one.api import ONE
+from one.alf.exceptions import ALFObjectNotFound
 
 # braindelphi repo imports
 from braindelphi.params import CACHE_PATH
@@ -216,52 +217,39 @@ def load_behavior(eid, target, one=None):
     target_vals = None
     skip_session = False
 
-    if target == 'wheel-vel' or target == 'wheel-speed':
-        try:
+    try:
+
+        if target == 'wheel-vel' or target == 'wheel-speed':
             target_times, _, target_vals, _ = load_wheel_data(one, eid)
             if target == 'wheel-speed':
                 target_vals = np.abs(target_vals)
-        except TimestampError:
-            msg = '%s timestamps/data mismatch' % target
-            _logger.exception(msg)
-            skip_session = True
-    elif target == 'pupil':
-        try:
+        elif target == 'pupil':
             target_times, target_vals = load_pupil_data(one, eid, snr_thresh=5)
-        except TimestampError:
-            msg = '%s timestamps/data mismatch' % target
-            _logger.exception(msg)
-            skip_session = True
-        except QCError:
-            msg = 'pupil trace did not pass QC'
-            _logger.exception(msg)
-            skip_session = True
-        except ValueError:
-            msg = 'not enough good pupil points'
-            _logger.exception(msg)
-            skip_session = True
-    elif target.find('paw') > -1:  # '[l/r]-paw-[pos/vel/speed]'
-        try:
+        elif target.find('paw') > -1:  # '[l/r]-paw-[pos/vel/speed]'
             target_times, target_vals = load_paw_data(
                 one, eid, paw=target.split('-')[0], kind=target.split('-')[2])
-        except TimestampError:
-            msg = '%s timestamps/data mismatch' % target
-            _logger.exception(msg)
-            skip_session = True
-        except QCError:
-            msg = 'paw trace did not pass QC tests'
-            _logger.exception(msg)
-            skip_session = True
-    elif target == 'l-whisker-me' or target == 'r-whisker-me':
-        try:
+        elif target == 'l-whisker-me' or target == 'r-whisker-me':
             target_times, target_vals = load_whisker_data(
                 one, eid, view=target.split('-')[0])
-        except TimestampError:
-            msg = '%s timestamps/data mismatch' % target
-            _logger.exception(msg)
-            skip_session = True
-    else:
-        raise NotImplementedError('%s is an invalid decoding target' % target)
+        else:
+            raise NotImplementedError('%s is an invalid decoding target' % target)
+
+    except TimestampError:
+        msg = '%s timestamps/data mismatch' % target
+        _logger.exception(msg)
+        skip_session = True
+    except ALFObjectNotFound:
+        msg = 'alf object for %s not found' % target
+        _logger.exception(msg)
+        skip_session = True
+    except QCError:
+        msg = '%s trace did not pass QC' % target
+        _logger.exception(msg)
+        skip_session = True
+    except ValueError:
+        msg = 'not enough good pupil points'
+        _logger.exception(msg)
+        skip_session = True
 
     if not skip_session:
         if target_times is None:
