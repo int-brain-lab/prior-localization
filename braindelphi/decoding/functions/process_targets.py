@@ -197,12 +197,21 @@ def get_target_data_per_trial(
     tuple
         - (list): time in seconds for each trial
         - (list): data for each trial
+        - (np.ndarray): mask; True=good trial, False=bad trial
 
     """
 
     from scipy.interpolate import interp1d
 
-    n_bins = int((interval_ends[0] - interval_begs[0]) / binsize) + 1
+    # n_bins = int((interval_ends[0] - interval_begs[0]) / binsize) + 1
+    if np.all(np.isnan(interval_ends)) or np.all(np.isnan(interval_ends)):
+        print('bad trial data')
+        good_trial = np.nan * np.ones(interval_begs.shape[0])
+        target_times_list = []
+        target_data_list = []
+        return target_times_list, target_data_list, good_trial
+
+    n_bins = int((np.nanmedian(interval_ends - interval_begs)) / binsize) + 1
     idxs_beg = np.searchsorted(target_times, interval_begs, side='right')
     idxs_end = np.searchsorted(target_times, interval_ends, side='left')
     target_times_og_list = [target_times[ib:ie] for ib, ie in zip(idxs_beg, idxs_end)]
