@@ -42,6 +42,10 @@ columns = [
     'contrastLeft',
     'eid',
     'template_sess',
+    'firstMovement_times',
+    'goCue_times',
+    'stimOn_times',
+    'feedback_times',
 ]
 # add additional columns if necessary
 add_behavior_col = False
@@ -54,20 +58,27 @@ if (kwargs['target'] != 'pLeft') \
 
 all_trialsdf = []
 for i, eid in enumerate(eids):
-    # try:
+
     det = one.get_details(eid, full=True)
     print('%i: %s' % (i, eid))
-    if 'ephys' in det['json']['PYBPOD_BOARD']:
+    # if 'ephys' in det['json']['PYBPOD_BOARD']:
+    try:
         trialsdf = bbone.load_trials_df(eid, one=one)
-        # choose sessions that pass BWM criteria
-        # - more than 400 trials
-        # - better then 90% on highest contrasts trials
-        high_contrast_mask = (trialsdf.contrastLeft == 1) | (trialsdf.contrastRight == 1)
-        frac_correct_hc = (trialsdf[high_contrast_mask].feedbackType == 1).mean()
-        if (trialsdf.index.size > 400) \
-                and (frac_correct_hc > 0.9) \
-                and ((trialsdf.probabilityLeft == 0.5).sum() == 90) \
-                and (trialsdf.probabilityLeft.values[0] == 0.5):
+    except Exception as e:
+        print('ERROR LOADING TRIALS DF')
+        print(e)
+        continue
+
+    # choose sessions that pass BWM criteria
+    # - more than 400 trials
+    # - better then 90% on highest contrasts trials
+    high_contrast_mask = (trialsdf.contrastLeft == 1) | (trialsdf.contrastRight == 1)
+    frac_correct_hc = (trialsdf[high_contrast_mask].feedbackType == 1).mean()
+    if (trialsdf.index.size > 400) \
+            and (frac_correct_hc > 0.9) \
+            and ((trialsdf.probabilityLeft == 0.5).sum() == 90) \
+            and (trialsdf.probabilityLeft.values[0] == 0.5):
+        try:
             if kwargs['imposter_generate_fake']:
                 trialsdf = generate_pseudo_session(trialsdf)
             if add_behavior_col:
@@ -81,8 +92,10 @@ for i, eid in enumerate(eids):
                 trialsdf['trial_id'] = trialsdf.index
                 trialsdf['template_sess'] = i
                 all_trialsdf.append(trialsdf)
-    # except Exception as e:
-    #     print(e)
+        except Exception as e:
+            print('ERROR CREATING IMPOSTER SESSION')
+            print(e)
+            continue
 
 all_trialsdf = pd.concat(all_trialsdf)
 

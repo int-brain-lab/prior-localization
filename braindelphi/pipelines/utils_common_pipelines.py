@@ -30,6 +30,7 @@ def load_ephys(session_id,
                t_after=0.,
                binwidth=0.02,
                abswheel=False,
+               wheel=True,
                ret_qc=False,
                one=None):
     one = ONE() if one is None else one
@@ -40,7 +41,7 @@ def load_ephys(session_id,
                                     t_after=t_after,
                                     wheel_binsize=binwidth,
                                     ret_abswheel=abswheel,
-                                    ret_wheel=not abswheel,
+                                    ret_wheel=wheel,
                                     addtl_types=['firstMovement_times'],
                                     one=one)
 

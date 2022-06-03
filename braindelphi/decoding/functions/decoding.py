@@ -165,18 +165,37 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
 
         for pseudo_id in pseudo_ids:
 
-            # create pseudo session when necessary
+            bins_per_trial = msub_binned[0].shape[0]
+
+            # create pseudo/imposter session when necessary
+            # TODO: integrate single-/multi-bin code
             if pseudo_id > 0:
-                controlsess_df = generate_null_distribution_session(trials_df, metadata, **kwargs)
-                target_vals_list = compute_beh_target(controlsess_df, metadata, **kwargs)
+                if bins_per_trial == 1:
+                    controlsess_df = generate_null_distribution_session(
+                        trials_df, metadata, **kwargs)
+                    target_vals_list = compute_beh_target(controlsess_df, metadata, **kwargs)
+                else:
+                    print(len(target_vals_list))
+                    imposter_df = kwargs['imposter_df'].copy()
+                    # remove current eid from imposter sessions
+                    df_clean = imposter_df[imposter_df.eid != metadata['eid']].reset_index()
+                    # randomly select imposter trial to start sequence
+                    n_trials = trials_df.shape[0]
+                    total_imposter_trials = df_clean.shape[0]
+                    idx_beg = np.random.choice(total_imposter_trials - n_trials)
+                    controlsess_df = df_clean.iloc[idx_beg:idx_beg + n_trials]
+                    # grab target values from this dataframe
+                    target_vals_list = list(controlsess_df[kwargs['target']].to_numpy())
+                    mask_target = np.ones(n_trials,)
+                    print(len(target_vals_list))
+
                 if kwargs['use_imposter_session']:
                     mask = compute_mask(controlsess_df, **kwargs) & mask_target
 
             if kwargs['compute_neurometric']:  # compute prior for neurometric curve
                 raise NotImplementedError
 
-            # make design matrix if multiple bins per trial
-            bins_per_trial = msub_binned[0].shape[0]
+            # make design matrix
             Xs = (
                 msub_binned if bins_per_trial == 1
                 else [build_predictor_matrix(s, kwargs['n_bins_lag']) for s in msub_binned]

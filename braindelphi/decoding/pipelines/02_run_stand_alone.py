@@ -17,6 +17,10 @@ from braindelphi.pipelines.utils_common_pipelines import load_ephys, load_behavi
 from braindelphi.decoding.functions.decoding import fit_eid
 from braindelphi.decoding.functions.utils import check_settings
 
+
+# True if braindelphi/
+LOAD_FROM_CACHE = False
+
 # sessions to be excluded (by Olivier Winter)
 excludes = [
     'bb6a5aae-2431-401d-8f6a-9fdd6de655a9',  # inconsistent trials object: relaunched on 31-12-2021
@@ -51,13 +55,17 @@ insdf = insdf[insdf.spike_sorting != ""]
 eids = insdf['eid'].unique()
 
 # load imposter session df
-# imposter_path = braindelphi_PATH.joinpath('decoding', 'imposterSessions_%s.pqt' % kwargs['target'])
-# imposter_df = pd.read_parquet(imposter_path)
+if kwargs.get('n_pseudo', 0) > 0:
+    ephys_str = '_beforeRecording' if not kwargs['imposter_generate_from_ephys'] else ''
+    filename = 'imposterSessions_%s%s.pqt' % (kwargs['target'], ephys_str)
+    imposter_path = braindelphi_PATH.joinpath('decoding', filename)
+    imposter_df = pd.read_parquet(imposter_path)
+    kwargs['imposter_df'] = imposter_df
 
 # loop over sessions: load data and decode
 one = ONE()
-IMIN = 14
-IMAX = 20
+IMIN = 0
+IMAX = 2
 for i, eid in enumerate(eids):
 
     # determine if we should proceed with decoding session
@@ -91,14 +99,18 @@ for i, eid in enumerate(eids):
     for (probes, pids) in zip(probe_lst, pids_lst):
 
         # load neural data
-        if kwargs['neural_dtype'] == 'ephys':
-            try:
-                neural_dict = load_ephys(eid, pids, one=one, ret_qc=True, max_len=5)
-            except Exception as e:
-                logging.log(logging.CRITICAL, e)
-                continue
-        else:
-            raise NotImplementedError
+        try:
+            if kwargs['neural_dtype'] == 'ephys':
+                if LOAD_FROM_CACHE:
+                    pass
+                else:
+                    neural_dict = load_ephys(
+                        eid, pids, one=one, ret_qc=True, max_len=5, abswheel=False, wheel=False)
+            else:
+                raise NotImplementedError
+        except Exception as e:
+            logging.log(logging.CRITICAL, e)
+            continue
 
         # fit model
         metadata = {
@@ -113,6 +125,7 @@ for i, eid in enumerate(eids):
             trials_df=neural_dict['trials_df'],
             metadata=metadata,
             dlc_dict=dlc_dict,
-            pseudo_ids=[-1],
+            # pseudo_ids=[-1],
+            pseudo_ids=1 + np.arange(kwargs['n_pseudo']),
             **copy.copy(kwargs)
         )
