@@ -3,6 +3,8 @@ from pathlib import Path
 
 if os.getlogin() == 'mattw':
     braindelphi_PATH = Path('/media/mattw/ibl/')
+elif os.getlogin() == 'mw3323':
+    braindelphi_PATH = Path('/home/mw3323/ibl/')
 else:
     braindelphi_PATH = Path(
         '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/code/prior-localization/braindelphi')

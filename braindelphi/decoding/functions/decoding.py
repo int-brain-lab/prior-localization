@@ -190,7 +190,13 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                     print(len(target_vals_list))
 
                 if kwargs['use_imposter_session']:
+                    # TODO: how to get rid of pandas warning prints?
                     mask = compute_mask(controlsess_df, **kwargs) & mask_target
+
+                save_predictions = kwargs.get(
+                    'save_predictions_pseudo', kwargs['save_predictions'])
+            else:
+                save_predictions = kwargs['save_predictions']
 
             if kwargs['compute_neurometric']:  # compute prior for neurometric curve
                 raise NotImplementedError
@@ -215,6 +221,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                     estimator_kwargs=kwargs['estimator_kwargs'],
                     hyperparam_grid=kwargs['hyperparam_grid'],
                     save_binned=kwargs['save_binned'],
+                    save_predictions=save_predictions,
                     shuffle=kwargs['shuffle'],
                     balanced_weight=kwargs['balanced_weight'],
                     normalize_input=kwargs['normalize_input'],
@@ -232,7 +239,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                     # fit_result['full_neurometric'], fit_result['fold_neurometric'] = \
                     #     get_neurometric_parameters(
                     #         fit_result,
-                    #         trials_df=trialsdf_neurometric,
+                    #         trials_df=trials_df_neurometric,
                     #         one=one,
                     #         compute_on_each_fold=kwargs['compute_on_each_fold'],
                     #         force_positive_neuro_slopes=kwargs['compute_on_each_fold'])

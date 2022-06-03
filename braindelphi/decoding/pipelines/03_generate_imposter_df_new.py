@@ -46,6 +46,8 @@ columns = [
     'goCue_times',
     'stimOn_times',
     'feedback_times',
+    'trial_start',
+
 ]
 # add additional columns if necessary
 add_behavior_col = False
@@ -57,7 +59,7 @@ if (kwargs['target'] != 'pLeft') \
     columns += [kwargs['target']]
 
 all_trialsdf = []
-for i, eid in enumerate(eids):
+for i, eid in enumerate(eids[:3]):
 
     det = one.get_details(eid, full=True)
     print('%i: %s' % (i, eid))

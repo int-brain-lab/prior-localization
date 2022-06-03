@@ -30,13 +30,13 @@ def check_bhv_fit_exists(subject, model, eids, resultpath, modeldispatcher):
 
 
 def compute_mask(
-        trialsdf, align_time, time_window, min_len=1.0, max_len=5.0, no_unbias=False, min_rt=0.08,
+        trials_df, align_time, time_window, min_len=1.0, max_len=5.0, no_unbias=False, min_rt=0.08,
         **kwargs):
     """Create a mask that denotes "good" trials which will be used for further analysis.
 
     Parameters
     ----------
-    trialsdf : dict
+    trials_df : dict
         contains relevant trial information like goCue_times, firstMovement_times, etc.
     align_time : str
         event in trial on which to align intervals
@@ -60,36 +60,37 @@ def compute_mask(
     """
 
     # define reaction times
-    trialsdf['react_times'] = trialsdf['firstMovement_times'] - trialsdf['goCue_times']
+    if 'react_times' not in trials_df.keys():
+        trials_df['react_times'] = trials_df.firstMovement_times - trials_df.goCue_times
 
     # successively build a mask that defines which trials we want to keep
 
     # ensure align event is not a nan
-    mask = trialsdf[align_time].notna()
+    mask = trials_df[align_time].notna()
 
     # ensure animal has moved
-    mask = mask & trialsdf['firstMovement_times'].notna()
+    mask = mask & trials_df.firstMovement_times.notna()
 
     # get rid of unbiased trials
     if no_unbias:
-        mask = mask & (trialsdf.probabilityLeft != 0.5).values
+        mask = mask & (trials_df.probabilityLeft != 0.5).values
 
     # keep trials with reasonable reaction times
     if min_rt is not None:
-        mask = mask & (~(trialsdf.react_times < min_rt)).values
+        mask = mask & (~(trials_df.react_times < min_rt)).values
 
     # get rid of trials that are too short or too long
-    start_diffs = trialsdf.trial_start.diff()
+    start_diffs = trials_df.trial_start.diff()
     start_diffs.iloc[0] = 2
     mask = mask & ((start_diffs > min_len).values & (start_diffs < max_len).values)
 
     # get rid of trials with decoding windows that overlap following trial
-    tmp = (trialsdf[align_time].values[:-1] + time_window[1]) < trialsdf.trial_start.values[1:]
+    tmp = (trials_df[align_time].values[:-1] + time_window[1]) < trials_df.trial_start.values[1:]
     tmp = np.concatenate([tmp, [True]])  # include final trial, no following trials
     mask = mask & tmp
 
     # get rid of trials where animal does not respond
-    mask = mask & (trialsdf.choice != 0)
+    mask = mask & (trials_df.choice != 0)
 
     return mask
 
