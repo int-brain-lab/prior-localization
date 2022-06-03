@@ -29,13 +29,20 @@ def check_bhv_fit_exists(subject, model, eids, resultpath, modeldispatcher):
     return os.path.exists(fullpath), fullpath
 
 
-def compute_mask(trialsdf, min_len=1.0, max_len=5.0, no_unbias=False, min_rt=0.08, **kwargs):
+def compute_mask(
+        trialsdf, align_time, time_window, min_len=1.0, max_len=5.0, no_unbias=False, min_rt=0.08,
+        **kwargs):
     """Create a mask that denotes "good" trials which will be used for further analysis.
 
     Parameters
     ----------
     trialsdf : dict
         contains relevant trial information like goCue_times, firstMovement_times, etc.
+    align_time : str
+        event in trial on which to align intervals
+        'firstMovement_times' | 'stimOn_times' | 'feedback_times'
+    time_window : tuple
+        (window_start, window_end), relative to align_time
     min_len : float, optional
         minimum length of trials to keep (seconds)
     max_len : float, original
@@ -52,16 +59,13 @@ def compute_mask(trialsdf, min_len=1.0, max_len=5.0, no_unbias=False, min_rt=0.0
 
     """
 
-    align_event = kwargs['align_time']
-    time_window = kwargs['time_window']
-
     # define reaction times
     trialsdf['react_times'] = trialsdf['firstMovement_times'] - trialsdf['goCue_times']
 
     # successively build a mask that defines which trials we want to keep
 
     # ensure align event is not a nan
-    mask = trialsdf[align_event].notna()
+    mask = trialsdf[align_time].notna()
 
     # ensure animal has moved
     mask = mask & trialsdf['firstMovement_times'].notna()
@@ -80,7 +84,7 @@ def compute_mask(trialsdf, min_len=1.0, max_len=5.0, no_unbias=False, min_rt=0.0
     mask = mask & ((start_diffs > min_len).values & (start_diffs < max_len).values)
 
     # get rid of trials with decoding windows that overlap following trial
-    tmp = (trialsdf[align_event].values[:-1] + time_window[1]) < trialsdf.trial_start.values[1:]
+    tmp = (trialsdf[align_time].values[:-1] + time_window[1]) < trialsdf.trial_start.values[1:]
     tmp = np.concatenate([tmp, [True]])  # include final trial, no following trials
     mask = mask & tmp
 

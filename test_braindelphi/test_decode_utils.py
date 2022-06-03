@@ -14,24 +14,29 @@ def test_compute_mask(data_dict):
 
     # allow all trials to come through
     mask = compute_mask(
-        data_dict['trialsdf'], no_unbias=False, min_rt=-10.0, align_time='goCue_times')
+        data_dict['trialsdf'], align_time='goCue_times', time_window=(-0.0001, 0.0),
+        no_unbias=False, min_rt=-10.0, min_len=0.0, max_len=1000.0)
     assert np.sum(mask) == 30
 
     # get rid of unbiased trials
     mask = compute_mask(
-        data_dict['trialsdf'], no_unbias=True, min_rt=-10.0, align_time='goCue_times')
+        data_dict['trialsdf'], align_time='goCue_times', time_window=(-0.0001, 0.0),
+        no_unbias=True, min_rt=-10.0, min_len=0.0, max_len=1000.0)
     assert np.sum(mask) == 20
 
     # get rid of short trials
     mask = compute_mask(
-        data_dict['trialsdf'], no_unbias=False, min_rt=0.0, align_time='goCue_times')
+        data_dict['trialsdf'], align_time='goCue_times', time_window=(-0.0001, 0.0),
+        no_unbias=False, min_rt=0.0, min_len=0.0, max_len=1000.0)
     assert np.sum(mask) == 27
 
     # get rid of trials where animal does not respond
     trialsdf = data_dict['trialsdf'].copy()
     trialsdf.at[1, 'choice'] = 0
     trialsdf.at[2, 'choice'] = 0
-    mask = compute_mask(trialsdf, no_unbias=False, min_rt=-10.0, align_time='goCue_times')
+    mask = compute_mask(
+        trialsdf, align_time='goCue_times', time_window=(-0.0001, 0.0), no_unbias=False,
+        min_rt=-10.0, min_len=0.0, max_len=1000.0)
     assert np.sum(mask) == 28
 
     # get rid of trials with too fast reaction times
@@ -44,7 +49,9 @@ def test_compute_mask(data_dict):
     trialsdf.at[3, 'goCue_times'] = 15.0
     trialsdf.at[4, 'firstMovement_times'] = 0.0
     trialsdf.at[4, 'goCue_times'] = 15.0
-    mask = compute_mask(trialsdf, no_unbias=False, min_rt=-10.0, align_time='goCue_times')
+    mask = compute_mask(
+        trialsdf, align_time='goCue_times', time_window=(-0.0001, 0.0), no_unbias=False,
+        min_rt=-10.0, min_len=0.0, max_len=1000.0)
     assert np.sum(mask) == 26
 
 

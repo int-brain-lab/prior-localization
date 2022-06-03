@@ -4,8 +4,10 @@ import numpy as np
 import torch
 import pandas as pd
 
+import brainbox.io.one as bbone
 
-from braindelphi.decoding.functions.utils import check_bhv_fit_exists
+from braindelphi.pipelines.utils_common_pipelines import load_behavior
+from braindelphi.decoding.functions.utils import check_bhv_fit_exists, compute_mask
 
 possible_targets = ['choice', 'feedback', 'signcont', 'pLeft']
 
@@ -313,3 +315,42 @@ def get_target_data_per_trial_wrapper(
         target_times, target_vals, interval_beg_times, interval_end_times, binsize)
 
     return target_times_list, target_val_list, good_trials
+
+
+def get_target_variable_in_df(one, eid, target, align_time, time_window, binsize, **kwargs):
+    """Return a trials dataframe with additional behavioral data as one array per trial.
+
+    Parameters
+    ----------
+    one : ONE object
+    eid : str
+    target : str
+    align_time : str
+    time_window : array-like
+    binsize : float
+
+    Returns
+    -------
+    pandas.DataFrame
+
+    """
+
+    # load trial data
+    trials_df = bbone.load_trials_df(eid, one=one, addtl_types=['firstMovement_times'])
+
+    # load behavior data
+    beh_dict = load_behavior(eid=eid, target=target, one=one)
+    if beh_dict['skip']:
+        raise Exception("Error loading %s data" % target)
+
+    # split behavior data into trials
+    _, target_vals_list, mask_target = get_target_data_per_trial_wrapper(
+            beh_dict['times'], beh_dict['values'], trials_df, align_time, time_window, binsize)
+
+    if len(target_vals_list) == 0:
+        return None
+    else:
+        trials_df[target] = target_vals_list
+        # return only "good" trials
+        mask = compute_mask(trials_df, align_time, time_window, **kwargs) & mask_target
+        return trials_df[mask]

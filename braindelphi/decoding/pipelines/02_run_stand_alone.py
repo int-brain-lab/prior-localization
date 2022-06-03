@@ -56,7 +56,7 @@ eids = insdf['eid'].unique()
 
 # loop over sessions: load data and decode
 one = ONE()
-IMIN = 10
+IMIN = 14
 IMAX = 20
 for i, eid in enumerate(eids):
 
@@ -92,7 +92,11 @@ for i, eid in enumerate(eids):
 
         # load neural data
         if kwargs['neural_dtype'] == 'ephys':
-            neural_dict = load_ephys(eid, pids, one=one, ret_qc=True, max_len=5)
+            try:
+                neural_dict = load_ephys(eid, pids, one=one, ret_qc=True, max_len=5)
+            except Exception as e:
+                logging.log(logging.CRITICAL, e)
+                continue
         else:
             raise NotImplementedError
 
