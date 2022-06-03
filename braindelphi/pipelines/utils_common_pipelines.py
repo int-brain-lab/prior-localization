@@ -148,6 +148,52 @@ def cache_regressors(subject, eid, probes, params, regressors):
     return metadata_fn, data_fn
 
 
+def cache_behavior(subject, eid, target, regressors):
+    """
+    Take outputs of load_behavior() and cache them to disk in the folder defined in the params.py
+    file in this repository, using a nested subject -> session folder structure.
+
+    If an existing file in the directory already contains identical data, will not write a new file
+    and instead return the existing filenames.
+
+    Returns the metadata filename and regressors filename.
+    """
+
+    sesspath = Path(CACHE_PATH).joinpath('behavior').joinpath(subject).joinpath(eid)
+    sesspath.mkdir(parents=True, exist_ok=True)
+    curr_t = dt.now()
+    fnbase = str(curr_t.date())
+    metadata_fn = sesspath.joinpath(fnbase + '_%s_metadata.pkl' % target)
+    data_fn = sesspath.joinpath(fnbase + '_%s_regressors.pkl' % target)
+    reghash = _hash_dict(regressors)
+    metadata = {
+        'subject': subject,
+        'eid': eid,
+        'target': target,
+        'regressor_hash': reghash,
+    }
+    prevdata = [
+        sesspath.joinpath(f) for f in os.listdir(sesspath) if re.match(r'.*_metadata\.pkl', f)
+    ]
+    matchfile = False
+    for f in prevdata:
+        with open(f, 'rb') as fr:
+            frdata = pickle.load(fr)
+            if metadata == frdata:
+                matchfile = True
+        if matchfile:
+            _logger.info(f'Existing cache file found for {subject}: {eid}, '
+                         'not writing data.')
+            old_data_fn = sesspath.joinpath(f.name.split('_')[0] + '_regressors.pkl')
+            return f, old_data_fn
+    # If you've reached here, there's no matching file
+    with open(metadata_fn, 'wb') as fw:
+        pickle.dump(metadata, fw)
+    with open(data_fn, 'wb') as fw:
+        pickle.dump(regressors, fw)
+    return metadata_fn, data_fn
+
+
 def load_behavior(eid, target, one=None):
     """Load raw behavior traces and their timestamps.
 

@@ -30,18 +30,22 @@ def delayed_save(subject, eid, probes, params, outputs):
     return cache_regressors(subject, eid, probes, params, outputs)
 
 
+# load settings as a dict
+settings = yaml.safe_load(open(SETTINGS_PATH))
+kwargs = check_settings(settings)
+
 # Parameters
-SESS_CRITERION = 'aligned-behavior'
-DATE = '2022-06-02'  # str(dt.today())
+SESS_CRITERION = kwargs['criterion']
+DATE = kwargs['date']
 MAX_LEN = 5.
 T_BEF = 0.6
 T_AFT = 0.6
-BINWIDTH = 0.02
+BINWIDTH = kwargs['binsize']
 ABSWHEEL = False
 WHEEL = False
 QC = True
 TYPE = 'primaries'
-MERGE_PROBES = False
+MERGE_PROBES = kwargs['merge_probes']
 # End parameters
 
 # Construct params dict from above

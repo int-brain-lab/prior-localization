@@ -50,9 +50,14 @@ logging.basicConfig(
 logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))  # add logging to console
 
 # load insertion data
-insdf = pd.read_parquet(braindelphi_PATH.joinpath('decoding', 'insertions.pqt'))
-insdf = insdf[insdf.spike_sorting != ""]
-eids = insdf['eid'].unique()
+if LOAD_FROM_CACHE:
+    bwmdf = pickle.load(open(
+        CACHE_PATH.joinpath('2022-05-30 09:33:57.655433_%s_metadata.pkl' % kwargs['neural_dtype']),
+        'rb'))
+else:
+    insdf = pd.read_parquet(braindelphi_PATH.joinpath('decoding', 'insertions.pqt'))
+    insdf = insdf[insdf.spike_sorting != ""]
+    eids = insdf['eid'].unique()
 
 # load imposter session df
 if kwargs.get('n_pseudo', 0) > 0:
