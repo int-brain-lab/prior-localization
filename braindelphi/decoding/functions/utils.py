@@ -1,10 +1,14 @@
-import os
+import copy
+from datetime import date
 import numpy as np
+import os
 import pandas as pd
 from pathlib import Path
-from ibllib.atlas import BrainRegions
-from tqdm import tqdm
 import pickle
+import sklearn.linear_model as sklm
+from tqdm import tqdm
+
+from ibllib.atlas import BrainRegions
 from behavior_models.models.utils import build_path as build_path_mut
 
 
@@ -25,14 +29,64 @@ def check_bhv_fit_exists(subject, model, eids, resultpath, modeldispatcher):
     return os.path.exists(fullpath), fullpath
 
 
-def compute_mask(trialsdf, **kwargs):
+def compute_mask(trialsdf, min_len=1.0, max_len=5.0, no_unbias=False, min_rt=0.08, **kwargs):
+    """Create a mask that denotes "good" trials which will be used for further analysis.
+
+    Parameters
+    ----------
+    trialsdf : dict
+        contains relevant trial information like goCue_times, firstMovement_times, etc.
+    min_len : float, optional
+        minimum length of trials to keep (seconds)
+    max_len : float, original
+        maximum length of trials to keep (seconds)
+    no_unbias : bool
+        True to remove unbiased block trials, False to keep them
+    min_rt : float
+        minimum reaction time; trials with fast reactions will be removed
+    kwargs
+
+    Returns
+    -------
+    pd.Series
+
+    """
+
+    align_event = kwargs['align_time']
+    time_window = kwargs['time_window']
+
+    # define reaction times
     trialsdf['react_times'] = trialsdf['firstMovement_times'] - trialsdf['goCue_times']
-    mask = trialsdf[kwargs['align_time']].notna() & trialsdf['firstMovement_times'].notna()
-    if kwargs['no_unbias']:
+
+    # successively build a mask that defines which trials we want to keep
+
+    # ensure align event is not a nan
+    mask = trialsdf[align_event].notna()
+
+    # ensure animal has moved
+    mask = mask & trialsdf['firstMovement_times'].notna()
+
+    # get rid of unbiased trials
+    if no_unbias:
         mask = mask & (trialsdf.probabilityLeft != 0.5).values
-    if kwargs['min_rt'] is not None:
-        mask = mask & (~(trialsdf.react_times < kwargs['min_rt'])).values
+
+    # keep trials with reasonable reaction times
+    if min_rt is not None:
+        mask = mask & (~(trialsdf.react_times < min_rt)).values
+
+    # get rid of trials that are too short or too long
+    start_diffs = trialsdf.trial_start.diff()
+    start_diffs.iloc[0] = 2
+    mask = mask & ((start_diffs > min_len).values & (start_diffs < max_len).values)
+
+    # get rid of trials with decoding windows that overlap following trial
+    tmp = (trialsdf[align_event].values[:-1] + time_window[1]) < trialsdf.trial_start.values[1:]
+    tmp = np.concatenate([tmp, [True]])  # include final trial, no following trials
+    mask = mask & tmp
+
+    # get rid of trials where animal does not respond
     mask = mask & (trialsdf.choice != 0)
+
     return mask
 
 
@@ -50,15 +104,102 @@ def get_save_path(
     return save_path
 
 
-def save_region_results(fit_result, pseudo_id, subject, eid, probe, region, N, save_path):
+def save_region_results(fit_result, pseudo_id, subject, eid, probe, region, n_units, save_path):
     save_dir = os.path.dirname(save_path)
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     outdict = {
         'fit': fit_result, 'pseudo_id': pseudo_id, 'subject': subject, 'eid': eid, 'probe': probe,
-        'region': region, 'N_units': N
+        'region': region, 'N_units': n_units
     }
     fw = open(save_path, 'wb')
     pickle.dump(outdict, fw)
     fw.close()
     return save_path
+
+
+def check_settings(settings):
+    """Error check on pipeline settings.
+
+    Parameters
+    ----------
+    settings : dict
+
+    Returns
+    -------
+    dict
+
+    """
+
+    # options for decoding targets
+    target_options_singlebin = [
+        'prior',     # some estimate of the block prior
+        'choice',    # subject's choice (L/R)
+        'feedback',  # correct/incorrect
+        'signcont',  # signed contrast of stimulus
+    ]
+    target_options_multibin = [
+        'wheel-vel',
+        'wheel-speed',
+        'pupil',
+        'l-paw-pos',
+        'l-paw-vel',
+        'l-paw-speed',
+        'l-whisker-me',
+        'r-paw-pos',
+        'r-paw-vel',
+        'r-paw-speed',
+        'r-whisker-me',
+    ]
+
+    # options for align events
+    align_event_options = [
+        'firstMovement_times',
+        'goCue_times',
+        'stimOn_times',
+        'feedback_times',
+    ]
+
+    # options for decoder
+    decoder_options = {
+        'linear': sklm.LinearRegression,
+        'lasso': sklm.Lasso,
+        'ridge': sklm.Ridge,
+        'logistic': sklm.LogisticRegression
+    }
+
+    params = copy.copy(settings)
+
+    if params['target'] not in target_options_singlebin + target_options_multibin:
+        raise NotImplementedError('provided target option \'{}\' invalid; must be in {}'.format(
+            params['target'], target_options_singlebin + target_options_multibin
+        ))
+
+    if params['align_time'] not in align_event_options:
+        raise NotImplementedError('provided align event \'{}\' invalid; must be in {}'.format(
+            params['align_time'], align_event_options
+        ))
+
+    # map estimator string to sklm class
+    params['estimator'] = decoder_options[settings['estimator']]
+    if settings['estimator'] == 'logistic':
+        params['hyperparam_grid'] = {'C': settings['hyperparam_grid']['C']}
+    else:
+        params['hyperparam_grid'] = {'alpha': settings['hyperparam_grid']['alpha']}
+
+    params['n_jobs_per_session'] = params['n_pseudo'] // params['n_pseudo_per_job']
+
+    # TODO: settle on 'date' or 'today'
+    # update date if not given
+    if params['date'] is None or params['date'] == 'today':
+        params['date'] = str(date.today())
+    params['today'] = params['date']
+
+    # TODO: settle on n_runs or nb_runs
+    if 'n_runs' in params:
+        params['nb_runs'] = params['n_runs']
+
+    # TODO: settle on align_time or align_event
+    params['align_event'] = params['align_time']
+
+    return params

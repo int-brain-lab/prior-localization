@@ -40,7 +40,7 @@ def test_get_target_data_per_trial():
     assert mask[0]
     target_times_list, target_data_list, mask = get_target_data_per_trial(
         target_times, target_vals, interval_begs, interval_ends, binsize, allow_nans=False)
-    assert len(target_times_list) == (n_trials - 1)
+    assert len(target_times_list) == n_trials
     assert ~mask[0]
 
     # test when target times fall outside range of requested intervals

@@ -3,6 +3,7 @@ import numpy as np
 import os
 import pytest
 
+from braindelphi.decoding.functions.utils import check_settings
 from braindelphi.decoding.functions.utils import compute_mask
 from braindelphi.decoding.functions.utils import get_save_path
 
@@ -78,3 +79,14 @@ def test_get_save_path():
     assert outpath.find(target) > -1
     assert outpath.find(add_to_saving_path) > -1
     assert outpath.endswith('.pkl')
+
+
+def test_check_setting():
+
+    settings = {'target': 'bad_target_str'}
+    with pytest.raises(NotImplementedError):
+        check_settings(settings)
+
+    settings = {'target': 'prior', 'align_time': 'bad_align_str'}
+    with pytest.raises(NotImplementedError):
+        check_settings(settings)

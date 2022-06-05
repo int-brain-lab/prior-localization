@@ -35,7 +35,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
         columns: 'choice', 'feedback', 'pLeft', 'firstMovement_times', 'stimOn_times',
         'feedback_times'
     metadata : dict
-        'eid', 'eid_train', 'subject', 'probe'
+        'eid', 'eid_train', 'subject', 'probes'
     dlc_dict: dict, optional
         keys: 'times', 'values'
     pseudo_ids : array-like
@@ -57,7 +57,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
             number of lagged bins to use for predictors for multi-bin decoding
         estimator : sklearn.linear_model object
             sklm.Lasso | sklm.Ridge | sklm.LinearRegression | sklm.LogisticRegression
-        hyperparameter_grid : dict
+        hyperparam_grid : dict
             regularization values to search over
         n_runs : int
             number of independent runs performed. this was added after variability was observed
@@ -105,8 +105,8 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
     if 'eids_train' not in metadata.keys():
         metadata['eids_train'] = eids_train
     else:
-        raise ValueError('eids_train are not supported yet. If you do not understand this error, just take out'
-                         'the eids_train key in the metadata to solve it')
+        raise ValueError(f'eids_train are not supported yet. If you do not understand this error, '
+                         f'just take out the eids_train key in the metadata to solve it')
 
     target_distribution = get_balanced_weighting(trials_df, metadata, **kwargs)
 
@@ -116,8 +116,8 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
         mask_target = np.ones(len(target_vals_list), dtype=bool)
     else:
         _, target_vals_list, mask_target = get_target_data_per_trial_wrapper(
-            dlc_dict['times'], dlc_dict['values'], trials_df, kwargs['align_event'],
-            kwargs['align_interval'], kwargs['binsize'])
+            dlc_dict['times'], dlc_dict['values'], trials_df, kwargs['align_time'],
+            kwargs['time_window'], kwargs['binsize'])
 
     mask = compute_mask(trials_df, **kwargs) & mask_target
 
@@ -179,14 +179,14 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
             bins_per_trial = msub_binned[0].shape[0]
             Xs = (
                 msub_binned if bins_per_trial == 1
-                else [build_predictor_matrix(s.T, kwargs['n_bins_lag']) for s in msub_binned]
+                else [build_predictor_matrix(s, kwargs['n_bins_lag']) for s in msub_binned]
             )
 
-            # compute
+            # run decoders
             fit_results = []
             for i_run in range(kwargs['nb_runs']):
                 fit_result = decode_cv(
-                    ys=target_vals_list[mask],
+                    ys=[target_vals_list[m] for m in np.squeeze(np.where(mask))],
                     Xs=[Xs[m] for m in np.squeeze(np.where(mask))],
                     estimator=kwargs['estimator'],
                     use_openturns=kwargs['use_openturns'],
@@ -199,7 +199,9 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                     shuffle=kwargs['shuffle'],
                     balanced_weight=kwargs['balanced_weight'],
                     normalize_input=kwargs['normalize_input'],
-                    normalize_output=kwargs['normalize_output'])
+                    normalize_output=kwargs['normalize_output'],
+                    rng_seed=i_run,
+                )
                 fit_result['mask'] = mask
                 fit_result['df'] = trials_df if pseudo_id == -1 else controlsess_df
                 fit_result['pseudo_id'] = pseudo_id
@@ -220,10 +222,15 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                     fit_result['fold_neurometric'] = None
                 fit_results.append(fit_result)
 
-            if 'merge_probes' in metadata.keys():
-                probe = 'merged_probes' if metadata['merge_probes'] else metadata['probes'][0],
-            else:
+            # save out decoding results
+            if kwargs['neural_dtype'] == 'ephys':
+                if 'merge_probes' in metadata.keys():
+                    probe = 'merged_probes' if metadata['merge_probes'] else metadata['probes'][0]
+                else:
+                    probe = metadata['probes'][0]
+            elif kwargs['neural_dtype'] == 'widefield':
                 probe = metadata['hemispheres']
+
             save_path = get_save_path(
                 pseudo_id, metadata['subject'], metadata['eid'],
                 probe=probe,
@@ -235,16 +242,18 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                 add_to_saving_path=kwargs['add_to_saving_path']
             )
 
-            filenames.append(
-                save_region_results(fit_results,
-                                    pseudo_id,
-                                    metadata['subject'],
-                                    metadata['eid'],
-                                    probe,
-                                    region,
-                                    len(msub_binned),
-                                    save_path)
+            filename = save_region_results(
+                fit_result=fit_results,
+                pseudo_id=pseudo_id,
+                subject=metadata['subject'],
+                eid=metadata['eid'],
+                probe=probe,
+                region=region,
+                n_units=len(reg_clu_ids),
+                save_path=save_path
             )
+
+            filenames.append(filename)
 
     return filenames
 
@@ -344,10 +353,15 @@ def decode_cv(
 
     """
 
-    # transform target data into standard format: list of floats
+    # transform target data into standard format: list of np.ndarrays
     if isinstance(ys, np.ndarray):
+        # input is single numpy array
+        ys = [np.array([y]) for y in ys]
+    elif isinstance(ys, list) and ys[0].shape == ():
+        # input is list of float instead of list of np.ndarrays
         ys = [np.array([y]) for y in ys]
     elif isinstance(ys, pd.Series):
+        # input is a pandas Series
         ys = ys.to_numpy()
         ys = [np.array([y]) for y in ys]
 
