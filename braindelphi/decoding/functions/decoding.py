@@ -585,5 +585,6 @@ if __name__ == '__main__':
             'widefield/wfi2/wfi2s6/left/2022-05-29_widefield_metadata.pkl'
         ), 'rb'))
 
+    kwargs['min_behav_trials'] = 300
     out = fit_eid(
         regressors, regressors['trials_df'], metadata, dlc_dict=None, pseudo_ids=[-1], **kwargs)
