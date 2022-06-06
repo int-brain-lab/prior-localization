@@ -4,6 +4,8 @@ from pathlib import Path
 username = os.environ["USER"]  # os.getlogin()
 if username == 'mattw':
     out_dir = Path('/media/mattw/ibl/')
+elif username == 'mw3323':
+    out_dir = Path('/home/mw3323/ibl/')
 elif username == 'findling':
     out_dir = Path('/home/users/f/findling/scratch/ibl/prior-localization/braindelphi')
 elif username == 'csmfindling':
