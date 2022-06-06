@@ -7,9 +7,31 @@ from pathlib import Path
 import pickle
 import sklearn.linear_model as sklm
 from tqdm import tqdm
+import glob
+from datetime import datetime
 
 from ibllib.atlas import BrainRegions
 from behavior_models.models.utils import build_path as build_path_mut
+
+
+def load_metadata(neural_dtype_path_regex, date=None):
+    '''
+    Parameters
+    ----------
+    neural_dtype_path_regex
+    date
+    Returns
+    -------
+    the metadata neural_dtype from date if specified, else most recent
+    '''
+    neural_dtype_paths = glob.glob(neural_dtype_path_regex)
+    neural_dtype_dates = [datetime.strptime(p.split('/')[-1].split('_')[0], '%Y-%m-%d %H:%M:%S.%f')
+                          for p in neural_dtype_paths]
+    if date is None:
+        path_id = np.argmax(neural_dtype_dates)
+    else:
+        path_id = np.argmax(np.array(neural_dtype_dates) == date)
+    return pickle.load(open(neural_dtype_paths[path_id], 'rb')), neural_dtype_dates[path_id].strftime("%m-%d-%Y_%H:%M:%S")
 
 
 def check_bhv_fit_exists(subject, model, eids, resultpath, modeldispatcher):
@@ -29,9 +51,7 @@ def check_bhv_fit_exists(subject, model, eids, resultpath, modeldispatcher):
     return os.path.exists(fullpath), fullpath
 
 
-def compute_mask(
-        trials_df, align_time, time_window, min_len=1.0, max_len=5.0, no_unbias=False, min_rt=0.08,
-        **kwargs):
+def compute_mask(trials_df, align_time, time_window, min_len, max_len, no_unbias, min_rt, **kwargs):
     """Create a mask that denotes "good" trials which will be used for further analysis.
 
     Parameters
@@ -44,9 +64,9 @@ def compute_mask(
     time_window : tuple
         (window_start, window_end), relative to align_time
     min_len : float, optional
-        minimum length of trials to keep (seconds)
+        minimum length of trials to keep (seconds), bypassed if trial_start column not in trials_df
     max_len : float, original
-        maximum length of trials to keep (seconds)
+        maximum length of trials to keep (seconds), bypassed if trial_start column not in trials_df
     no_unbias : bool
         True to remove unbiased block trials, False to keep them
     min_rt : float
@@ -79,15 +99,16 @@ def compute_mask(
     if min_rt is not None:
         mask = mask & (~(trials_df.react_times < min_rt)).values
 
-    # get rid of trials that are too short or too long
-    start_diffs = trials_df.trial_start.diff()
-    start_diffs.iloc[0] = 2
-    mask = mask & ((start_diffs > min_len).values & (start_diffs < max_len).values)
+    if 'trial_start' in trials_df.columns and max_len is not None and min_len is not None:
+        # get rid of trials that are too short or too long
+        start_diffs = trials_df.trial_start.diff()
+        start_diffs.iloc[0] = 2
+        mask = mask & ((start_diffs > min_len).values & (start_diffs < max_len).values)
 
-    # get rid of trials with decoding windows that overlap following trial
-    tmp = (trials_df[align_time].values[:-1] + time_window[1]) < trials_df.trial_start.values[1:]
-    tmp = np.concatenate([tmp, [True]])  # include final trial, no following trials
-    mask = mask & tmp
+        # get rid of trials with decoding windows that overlap following trial
+        tmp = (trials_df[align_event].values[:-1] + time_window[1]) < trials_df.trial_start.values[1:]
+        tmp = np.concatenate([tmp, [True]])  # include final trial, no following trials
+        mask = mask & tmp
 
     # get rid of trials where animal does not respond
     mask = mask & (trials_df.choice != 0)
@@ -96,9 +117,9 @@ def compute_mask(
 
 
 def get_save_path(
-        pseudo_id, subject, eid, probe, region, output_path, time_window, today, target,
+        pseudo_id, subject, eid, neural_dtype, probe, region, output_path, time_window, today, target,
         add_to_saving_path):
-    subjectfolder = Path(output_path).joinpath(subject)
+    subjectfolder = Path(output_path).joinpath(neural_dtype, subject)
     eidfolder = subjectfolder.joinpath(eid)
     probefolder = eidfolder.joinpath(probe)
     start_tw, end_tw = time_window

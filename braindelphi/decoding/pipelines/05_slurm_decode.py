@@ -4,30 +4,35 @@ from braindelphi.decoding.settings import kwargs, N_PSEUDO_PER_JOB, N_PSEUDO
 from braindelphi.decoding.functions.decoding import fit_eid
 import numpy as np
 from braindelphi.params import CACHE_PATH, IMPOSTER_SESSION_PATH
+from braindelphi.decoding.functions.utils import load_metadata
 import pickle
 
 try:
     index = int(sys.argv[1]) - 1
 except:
-    index = 5
+    index = 45
     pass
 
-# import cached data
-bwmdf = pickle.load(open(CACHE_PATH.joinpath('2022-05-30 09:33:57.655433_%s_metadata.pkl' % kwargs['neural_dtype']), 'rb'))
+# import most recent cached data
+bwmdf, _ = load_metadata(CACHE_PATH.joinpath('*_%s_metadata.pkl' % kwargs['neural_dtype']).as_posix())
 
 if kwargs['use_imposter_session']:
-    imposterdf = pd.read_parquet(IMPOSTER_SESSION_PATH.joinpath('imposterSessions_beforeRecordings.pqt'))
+    kwargs['imposterdf'] = pd.read_parquet(IMPOSTER_SESSION_PATH.joinpath('imposterSessions_beforeRecordings.pqt'))
 else:
-    imposterdf = None
+    kwargs['imposterdf'] = None
 
-kwargs = {**kwargs, 'imposterdf': imposterdf}
 
 pid_id = index % bwmdf['dataset_filenames'].index.size
 job_id = index // bwmdf['dataset_filenames'].index.size
 
 pid = bwmdf['dataset_filenames'].iloc[pid_id]
 metadata = pickle.load(open(pid.meta_file, 'rb'))
-trials_df, neural_dict = pickle.load(open(pid.reg_file, 'rb'))
+regressors = pickle.load(open(pid.reg_file, 'rb'))
+
+if kwargs['neural_dtype'] == 'widefield':
+    trials_df, neural_dict = regressors
+else:
+    trials_df, neural_dict = regressors['trials_df'], regressors
 
 
 if (job_id + 1) * N_PSEUDO_PER_JOB <= N_PSEUDO:

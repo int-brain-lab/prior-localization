@@ -1,28 +1,34 @@
 import os
 from pathlib import Path
 
-if os.getlogin() == 'mattw':
-    braindelphi_PATH = Path('/media/mattw/ibl/')
-elif os.getlogin() == 'mw3323':
-    braindelphi_PATH = Path('/home/mw3323/ibl/')
-else:
-    braindelphi_PATH = Path(
-        '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/code/prior-localization/braindelphi')
+username = os.environ["USER"]  # os.getlogin()
+if username == 'mattw':
+    out_dir = Path('/media/mattw/ibl/')
+elif username == 'findling':
+    out_dir = Path('/home/users/f/findling/scratch/ibl/prior-localization/braindelphi')
+elif username == 'csmfindling':
+    out_dir = Path('/Users/csmfindling/Documents/Postdoc-Geneva/IBL/code/prior-localization/braindelphi')
 
 # path to user-specific settings file
-SETTINGS_PATH = braindelphi_PATH.joinpath('decoding', 'settings.yaml')
+SETTINGS_PATH = out_dir.joinpath('decoding', 'settings.yaml')
 
 # store cached data for simpler loading
-CACHE_PATH = braindelphi_PATH.joinpath('cache')
+CACHE_PATH = out_dir.joinpath('cache')
 CACHE_PATH.mkdir(parents=True, exist_ok=True)
 
 # store neural decoding models
-FIT_PATH = braindelphi_PATH.joinpath('decoding', 'results', 'neural')
+FIT_PATH = out_dir.joinpath('decoding', 'results', 'neural')
 FIT_PATH.mkdir(parents=True, exist_ok=True)
 
 # store behavioral models
-BEH_MOD_PATH = braindelphi_PATH.joinpath('decoding', 'results', 'behavior')
+BEH_MOD_PATH = out_dir.joinpath('decoding', 'results', 'behavioral')
 BEH_MOD_PATH.mkdir(parents=True, exist_ok=True)
 
 # store imposter session data used for creating null distributions
-IMPOSTER_SESSION_PATH = braindelphi_PATH.joinpath('decoding')
+IMPOSTER_SESSION_PATH = out_dir.joinpath('decoding')
+
+# widefield imaging path
+if username in ['findling', 'hubert']:
+    WIDE_FIELD_PATH = Path('/home/share/pouget_lab/wide_field_imaging/')
+else:
+    WIDE_FIELD_PATH = Path('wide_field_imaging/')

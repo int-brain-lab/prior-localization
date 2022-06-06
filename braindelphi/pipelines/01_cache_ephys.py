@@ -14,10 +14,9 @@ from dask_jobqueue import SLURMCluster
 from dask.distributed import LocalCluster
 
 # IBL libraries
+from one.api import ONE
+from brainwidemap import bwm_query
 from braindelphi.params import CACHE_PATH
-
-# braindelphi repo imports
-from braindelphi.utils_root import query_sessions
 
 _logger = logging.getLogger('braindelphi')
 
@@ -30,18 +29,19 @@ def delayed_load(eid, pids, params):
 
 
 @dask.delayed(pure=False, traverse=False)
-def delayed_save(subject, eid, probes, params, outputs):
-    return cache_regressors(subject, eid, probes, params, outputs)
+def delayed_save(subject, eid, probes_name, params, outputs):
+    return cache_regressors(subject, eid, probes_name, params, outputs)
 
 
 # Parameters
-SESS_CRITERION = 'resolved-behavior'
+ALGN_RESOLVED = True
 DATE = str(dt.today())
-MAX_LEN = 2.
+MAX_LEN = None
 T_BEF = 0.6
 T_AFT = 0.6
 BINWIDTH = 0.02
-ABSWHEEL = True
+ABSWHEEL = False
+WHEEL = False
 QC = True
 TYPE = 'primaries'
 MERGE_PROBES = False
@@ -54,23 +54,31 @@ params = {
     't_after': T_AFT,
     'binwidth': BINWIDTH,
     'abswheel': ABSWHEEL,
-    'ret_qc': QC
+    'ret_qc': QC,
+    'wheel': WHEEL,
 }
 
 dataset_futures = []
 
-sessdf = query_sessions(SESS_CRITERION).set_index(['subject', 'eid'])
+one = ONE()
+bwm_df = bwm_query(one, alignment_resolved=ALGN_RESOLVED).set_index(['subject', 'eid'])
 
-for eid in sessdf.index.unique(level='eid'):
-    xsdf = sessdf.xs(eid, level='eid')
-    subject = xsdf.index[0]
-    pids_lst = [[pid] for pid in xsdf.pid.to_list()] if not MERGE_PROBES else [xsdf.pid.to_list()]
-    probe_lst = [[n] for n in xsdf.probe.to_list()] if not MERGE_PROBES else [xsdf.probe.to_list()]
-    for (probes, pids) in zip(probe_lst, pids_lst):
+for eid in bwm_df.index.unique(level='eid'):
+    session_df = bwm_df.xs(eid, level='eid')
+    subject = session_df.index[0]
+    # If there are two probes, there are two options:
+    # load and save data from each probe independently, or merge the data from both probes
+    pids = session_df.pid.to_list()
+    probe_names = session_df.probe_name.to_list()
+    if MERGE_PROBES:
         load_outputs = delayed_load(eid, pids, params)
-        save_future = delayed_save(subject, eid, probes, {**params, 'type': TYPE, 'merge_probes':MERGE_PROBES},
-                                   load_outputs)
-        dataset_futures.append([subject, eid, probes, save_future])
+        save_future = delayed_save(subject, eid, 'merged_probes', {**params, 'type': TYPE}, load_outputs)
+        dataset_futures.append([subject, eid, 'merged_probes', save_future])
+    else:
+        for (pid, probe_name) in zip(pids, probe_names):
+            load_outputs = delayed_load(eid, [pid], params)
+            save_future = delayed_save(subject, eid, probe_name, {**params, 'type': TYPE}, load_outputs)
+            dataset_futures.append([subject, eid, probe_name, save_future])
 
 N_CORES = 4
 
@@ -88,9 +96,10 @@ cluster = SLURMCluster(cores=N_CORES,
                            f'export MKL_NUM_THREADS={N_CORES}',
                            f'export OPENBLAS_NUM_THREADS={N_CORES}'
                        ])
+
+# cluster = LocalCluster()
 cluster.scale(20)
 
-#cluster = LocalCluster()
 client = Client(cluster)
 
 tmp_futures = [client.compute(future[3]) for future in dataset_futures]
@@ -99,7 +108,7 @@ tmp_futures = [client.compute(future[3]) for future in dataset_futures]
 dataset = [{
     'subject': x[0],
     'eid': x[1],
-    'probes': x[2],
+    'probe_name': x[2],
     'meta_file': tmp_futures[i].result()[0],
     'reg_file': tmp_futures[i].result()[1]
 } for i, x in enumerate(dataset_futures) if tmp_futures[i].status == 'finished']
@@ -108,3 +117,19 @@ dataset = pd.DataFrame(dataset)
 outdict = {'params': params, 'dataset_filenames': dataset}
 with open(Path(CACHE_PATH).joinpath(DATE + '_ephys_metadata.pkl'), 'wb') as fw:
     pickle.dump(outdict, fw)
+
+"""
+import numpy as np
+failures = [(i, x) for i, x in enumerate(tmp_futures) if x.status == 'error']
+for i, failure in failures:
+    print(i, failure.exception(), failure.key)
+print(len(failures))
+print(np.array(failures)[:,1])
+import traceback
+tb = failure.traceback()
+traceback.print_tb(tb)
+print(len([(i, x) for i, x in enumerate(tmp_futures) if x.status == 'cancelled']))
+print(len([(i, x) for i, x in enumerate(tmp_futures) if x.status == 'error']))
+print(len([(i, x) for i, x in enumerate(tmp_futures) if x.status == 'lost']))
+print(len([(i, x) for i, x in enumerate(tmp_futures) if x.status == 'finished']))
+"""

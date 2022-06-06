@@ -20,25 +20,25 @@ strlut = {
     sklm.LogisticRegression: "Logistic"
 }
 
-NEURAL_DTYPE = 'ephys'  #  'ephys' or 'widefield'
+NEURAL_DTYPE = 'ephys'  # 'ephys' or 'widefield'
+DATE = '06-06-2022'  # date
 
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
 SESS_CRITERION = 'aligned-behavior'  # aligned and behavior
-DATE = '2022-05-11'  # str(date.today())  # '2022-04-18'
 ALIGN_TIME = 'goCue_times'
 TARGET = 'pLeft'  # 'signcont' or 'pLeft'
 if TARGET not in ['pLeft', 'signcont', 'choice', 'feedback']:
     raise ValueError('TARGET can only be pLeft, signcont, choice or feedback')
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
-MODEL = optimal_Bayesian  # expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
+MODEL = expSmoothing_prevAction  # expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
 BEH_MOUSELEVEL_TRAINING = False  # if True, trains the behavioral model session-wise else mouse-wise
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 BINARIZATION_VALUE = None  # to binarize the target -> could be useful with logistic regression estimator
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 10000, 'fit_intercept': True}
-N_PSEUDO = 200
-N_PSEUDO_PER_JOB = 50
+N_PSEUDO = 20
+N_PSEUDO_PER_JOB = 5
 N_JOBS_PER_SESSION = N_PSEUDO // N_PSEUDO_PER_JOB
 N_RUNS = 10
 MIN_UNITS = 10
@@ -83,6 +83,10 @@ ADD_TO_SAVING_PATH = (
 WFI_HEMISPHERES = ['left']  # 'left' and/or 'right'
 WFI_NB_FRAMES = -1  # signed number of frames from ALIGN_TIME. can not be zero
 
+# WHEEL VELOCITY
+MIN_LEN = None  # min length of trial
+MAX_LEN = None  # max length of trial
+
 # session to be excluded (by Olivier Winter)
 excludes = [
     'bb6a5aae-2431-401d-8f6a-9fdd6de655a9',  # inconsistent trials object: relaunched task on 31-12-2021
@@ -122,6 +126,7 @@ if len(BORDER_QUANTILES_NEUROMETRIC) != 0 and MODEL is None:
 
 
 fit_metadata = {
+    'date': DATE,
     'criterion': SESS_CRITERION,
     'target': TARGET,
     'model_type': modeldispatcher[MODEL],
@@ -134,7 +139,6 @@ fit_metadata = {
     'min_behav_trials': MIN_BEHAV_TRIAS,
     'min_rt': MIN_RT,
     'qc_criteria': QC_CRITERIA,
-    'date': DATE,
     'shuffle': SHUFFLE,
     'no_unbias': NO_UNBIAS,
     'hyperparameter_grid': HPARAM_GRID,
@@ -160,7 +164,6 @@ fit_metadata = {
     'neuralfit_path': NEURAL_MOD_PATH,
     'estimator_kwargs': ESTIMATOR_KWARGS,
     'hyperparam_grid': HPARAM_GRID,
-    'today': DATE,
     'add_to_saving_path': ADD_TO_SAVING_PATH,
 }
 
@@ -169,6 +172,7 @@ if NEURAL_DTYPE == 'widefield':
     fit_metadata['wfi_nb_frames'] = WFI_HEMISPHERES
 
 kwargs = {
+    'date': DATE,
     'nb_runs': N_RUNS,
     'single_region': SINGLE_REGION,
     'merged_probes': MERGED_PROBES,
@@ -198,7 +202,6 @@ kwargs = {
     'use_imposter_session': USE_IMPOSTER_SESSION,
     'compute_neurometric': COMPUTE_NEUROMETRIC,
     'border_quantiles_neurometric': BORDER_QUANTILES_NEUROMETRIC,
-    'today': DATE,
     'add_to_saving_path': ADD_TO_SAVING_PATH,
     'use_openturns': USE_OPENTURNS,
     'bin_size_kde': BIN_SIZE_KDE,
@@ -209,5 +212,7 @@ kwargs = {
     'beh_mouseLevel_training': BEH_MOUSELEVEL_TRAINING,
     'binarization_value': BINARIZATION_VALUE,
     'simulate_neural_data': SIMULATE_NEURAL_DATA,
-    'constrain_imposter_session_with_beh': CONSTRAIN_IMPOSTER_SESSION_WITH_BEH
+    'constrain_imposter_session_with_beh': CONSTRAIN_IMPOSTER_SESSION_WITH_BEH,
+    'min_len': MIN_LEN,
+    'max_len': MAX_LEN,
 }

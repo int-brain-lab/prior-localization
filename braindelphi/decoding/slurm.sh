@@ -3,7 +3,7 @@
 #SBATCH --output=logs/slurm/decoding.%A.%a.out
 #SBATCH --error=logs/slurm/decoding.%A.%a.err
 #SBATCH --partition=shared-cpu
-#SBATCH --array=1-1516
+#SBATCH --array=1-380
 #SBATCH --mem=7000
 #SBATCH --time=12:00:00
 
@@ -16,4 +16,4 @@ export PYTHONPATH="$PWD":$PYTHONPATH
 # calling script
 
 echo
-python  pipelines/05_slurm_decode.py $SLURM_ARRAY_TASK_ID
+python pipelines/05_slurm_decode.py $SLURM_ARRAY_TASK_ID

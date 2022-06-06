@@ -26,13 +26,13 @@ _logger = logging.getLogger('braindelphi')
 
 def load_ephys(session_id,
                pids,
-               max_len=2.,
-               t_before=0.,
-               t_after=0.,
-               binwidth=0.02,
-               abswheel=False,
-               wheel=True,
-               ret_qc=False,
+               max_len,
+               t_before,
+               t_after,
+               binwidth,
+               abswheel,
+               wheel,
+               ret_qc,
                one=None):
     one = ONE() if one is None else one
 
@@ -41,8 +41,8 @@ def load_ephys(session_id,
                                     t_before=t_before,
                                     t_after=t_after,
                                     wheel_binsize=binwidth,
-                                    ret_abswheel=abswheel,
-                                    ret_wheel=wheel,
+                                    ret_abswheel=abswheel if wheel else None,
+                                    ret_wheel=not abswheel if wheel else None,
                                     addtl_types=['firstMovement_times'],
                                     one=one)
 
@@ -100,7 +100,7 @@ def load_ephys(session_id,
     return regressors
 
 
-def cache_regressors(subject, eid, probes, params, regressors):
+def cache_regressors(subject, eid, probe_name, params, regressors):
     """
     Take outputs of load_ephys() and cache them to disk in the folder defined in the params.py
     file in this repository, using a nested subject -> session folder structure.
@@ -110,10 +110,7 @@ def cache_regressors(subject, eid, probes, params, regressors):
 
     Returns the metadata filename and regressors filename.
     """
-    if len(probes) > 1 and not params['merge_probes']:
-        raise ValueError('There is a problem in the script')
-    probe_specifications = 'merged_probes' if params['merge_probes'] else probes[0]
-    sesspath = Path(CACHE_PATH).joinpath('ephys').joinpath(subject).joinpath(eid).joinpath(probe_specifications)
+    sesspath = Path(CACHE_PATH).joinpath('ephys').joinpath(subject).joinpath(eid).joinpath(probe_name)
     sesspath.mkdir(parents=True, exist_ok=True)
     curr_t = dt.now()
     fnbase = str(curr_t.date())
@@ -123,7 +120,7 @@ def cache_regressors(subject, eid, probes, params, regressors):
     metadata = {
         'subject': subject,
         'eid': eid,
-        'probes': probes,
+        'probe_name': probe_name,
         'regressor_hash': reghash,
         **params
     }
