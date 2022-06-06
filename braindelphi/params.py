@@ -1,11 +1,12 @@
 import os
 from pathlib import Path
 
-if os.getlogin() == 'mattw':
+username = os.environ["USER"]  # os.getlogin()
+if username == 'mattw':
     braindelphi_PATH = Path('/media/mattw/ibl/')
-elif os.getlogin() == 'findling':
+elif username == 'findling':
     braindelphi_PATH = Path('/home/users/f/findling/scratch/ibl/prior-localization/braindelphi')
-elif os.getlogin() == 'root':
+elif username == 'root':
     braindelphi_PATH = Path('/Users/csmfindling/Documents/Postdoc-Geneva/IBL/code/prior-localization/braindelphi')
 
 # path to user-specific settings file

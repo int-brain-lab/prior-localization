@@ -31,7 +31,11 @@ def delayed_load(eid, pids, params):
 
 @dask.delayed(pure=False, traverse=False)
 def delayed_save(subject, eid, probes, params, outputs):
-    return cache_regressors(subject, eid, probes, params, outputs)
+    try:
+        return cache_regressors(subject, eid, probes, params, outputs)
+    except Exception as e:
+        print(e)
+        pass
 
 
 # Parameters
@@ -89,7 +93,7 @@ cluster = SLURMCluster(cores=N_CORES,
                            f'export OPENBLAS_NUM_THREADS={N_CORES}'
                        ])
 
-cluster = LocalCluster()
+# cluster = LocalCluster()
 cluster.scale(20)
 
 client = Client(cluster)
@@ -109,3 +113,19 @@ dataset = pd.DataFrame(dataset)
 outdict = {'params': params, 'dataset_filenames': dataset}
 with open(Path(CACHE_PATH).joinpath(DATE + '_ephys_metadata.pkl'), 'wb') as fw:
     pickle.dump(outdict, fw)
+
+"""
+import numpy as np
+failures = [(i, x) for i, x in enumerate(tmp_futures) if x.status == 'error']
+for i, failure in failures:
+    print(i, failure.exception(), failure.key)
+print(len(failures))
+print(np.array(failures)[:,0])
+import traceback
+tb = failure.traceback()
+traceback.print_tb(tb)
+print(len([(i, x) for i, x in enumerate(tmp_futures) if x.status == 'cancelled']))
+print(len([(i, x) for i, x in enumerate(tmp_futures) if x.status == 'error']))
+print(len([(i, x) for i, x in enumerate(tmp_futures) if x.status == 'lost']))
+print(len([(i, x) for i, x in enumerate(tmp_futures) if x.status == 'finished']))
+"""
