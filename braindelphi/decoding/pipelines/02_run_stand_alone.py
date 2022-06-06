@@ -73,7 +73,7 @@ if kwargs.get('n_pseudo', 0) > 0:
 # loop over sessions: load data and decode
 one = ONE()
 IMIN = 0
-IMAX = 2
+IMAX = 10
 for i, eid in enumerate(eids):
 
     # determine if we should proceed with decoding session
@@ -162,7 +162,7 @@ for i, eid in enumerate(eids):
             trials_df=neural_dict['trials_df'],
             metadata=metadata,
             dlc_dict=dlc_dict,
-            # pseudo_ids=[-1],
-            pseudo_ids=1 + np.arange(kwargs['n_pseudo']),
+            pseudo_ids=[-1],
+            # pseudo_ids=1 + np.arange(kwargs['n_pseudo']),
             **copy.copy(kwargs)
         )
