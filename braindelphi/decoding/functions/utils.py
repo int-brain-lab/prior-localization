@@ -6,12 +6,9 @@ import pandas as pd
 from pathlib import Path
 import pickle
 import sklearn.linear_model as sklm
-from tqdm import tqdm
 import glob
 from datetime import datetime
-
-from ibllib.atlas import BrainRegions
-from behavior_models.models.utils import build_path as build_path_mut
+import yaml
 
 
 def load_metadata(neural_dtype_path_regex, date=None):
@@ -32,23 +29,6 @@ def load_metadata(neural_dtype_path_regex, date=None):
     else:
         path_id = np.argmax(np.array(neural_dtype_dates) == date)
     return pickle.load(open(neural_dtype_paths[path_id], 'rb')), neural_dtype_dates[path_id].strftime("%m-%d-%Y_%H:%M:%S")
-
-
-def check_bhv_fit_exists(subject, model, eids, resultpath, modeldispatcher):
-    '''
-    subject: subject_name
-    eids: sessions on which the model was fitted
-    check if the behavioral fits exists
-    return Bool and filename
-    '''
-    if model not in modeldispatcher.keys():
-        raise KeyError('Model is not an instance of a model from behavior_models')
-    path_results_mouse = 'model_%s_' % modeldispatcher[model]
-    trunc_eids = [eid.split('-')[0] for eid in eids]
-    filen = build_path_mut(path_results_mouse, trunc_eids)
-    subjmodpath = Path(resultpath).joinpath(Path(subject))
-    fullpath = subjmodpath.joinpath(filen)
-    return os.path.exists(fullpath), fullpath
 
 
 def compute_mask(trials_df, align_time, time_window, min_len, max_len, no_unbias, min_rt, **kwargs):
@@ -157,6 +137,9 @@ def check_settings(settings):
 
     """
 
+    from behavior_models.models.expSmoothing_prevAction import expSmoothing_prevAction
+    from braindelphi.decoding.functions.process_targets import optimal_Bayesian
+
     # options for decoding targets
     target_options_singlebin = [
         'prior',     # some estimate of the block prior
@@ -178,6 +161,13 @@ def check_settings(settings):
         'r-whisker-me',
     ]
 
+    # options for behavioral models
+    behavior_model_options = {
+        'expSmoothing_prevAction': expSmoothing_prevAction,
+        'optimal_Bayesian': optimal_Bayesian,
+        'oracle': None,
+    }
+
     # options for align events
     align_event_options = [
         'firstMovement_times',
@@ -194,11 +184,22 @@ def check_settings(settings):
         'logistic': sklm.LogisticRegression
     }
 
-    params = copy.copy(settings)
+    # load default settings
+    settings_file = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)), 'settings_default.yaml')
+    params = yaml.safe_load(open(settings_file))
+
+    # update default setting with user-provided settings
+    params.update(copy.copy(settings))
 
     if params['target'] not in target_options_singlebin + target_options_multibin:
         raise NotImplementedError('provided target option \'{}\' invalid; must be in {}'.format(
             params['target'], target_options_singlebin + target_options_multibin
+        ))
+
+    if params['model'] not in behavior_model_options.keys():
+        raise NotImplementedError('provided beh model option \'{}\' invalid; must be in {}'.format(
+            params['model'], behavior_model_options.keys()
         ))
 
     if params['align_time'] not in align_event_options:
@@ -206,12 +207,34 @@ def check_settings(settings):
             params['align_time'], align_event_options
         ))
 
+    if not params['single_region'] and not params['merge_probes']:
+        raise ValueError('full probes analysis can only be done with merged probes')
+
+    if params['compute_neurometric'] and kwargs['target'] != 'signcont':
+        raise ValueError('the target should be signcont to compute neurometric curves')
+
+    if len(params['border_quantiles_neurometric']) == 0 and params['model'] != 'oracle':
+        raise ValueError(
+            'border_quantiles_neurometric must be at least of 1 when behavior model is specified')
+
+    if len(params['border_quantiles_neurometric']) != 0 and params['model'] == 'oracle':
+        raise ValueError(
+            f'border_quantiles_neurometric must be empty when behavior model is not specified'
+            f'- oracle pLeft used'
+        )
+
+    # map behavior model string to model class
+    if params['model'] == 'logistic' and params['balanced_continuous_target']:
+        raise ValueError('you can not have a continuous target with logistic regression')
+
+    params['model'] = behavior_model_options[params['model']]
+
     # map estimator string to sklm class
-    params['estimator'] = decoder_options[settings['estimator']]
-    if settings['estimator'] == 'logistic':
-        params['hyperparam_grid'] = {'C': settings['hyperparam_grid']['C']}
+    if params['estimator'] == 'logistic':
+        params['hyperparam_grid'] = {'C': params['hyperparam_grid']['C']}
     else:
-        params['hyperparam_grid'] = {'alpha': settings['hyperparam_grid']['alpha']}
+        params['hyperparam_grid'] = {'alpha': params['hyperparam_grid']['alpha']}
+    params['estimator'] = decoder_options[params['estimator']]
 
     params['n_jobs_per_session'] = params['n_pseudo'] // params['n_pseudo_per_job']
 

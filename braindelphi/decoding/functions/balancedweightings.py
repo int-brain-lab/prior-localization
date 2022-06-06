@@ -1,8 +1,7 @@
 import numpy as np
 import openturns
 from sklearn.utils.class_weight import compute_sample_weight
-from braindelphi.decoding.functions.utils import check_bhv_fit_exists
-from braindelphi.decoding.functions.process_targets import optimal_Bayesian
+from braindelphi.decoding.functions.process_targets import optimal_Bayesian, check_bhv_fit_exists
 import pickle
 import pandas as pd
 from brainbox.task.closed_loop import generate_pseudo_blocks, _draw_position, _draw_contrast

@@ -1,13 +1,16 @@
-from behavior_models.models.utils import format_data as format_data_mut
-from behavior_models.models.utils import format_input as format_input_mut
+import os
+from pathlib import Path
 import numpy as np
 import torch
 import pandas as pd
 
 import brainbox.io.one as bbone
+from behavior_models.models.utils import format_data as format_data_mut
+from behavior_models.models.utils import format_input as format_input_mut
+from behavior_models.models.utils import build_path as build_path_mut
 
 from braindelphi.pipelines.utils_common_pipelines import load_behavior
-from braindelphi.decoding.functions.utils import check_bhv_fit_exists, compute_mask
+from braindelphi.decoding.functions.utils import compute_mask
 
 possible_targets = ['choice', 'feedback', 'signcont', 'pLeft']
 
@@ -354,3 +357,20 @@ def get_target_variable_in_df(one, eid, target, align_time, time_window, binsize
         # return only "good" trials
         mask = compute_mask(trials_df, align_time, time_window, **kwargs) & mask_target
         return trials_df[mask]
+
+
+def check_bhv_fit_exists(subject, model, eids, resultpath, modeldispatcher):
+    '''
+    subject: subject_name
+    eids: sessions on which the model was fitted
+    check if the behavioral fits exists
+    return Bool and filename
+    '''
+    if model not in modeldispatcher.keys():
+        raise KeyError('Model is not an instance of a model from behavior_models')
+    path_results_mouse = 'model_%s_' % modeldispatcher[model]
+    trunc_eids = [eid.split('-')[0] for eid in eids]
+    filen = build_path_mut(path_results_mouse, trunc_eids)
+    subjmodpath = Path(resultpath).joinpath(Path(subject))
+    fullpath = subjmodpath.joinpath(filen)
+    return os.path.exists(fullpath), fullpath

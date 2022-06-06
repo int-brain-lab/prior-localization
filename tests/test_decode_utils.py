@@ -93,6 +93,11 @@ def test_get_save_path():
 
 def test_check_setting():
 
+    new_params = {'target': 'wheel-vel'}
+    params = check_settings(new_params)
+    assert params['target'] == 'wheel-vel'
+
+    # proper errors are raised
     settings = {'target': 'bad_target_str'}
     with pytest.raises(NotImplementedError):
         check_settings(settings)

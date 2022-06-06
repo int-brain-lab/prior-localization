@@ -1,9 +1,8 @@
 import numpy as np
-from braindelphi.decoding.functions.utils import check_bhv_fit_exists
 import torch
 from behavior_models.models.utils import format_input as mut_format_input
 from brainbox.task.closed_loop import generate_pseudo_session
-from braindelphi.decoding.functions.process_targets import optimal_Bayesian
+from braindelphi.decoding.functions.process_targets import optimal_Bayesian, check_bhv_fit_exists
 
 
 def generate_null_distribution_session(trials_df, metadata, **kwargs):

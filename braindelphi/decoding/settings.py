@@ -11,15 +11,6 @@ import warnings
 logger = logging.getLogger('ibllib')
 logger.disabled = True
 
-strlut = {
-    sklm.Lasso: "Lasso",
-    sklm.LassoCV: "LassoCV",
-    sklm.Ridge: "Ridge",
-    sklm.RidgeCV: "RidgeCV",
-    sklm.LinearRegression: "PureLinear",
-    sklm.LogisticRegression: "Logistic"
-}
-
 NEURAL_DTYPE = 'ephys'  # 'ephys' or 'widefield'
 DATE = '06-06-2022'  # date
 
