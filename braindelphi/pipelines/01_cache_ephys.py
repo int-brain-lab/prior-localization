@@ -14,10 +14,9 @@ from dask_jobqueue import SLURMCluster
 from dask.distributed import LocalCluster
 
 # IBL libraries
+from one.api import ONE
+from brainwidemap import bwm_query
 from braindelphi.params import CACHE_PATH
-
-# braindelphi repo imports
-from braindelphi.utils_root import query_sessions
 
 _logger = logging.getLogger('braindelphi')
 
@@ -39,7 +38,7 @@ def delayed_save(subject, eid, probes, params, outputs):
 
 
 # Parameters
-SESS_CRITERION = 'resolved-behavior'
+ALGN_RESOLVED = True
 DATE = str(dt.today())
 MAX_LEN = 2.
 T_BEF = 0.6
@@ -63,16 +62,17 @@ params = {
 
 dataset_futures = []
 
-sessdf = query_sessions(SESS_CRITERION).set_index(['subject', 'eid'])
+one = ONE()
+sessdf = bwm_query(one, alignment_resolved=ALGN_RESOLVED).set_index(['subject', 'eid'])
 
 for eid in sessdf.index.unique(level='eid'):
     xsdf = sessdf.xs(eid, level='eid')
     subject = xsdf.index[0]
     pids_lst = [[pid] for pid in xsdf.pid.to_list()] if not MERGE_PROBES else [xsdf.pid.to_list()]
-    probe_lst = [[n] for n in xsdf.probe.to_list()] if not MERGE_PROBES else [xsdf.probe.to_list()]
+    probe_lst = [[n] for n in xsdf.probe_name.to_list()] if not MERGE_PROBES else [xsdf.probe_name.to_list()]
     for (probes, pids) in zip(probe_lst, pids_lst):
         load_outputs = delayed_load(eid, pids, params)
-        save_future = delayed_save(subject, eid, probes, {**params, 'type': TYPE, 'merge_probes':MERGE_PROBES},
+        save_future = delayed_save(subject, eid, probes, {**params, 'type': TYPE, 'merge_probes': MERGE_PROBES},
                                    load_outputs)
         dataset_futures.append([subject, eid, probes, save_future])
 
