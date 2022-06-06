@@ -28,7 +28,7 @@ BEH_MOD_PATH.mkdir(parents=True, exist_ok=True)
 IMPOSTER_SESSION_PATH = braindelphi_PATH.joinpath('decoding')
 
 # widefield imaging path
-if os.getlogin() in ['findling', 'hubert']:
+if username in ['findling', 'hubert']:
     WIDE_FIELD_PATH = Path('/home/share/pouget_lab/wide_field_imaging/')
 else:
     WIDE_FIELD_PATH = Path('wide_field_imaging/')
