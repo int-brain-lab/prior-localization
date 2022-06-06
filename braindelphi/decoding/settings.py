@@ -165,6 +165,9 @@ fit_metadata = {
     'estimator_kwargs': ESTIMATOR_KWARGS,
     'hyperparam_grid': HPARAM_GRID,
     'add_to_saving_path': ADD_TO_SAVING_PATH,
+    'min_len': MIN_LEN,
+    'max_len': MAX_LEN,
+    'save_predictions': False,
 }
 
 if NEURAL_DTYPE == 'widefield':

@@ -99,14 +99,14 @@ def compute_mask(trials_df, align_time, time_window, min_len, max_len, no_unbias
     if min_rt is not None:
         mask = mask & (~(trials_df.react_times < min_rt)).values
 
-    if 'trial_start' in trials_df.columns and max_len is not None and min_len is not None:
+    if 'goCue_times' in trials_df.columns and max_len is not None and min_len is not None:
         # get rid of trials that are too short or too long
-        start_diffs = trials_df.trial_start.diff()
+        start_diffs = trials_df.goCue_times.diff()
         start_diffs.iloc[0] = 2
         mask = mask & ((start_diffs > min_len).values & (start_diffs < max_len).values)
 
         # get rid of trials with decoding windows that overlap following trial
-        tmp = (trials_df[align_event].values[:-1] + time_window[1]) < trials_df.trial_start.values[1:]
+        tmp = (trials_df[align_time].values[:-1] + time_window[1]) < trials_df.trial_start.values[1:]
         tmp = np.concatenate([tmp, [True]])  # include final trial, no following trials
         mask = mask & tmp
 

@@ -49,6 +49,8 @@ def test_compute_mask(data_dict):
     trialsdf.at[3, 'goCue_times'] = 15.0
     trialsdf.at[4, 'firstMovement_times'] = 0.0
     trialsdf.at[4, 'goCue_times'] = 15.0
+    if 'react_times' in trialsdf.columns:
+        trialsdf = trialsdf.drop(columns='react_times')  # remove previously computed reaction time
     mask = compute_mask(
         trialsdf, align_time='goCue_times', time_window=(-0.0001, 0.0), no_unbias=False,
         min_rt=-10.0, min_len=0.0, max_len=1000.0)
@@ -60,6 +62,7 @@ def test_get_save_path():
     pseudo_id = 10
     subject = 'MRW_000'
     eid = '1234'
+    neural_dtype = 'ephys'
     probe = 'probe00'
     region = 'VISpm'
     output_path = os.path.join('test', 'path')
@@ -69,9 +72,9 @@ def test_get_save_path():
     add_to_saving_path = 'this_is_a_test'
 
     outpath = get_save_path(
-        pseudo_id=pseudo_id, subject=subject, eid=eid, probe=probe, region=region,
-        output_path=output_path, time_window=time_window, today=today, target=target,
-        add_to_saving_path=add_to_saving_path)
+        pseudo_id=pseudo_id, subject=subject, eid=eid, neural_dtype=neural_dtype, probe=probe,
+        region=region, output_path=output_path, time_window=time_window, today=today,
+        target=target, add_to_saving_path=add_to_saving_path)
 
     outpath = str(outpath)
     print(outpath)
