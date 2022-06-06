@@ -25,12 +25,13 @@ _logger = logging.getLogger('braindelphi')
 
 def load_ephys(session_id,
                pids,
-               max_len=2.,
-               t_before=0.,
-               t_after=0.,
-               binwidth=0.02,
-               abswheel=False,
-               ret_qc=False,
+               max_len,
+               t_before,
+               t_after,
+               binwidth,
+               abswheel,
+               wheel,
+               ret_qc,
                one=None):
     one = ONE() if one is None else one
 
@@ -39,8 +40,8 @@ def load_ephys(session_id,
                                     t_before=t_before,
                                     t_after=t_after,
                                     wheel_binsize=binwidth,
-                                    ret_abswheel=abswheel,
-                                    ret_wheel=not abswheel,
+                                    ret_abswheel=abswheel if wheel else None,
+                                    ret_wheel=not abswheel if wheel else None,
                                     addtl_types=['firstMovement_times'],
                                     one=one)
 

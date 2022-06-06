@@ -40,7 +40,8 @@ MAX_LEN = None
 T_BEF = 0.6
 T_AFT = 0.6
 BINWIDTH = 0.02
-ABSWHEEL = True
+ABSWHEEL = False
+WHEEL = False
 QC = True
 TYPE = 'primaries'
 MERGE_PROBES = False
@@ -53,7 +54,8 @@ params = {
     't_after': T_AFT,
     'binwidth': BINWIDTH,
     'abswheel': ABSWHEEL,
-    'ret_qc': QC
+    'ret_qc': QC,
+    'wheel': WHEEL,
 }
 
 dataset_futures = []
@@ -100,7 +102,7 @@ cluster.scale(20)
 
 client = Client(cluster)
 
-tmp_futures = [client.compute(future[3]) for future in dataset_futures]
+tmp_futures = [client.compute(future[3]) for future in dataset_futures[:5]]
 
 # Run below code AFTER futures have finished!
 dataset = [{
@@ -122,7 +124,7 @@ failures = [(i, x) for i, x in enumerate(tmp_futures) if x.status == 'error']
 for i, failure in failures:
     print(i, failure.exception(), failure.key)
 print(len(failures))
-print(np.array(failures)[:,0])
+print(np.array(failures)[:,1])
 import traceback
 tb = failure.traceback()
 traceback.print_tb(tb)
