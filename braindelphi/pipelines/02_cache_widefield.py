@@ -11,7 +11,7 @@ import glob
 from tqdm import tqdm
 
 # IBL libraries
-from braindelphi.params import CACHE_PATH
+from braindelphi.params import CACHE_PATH, WIDE_FIELD_PATH
 from braindelphi.wide_field_imaging.utils import load_wfi_session
 
 _logger = logging.getLogger('braindelphi')
@@ -22,7 +22,7 @@ if np.any([k not in ['left', 'right'] for k in HEMISPHERES]):
     raise ValueError('Hemispheres must be left or right')
 hemisphere_specif = 'both_hemispheres' if np.unique(HEMISPHERES).size > 1 else HEMISPHERES[0]
 
-subjects = glob.glob('wide_field_imaging/CSK-im-*')
+subjects = glob.glob(WIDE_FIELD_PATH.joinpath('CSK-im-*').as_posix())
 nb_eids_per_subject = np.array([np.load(s + '/behavior.npy', allow_pickle=True).size for s in subjects])
 
 dataset_files = []
