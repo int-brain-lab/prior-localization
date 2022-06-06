@@ -21,6 +21,7 @@ strlut = {
 }
 
 NEURAL_DTYPE = 'ephys'  #  'ephys' or 'widefield'
+DATE = '06-06-2022' # date
 
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
@@ -123,6 +124,7 @@ if len(BORDER_QUANTILES_NEUROMETRIC) != 0 and MODEL is None:
 
 
 fit_metadata = {
+    'date': DATE,
     'criterion': SESS_CRITERION,
     'target': TARGET,
     'model_type': modeldispatcher[MODEL],
@@ -168,6 +170,7 @@ if NEURAL_DTYPE == 'widefield':
     fit_metadata['wfi_nb_frames'] = WFI_HEMISPHERES
 
 kwargs = {
+    'date': DATE,
     'nb_runs': N_RUNS,
     'single_region': SINGLE_REGION,
     'merged_probes': MERGED_PROBES,

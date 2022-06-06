@@ -115,9 +115,9 @@ def compute_mask(trialsdf, min_len, max_len, no_unbias, min_rt, **kwargs):
 
 
 def get_save_path(
-        pseudo_id, subject, eid, probe, region, output_path, time_window, today, target,
+        pseudo_id, subject, eid, neural_dtype, probe, region, output_path, time_window, today, target,
         add_to_saving_path):
-    subjectfolder = Path(output_path).joinpath(subject)
+    subjectfolder = Path(output_path).joinpath(neural_dtype, subject)
     eidfolder = subjectfolder.joinpath(eid)
     probefolder = eidfolder.joinpath(probe)
     start_tw, end_tw = time_window
