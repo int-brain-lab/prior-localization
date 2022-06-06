@@ -92,7 +92,6 @@ cluster = SLURMCluster(cores=N_CORES,
 cluster = LocalCluster()
 cluster.scale(20)
 
-#cluster = LocalCluster()
 client = Client(cluster)
 
 tmp_futures = [client.compute(future[3]) for future in dataset_futures]

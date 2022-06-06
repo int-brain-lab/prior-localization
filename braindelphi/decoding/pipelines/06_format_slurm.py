@@ -76,7 +76,7 @@ resultsdf = pd.DataFrame(resultslist)
 
 estimatorstr = strlut[ESTIMATOR]
 start_tw, end_tw = TIME_WINDOW
-fn = str(FIT_PATH.joinpath('_'.join([date, 'decode', TARGET,
+fn = str(FIT_PATH.joinpath(kwargs['neural_dtype'], '_'.join([date, 'decode', TARGET,
                                                                modeldispatcher[MODEL] if TARGET in ['prior',
                                                                                                         'pLeft']
                                                                else 'task',
