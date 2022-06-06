@@ -8,6 +8,8 @@ elif username == 'findling':
     braindelphi_PATH = Path('/home/users/f/findling/scratch/ibl/prior-localization/braindelphi')
 elif username == 'root':
     braindelphi_PATH = Path('/Users/csmfindling/Documents/Postdoc-Geneva/IBL/code/prior-localization/braindelphi')
+elif username == 'julia':
+    braindelphi_PATH = Path('/home/julia/data/braindelphi')
 
 # path to user-specific settings file
 SETTINGS_PATH = braindelphi_PATH.joinpath('decoding', 'settings.yaml')
