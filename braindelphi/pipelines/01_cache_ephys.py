@@ -70,15 +70,15 @@ for eid in bwm_df.index.unique(level='eid'):
     # load and save data from each probe independently, or merge the data from both probes
     pids = session_df.pid.to_list()
     probe_names = session_df.probe_name.to_list()
-    if len(pids) > 1 and MERGE_PROBES is True:
+    if MERGE_PROBES:
         load_outputs = delayed_load(eid, pids, params)
-        save_future = delayed_save(subject, eid, probe_names, {**params, 'type': TYPE}, load_outputs)
-        dataset_futures.append([subject, eid, probe_names, save_future])
+        save_future = delayed_save(subject, eid, 'merged_probes', {**params, 'type': TYPE}, load_outputs)
+        dataset_futures.append([subject, eid, 'merged_probes', save_future])
     else:
         for (pid, probe_name) in zip(pids, probe_names):
             load_outputs = delayed_load(eid, [pid], params)
-            save_future = delayed_save(subject, eid, [probe_name], {**params, 'type': TYPE}, load_outputs)
-            dataset_futures.append([subject, eid, [probe_name], save_future])
+            save_future = delayed_save(subject, eid, probe_name, {**params, 'type': TYPE}, load_outputs)
+            dataset_futures.append([subject, eid, probe_name, save_future])
 
 N_CORES = 4
 
@@ -102,7 +102,7 @@ cluster.scale(20)
 
 client = Client(cluster)
 
-tmp_futures = [client.compute(future[3]) for future in dataset_futures[:5]]
+tmp_futures = [client.compute(future[3]) for future in dataset_futures]
 
 # Run below code AFTER futures have finished!
 dataset = [{
