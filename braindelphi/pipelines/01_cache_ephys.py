@@ -30,11 +30,7 @@ def delayed_load(eid, pids, params):
 
 @dask.delayed(pure=False, traverse=False)
 def delayed_save(subject, eid, probe_name, params, outputs):
-    try:
-        return cache_regressors(subject, eid, probe_name, params, outputs)
-    except Exception as e:
-        print(e)
-        pass
+    return cache_regressors(subject, eid, probe_name, params, outputs)
 
 
 # Parameters
