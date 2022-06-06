@@ -6,7 +6,7 @@ import utils
 import pandas as pd
 from one.api import ONE, One
 from functions.neurometric import fit_get_shift_range
-from functions.utils import optimal_Bayesian
+from braindelphi.decoding.functions.process_targets import optimal_Bayesian
 import models.utils as mut
 from scipy.stats import pearsonr, spearmanr, wilcoxon
 import brainbox.io.one as bbone

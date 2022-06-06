@@ -23,7 +23,7 @@ FIT_PATH = braindelphi_PATH.joinpath('decoding', 'results', 'neural')
 FIT_PATH.mkdir(parents=True, exist_ok=True)
 
 # store behavioral models
-BEH_MOD_PATH = braindelphi_PATH.joinpath('decoding', 'results', 'behavior')
+BEH_MOD_PATH = braindelphi_PATH.joinpath('decoding', 'results', 'behavioral')
 BEH_MOD_PATH.mkdir(parents=True, exist_ok=True)
 
 # store imposter session data used for creating null distributions

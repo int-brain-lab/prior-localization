@@ -25,13 +25,12 @@ NEURAL_DTYPE = 'ephys'  #  'ephys' or 'widefield'
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
 SESS_CRITERION = 'aligned-behavior'  # aligned and behavior
-DATE = '2022-05-11'  # str(date.today())  # '2022-04-18'
 ALIGN_TIME = 'goCue_times'
 TARGET = 'pLeft'  # 'signcont' or 'pLeft'
 if TARGET not in ['pLeft', 'signcont', 'choice', 'feedback']:
     raise ValueError('TARGET can only be pLeft, signcont, choice or feedback')
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
-MODEL = optimal_Bayesian  # expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
+MODEL = expSmoothing_prevAction  # expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
 BEH_MOUSELEVEL_TRAINING = False  # if True, trains the behavioral model session-wise else mouse-wise
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
@@ -44,6 +43,8 @@ N_RUNS = 10
 MIN_UNITS = 10
 MIN_BEHAV_TRIAS = 400  # default BWM setting
 MIN_RT = 0.08  # 0.08  # Float (s) or None
+MIN_LEN = 1 # min length of trial
+MAX_LEN = 5 # max length of trial
 SINGLE_REGION = True  # perform decoding on region-wise or whole brain analysis
 MERGED_PROBES = False  # merge probes before performing analysis
 NO_UNBIAS = False  # take out unbiased trials
@@ -134,7 +135,6 @@ fit_metadata = {
     'min_behav_trials': MIN_BEHAV_TRIAS,
     'min_rt': MIN_RT,
     'qc_criteria': QC_CRITERIA,
-    'date': DATE,
     'shuffle': SHUFFLE,
     'no_unbias': NO_UNBIAS,
     'hyperparameter_grid': HPARAM_GRID,
@@ -160,7 +160,6 @@ fit_metadata = {
     'neuralfit_path': NEURAL_MOD_PATH,
     'estimator_kwargs': ESTIMATOR_KWARGS,
     'hyperparam_grid': HPARAM_GRID,
-    'today': DATE,
     'add_to_saving_path': ADD_TO_SAVING_PATH,
 }
 
@@ -198,7 +197,6 @@ kwargs = {
     'use_imposter_session': USE_IMPOSTER_SESSION,
     'compute_neurometric': COMPUTE_NEUROMETRIC,
     'border_quantiles_neurometric': BORDER_QUANTILES_NEUROMETRIC,
-    'today': DATE,
     'add_to_saving_path': ADD_TO_SAVING_PATH,
     'use_openturns': USE_OPENTURNS,
     'bin_size_kde': BIN_SIZE_KDE,
@@ -209,5 +207,7 @@ kwargs = {
     'beh_mouseLevel_training': BEH_MOUSELEVEL_TRAINING,
     'binarization_value': BINARIZATION_VALUE,
     'simulate_neural_data': SIMULATE_NEURAL_DATA,
-    'constrain_imposter_session_with_beh': CONSTRAIN_IMPOSTER_SESSION_WITH_BEH
+    'constrain_imposter_session_with_beh': CONSTRAIN_IMPOSTER_SESSION_WITH_BEH,
+    'min_len': MIN_LEN,
+    'max_len': MAX_LEN,
 }

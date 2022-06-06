@@ -10,7 +10,7 @@ from braindelphi.pipelines.utils_common_pipelines import cache_regressors
 import dask
 import pandas as pd
 from dask.distributed import Client
-from dask_jobqueue import SLURMCluster
+#from dask_jobqueue import SLURMCluster
 from dask.distributed import LocalCluster
 
 # IBL libraries
@@ -74,6 +74,7 @@ for eid in sessdf.index.unique(level='eid'):
 
 N_CORES = 4
 
+"""
 cluster = SLURMCluster(cores=N_CORES,
                        memory='32GB',
                        processes=1,
@@ -88,7 +89,9 @@ cluster = SLURMCluster(cores=N_CORES,
                            f'export MKL_NUM_THREADS={N_CORES}',
                            f'export OPENBLAS_NUM_THREADS={N_CORES}'
                        ])
-cluster.scale(20)
+"""
+cluster = LocalCluster()
+cluster.scale(5)
 
 #cluster = LocalCluster()
 client = Client(cluster)

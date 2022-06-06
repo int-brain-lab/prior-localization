@@ -155,8 +155,10 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
 
         if kwargs['neural_dtype'] == 'ephys':
             msub_binned = preprocess_ephys(reg_clu_ids, neural_dict, trials_df, **kwargs)
+            n_units = len(reg_clu_ids)
         elif kwargs['neural_dtype'] == 'widefield':
             msub_binned = preprocess_widefield_imaging(neural_dict, reg_mask, **kwargs)
+            n_units = np.sum(reg_mask)
         else:
             raise NotImplementedError
 
@@ -237,7 +239,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                 region=str(np.squeeze(region)) if kwargs['single_region'] else 'allRegions',
                 output_path=kwargs['neuralfit_path'],
                 time_window=kwargs['time_window'],
-                today=kwargs['today'],
+                today=kwargs['date'],
                 target=kwargs['target'],
                 add_to_saving_path=kwargs['add_to_saving_path']
             )
@@ -249,7 +251,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                 eid=metadata['eid'],
                 probe=probe,
                 region=region,
-                n_units=len(reg_clu_ids),
+                n_units=n_units,
                 save_path=save_path
             )
 
@@ -599,6 +601,6 @@ if __name__ == '__main__':
             'widefield/wfi2/wfi2s6/left/2022-05-29_widefield_metadata.pkl'
         ), 'rb'))
 
-    kwargs['min_behav_trials'] = 300
+    kwargs['min_behav_trials'] = 200
     out = fit_eid(
         regressors, regressors['trials_df'], metadata, dlc_dict=None, pseudo_ids=[-1], **kwargs)

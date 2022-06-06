@@ -1,34 +1,17 @@
 import pickle
-import functions.utils as dut
+from behavior_models.models.utils import format_data as format_data_mut
 import pandas as pd
 import glob
-from settings import *
+from braindelphi.decoding.settings import *
 import models.utils as mut
+from braindelphi.params import FIT_PATH
+from braindelphi.decoding.settings import modeldispatcher
 
-# import cached data
-insdf = pd.read_parquet(DECODING_PATH.joinpath('insertions.pqt'))
-insdf = insdf[insdf.spike_sorting != '']
-eids = insdf['eid'].unique()
 
 SAVE_KFOLDS = False
 
-kwargs = {'imposterdf': None, 'nb_runs': N_RUNS, 'single_region': SINGLE_REGION, 'merged_probes': MERGED_PROBES,
-          'modelfit_path': DECODING_PATH.joinpath('results', 'behavioral'),
-          'output_path': DECODING_PATH.joinpath('results', 'neural'), 'one': None,
-          'estimator_kwargs': ESTIMATOR_KWARGS, 'hyperparam_grid': HPARAM_GRID,
-          'save_binned': SAVE_BINNED, 'shuffle': SHUFFLE, 'balanced_weight': BALANCED_WEIGHT,
-          'normalize_input': NORMALIZE_INPUT, 'normalize_output': NORMALIZE_OUTPUT,
-          'compute_on_each_fold': COMPUTE_NEURO_ON_EACH_FOLD,
-          'force_positive_neuro_slopes': FORCE_POSITIVE_NEURO_SLOPES,
-          'estimator': ESTIMATOR, 'target': TARGET, 'model': MODEL, 'align_time': ALIGN_TIME,
-          'no_unbias': NO_UNBIAS, 'min_rt': MIN_RT, 'min_behav_trials': MIN_BEHAV_TRIAS,
-          'qc_criteria': QC_CRITERIA, 'min_units': MIN_UNITS, 'time_window': TIME_WINDOW,
-          'use_imposter_session': USE_IMPOSTER_SESSION, 'compute_neurometric': COMPUTE_NEUROMETRIC,
-          'border_quantiles_neurometric': BORDER_QUANTILES_NEUROMETRIC, 'today': DATE
-          }
-
-date = DATE  # '2022-04-13'
-finished = glob.glob(str(DECODING_PATH.joinpath("results", "neural", "*", "*", "*", "*%s*" % date)))
+date = '06-05-2022'  # '06-05-2022' , month-day-year
+finished = glob.glob(str(FIT_PATH.joinpath("*", "*", "*", "*%s*" % date)))
 
 indexers = ['subject', 'eid', 'probe', 'region']
 indexers_neurometric = ['low_slope', 'high_slope', 'low_range', 'high_range', 'shift', 'mean_range', 'mean_slope']
@@ -41,9 +24,9 @@ for fn in tqdm(finished):
     if result['fit'] is None:
         continue
     for i_run in range(len(result['fit'])):
-        side, stim, act, _ = mut.format_data(result["fit"][i_run]["df"])
+        side, stim, act, _ = format_data_mut(result["fit"][i_run]["df"])
         mask = result["fit"][i_run]["mask"]  # np.all(result["fit"][i_run]["target"] == stim[mask])
-        full_test_prediction = np.zeros(result["fit"][i_run]["target"].size)
+        full_test_prediction = np.zeros(np.array(result["fit"][i_run]["target"]).size)
         for k in range(len(result["fit"][i_run]["idxes_test"])):
             full_test_prediction[result["fit"][i_run]['idxes_test'][k]] = result["fit"][i_run]['predictions_test'][k]
         #neural_act = np.sign(full_test_prediction)
@@ -89,12 +72,12 @@ for fn in tqdm(finished):
                                **{idx_neuro: result['fit'][i_run]['fold_neurometric'][kfold][idx_neuro]
                                   for idx_neuro in indexers_neurometric}}
                 resultslist.append(tmpdict)
-resultsdf = pd.DataFrame(resultslist).set_index(indexers)
+resultsdf = pd.DataFrame(resultslist)
 
 estimatorstr = strlut[ESTIMATOR]
 start_tw, end_tw = TIME_WINDOW
-fn = str(DECODING_PATH.joinpath('results', 'neural', '_'.join([DATE, 'decode', TARGET,
-                                                               dut.modeldispatcher[MODEL] if TARGET in ['prior',
+fn = str(FIT_PATH.joinpath('_'.join([date, 'decode', TARGET,
+                                                               modeldispatcher[MODEL] if TARGET in ['prior',
                                                                                                         'pLeft']
                                                                else 'task',
                                                                estimatorstr, 'align', ALIGN_TIME, str(N_PSEUDO),
@@ -103,14 +86,14 @@ fn = str(DECODING_PATH.joinpath('results', 'neural', '_'.join([DATE, 'decode', T
                                                                'timeWindow', str(start_tw).replace('.', '_'),
                                                                str(end_tw).replace('.', '_')])))
 if COMPUTE_NEUROMETRIC:
-    fn = fn + '_'.join(['', 'neurometricPLeft', dut.modeldispatcher[MODEL]])
+    fn = fn + '_'.join(['', 'neurometricPLeft', modeldispatcher[MODEL]])
 
 if ADD_TO_SAVING_PATH != '':
     fn = fn + '_' + ADD_TO_SAVING_PATH
 
 fn = fn + '.parquet'
 
-metadata_df = pd.Series({'filename': fn, **fit_metadata})
+metadata_df = pd.Series({'filename': fn,  'date': date, **fit_metadata})
 metadata_fn = '.'.join([fn.split('.')[0], 'metadata', 'pkl'])
 resultsdf.to_parquet(fn)
 metadata_df.to_pickle(metadata_fn)
