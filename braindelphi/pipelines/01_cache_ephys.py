@@ -29,8 +29,8 @@ def delayed_load(eid, pids, params):
 
 
 @dask.delayed(pure=False, traverse=False)
-def delayed_save(subject, eid, probe_name, params, outputs):
-    return cache_regressors(subject, eid, probe_name, params, outputs)
+def delayed_save(subject, eid, probes_name, params, outputs):
+    return cache_regressors(subject, eid, probes_name, params, outputs)
 
 
 # Parameters
@@ -72,13 +72,13 @@ for eid in bwm_df.index.unique(level='eid'):
     probe_names = session_df.probe_name.to_list()
     if len(pids) > 1 and MERGE_PROBES is True:
         load_outputs = delayed_load(eid, pids, params)
-        save_future = delayed_save(subject, eid, 'merged_probe', {**params, 'type': TYPE}, load_outputs)
-        dataset_futures.append([subject, eid, 'merged_probe', save_future])
+        save_future = delayed_save(subject, eid, probe_names, {**params, 'type': TYPE}, load_outputs)
+        dataset_futures.append([subject, eid, probe_names, save_future])
     else:
         for (pid, probe_name) in zip(pids, probe_names):
-            load_outputs = delayed_load(eid, pid, params)
-            save_future = delayed_save(subject, eid, probe_name, {**params, 'type': TYPE}, load_outputs)
-            dataset_futures.append([subject, eid, probe_name, save_future])
+            load_outputs = delayed_load(eid, [pid], params)
+            save_future = delayed_save(subject, eid, [probe_name], {**params, 'type': TYPE}, load_outputs)
+            dataset_futures.append([subject, eid, [probe_name], save_future])
 
 N_CORES = 4
 

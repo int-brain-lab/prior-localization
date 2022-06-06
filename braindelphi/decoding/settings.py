@@ -44,8 +44,6 @@ N_RUNS = 10
 MIN_UNITS = 10
 MIN_BEHAV_TRIAS = 400  # default BWM setting
 MIN_RT = 0.08  # 0.08  # Float (s) or None
-MIN_LEN = None  # min length of trial
-MAX_LEN = None  # max length of trial
 SINGLE_REGION = True  # perform decoding on region-wise or whole brain analysis
 MERGED_PROBES = False  # merge probes before performing analysis
 NO_UNBIAS = False  # take out unbiased trials
@@ -84,6 +82,10 @@ ADD_TO_SAVING_PATH = (
 # WIDE FIELD IMAGING
 WFI_HEMISPHERES = ['left']  # 'left' and/or 'right'
 WFI_NB_FRAMES = -1  # signed number of frames from ALIGN_TIME. can not be zero
+
+# WHEEL VELOCITY
+MIN_LEN = None  # min length of trial
+MAX_LEN = None  # max length of trial
 
 # session to be excluded (by Olivier Winter)
 excludes = [
