@@ -16,4 +16,4 @@ export PYTHONPATH="$PWD":$PYTHONPATH
 # calling script
 
 echo
-python  pipelines/05_slurm_decode.py $SLURM_ARRAY_TASK_ID
+python pipelines/05_slurm_decode.py $SLURM_ARRAY_TASK_ID
