@@ -6,7 +6,7 @@ if username == 'mattw':
     braindelphi_PATH = Path('/media/mattw/ibl/')
 elif username == 'findling':
     braindelphi_PATH = Path('/home/users/f/findling/scratch/ibl/prior-localization/braindelphi')
-elif username == 'root':
+elif username == 'csmfindling':
     braindelphi_PATH = Path('/Users/csmfindling/Documents/Postdoc-Geneva/IBL/code/prior-localization/braindelphi')
 
 # path to user-specific settings file

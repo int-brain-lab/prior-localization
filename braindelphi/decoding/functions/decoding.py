@@ -121,10 +121,9 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
 
     mask = compute_mask(trials_df, **kwargs) & mask_target
 
-    n_trials = np.sum(mask)
-    if n_trials <= kwargs['min_behav_trials']:
+    if trials_df.index.size <= kwargs['min_behav_trials']:
         msg = 'session contains %i trials, below the threshold of %i' % (
-            n_trials, kwargs['min_behav_trials'])
+            trials_df.index.size, kwargs['min_behav_trials'])
         logging.exception(msg)
         return filenames
 
