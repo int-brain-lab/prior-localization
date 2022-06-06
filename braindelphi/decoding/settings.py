@@ -20,8 +20,8 @@ strlut = {
     sklm.LogisticRegression: "Logistic"
 }
 
-NEURAL_DTYPE = 'ephys'  #  'ephys' or 'widefield'
-DATE = '06-06-2022' # date
+NEURAL_DTYPE = 'ephys'  # 'ephys' or 'widefield'
+DATE = '06-06-2022'  # date
 
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
@@ -44,8 +44,8 @@ N_RUNS = 10
 MIN_UNITS = 10
 MIN_BEHAV_TRIAS = 400  # default BWM setting
 MIN_RT = 0.08  # 0.08  # Float (s) or None
-MIN_LEN = 1 # min length of trial
-MAX_LEN = 5 # max length of trial
+MIN_LEN = None  # min length of trial
+MAX_LEN = None  # max length of trial
 SINGLE_REGION = True  # perform decoding on region-wise or whole brain analysis
 MERGED_PROBES = False  # merge probes before performing analysis
 NO_UNBIAS = False  # take out unbiased trials

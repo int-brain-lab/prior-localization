@@ -97,7 +97,7 @@ def compute_mask(trialsdf, min_len, max_len, no_unbias, min_rt, **kwargs):
     if min_rt is not None:
         mask = mask & (~(trialsdf.react_times < min_rt)).values
 
-    if 'trial_start' in trialsdf.columns:
+    if 'trial_start' in trialsdf.columns and max_len is not None and min_len is not None:
         # get rid of trials that are too short or too long
         start_diffs = trialsdf.trial_start.diff()
         start_diffs.iloc[0] = 2
