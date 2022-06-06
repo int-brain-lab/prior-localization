@@ -1,15 +1,12 @@
 import os
 from pathlib import Path
-try:
-    if os.getlogin() == 'mattw':
-        braindelphi_PATH = Path('/media/mattw/ibl/')
-    else:
-        braindelphi_PATH = Path(
-            '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/code/prior-localization/braindelphi')
-except OSError:
-    braindelphi_PATH = Path(
-        '/Users/csmfindling/Documents/Postdoc-Geneva/IBL/code/prior-localization/braindelphi')
-    pass
+
+if os.getlogin() == 'mattw':
+    braindelphi_PATH = Path('/media/mattw/ibl/')
+elif os.getlogin() == 'findling':
+    braindelphi_PATH = Path('/home/users/f/findling/scratch/ibl/prior-localization/braindelphi')
+elif os.getlogin() == 'root':
+    braindelphi_PATH = Path('/Users/csmfindling/Documents/Postdoc-Geneva/IBL/code/prior-localization/braindelphi')
 
 # path to user-specific settings file
 SETTINGS_PATH = braindelphi_PATH.joinpath('decoding', 'settings.yaml')
