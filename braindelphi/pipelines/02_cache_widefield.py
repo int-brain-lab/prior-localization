@@ -31,7 +31,7 @@ for index in tqdm(range(nb_eids_per_subject.sum())):
     sess_id = index - np.hstack((0, nb_eids_per_subject)).cumsum()[:-1][subj_id]
     if sess_id < 0:
         raise ValueError('There is an error in the code')
-    sessiondf, wideFieldImaging_dict, metadata = load_wfi_session(subjects[subj_id], sess_id, HEMISPHERES)
+    sessiondf, wideFieldImaging_dict, metadata = load_wfi_session(subjects[subj_id], sess_id, HEMISPHERES, WIDE_FIELD_PATH.as_posix())
 
     sesspath = Path(CACHE_PATH).joinpath('widefield').joinpath(metadata['subject']).joinpath(metadata['eid']).joinpath(hemisphere_specif)
     sesspath.mkdir(parents=True, exist_ok=True)
