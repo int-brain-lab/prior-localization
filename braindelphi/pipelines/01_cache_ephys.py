@@ -29,8 +29,8 @@ def delayed_load(eid, pids, params):
 
 
 @dask.delayed(pure=False, traverse=False)
-def delayed_save(subject, eid, probes, params, outputs):
-    return cache_regressors(subject, eid, probes, params, outputs)
+def delayed_save(subject, eid, probe_name, params, outputs):
+    return cache_regressors(subject, eid, probe_name, params, outputs)
 
 
 # Parameters
@@ -59,18 +59,24 @@ params = {
 dataset_futures = []
 
 one = ONE()
-sessdf = bwm_query(one, alignment_resolved=ALGN_RESOLVED).set_index(['subject', 'eid'])
+bwm_df = bwm_query(one, alignment_resolved=ALGN_RESOLVED).set_index(['subject', 'eid'])
 
-for eid in sessdf.index.unique(level='eid'):
-    xsdf = sessdf.xs(eid, level='eid')
-    subject = xsdf.index[0]
-    pids_lst = [[pid] for pid in xsdf.pid.to_list()] if not MERGE_PROBES else [xsdf.pid.to_list()]
-    probe_lst = [[n] for n in xsdf.probe_name.to_list()] if not MERGE_PROBES else [xsdf.probe_name.to_list()]
-    for (probes, pids) in zip(probe_lst, pids_lst):
+for eid in bwm_df.index.unique(level='eid'):
+    session_df = bwm_df.xs(eid, level='eid')
+    subject = session_df.index[0]
+    # If there are two probes, there are two options:
+    # load and save data from each probe independently, or merge the data from both probes
+    pids = session_df.pid.to_list()
+    probe_names = session_df.probe_name.to_list()
+    if len(pids) > 1 and MERGE_PROBES is True:
         load_outputs = delayed_load(eid, pids, params)
-        save_future = delayed_save(subject, eid, probes, {**params, 'type': TYPE, 'merge_probes': MERGE_PROBES},
-                                   load_outputs)
-        dataset_futures.append([subject, eid, probes, save_future])
+        save_future = delayed_save(subject, eid, 'merged_probe', {**params, 'type': TYPE}, load_outputs)
+        dataset_futures.append([subject, eid, 'merged_probe', save_future])
+    else:
+        for (pid, probe_name) in zip(pids, probe_names):
+            load_outputs = delayed_load(eid, pid, params)
+            save_future = delayed_save(subject, eid, probe_name, {**params, 'type': TYPE}, load_outputs)
+            dataset_futures.append([subject, eid, probe_name, save_future])
 
 N_CORES = 4
 
@@ -100,7 +106,7 @@ tmp_futures = [client.compute(future[3]) for future in dataset_futures]
 dataset = [{
     'subject': x[0],
     'eid': x[1],
-    'probes': x[2],
+    'probe_name': x[2],
     'meta_file': tmp_futures[i].result()[0],
     'reg_file': tmp_futures[i].result()[1]
 } for i, x in enumerate(dataset_futures) if tmp_futures[i].status == 'finished']
