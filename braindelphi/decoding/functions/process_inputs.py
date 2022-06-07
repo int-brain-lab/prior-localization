@@ -154,11 +154,17 @@ def build_predictor_matrix(array, n_lags, return_valid=True):
 
 def preprocess_widefield_imaging(neural_dict, reg_mask, **kwargs):
     frames_idx = neural_dict['timings'][kwargs['align_time']].values
-    frames_idx = np.sort(
-        frames_idx[:, None] +
-        np.arange(0, kwargs['wfi_nb_frames'], np.sign(kwargs['wfi_nb_frames'])),
-        axis=1,
-    )
+    if kwargs['wfi_nb_frames'] != 0:
+        frames_idx = np.sort(
+            frames_idx[:, None] +
+            np.arange(0, kwargs['wfi_nb_frames'] + np.sign(kwargs['wfi_nb_frames']), np.sign(kwargs['wfi_nb_frames'])),
+            axis=1,
+        )
+    else:
+        frames_idx = np.sort(
+            frames_idx[:, None],
+            axis=1,
+        )
     binned = np.take(neural_dict['activity'][:, reg_mask],
                      frames_idx,
                      axis=0)

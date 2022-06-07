@@ -251,10 +251,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
 
             # save out decoding results
             if kwargs['neural_dtype'] == 'ephys':
-                if 'merge_probes' in metadata.keys():
-                    probe = 'merged_probes' if metadata['merge_probes'] else metadata['probes'][0]
-                else:
-                    probe = metadata['probes'][0]
+                probe = metadata['probe_name']
             elif kwargs['neural_dtype'] == 'widefield':
                 probe = metadata['hemispheres']
 
