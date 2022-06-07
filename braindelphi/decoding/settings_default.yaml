@@ -187,5 +187,5 @@ widefield: false
 # 'left' and/or 'right'
 widefield_hemispheres: ['left']
 
-# signed number of frames from align time; cannot be 0
+# signed number of frames from align time
 widefield_nb_frames: -1

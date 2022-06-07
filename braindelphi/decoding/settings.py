@@ -11,8 +11,8 @@ import warnings
 logger = logging.getLogger('ibllib')
 logger.disabled = True
 
-NEURAL_DTYPE = 'ephys'  # 'ephys' or 'widefield'
-DATE = '06-06-2022'  # date
+NEURAL_DTYPE = 'widefield'  # 'ephys' or 'widefield'
+DATE = '07-06-2022'  # date
 
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
@@ -72,7 +72,7 @@ ADD_TO_SAVING_PATH = (
 
 # WIDE FIELD IMAGING
 WFI_HEMISPHERES = ['left']  # 'left' and/or 'right'
-WFI_NB_FRAMES = -1  # signed number of frames from ALIGN_TIME. can not be zero
+WFI_NB_FRAMES = -1  # signed number of frames from ALIGN_TIME
 
 # WHEEL VELOCITY
 MIN_LEN = None  # min length of trial
@@ -209,4 +209,5 @@ kwargs = {
     'constrain_imposter_session_with_beh': CONSTRAIN_IMPOSTER_SESSION_WITH_BEH,
     'min_len': MIN_LEN,
     'max_len': MAX_LEN,
+    'save_predictions': False,
 }
