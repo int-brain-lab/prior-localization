@@ -16,6 +16,7 @@ import brainbox.io.one as bbone
 import brainbox.metrics.single_units as bbqc
 from ibllib.dsp.smooth import smooth_interpolate_savgol
 from one.api import ONE
+from one.alf.exceptions import ALFObjectNotFound
 
 # braindelphi repo imports
 from braindelphi.params import CACHE_PATH
@@ -145,6 +146,52 @@ def cache_regressors(subject, eid, probe_name, params, regressors):
     return metadata_fn, data_fn
 
 
+def cache_behavior(subject, eid, target, regressors):
+    """
+    Take outputs of load_behavior() and cache them to disk in the folder defined in the params.py
+    file in this repository, using a nested subject -> session folder structure.
+
+    If an existing file in the directory already contains identical data, will not write a new file
+    and instead return the existing filenames.
+
+    Returns the metadata filename and regressors filename.
+    """
+
+    sesspath = Path(CACHE_PATH).joinpath('behavior').joinpath(subject).joinpath(eid)
+    sesspath.mkdir(parents=True, exist_ok=True)
+    curr_t = dt.now()
+    fnbase = str(curr_t.date())
+    metadata_fn = sesspath.joinpath(fnbase + '_%s_metadata.pkl' % target)
+    data_fn = sesspath.joinpath(fnbase + '_%s_regressors.pkl' % target)
+    reghash = _hash_dict(regressors)
+    metadata = {
+        'subject': subject,
+        'eid': eid,
+        'target': target,
+        'regressor_hash': reghash,
+    }
+    prevdata = [
+        sesspath.joinpath(f) for f in os.listdir(sesspath) if re.match(r'.*_metadata\.pkl', f)
+    ]
+    matchfile = False
+    for f in prevdata:
+        with open(f, 'rb') as fr:
+            frdata = pickle.load(fr)
+            if metadata == frdata:
+                matchfile = True
+        if matchfile:
+            _logger.info(f'Existing cache file found for {subject}: {eid}, '
+                         'not writing data.')
+            old_data_fn = sesspath.joinpath(f.name.split('_')[0] + '_regressors.pkl')
+            return f, old_data_fn
+    # If you've reached here, there's no matching file
+    with open(metadata_fn, 'wb') as fw:
+        pickle.dump(metadata, fw)
+    with open(data_fn, 'wb') as fw:
+        pickle.dump(regressors, fw)
+    return metadata_fn, data_fn
+
+
 def load_behavior(eid, target, one=None):
     """Load raw behavior traces and their timestamps.
 
@@ -167,52 +214,39 @@ def load_behavior(eid, target, one=None):
     target_vals = None
     skip_session = False
 
-    if target == 'wheel-vel' or target == 'wheel-speed':
-        try:
+    try:
+
+        if target == 'wheel-vel' or target == 'wheel-speed':
             target_times, _, target_vals, _ = load_wheel_data(one, eid)
             if target == 'wheel-speed':
                 target_vals = np.abs(target_vals)
-        except TimestampError:
-            msg = '%s timestamps/data mismatch' % target
-            _logger.exception(msg)
-            skip_session = True
-    elif target == 'pupil':
-        try:
+        elif target == 'pupil':
             target_times, target_vals = load_pupil_data(one, eid, snr_thresh=5)
-        except TimestampError:
-            msg = '%s timestamps/data mismatch' % target
-            _logger.exception(msg)
-            skip_session = True
-        except QCError:
-            msg = 'pupil trace did not pass QC'
-            _logger.exception(msg)
-            skip_session = True
-        except ValueError:
-            msg = 'not enough good pupil points'
-            _logger.exception(msg)
-            skip_session = True
-    elif target.find('paw') > -1:  # '[l/r]-paw-[pos/vel/speed]'
-        try:
+        elif target.find('paw') > -1:  # '[l/r]-paw-[pos/vel/speed]'
             target_times, target_vals = load_paw_data(
                 one, eid, paw=target.split('-')[0], kind=target.split('-')[2])
-        except TimestampError:
-            msg = '%s timestamps/data mismatch' % target
-            _logger.exception(msg)
-            skip_session = True
-        except QCError:
-            msg = 'paw trace did not pass QC tests'
-            _logger.exception(msg)
-            skip_session = True
-    elif target == 'l-whisker-me' or target == 'r-whisker-me':
-        try:
+        elif target == 'l-whisker-me' or target == 'r-whisker-me':
             target_times, target_vals = load_whisker_data(
                 one, eid, view=target.split('-')[0])
-        except TimestampError:
-            msg = '%s timestamps/data mismatch' % target
-            _logger.exception(msg)
-            skip_session = True
-    else:
-        raise NotImplementedError('%s is an invalid decoding target' % target)
+        else:
+            raise NotImplementedError('%s is an invalid decoding target' % target)
+
+    except TimestampError:
+        msg = '%s timestamps/data mismatch' % target
+        _logger.exception(msg)
+        skip_session = True
+    except ALFObjectNotFound:
+        msg = 'alf object for %s not found' % target
+        _logger.exception(msg)
+        skip_session = True
+    except QCError:
+        msg = '%s trace did not pass QC' % target
+        _logger.exception(msg)
+        skip_session = True
+    except ValueError:
+        msg = 'not enough good pupil points'
+        _logger.exception(msg)
+        skip_session = True
 
     if not skip_session:
         if target_times is None:

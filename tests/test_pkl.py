@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# @File: test_braindelphi/test_pkl.py
+# @File: tests/test_pkl.py
 # @Author: Niccolo' Bonacchi (@nbonacchi)
 # @Date: Sunday, May 22nd 2022, 3:29:12 pm
 from pathlib import Path
