@@ -29,8 +29,8 @@ def delayed_load(eid, pids, params):
 
 
 @dask.delayed(pure=False, traverse=False)
-def delayed_save(subject, eid, probes_name, params, outputs):
-    return cache_regressors(subject, eid, probes_name, params, outputs)
+def delayed_save(subject, eid, probe_name, params, outputs):
+    return cache_regressors(subject, eid, probe_name, params, outputs)
 
 
 # Parameters
