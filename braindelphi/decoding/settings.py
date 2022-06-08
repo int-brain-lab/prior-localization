@@ -17,7 +17,7 @@ DATE = '07-06-2022'  # date
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
 SESS_CRITERION = 'aligned-behavior'  # aligned and behavior
-ALIGN_TIME = 'goCue_times'
+ALIGN_TIME = 'stimOn_times'
 TARGET = 'pLeft'  # 'signcont' or 'pLeft'
 if TARGET not in ['pLeft', 'signcont', 'choice', 'feedback']:
     raise ValueError('TARGET can only be pLeft, signcont, choice or feedback')

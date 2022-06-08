@@ -31,7 +31,7 @@ def load_metadata(neural_dtype_path_regex, date=None):
     return pickle.load(open(neural_dtype_paths[path_id], 'rb')), neural_dtype_dates[path_id].strftime("%m-%d-%Y_%H:%M:%S")
 
 
-def compute_mask(trials_df, align_time, time_window, min_len, max_len, no_unbias, min_rt, **kwargs):
+def compute_mask(trials_df, align_time, time_window, min_len, max_len, no_unbias, min_rt):
     """Create a mask that denotes "good" trials which will be used for further analysis.
 
     Parameters
