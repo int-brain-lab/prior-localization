@@ -50,8 +50,6 @@ for index in tqdm(range(nb_eids_per_subject.sum())):
 
     dataset_files.append([metadata['subject'], metadata['eid'], metadata['hemispheres'], metadata_fn, data_fn])
 
-
-# Run below code AFTER futures have finished!
 dataset = [{
     'subject': x[0],
     'eid': x[1],

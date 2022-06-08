@@ -4,7 +4,6 @@ import numpy as np
 import torch
 import pandas as pd
 
-import brainbox.io.one as bbone
 from behavior_models.models.utils import format_data as format_data_mut
 from behavior_models.models.utils import format_input as format_input_mut
 from behavior_models.models.utils import build_path as build_path_mut
@@ -339,6 +338,7 @@ def get_target_variable_in_df(one, eid, target, align_time, time_window, binsize
     """
 
     # load trial data
+    import brainbox.io.one as bbone
     trials_df = bbone.load_trials_df(eid, one=one, addtl_types=['firstMovement_times'])
 
     # load behavior data

@@ -131,5 +131,10 @@ traceback.print_tb(tb)
 print(len([(i, x) for i, x in enumerate(tmp_futures) if x.status == 'cancelled']))
 print(len([(i, x) for i, x in enumerate(tmp_futures) if x.status == 'error']))
 print(len([(i, x) for i, x in enumerate(tmp_futures) if x.status == 'lost']))
-print(len([(i, x) for i, x in enumerate(tmp_futures) if x.status == 'finished']))
+print(len([(i, x) for i, x in enumerate(tmp_futures) if x.status == 'pending']))
+
+import numpy as np
+nb_trials_per_df = np.zeros(dataset.index.size)
+for i_filepath, filepath in enumerate(dataset.reg_file):
+    nb_trials_per_df[i_filepath] = pickle.load(open(filepath, 'rb'))['trials_df'].index.size
 """
