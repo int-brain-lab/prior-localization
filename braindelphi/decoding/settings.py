@@ -11,7 +11,7 @@ import warnings
 logger = logging.getLogger('ibllib')
 logger.disabled = True
 
-NEURAL_DTYPE = 'widefield'  # 'ephys' or 'widefield'
+NEURAL_DTYPE = 'ephys'  # 'ephys' or 'widefield'
 DATE = '07-06-2022'  # date
 
 # aligned -> histology was performed by one experimenter
@@ -33,7 +33,7 @@ N_PSEUDO_PER_JOB = 5
 N_JOBS_PER_SESSION = N_PSEUDO // N_PSEUDO_PER_JOB
 N_RUNS = 10
 MIN_UNITS = 10
-MIN_BEHAV_TRIAS = 400  # default BWM setting
+MIN_BEHAV_TRIAS = 300  # default BWM setting is 400, we assume that we need 300 trials for
 MIN_RT = 0.08  # 0.08  # Float (s) or None
 SINGLE_REGION = True  # perform decoding on region-wise or whole brain analysis
 MERGED_PROBES = False  # merge probes before performing analysis

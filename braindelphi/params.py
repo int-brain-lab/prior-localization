@@ -11,6 +11,12 @@ elif username == 'findling':
 elif username == 'csmfindling':
     out_dir = Path('/Users/csmfindling/Documents/Postdoc-Geneva/IBL/code/prior-localization/braindelphi')
 
+# widefield imaging path
+if username in ['findling', 'hubert']:
+    WIDE_FIELD_PATH = Path('/home/share/pouget_lab/wide_field_imaging/')
+else:
+    WIDE_FIELD_PATH = Path('wide_field_imaging/')
+
 # path to user-specific settings file
 SETTINGS_PATH = out_dir.joinpath('decoding', 'settings.yaml')
 
@@ -29,8 +35,4 @@ BEH_MOD_PATH.mkdir(parents=True, exist_ok=True)
 # store imposter session data used for creating null distributions
 IMPOSTER_SESSION_PATH = out_dir.joinpath('decoding')
 
-# widefield imaging path
-if username in ['findling', 'hubert']:
-    WIDE_FIELD_PATH = Path('/home/share/pouget_lab/wide_field_imaging/')
-else:
-    WIDE_FIELD_PATH = Path('wide_field_imaging/')
+
