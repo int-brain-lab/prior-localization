@@ -10,6 +10,8 @@ elif username == 'findling':
     out_dir = Path('/home/users/f/findling/scratch/ibl/prior-localization/braindelphi')
 elif username == 'csmfindling':
     out_dir = Path('/Users/csmfindling/Documents/Postdoc-Geneva/IBL/code/prior-localization/braindelphi')
+elif username == 'hubertf':
+    out_dir = Path('/home/users/h/hubertf/scratch/')
 
 # path to user-specific settings file
 SETTINGS_PATH = out_dir.joinpath('decoding', 'settings.yaml')
@@ -30,7 +32,7 @@ BEH_MOD_PATH.mkdir(parents=True, exist_ok=True)
 IMPOSTER_SESSION_PATH = out_dir.joinpath('decoding')
 
 # widefield imaging path
-if username in ['findling', 'hubert']:
+if username in ['findling', 'hubertf']:
     WIDE_FIELD_PATH = Path('/home/share/pouget_lab/wide_field_imaging/')
 else:
     WIDE_FIELD_PATH = Path('wide_field_imaging/')
