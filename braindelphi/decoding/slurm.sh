@@ -7,7 +7,9 @@
 #SBATCH --mem=7000
 #SBATCH --time=12:00:00
 
-conda activate iblenv
+source /home/users/f/findling/.bash_profile
+mamba activate iblenv
+
 # extracting settings from $SLURM_ARRAY_TASK_ID
 echo index $SLURM_ARRAY_TASK_ID
 
