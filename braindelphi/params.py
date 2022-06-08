@@ -24,15 +24,12 @@ SETTINGS_PATH = out_dir.joinpath('decoding', 'settings.yaml')
 
 # store cached data for simpler loading
 CACHE_PATH = out_dir.joinpath('cache')
-CACHE_PATH.mkdir(parents=True, exist_ok=True)
 
 # store neural decoding models
 FIT_PATH = out_dir.joinpath('decoding', 'results', 'neural')
-FIT_PATH.mkdir(parents=True, exist_ok=True)
 
 # store behavioral models
 BEH_MOD_PATH = out_dir.joinpath('decoding', 'results', 'behavioral')
-BEH_MOD_PATH.mkdir(parents=True, exist_ok=True)
 
 # store imposter session data used for creating null distributions
 IMPOSTER_SESSION_PATH = out_dir.joinpath('decoding')

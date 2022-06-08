@@ -13,7 +13,7 @@ from tqdm import tqdm
 # IBL libraries
 from braindelphi.params import CACHE_PATH, WIDE_FIELD_PATH
 from braindelphi.wide_field_imaging.utils import load_wfi_session
-
+CACHE_PATH.mkdir(parents=True, exist_ok=True)
 _logger = logging.getLogger('braindelphi')
 
 DATE = str(dt.today())

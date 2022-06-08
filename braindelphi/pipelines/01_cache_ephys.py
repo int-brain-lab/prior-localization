@@ -17,6 +17,7 @@ from dask.distributed import LocalCluster
 from one.api import ONE
 from brainwidemap import bwm_query
 from braindelphi.params import CACHE_PATH
+CACHE_PATH.mkdir(parents=True, exist_ok=True)
 
 _logger = logging.getLogger('braindelphi')
 
