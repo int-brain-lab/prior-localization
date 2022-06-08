@@ -10,7 +10,7 @@ from braindelphi.decoding.settings import modeldispatcher
 
 SAVE_KFOLDS = False
 
-date = '06-06-2022'
+date = '07-06-2022'
 finished = glob.glob(str(FIT_PATH.joinpath(kwargs['neural_dtype'], "*", "*", "*", "*%s*" % date)))
 
 indexers = ['subject', 'eid', 'probe', 'region']
@@ -29,6 +29,7 @@ for fn in tqdm(finished):
             side, stim, act, _ = format_data_mut(result["fit"][i_run]["df"])
             mask = result["fit"][i_run]["mask"]  # np.all(result["fit"][i_run]["target"] == stim[mask])
             full_test_prediction = np.zeros(np.array(result["fit"][i_run]["target"]).size)
+
             for k in range(len(result["fit"][i_run]["idxes_test"])):
                 full_test_prediction[result["fit"][i_run]['idxes_test'][k]] = result["fit"][i_run]['predictions_test'][k]
             #neural_act = np.sign(full_test_prediction)
@@ -43,7 +44,7 @@ for fn in tqdm(finished):
                        'run_id': i_run + 1,
                        'mask': ''.join([str(item) for item in list(result['fit'][i_run]['mask'].values * 1)]),
                        'R2_test': result['fit'][i_run]['Rsquared_test_full'],
-                       'prediction': list(full_test_prediction),
+                       # 'prediction': list(full_test_prediction),
                        # 'target': list(result["fit"][i_run]["target"]),
                        # 'perf_allcontrast': perf_allcontrasts,
                        # 'perf_allcontrasts_prevtrial': perf_allcontrasts_prevtrial,

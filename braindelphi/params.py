@@ -10,6 +10,8 @@ elif username == 'findling':
     out_dir = Path('/home/users/f/findling/scratch/ibl/prior-localization/braindelphi')
 elif username == 'csmfindling':
     out_dir = Path('/Users/csmfindling/Documents/Postdoc-Geneva/IBL/code/prior-localization/braindelphi')
+elif username == 'hubertf':
+    out_dir = Path('/home/users/h/hubertf/scratch/')
 
 # widefield imaging path
 if username in ['findling', 'hubert']:
@@ -34,5 +36,4 @@ BEH_MOD_PATH.mkdir(parents=True, exist_ok=True)
 
 # store imposter session data used for creating null distributions
 IMPOSTER_SESSION_PATH = out_dir.joinpath('decoding')
-
 
