@@ -45,6 +45,7 @@ SHUFFLE = True  # interleaved cross validation
 BORDER_QUANTILES_NEUROMETRIC = [.3, .7]  # [.3, .4, .5, .6, .7]
 COMPUTE_NEUROMETRIC = True if TARGET == 'signcont' else False
 FORCE_POSITIVE_NEURO_SLOPES = False
+SAVE_PREDICTIONS = False
 
 # Basically, quality metric on the stability of a single unit. Should have 1 metric per neuron
 QC_CRITERIA = 3 / 3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
@@ -76,6 +77,10 @@ ADD_TO_SAVING_PATH = (
 # WIDE FIELD IMAGING
 WFI_HEMISPHERES = ['left']  # 'left' and/or 'right'
 WFI_NB_FRAMES = -1  # signed number of frames from ALIGN_TIME
+INCLUDE_ALIGN_TIME_FRAME = False
+
+if NEURAL_DTYPE == 'widefield' and WFI_NB_FRAMES == 0 and not INCLUDE_ALIGN_TIME_FRAME:
+    raise ValueError('there is a problem in the specification of the timing of the widefield')
 
 # WHEEL VELOCITY
 MIN_LEN = None  # min length of trial
@@ -168,7 +173,8 @@ fit_metadata = {
     'add_to_saving_path': ADD_TO_SAVING_PATH,
     'min_len': MIN_LEN,
     'max_len': MAX_LEN,
-    'save_predictions': False,
+    'save_predictions': SAVE_PREDICTIONS,
+    'include_align_time_frame': INCLUDE_ALIGN_TIME_FRAME,
 }
 
 if NEURAL_DTYPE == 'widefield':
@@ -219,5 +225,6 @@ kwargs = {
     'constrain_imposter_session_with_beh': CONSTRAIN_IMPOSTER_SESSION_WITH_BEH,
     'min_len': MIN_LEN,
     'max_len': MAX_LEN,
-    'save_predictions': False,
+    'save_predictions': SAVE_PREDICTIONS,
+    'include_align_time_frame': INCLUDE_ALIGN_TIME_FRAME,
 }
