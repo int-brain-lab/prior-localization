@@ -15,7 +15,7 @@ logger = logging.getLogger('ibllib')
 logger.disabled = True
 
 NEURAL_DTYPE = 'ephys'  # 'ephys' or 'widefield'
-DATE = '07-06-2022'  # date
+DATE = '08-06-2022'  # date
 
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
