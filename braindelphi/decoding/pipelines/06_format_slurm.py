@@ -28,10 +28,10 @@ for fn in tqdm(finished):
         for i_run in range(len(result['fit'])):
             side, stim, act, _ = format_data_mut(result["fit"][i_run]["df"])
             mask = result["fit"][i_run]["mask"]  # np.all(result["fit"][i_run]["target"] == stim[mask])
-            full_test_prediction = np.zeros(np.array(result["fit"][i_run]["target"]).size)
+            #full_test_prediction = np.zeros(np.array(result["fit"][i_run]["target"]).size)
 
-            for k in range(len(result["fit"][i_run]["idxes_test"])):
-                full_test_prediction[result["fit"][i_run]['idxes_test'][k]] = result["fit"][i_run]['predictions_test'][k]
+            #for k in range(len(result["fit"][i_run]["idxes_test"])):
+            #    full_test_prediction[result["fit"][i_run]['idxes_test'][k]] = result["fit"][i_run]['predictions_test'][k]
             #neural_act = np.sign(full_test_prediction)
             #perf_allcontrasts = (side.values[mask][neural_act != 0] == neural_act[neural_act != 0]).mean()
             #perf_allcontrasts_prevtrial = (side.values[mask][1:] == neural_act[:-1])[neural_act[:-1] != 0].mean()
