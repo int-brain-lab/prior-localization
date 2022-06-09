@@ -97,6 +97,13 @@ modeldispatcher = {
     None: 'oracle'
 }
 
+strlut = {sklm.Lasso: "Lasso",
+          sklm.LassoCV: "LassoCV",
+          sklm.Ridge: "Ridge",
+          sklm.RidgeCV: "RidgeCV",
+          sklm.LinearRegression: "PureLinear",
+          sklm.LogisticRegression: "Logistic"}
+
 if ESTIMATOR == sklm.LogisticRegression and BALANCED_CONTINUOUS_TARGET:
     raise ValueError('you can not have a continuous target with logistic regression')
 
