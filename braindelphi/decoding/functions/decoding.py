@@ -164,16 +164,21 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
         if kwargs['simulate_neural_data']:
             raise NotImplementedError
 
-        for pseudo_id in pseudo_ids:
+        # make design matrix
+        bins_per_trial = msub_binned[0].shape[0]
+        Xs = (
+            msub_binned if bins_per_trial == 1
+            else [build_predictor_matrix(s, kwargs['n_bins_lag']) for s in msub_binned]
+        )
 
-            bins_per_trial = msub_binned[0].shape[0]
+        for pseudo_id in pseudo_ids:
+            fit_results = []
 
             # create pseudo/imposter session when necessary
             # TODO: integrate single-/multi-bin code
             if pseudo_id > 0:
                 if bins_per_trial == 1:
-                    controlsess_df = generate_null_distribution_session(
-                        trials_df, metadata, **kwargs)
+                    controlsess_df = generate_null_distribution_session(trials_df, metadata, **kwargs)
                     target_vals_list = compute_beh_target(controlsess_df, metadata, **kwargs)
                 else:
                     print(len(target_vals_list))
@@ -202,14 +207,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
             if kwargs['compute_neurometric']:  # compute prior for neurometric curve
                 raise NotImplementedError
 
-            # make design matrix
-            Xs = (
-                msub_binned if bins_per_trial == 1
-                else [build_predictor_matrix(s, kwargs['n_bins_lag']) for s in msub_binned]
-            )
-
             # run decoders
-            fit_results = []
             for i_run in range(kwargs['nb_runs']):
                 fit_result = decode_cv(
                     ys=[target_vals_list[m] for m in np.squeeze(np.where(mask))],
@@ -227,7 +225,6 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                     balanced_weight=kwargs['balanced_weight'],
                     normalize_input=kwargs['normalize_input'],
                     normalize_output=kwargs['normalize_output'],
-                    rng_seed=i_run,
                 )
                 fit_result['mask'] = mask
                 fit_result['df'] = trials_df if pseudo_id == -1 else controlsess_df
@@ -300,7 +297,7 @@ def decode_cv(
         verbose=False,
         shuffle=True,
         outer_cv=True,
-        rng_seed=0,
+        rng_seed=None,
         normalize_input=False,
         normalize_output=False
 ):
@@ -404,7 +401,8 @@ def decode_cv(
 
     # split the dataset in two parts, train and test
     # when shuffle=False, the method will take the end of the dataset to create the test set
-    np.random.seed(rng_seed)
+    if rng_seed is not None:
+        np.random.seed(rng_seed)
     indices = np.arange(n_trials)
     if outer_cv:
         outer_kfold = KFold(n_splits=n_folds, shuffle=shuffle).split(indices)
