@@ -57,6 +57,8 @@ USE_IMPOSTER_SESSION = False  # if false, it uses pseudosessions and simulates t
 CONSTRAIN_IMPOSTER_SESSION_WITH_BEH = False
 USE_IMPOSTER_SESSION_FOR_BALANCING = False  # if false, it simulates the model (should be False)
 SIMULATE_NEURAL_DATA = False
+SEED = None  # None, or 'run_id' or 'pseudo_id'. If 'run_id' or 'pseudo_id', seed is set to run_id or pseudo_id
+# this is useful if you want to reproduce EXACTLY results for e.g. debugging. Default behavior should be None
 
 BALANCED_WEIGHT = False  # seems to work better with BALANCED_WEIGHT=False, but putting True is important
 BALANCED_CONTINUOUS_TARGET = True  # is target continuous or discrete FOR BALANCED WEIGHTING
@@ -130,6 +132,8 @@ if len(BORDER_QUANTILES_NEUROMETRIC) != 0 and MODEL is None:
         'BORDER_QUANTILES_NEUROMETRIC must be empty when MODEL is not specified - oracle pLeft used'
     )
 
+if SEED not in [None, 'run_id', 'pseudo_id']:
+    raise ValueError('SEED has an undefined value')
 
 fit_metadata = {
     'date': DATE,
@@ -175,6 +179,7 @@ fit_metadata = {
     'max_len': MAX_LEN,
     'save_predictions': SAVE_PREDICTIONS,
     'include_align_time_frame': INCLUDE_ALIGN_TIME_FRAME,
+    'seed': SEED
 }
 
 if NEURAL_DTYPE == 'widefield':
@@ -227,4 +232,5 @@ kwargs = {
     'max_len': MAX_LEN,
     'save_predictions': SAVE_PREDICTIONS,
     'include_align_time_frame': INCLUDE_ALIGN_TIME_FRAME,
+    'seed': SEED,
 }

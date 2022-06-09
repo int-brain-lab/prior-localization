@@ -225,6 +225,8 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                     balanced_weight=kwargs['balanced_weight'],
                     normalize_input=kwargs['normalize_input'],
                     normalize_output=kwargs['normalize_output'],
+                    seed=kwargs['seed'] if (kwargs['seed'] is None) else (i_run if kwargs['seed'] == 'run_id'
+                                                                          else max(pseudo_id, 0))
                 )
                 fit_result['mask'] = mask
                 fit_result['df'] = trials_df if pseudo_id == -1 else controlsess_df
