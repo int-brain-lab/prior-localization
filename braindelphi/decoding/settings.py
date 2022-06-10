@@ -14,8 +14,8 @@ BEHAVIOR_MOD_PATH.mkdir(parents=True, exist_ok=True)
 logger = logging.getLogger('ibllib')
 logger.disabled = True
 
-NEURAL_DTYPE = 'ephys'  # 'ephys' or 'widefield'
-DATE = '08-06-2022'  # date
+NEURAL_DTYPE = 'widefield'  # 'ephys' or 'widefield'
+DATE = '09-06-2022'  # date
 
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
@@ -31,8 +31,8 @@ TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 BINARIZATION_VALUE = None  # to binarize the target -> could be useful with logistic regression estimator
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 20000, 'fit_intercept': True}
-N_PSEUDO = 200
-N_PSEUDO_PER_JOB = 50
+N_PSEUDO = 5
+N_PSEUDO_PER_JOB = 5
 N_JOBS_PER_SESSION = N_PSEUDO // N_PSEUDO_PER_JOB
 N_RUNS = 10
 MIN_UNITS = 10
@@ -57,6 +57,7 @@ USE_IMPOSTER_SESSION = False  # if false, it uses pseudosessions and simulates t
 CONSTRAIN_IMPOSTER_SESSION_WITH_BEH = False
 USE_IMPOSTER_SESSION_FOR_BALANCING = False  # if false, it simulates the model (should be False)
 SIMULATE_NEURAL_DATA = False
+QUASI_RANDOM = False  # if TRUE, decoding is launched in a quasi-random, reproducible way => it sets the seed
 
 BALANCED_WEIGHT = False  # seems to work better with BALANCED_WEIGHT=False, but putting True is important
 BALANCED_CONTINUOUS_TARGET = True  # is target continuous or discrete FOR BALANCED WEIGHTING
@@ -130,7 +131,6 @@ if len(BORDER_QUANTILES_NEUROMETRIC) != 0 and MODEL is None:
         'BORDER_QUANTILES_NEUROMETRIC must be empty when MODEL is not specified - oracle pLeft used'
     )
 
-
 fit_metadata = {
     'date': DATE,
     'criterion': SESS_CRITERION,
@@ -175,6 +175,7 @@ fit_metadata = {
     'max_len': MAX_LEN,
     'save_predictions': SAVE_PREDICTIONS,
     'include_align_time_frame': INCLUDE_ALIGN_TIME_FRAME,
+    'quasi_random': QUASI_RANDOM,
 }
 
 if NEURAL_DTYPE == 'widefield':
@@ -227,4 +228,5 @@ kwargs = {
     'max_len': MAX_LEN,
     'save_predictions': SAVE_PREDICTIONS,
     'include_align_time_frame': INCLUDE_ALIGN_TIME_FRAME,
+    'quasi_random': QUASI_RANDOM,
 }

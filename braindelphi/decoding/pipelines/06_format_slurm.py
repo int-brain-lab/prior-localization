@@ -10,7 +10,7 @@ from braindelphi.decoding.settings import modeldispatcher
 
 SAVE_KFOLDS = False
 
-date = '09-06-2022'
+date = '10-06-2022'
 finished = glob.glob(str(FIT_PATH.joinpath(kwargs['neural_dtype'], "*", "*", "*", "*%s*" % date)))
 
 indexers = ['subject', 'eid', 'probe', 'region']
@@ -80,13 +80,15 @@ for fn in tqdm(finished):
         pass
 print('loading of %i files failed' % failed_load)
 resultsdf = pd.DataFrame(resultslist)
-resultsdf.region = resultsdf.region.apply(lambda x:x[0])
+'''
 resultsdf = resultsdf[resultsdf.subject == 'NYU-12']
 resultsdf = resultsdf[resultsdf.eid == 'a8a8af78-16de-4841-ab07-fde4b5281a03']
+resultsdf.region = resultsdf.region.apply(lambda x:x[0])
 resultsdf = resultsdf[resultsdf.region == 'CA1']
 resultsdf = resultsdf[resultsdf.probe == 'probe00']
 resultsdf = resultsdf[resultsdf.run_id == 1]
 subdf = resultsdf.set_index(['subject', 'eid', 'probe', 'region']).drop('fold', axis=1)
+'''
 
 estimatorstr = strlut[ESTIMATOR]
 start_tw, end_tw = TIME_WINDOW
@@ -109,7 +111,7 @@ fn = fn + '.parquet'
 
 metadata_df = pd.Series({'filename': fn,  'date': date, **fit_metadata})
 metadata_fn = '.'.join([fn.split('.')[0], 'metadata', 'pkl'])
-resultsdf.to_parquet(fn)
+resultsdf.to_parquet('test_0906')
 metadata_df.to_pickle(metadata_fn)
 
 
