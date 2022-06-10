@@ -179,14 +179,14 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
             if pseudo_id > 0:
                 if bins_per_trial == 1:
                     controlsess_df = generate_null_distribution_session(trials_df, metadata, **kwargs)
-                    target_vals_list = compute_beh_target(controlsess_df, metadata, **kwargs)
+                    controltarget_vals_list = compute_beh_target(controlsess_df, metadata, **kwargs)
                 else:
                     print(len(target_vals_list))
                     imposter_df = kwargs['imposter_df'].copy()
                     # remove current eid from imposter sessions
                     df_clean = imposter_df[imposter_df.eid != metadata['eid']].reset_index()
                     # randomly select imposter trial to start sequence
-                    n_trials = trials_df.shape[0]
+                    n_trials = trials_df.index.size
                     total_imposter_trials = df_clean.shape[0]
                     idx_beg = np.random.choice(total_imposter_trials - n_trials)
                     controlsess_df = df_clean.iloc[idx_beg:idx_beg + n_trials]
@@ -199,8 +199,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                     # TODO: how to get rid of pandas warning prints?
                     mask = compute_mask(controlsess_df, **kwargs) & mask_target
 
-                save_predictions = kwargs.get(
-                    'save_predictions_pseudo', kwargs['save_predictions'])
+                save_predictions = kwargs.get('save_predictions_pseudo', kwargs['save_predictions'])
             else:
                 save_predictions = kwargs['save_predictions']
 
@@ -210,7 +209,8 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
             # run decoders
             for i_run in range(kwargs['nb_runs']):
                 fit_result = decode_cv(
-                    ys=[target_vals_list[m] for m in np.squeeze(np.where(mask))],
+                    ys=([target_vals_list[m] for m in np.squeeze(np.where(mask))] if pseudo_id == -1
+                        else [controltarget_vals_list[m] for m in np.squeeze(np.where(mask))]),
                     Xs=[Xs[m] for m in np.squeeze(np.where(mask))],
                     estimator=kwargs['estimator'],
                     use_openturns=kwargs['use_openturns'],
@@ -225,8 +225,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                     balanced_weight=kwargs['balanced_weight'],
                     normalize_input=kwargs['normalize_input'],
                     normalize_output=kwargs['normalize_output'],
-                    rng_seed=kwargs['seed'] if (kwargs['seed'] is None) else (i_run if kwargs['seed'] == 'run_id'
-                                                                              else max(pseudo_id, 0))
+                    rng_seed=pseudo_id * kwargs['nb_runs'] + i_run if kwargs['quasi_random'] else None
                 )
                 fit_result['mask'] = mask
                 fit_result['df'] = trials_df if pseudo_id == -1 else controlsess_df

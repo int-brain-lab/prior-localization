@@ -10,7 +10,7 @@ from braindelphi.decoding.settings import modeldispatcher
 
 SAVE_KFOLDS = False
 
-date = '09-06-2022'
+date = '10-06-2022'
 finished = glob.glob(str(FIT_PATH.joinpath(kwargs['neural_dtype'], "*", "*", "*", "*%s*" % date)))
 
 indexers = ['subject', 'eid', 'probe', 'region']
@@ -81,9 +81,9 @@ for fn in tqdm(finished):
 print('loading of %i files failed' % failed_load)
 resultsdf = pd.DataFrame(resultslist)
 '''
-resultsdf.region = resultsdf.region.apply(lambda x:x[0])
 resultsdf = resultsdf[resultsdf.subject == 'NYU-12']
 resultsdf = resultsdf[resultsdf.eid == 'a8a8af78-16de-4841-ab07-fde4b5281a03']
+resultsdf.region = resultsdf.region.apply(lambda x:x[0])
 resultsdf = resultsdf[resultsdf.region == 'CA1']
 resultsdf = resultsdf[resultsdf.probe == 'probe00']
 resultsdf = resultsdf[resultsdf.run_id == 1]
