@@ -57,8 +57,7 @@ USE_IMPOSTER_SESSION = False  # if false, it uses pseudosessions and simulates t
 CONSTRAIN_IMPOSTER_SESSION_WITH_BEH = False
 USE_IMPOSTER_SESSION_FOR_BALANCING = False  # if false, it simulates the model (should be False)
 SIMULATE_NEURAL_DATA = False
-QUASI_RANDOM = False  # if TRUE, decoding is launched in a quasi-random, reproducible kind of way across machines
-# (it sets the seed)
+QUASI_RANDOM = False  # if TRUE, decoding is launched in a quasi-random, reproducible way => it sets the seed
 
 BALANCED_WEIGHT = False  # seems to work better with BALANCED_WEIGHT=False, but putting True is important
 BALANCED_CONTINUOUS_TARGET = True  # is target continuous or discrete FOR BALANCED WEIGHTING
