@@ -10,7 +10,7 @@ from braindelphi.decoding.settings import modeldispatcher
 
 SAVE_KFOLDS = False
 
-date = '10-06-2022'
+date = '11-06-2022'
 finished = glob.glob(str(FIT_PATH.joinpath(kwargs['neural_dtype'], "*", "*", "*", "*%s*" % date)))
 
 indexers = ['subject', 'eid', 'probe', 'region']
@@ -111,8 +111,12 @@ fn = fn + '.parquet'
 
 metadata_df = pd.Series({'filename': fn,  'date': date, **fit_metadata})
 metadata_fn = '.'.join([fn.split('.')[0], 'metadata', 'pkl'])
-resultsdf.to_parquet('test_0906')
+print('saving parquet')
+resultsdf.to_parquet(fn)
+print('parquet saved')
+print('saving metadata')
 metadata_df.to_pickle(metadata_fn)
+print('metadata saved')
 
 
 """
