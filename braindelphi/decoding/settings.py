@@ -19,7 +19,7 @@ DATE = '08-06-2022'  # date
 
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
-SESS_CRITERION = 'aligned-behavior'  # aligned and behavior
+SESS_CRITERION = 'resolved-behavior'  # aligned and behavior
 ALIGN_TIME = 'stimOn_times'
 TARGET = 'pLeft'  # 'signcont' or 'pLeft'
 if TARGET not in ['pLeft', 'signcont', 'choice', 'feedback']:
@@ -38,8 +38,8 @@ N_RUNS = 10
 MIN_UNITS = 10
 MIN_BEHAV_TRIAS = 200 if NEURAL_DTYPE == 'ephys' else 200  # default BWM setting is 400. 200 must remain after filtering
 MIN_RT = 0.08  # 0.08  # Float (s) or None
-SINGLE_REGION = True  # perform decoding on region-wise or whole brain analysis
-MERGED_PROBES = False  # merge probes before performing analysis
+SINGLE_REGION = False  # perform decoding on region-wise or whole brain analysis
+MERGED_PROBES = True  # merge probes before performing analysis
 NO_UNBIAS = False  # take out unbiased trials
 SHUFFLE = True  # interleaved cross validation
 BORDER_QUANTILES_NEUROMETRIC = [.3, .7]  # [.3, .4, .5, .6, .7]
