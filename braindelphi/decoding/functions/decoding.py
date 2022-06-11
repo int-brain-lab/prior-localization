@@ -191,9 +191,9 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                     idx_beg = np.random.choice(total_imposter_trials - n_trials)
                     controlsess_df = df_clean.iloc[idx_beg:idx_beg + n_trials]
                     # grab target values from this dataframe
-                    target_vals_list = list(controlsess_df[kwargs['target']].to_numpy())
+                    controltarget_vals_list = list(controlsess_df[kwargs['target']].to_numpy())
                     mask_target = np.ones(n_trials,)
-                    print(len(target_vals_list))
+                    print(len(controltarget_vals_list))
 
                 if kwargs['use_imposter_session']:
                     # TODO: how to get rid of pandas warning prints?
