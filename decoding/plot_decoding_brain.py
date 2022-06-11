@@ -32,7 +32,7 @@ if not PLOTUTILS_PATH in sys.path:
 PLOTUTILS_PATH = '/home/users/bensonb/international-brain-lab/paper-brain-wide-map/decoding/' # for cluster
 if not PLOTUTILS_PATH in sys.path:
     sys.path.insert(0, PLOTUTILS_PATH)
-from utils import plot_scalar_on_slice
+# from utils import plot_scalar_on_slice
 from ibllib.atlas.plots import reorder_data
 
 allen_color_data = np.genfromtxt('../../allen_structure_tree.csv', 
@@ -148,113 +148,113 @@ def brain_SwansonFlat_results(acronyms, values,
     plt.show()
     return
     
-def brain_results(acronyms_unordered, values_unordered, 
-                  filename, 
-                FILE_PATH='/home/bensonb/IntBrainLab/prior-localization/decoding_figures/',
-                cmap='viridis',
-                YMIN=None,
-                YMAX=None,
-                value_title='$R^2$',
-                TOP_N_TEXT=np.nan):
-    '''
+# def brain_results(acronyms_unordered, values_unordered, 
+#                   filename, 
+#                 FILE_PATH='/home/bensonb/IntBrainLab/prior-localization/decoding_figures/',
+#                 cmap='viridis',
+#                 YMIN=None,
+#                 YMAX=None,
+#                 value_title='$R^2$',
+#                 TOP_N_TEXT=np.nan):
+#     '''
     
 
-    Parameters
-    ----------
-    acronyms_unordered : TYPE
-        DESCRIPTION.
-    values_unordered : TYPE
-        DESCRIPTION.
-    filename : TYPE
-        DESCRIPTION.
-    FILE_PATH : TYPE, optional
-        DESCRIPTION. The default is '/home/bensonb/IntBrainLab/prior-localization/decoding_figures/'.
-    cmap : TYPE, optional
-        DESCRIPTION. The default is 'viridis'.
-    YMIN : TYPE, optional
-        DESCRIPTION. The default is None.
-    YMAX : TYPE, optional
-        DESCRIPTION. The default is None.
-    value_title : TYPE, optional
-        DESCRIPTION. The default is '$R^2$'.
+#     Parameters
+#     ----------
+#     acronyms_unordered : TYPE
+#         DESCRIPTION.
+#     values_unordered : TYPE
+#         DESCRIPTION.
+#     filename : TYPE
+#         DESCRIPTION.
+#     FILE_PATH : TYPE, optional
+#         DESCRIPTION. The default is '/home/bensonb/IntBrainLab/prior-localization/decoding_figures/'.
+#     cmap : TYPE, optional
+#         DESCRIPTION. The default is 'viridis'.
+#     YMIN : TYPE, optional
+#         DESCRIPTION. The default is None.
+#     YMAX : TYPE, optional
+#         DESCRIPTION. The default is None.
+#     value_title : TYPE, optional
+#         DESCRIPTION. The default is '$R^2$'.
 
-    Returns
-    -------
-    None.
+#     Returns
+#     -------
+#     None.
 
-    '''
-    acronyms, values = reorder_data(acronyms_unordered, values_unordered)
+#     '''
+#     acronyms, values = reorder_data(acronyms_unordered, values_unordered)
     
-    PLOT_TITLE = ''
-    SAVE_PATH = os.path.join(FILE_PATH, filename)
-    # cmap = 'viridis'#'purples','blues','greens','oranges','reds'
+#     PLOT_TITLE = ''
+#     SAVE_PATH = os.path.join(FILE_PATH, filename)
+#     # cmap = 'viridis'#'purples','blues','greens','oranges','reds'
     
-    extend = None
-    clevels = None
-    if (not (YMIN is None)) and (not (YMAX is None)):
-        clevels = [YMIN, YMAX]
-        if (np.min(values) < YMIN) and (np.max(values) > YMAX):
-            extend = 'both'
-            values = np.minimum(np.maximum(values,YMIN),YMAX)
-        elif np.min(values) < YMIN:
-            extend = 'min'
-            values = np.maximum(values,YMIN)
-        elif np.max(values) > YMAX:
-            extend = 'max'
-            values = np.minimum(values,YMAX)
-    elif not (YMIN is None):
-        clevels = [YMIN, np.max(values)]
-        if np.min(values) < YMIN:
-            extend = 'min'
-            values = np.maximum(values,YMIN)
-    elif not (YMAX is None):
-        clevels = [np.min(values), YMAX]
-        if np.max(values) > YMAX:
-            extend = 'max'
-            values = np.minimum(values,YMAX)
+#     extend = None
+#     clevels = None
+#     if (not (YMIN is None)) and (not (YMAX is None)):
+#         clevels = [YMIN, YMAX]
+#         if (np.min(values) < YMIN) and (np.max(values) > YMAX):
+#             extend = 'both'
+#             values = np.minimum(np.maximum(values,YMIN),YMAX)
+#         elif np.min(values) < YMIN:
+#             extend = 'min'
+#             values = np.maximum(values,YMIN)
+#         elif np.max(values) > YMAX:
+#             extend = 'max'
+#             values = np.minimum(values,YMAX)
+#     elif not (YMIN is None):
+#         clevels = [YMIN, np.max(values)]
+#         if np.min(values) < YMIN:
+#             extend = 'min'
+#             values = np.maximum(values,YMIN)
+#     elif not (YMAX is None):
+#         clevels = [np.min(values), YMAX]
+#         if np.max(values) > YMAX:
+#             extend = 'max'
+#             values = np.minimum(values,YMAX)
 
     
-    fig, axes = plt.subplots(2,2)
+#     fig, axes = plt.subplots(2,2)
         
-    _, ax = plot_scalar_on_slice(
-        acronyms, values, coord=-1000, slice='top', mapping='Beryl', hemisphere='left', 
-        background='boundary', brain_atlas=ba, cmap=cmap, clevels=clevels, ax=axes[0,0])
-    ax.set_axis_off()
+#     _, ax = plot_scalar_on_slice(
+#         acronyms, values, coord=-1000, slice='top', mapping='Beryl', hemisphere='left', 
+#         background='boundary', brain_atlas=ba, cmap=cmap, clevels=clevels, ax=axes[0,0])
+#     ax.set_axis_off()
 
-    _, ax = plot_scalar_on_slice(
-        acronyms, values, coord=-3000, slice='horizontal', mapping='Beryl', hemisphere='left', 
-        background='boundary', brain_atlas=ba, cmap=cmap, clevels=clevels, ax=axes[1,0])
-    ax.set_axis_off()
+#     _, ax = plot_scalar_on_slice(
+#         acronyms, values, coord=-3000, slice='horizontal', mapping='Beryl', hemisphere='left', 
+#         background='boundary', brain_atlas=ba, cmap=cmap, clevels=clevels, ax=axes[1,0])
+#     ax.set_axis_off()
 
-    _, ax = plot_scalar_on_slice(
-        acronyms, values, coord=-1000, slice='sagittal', mapping='Beryl', hemisphere='left', 
-        background='boundary', brain_atlas=ba, cmap=cmap, clevels=clevels, ax=axes[0,1])
-    ax.set_axis_off()
+#     _, ax = plot_scalar_on_slice(
+#         acronyms, values, coord=-1000, slice='sagittal', mapping='Beryl', hemisphere='left', 
+#         background='boundary', brain_atlas=ba, cmap=cmap, clevels=clevels, ax=axes[0,1])
+#     ax.set_axis_off()
 
-    _, ax = plot_scalar_on_slice(
-        acronyms, values, coord=-500, slice='coronal', mapping='Beryl', hemisphere='left', 
-        background='boundary', brain_atlas=ba, cmap=cmap, clevels=clevels, ax=axes[1,1])
-    ax.set_axis_off()
+#     _, ax = plot_scalar_on_slice(
+#         acronyms, values, coord=-500, slice='coronal', mapping='Beryl', hemisphere='left', 
+#         background='boundary', brain_atlas=ba, cmap=cmap, clevels=clevels, ax=axes[1,1])
+#     ax.set_axis_off()
 
-    fig.suptitle(PLOT_TITLE)
+#     fig.suptitle(PLOT_TITLE)
 
-    fig.subplots_adjust(right=0.85)
-    # lower left corner in [0.88, 0.3]
-    # axes width 0.02 and height 0.4
-    cb_ax = fig.add_axes([0.88, 0.3, 0.02, 0.4])
+#     fig.subplots_adjust(right=0.85)
+#     # lower left corner in [0.88, 0.3]
+#     # axes width 0.02 and height 0.4
+#     cb_ax = fig.add_axes([0.88, 0.3, 0.02, 0.4])
     
-    cbar = plt.colorbar(mappable=ax.images[0], cax=cb_ax, extend=extend)
-    # cbar.set_ticks([0,.2,.4,.6,.8,1])
-    cb_ax.set_title(value_title)
-    if not np.isnan(TOP_N_TEXT):
-        TOP_N_TEXT = int(TOP_N_TEXT)
-        top_regions = acronyms[np.argsort(values)[::-1][:TOP_N_TEXT]]
-        top_regions_string = 'Top %d Regions:\n   '%TOP_N_TEXT \
-                                        +('\n   '.join(top_regions))
-        fig.text(.38, .2, top_regions_string)
-    plt.savefig(SAVE_PATH, dpi=600)
-    plt.show()
-    return clevels, extend
+#     cbar = plt.colorbar(mappable=ax.images[0], cax=cb_ax, extend=extend)
+#     # cbar.set_ticks([0,.2,.4,.6,.8,1])
+#     cb_ax.set_title(value_title)
+#     if not np.isnan(TOP_N_TEXT):
+#         TOP_N_TEXT = int(TOP_N_TEXT)
+#         top_regions = acronyms[np.argsort(values)[::-1][:TOP_N_TEXT]]
+#         top_regions_string = 'Top %d Regions:\n   '%TOP_N_TEXT \
+#                                         +('\n   '.join(top_regions))
+#         fig.text(.38, .2, top_regions_string)
+#     plt.savefig(SAVE_PATH, dpi=600)
+#     plt.show()
+#     return clevels, extend
 
 def bar_results_basic(acronyms_unordered, values_unordered, errs_unordered=None, 
                 filename='test.png', 
