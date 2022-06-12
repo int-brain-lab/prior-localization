@@ -15,7 +15,7 @@ logger = logging.getLogger('ibllib')
 logger.disabled = True
 
 NEURAL_DTYPE = 'ephys'  # 'ephys' or 'widefield'
-DATE = '12-06-2022'  # date
+DATE = '14-06-2022'  # date
 
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
@@ -25,14 +25,15 @@ TARGET = 'pLeft'  # 'signcont' or 'pLeft'
 if TARGET not in ['pLeft', 'signcont', 'choice', 'feedback']:
     raise ValueError('TARGET can only be pLeft, signcont, choice or feedback')
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
-MODEL = expSmoothing_prevAction  # expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
+# if MODEL is a path, this will be the interindividual results
+MODEL = 'population_level_Nmice101_NmodelsClasses5_processed.pkl' #expSmoothing_stimside, expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
 BEH_MOUSELEVEL_TRAINING = False  # if True, trains the behavioral model session-wise else mouse-wise
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 BINARIZATION_VALUE = None  # to binarize the target -> could be useful with logistic regression estimator
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 20000, 'fit_intercept': True}
 N_PSEUDO = 200
-N_PSEUDO_PER_JOB = 5
+N_PSEUDO_PER_JOB = 50
 N_JOBS_PER_SESSION = N_PSEUDO // N_PSEUDO_PER_JOB
 N_RUNS = 10
 MIN_UNITS = 10
@@ -43,7 +44,7 @@ MERGED_PROBES = False  # merge probes before performing analysis
 NO_UNBIAS = False  # take out unbiased trials
 SHUFFLE = True  # interleaved cross validation
 BORDER_QUANTILES_NEUROMETRIC = [.3, .7]  # [.3, .4, .5, .6, .7]
-COMPUTE_NEUROMETRIC = True if TARGET == 'signcont' else False
+COMPUTE_NEUROMETRIC = False
 FORCE_POSITIVE_NEURO_SLOPES = False
 SAVE_PREDICTIONS = False
 
@@ -117,7 +118,7 @@ if ESTIMATOR == sklm.LogisticRegression and BALANCED_CONTINUOUS_TARGET:
 if not SINGLE_REGION and not MERGED_PROBES:
     raise ValueError('full probes analysis can only be done with merged probes')
 
-if MODEL not in list(modeldispatcher.keys()):
+if MODEL not in list(modeldispatcher.keys()) and not isinstance(MODEL, str):
     raise NotImplementedError('this MODEL is not supported yet')
 
 if COMPUTE_NEUROMETRIC and TARGET != 'signcont':
@@ -135,7 +136,7 @@ fit_metadata = {
     'date': DATE,
     'criterion': SESS_CRITERION,
     'target': TARGET,
-    'model_type': modeldispatcher[MODEL],
+    'model_type': 'inter_individual' if MODEL not in modeldispatcher.keys() else modeldispatcher[MODEL],
     'align_time': ALIGN_TIME,
     'time_window': TIME_WINDOW,
     'estimator': ESTIMATOR,

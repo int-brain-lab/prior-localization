@@ -91,6 +91,21 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
     print(f'Working on eid : %s' % metadata['eid'])
     filenames = []  # this will contain paths to saved decoding results for this eid
 
+    if isinstance(kwargs['model'], str):
+        import pickle
+        inter_individual = pickle.load(open(kwargs['model'], 'rb'))
+        if metadata['eid'] not in inter_individual.keys():
+            logging.exception('no inter individual model found')
+            return filenames
+        inter_indiv_model_specifications = inter_individual[metadata['eid']]
+        if inter_indiv_model_specifications['model_name'] not in kwargs['modeldispatcher'].values():
+            logging.exception('winning inter individual model is LeftKernel or RightKernel')
+            return filenames
+        kwargs['model'] = {v: k for k, v in kwargs['modeldispatcher'].items()}[inter_indiv_model_specifications['model_name']]
+        kwargs['model_parameters'] = inter_indiv_model_specifications['model_parameters']
+    else:
+        kwargs['model_parameters'] = None
+
     if 0 in pseudo_ids:
         raise ValueError(
             'pseudo id can be -1 (actual session) or strictly greater than 0 (pseudo session)')
@@ -111,7 +126,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
     target_distribution = get_balanced_weighting(trials_df, metadata, **kwargs)
 
     # TODO: stim, choice, feedback, etc
-    if kwargs['target'] == 'pLeft':
+    if kwargs['target'] in ['pLeft', 'signcont', 'choice', 'feedback']:
         target_vals_list = compute_beh_target(trials_df, metadata, **kwargs)
         mask_target = np.ones(len(target_vals_list), dtype=bool)
     else:
@@ -598,30 +613,3 @@ def decode_cv(
 
     return outdict
 
-
-if __name__ == '__main__':
-
-    from braindelphi.decoding.settings import *
-    from braindelphi.params import *
-    import pickle
-    from braindelphi.decoding.settings import kwargs
-    if kwargs['neural_dtype'] == 'ephys':
-        regressors = pickle.load(open(CACHE_PATH.joinpath(
-            'ephys/CSH_ZAD_001/3e7ae7c0-fe8b-487c-9354-036236fa1010/probe00/2022-05-26_primaries_regressors.pkl'
-        ), 'rb'))
-        metadata = pickle.load(open(CACHE_PATH.joinpath(
-            'ephys/CSH_ZAD_001/3e7ae7c0-fe8b-487c-9354-036236fa1010/probe00/2022-05-26_primaries_metadata.pkl'
-        ), 'rb'))
-        neural_dict = regressors
-        trials_df = regressors['trials_df']
-    else:
-        trials_df, neural_dict = pickle.load(open(CACHE_PATH.joinpath(
-            'widefield/wfi2/wfi2s6/left/2022-05-29_widefield_regressors.pkl'
-        ), 'rb'))
-        metadata = pickle.load(open(CACHE_PATH.joinpath(
-            'widefield/wfi2/wfi2s6/left/2022-05-29_widefield_metadata.pkl'
-        ), 'rb'))
-
-    kwargs['min_behav_trials'] = 200
-    out = fit_eid(
-        regressors, regressors['trials_df'], metadata, dlc_dict=None, pseudo_ids=[-1], **kwargs)

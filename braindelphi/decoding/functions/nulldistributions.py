@@ -38,18 +38,22 @@ def generate_null_distribution_session(trials_df, metadata, **kwargs):
                 'behfit_path': kwargs['behfit_path'],
             }
             pseudosess['choice'] = generate_choices(
-                pseudosess, trials_df, subjModel, kwargs['modeldispatcher'])
+                pseudosess, trials_df, subjModel, kwargs['modeldispatcher'], kwargs['model_parameters'])
         else:
             pseudosess['choice'] = trials_df.choice
     return pseudosess
 
 
-def generate_choices(pseudosess, trials_df, subjModel, modeldispatcher):
+def generate_choices(pseudosess, trials_df, subjModel, modeldispatcher, model_parameters=None):
 
-    istrained, fullpath = check_bhv_fit_exists(subjModel['subject'], subjModel['modeltype'],
-                                               subjModel['eids_train'],
-                                               subjModel['behfit_path'].as_posix() + '/',
-                                               modeldispatcher)
+    if model_parameters is None:
+        istrained, fullpath = check_bhv_fit_exists(subjModel['subject'], subjModel['modeltype'],
+                                                   subjModel['eids_train'],
+                                                   subjModel['behfit_path'].as_posix() + '/',
+                                                   modeldispatcher)
+    else:
+        istrained, fullpath = True, ''
+
     if not istrained:
         raise ValueError('Something is wrong. The model should be trained by this line')
     model = subjModel['modeltype'](subjModel['behfit_path'],
@@ -58,9 +62,12 @@ def generate_choices(pseudosess, trials_df, subjModel, modeldispatcher):
                                    actions=None,
                                    stimuli=None,
                                    stim_side=None)
-    model.load_or_train(loadpath=str(fullpath))
 
-    arr_params = model.get_parameters(parameter_type='posterior_mean')[None]
+    if model_parameters is None:
+        model.load_or_train(loadpath=str(fullpath))
+        arr_params = model.get_parameters(parameter_type='posterior_mean')[None]
+    else:
+        arr_params = np.array(list(model_parameters.values()))[None]
     valid = np.ones([1, pseudosess.index.size], dtype=bool)
     stim, _, side = mut_format_input([pseudosess.signed_contrast.values],
                                      [trials_df.choice.values], [pseudosess.stim_side.values])

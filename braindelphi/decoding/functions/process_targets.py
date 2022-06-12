@@ -119,9 +119,12 @@ def compute_beh_target(trials_df, metadata, remove_old=False, **kwargs):
                                          if modetype=None, then it will return the actual pLeft (.2, .5, .8)
     '''
 
-    istrained, fullpath = check_bhv_fit_exists(
-        metadata['subject'], kwargs['model'], metadata['eids_train'], kwargs['behfit_path'],
-        modeldispatcher=kwargs['modeldispatcher'])
+    if kwargs['model_parameters'] is None:
+        istrained, fullpath = check_bhv_fit_exists(
+            metadata['subject'], kwargs['model'], metadata['eids_train'], kwargs['behfit_path'],
+            modeldispatcher=kwargs['modeldispatcher'])
+    else:
+        istrained, fullpath = False, ''
 
     if kwargs['target'] == 'signcont':
         if 'signedContrast' in trials_df.keys():
@@ -140,7 +143,8 @@ def compute_beh_target(trials_df, metadata, remove_old=False, **kwargs):
         signal = optimal_Bayesian(act, side)
         return signal.numpy().squeeze()
 
-    if (not istrained) and (kwargs['target'] != 'signcont') and (kwargs['model'] is not None):
+    if ((not istrained) and (kwargs['target'] != 'signcont') and
+            (kwargs['model'] is not None) and kwargs['model_parameters'] is None):
         datadict = {'stim_side': [], 'actions': [], 'stimuli': []}
         if 'eids_train' in kwargs.keys() or len(metadata['eids_train']) >= 2:
             raise NotImplementedError('Sorry, this features is not implemented yet')
@@ -160,15 +164,21 @@ def compute_beh_target(trials_df, metadata, remove_old=False, **kwargs):
                                 actions=None,
                                 stimuli=None,
                                 stim_side=None)
-        model.load_or_train(loadpath=str(fullpath))
+        if kwargs['model_parameters'] is None:
+            model.load_or_train(loadpath=str(fullpath))
 
     # compute signal
     stim_side, stimuli, actions, _ = format_data_mut(trials_df)
     stimuli, actions, stim_side = format_input_mut([stimuli], [actions], [stim_side])
-    signal = model.compute_signal(signal='prior' if kwargs['target'] == 'pLeft' else kwargs['target'],
-                                  act=actions,
-                                  stim=stimuli,
-                                  side=stim_side)['prior' if kwargs['target'] == 'pLeft' else kwargs['target']]
+    if kwargs['model_parameters'] is None:
+        signal = model.compute_signal(signal='prior' if kwargs['target'] == 'pLeft' else kwargs['target'],
+                                      act=actions,
+                                      stim=stimuli,
+                                      side=stim_side)['prior' if kwargs['target'] == 'pLeft' else kwargs['target']]
+    else:
+        output = model.evaluate(np.array(list(kwargs['model_parameters'].values()))[None],
+                                return_details=True, act=actions, stim=stimuli, side=stim_side)
+        signal = output[1]
 
     tvec = signal.squeeze()
     if kwargs['binarization_value'] is not None:
