@@ -98,6 +98,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
             logging.exception('no inter individual model found')
             return filenames
         inter_indiv_model_specifications = inter_individual[metadata['eid']]
+        print('winning interindividual model is %s' % inter_indiv_model_specifications['model_name'])
         if inter_indiv_model_specifications['model_name'] not in kwargs['modeldispatcher'].values():
             logging.exception('winning inter individual model is LeftKernel or RightKernel')
             return filenames
@@ -211,7 +212,6 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                     print(len(controltarget_vals_list))
 
                 if kwargs['use_imposter_session']:
-                    # TODO: how to get rid of pandas warning prints?
                     mask = compute_mask(controlsess_df, **kwargs) & mask_target
 
                 save_predictions = kwargs.get('save_predictions_pseudo', kwargs['save_predictions'])
