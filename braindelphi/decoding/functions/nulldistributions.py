@@ -38,18 +38,22 @@ def generate_null_distribution_session(trials_df, metadata, **kwargs):
                 'behfit_path': kwargs['behfit_path'],
             }
             pseudosess['choice'] = generate_choices(
-                pseudosess, trials_df, subjModel, kwargs['modeldispatcher'])
+                pseudosess, trials_df, subjModel, kwargs['modeldispatcher'], kwargs['model_parameters'])
         else:
             pseudosess['choice'] = trials_df.choice
     return pseudosess
 
 
-def generate_choices(pseudosess, trials_df, subjModel, modeldispatcher):
+def generate_choices(pseudosess, trials_df, subjModel, modeldispatcher, model_parameters=None):
 
-    istrained, fullpath = check_bhv_fit_exists(subjModel['subject'], subjModel['modeltype'],
-                                               subjModel['eids_train'],
-                                               subjModel['behfit_path'].as_posix() + '/',
-                                               modeldispatcher)
+    if model_parameters is None:
+        istrained, fullpath = check_bhv_fit_exists(subjModel['subject'], subjModel['modeltype'],
+                                                   subjModel['eids_train'],
+                                                   subjModel['behfit_path'].as_posix() + '/',
+                                                   modeldispatcher)
+    else:
+        istrained, fullpath = True, ''
+
     if not istrained:
         raise ValueError('Something is wrong. The model should be trained by this line')
     model = subjModel['modeltype'](subjModel['behfit_path'],
@@ -58,9 +62,12 @@ def generate_choices(pseudosess, trials_df, subjModel, modeldispatcher):
                                    actions=None,
                                    stimuli=None,
                                    stim_side=None)
-    model.load_or_train(loadpath=str(fullpath))
 
-    arr_params = model.get_parameters(parameter_type='posterior_mean')[None]
+    if model_parameters is None:
+        model.load_or_train(loadpath=str(fullpath))
+        arr_params = model.get_parameters(parameter_type='posterior_mean')[None]
+    else:
+        arr_params = np.array(list(model_parameters.values()))[None]
     valid = np.ones([1, pseudosess.index.size], dtype=bool)
     stim, _, side = mut_format_input([pseudosess.signed_contrast.values],
                                      [trials_df.choice.values], [pseudosess.stim_side.values])
@@ -68,9 +75,21 @@ def generate_choices(pseudosess, trials_df, subjModel, modeldispatcher):
                                          stim,
                                          side,
                                          torch.from_numpy(valid),
-                                         nb_simul=1,
+                                         nb_simul=10000,
                                          only_perf=False)
-    return np.array(act_sim.squeeze().T, dtype=np.int64)
+    act_sim = np.array(act_sim.squeeze().T, dtype=np.int64)
+    perf_0contrast_sims = np.array([torch.mean((torch.from_numpy(a_s) == side.squeeze())[stim.squeeze() == 0] * 1.).numpy()
+                                    for a_s in act_sim])
+    repBias_sims = np.array([np.mean(a_s[1:] == a_s[:-1]) for a_s in act_sim])
+    perf_sims = np.array([np.mean(a_s == side.squeeze().numpy()) for a_s in act_sim])
+
+    perf = (trials_df.feedbackType.values > 0).mean()
+    perf_0contrast = (trials_df.feedbackType.values > 0)[(trials_df.contrastRight == 0) + (trials_df.contrastLeft == 0)].mean()
+    repBias = np.mean(trials_df.choice.values[1:] == trials_df.choice.values[:-1])
+
+    distance = (perf - perf_sims) ** 2 + (repBias_sims - repBias) ** 2 + (perf_0contrast_sims - perf_0contrast) ** 2
+    perf_sims[np.argmin(distance)]
+    return
 
 
 def generate_imposter_session(imposterdf,
