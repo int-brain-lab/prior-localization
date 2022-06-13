@@ -10,7 +10,7 @@ from braindelphi.decoding.settings import modeldispatcher
 
 SAVE_KFOLDS = False
 
-date = '11-06-2022'
+date = '12-06-2022'
 finished = glob.glob(str(FIT_PATH.joinpath(kwargs['neural_dtype'], "*", "*", "*", "*%s*" % date)))
 
 indexers = ['subject', 'eid', 'probe', 'region']
@@ -80,6 +80,7 @@ for fn in tqdm(finished):
         pass
 print('loading of %i files failed' % failed_load)
 resultsdf = pd.DataFrame(resultslist)
+
 '''
 resultsdf = resultsdf[resultsdf.subject == 'NYU-12']
 resultsdf = resultsdf[resultsdf.eid == 'a8a8af78-16de-4841-ab07-fde4b5281a03']
@@ -119,20 +120,24 @@ metadata_df.to_pickle(metadata_fn)
 print('metadata saved')
 
 
-"""
+
 # save weights
+weight_indexers = ['subject', 'eid', 'probe']
 weightsdict = {}
-for fn in finished:
+for fn in tqdm(finished[:5]):
     fo = open(fn, 'rb')
     result = pickle.load(fo)
     fo.close()
     for i_run in range(len(result['fit'])):
-        weightsdict = {**weightsdict, **{(tuple(result[x] for x in indexers)
+        weightsdict = {**weightsdict, **{(tuple(result[x] for x in weight_indexers)
                                           + ('pseudo_id_{}'.format(result['pseudo_id']),
                                              'run_id_{}'.format(i_run + 1)))
-                                         : np.vstack(result['fit'][i_run]['weights'])}}
+                                         : np.vstack(result['fit'][i_run]['intercepts'])}}
+weights = pd.Series(weightsdict).reset_index()
+true_weights = weights[weights["level_3"] == "pseudo_id_-1"].reset_index()
+pseudo_weights = weights[weights["level_3"] != "pseudo_id_-1"].reset_index()
 
-with open(metadata_fn.split('.metadata.pkl')[0] + '.weights.pkl', 'wb') as f:
-    pickle.dump(weightsdict, f)
-"""
+with open(metadata_fn.split('.metadata.pkl')[0] + 'w.pkl', 'wb') as f:
+    pickle.dump(pd.Series(weightsdict).reset_index(), f)
+
 
