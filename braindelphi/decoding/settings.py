@@ -14,7 +14,7 @@ BEHAVIOR_MOD_PATH.mkdir(parents=True, exist_ok=True)
 logger = logging.getLogger('ibllib')
 logger.disabled = True
 
-NEURAL_DTYPE = 'ephys'  # 'ephys' or 'widefield'
+NEURAL_DTYPE = 'widefield'  # 'ephys' or 'widefield'
 DATE = '17-06-2022'  # date
 
 # aligned -> histology was performed by one experimenter
@@ -78,10 +78,10 @@ ADD_TO_SAVING_PATH = (
 
 # WIDE FIELD IMAGING
 WFI_HEMISPHERES = ['left']  # 'left' and/or 'right'
-WFI_NB_FRAMES = -1  # signed number of frames from ALIGN_TIME
-INCLUDE_ALIGN_TIME_FRAME = False
+WFI_NB_FRAMES_START = -2  # left signed number of frames from ALIGN_TIME (frame included)
+WFI_NB_FRAMES_END = -1 # right signed number of frames from ALIGN_TIME (frame included). If 0, the align time frame is included
 
-if NEURAL_DTYPE == 'widefield' and WFI_NB_FRAMES == 0 and not INCLUDE_ALIGN_TIME_FRAME:
+if NEURAL_DTYPE == 'widefield' and WFI_NB_FRAMES_START > WFI_NB_FRAMES_END:
     raise ValueError('there is a problem in the specification of the timing of the widefield')
 
 # WHEEL VELOCITY
@@ -175,7 +175,8 @@ fit_metadata = {
     'min_len': MIN_LEN,
     'max_len': MAX_LEN,
     'save_predictions': SAVE_PREDICTIONS,
-    'include_align_time_frame': INCLUDE_ALIGN_TIME_FRAME,
+    'wfi_nb_frames_start': WFI_NB_FRAMES_START,
+    'wfi_nb_frames_end': WFI_NB_FRAMES_END,
     'quasi_random': QUASI_RANDOM,
 }
 
@@ -219,7 +220,6 @@ kwargs = {
     'bin_size_kde': BIN_SIZE_KDE,
     'neural_dtype': NEURAL_DTYPE,
     'wfi_hemispheres': WFI_HEMISPHERES,
-    'wfi_nb_frames': WFI_NB_FRAMES,
     'use_imposter_session_for_balancing': USE_IMPOSTER_SESSION_FOR_BALANCING,
     'beh_mouseLevel_training': BEH_MOUSELEVEL_TRAINING,
     'binarization_value': BINARIZATION_VALUE,
@@ -228,6 +228,7 @@ kwargs = {
     'min_len': MIN_LEN,
     'max_len': MAX_LEN,
     'save_predictions': SAVE_PREDICTIONS,
-    'include_align_time_frame': INCLUDE_ALIGN_TIME_FRAME,
+    'wfi_nb_frames_start': WFI_NB_FRAMES_START,
+    'wfi_nb_frames_end': WFI_NB_FRAMES_END,
     'quasi_random': QUASI_RANDOM,
 }
