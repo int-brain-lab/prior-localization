@@ -14,8 +14,8 @@ BEHAVIOR_MOD_PATH.mkdir(parents=True, exist_ok=True)
 logger = logging.getLogger('ibllib')
 logger.disabled = True
 
-NEURAL_DTYPE = 'widefield'  # 'ephys' or 'widefield'
-DATE = '14-06-2022'  # date
+NEURAL_DTYPE = 'ephys'  # 'ephys' or 'widefield'
+DATE = '17-06-2022'  # date
 
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
@@ -26,7 +26,7 @@ if TARGET not in ['pLeft', 'signcont', 'choice', 'feedback']:
     raise ValueError('TARGET can only be pLeft, signcont, choice or feedback')
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
 # if MODEL is a path, this will be the interindividual results
-MODEL = optimal_Bayesian # 'population_level_Nmice101_NmodelsClasses7_processed.pkl' #expSmoothing_stimside, expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
+MODEL = expSmoothing_prevAction # 'population_level_Nmice101_NmodelsClasses7_processed.pkl' #expSmoothing_stimside, expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
 BEH_MOUSELEVEL_TRAINING = False  # if True, trains the behavioral model session-wise else mouse-wise
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
@@ -39,8 +39,8 @@ N_RUNS = 10
 MIN_UNITS = 10
 MIN_BEHAV_TRIAS = 200 if NEURAL_DTYPE == 'ephys' else 200  # default BWM setting is 400. 200 must remain after filtering
 MIN_RT = 0.08  # 0.08  # Float (s) or None
-SINGLE_REGION = True  # perform decoding on region-wise or whole brain analysis
-MERGED_PROBES = False  # merge probes before performing analysis
+SINGLE_REGION = False  # perform decoding on region-wise or whole brain analysis
+MERGED_PROBES = True  # merge probes before performing analysis
 NO_UNBIAS = False  # take out unbiased trials
 SHUFFLE = True  # interleaved cross validation
 BORDER_QUANTILES_NEUROMETRIC = [.3, .7]  # [.3, .4, .5, .6, .7]
@@ -55,7 +55,7 @@ NORMALIZE_OUTPUT = False  # take out mean of output to predict
 if NORMALIZE_INPUT or NORMALIZE_OUTPUT:
     warnings.warn('This feature has not been tested')
 USE_IMPOSTER_SESSION = False  # if false, it uses pseudosessions and simulates the model when action are necessary
-CONSTRAIN_IMPOSTER_SESSION_WITH_BEH = False
+CONSTRAIN_NULL_SESSION_WITH_BEH = True
 USE_IMPOSTER_SESSION_FOR_BALANCING = False  # if false, it simulates the model (should be False)
 SIMULATE_NEURAL_DATA = False
 QUASI_RANDOM = False  # if TRUE, decoding is launched in a quasi-random, reproducible way => it sets the seed
@@ -72,9 +72,9 @@ HPARAM_GRID = ({
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
 ADD_TO_SAVING_PATH = (
-    'imposterSess_%i_balancedWeight_%i_RegionLevel_%i_mergedProbes_%i_behMouseLevelTraining_%i_simulated_%i_constrainImpSess_%i'
+    'imposterSess_%i_balancedWeight_%i_RegionLevel_%i_mergedProbes_%i_behMouseLevelTraining_%i_simulated_%i_constrainNullSess_%i'
     % (USE_IMPOSTER_SESSION, BALANCED_WEIGHT, SINGLE_REGION, MERGED_PROBES,
-       BEH_MOUSELEVEL_TRAINING, SIMULATE_NEURAL_DATA, CONSTRAIN_IMPOSTER_SESSION_WITH_BEH))
+       BEH_MOUSELEVEL_TRAINING, SIMULATE_NEURAL_DATA, CONSTRAIN_NULL_SESSION_WITH_BEH))
 
 # WIDE FIELD IMAGING
 WFI_HEMISPHERES = ['left']  # 'left' and/or 'right'
@@ -164,7 +164,7 @@ fit_metadata = {
     'use_imposter_session_for_balancing': USE_IMPOSTER_SESSION_FOR_BALANCING,
     'beh_mouseLevel_training': BEH_MOUSELEVEL_TRAINING,
     'simulate_neural_data': SIMULATE_NEURAL_DATA,
-    'constrain_imposter_session_with_beh': CONSTRAIN_IMPOSTER_SESSION_WITH_BEH,
+    'constrain_null_session_with_beh': CONSTRAIN_NULL_SESSION_WITH_BEH,
     'neural_dtype': NEURAL_DTYPE,
     'modeldispatcher': modeldispatcher,
     'behfit_path': BEHAVIOR_MOD_PATH,
@@ -224,7 +224,7 @@ kwargs = {
     'beh_mouseLevel_training': BEH_MOUSELEVEL_TRAINING,
     'binarization_value': BINARIZATION_VALUE,
     'simulate_neural_data': SIMULATE_NEURAL_DATA,
-    'constrain_imposter_session_with_beh': CONSTRAIN_IMPOSTER_SESSION_WITH_BEH,
+    'constrain_null_session_with_beh': CONSTRAIN_NULL_SESSION_WITH_BEH,
     'min_len': MIN_LEN,
     'max_len': MAX_LEN,
     'save_predictions': SAVE_PREDICTIONS,
