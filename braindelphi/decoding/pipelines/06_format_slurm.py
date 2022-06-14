@@ -10,7 +10,7 @@ from braindelphi.decoding.settings import modeldispatcher
 
 SAVE_KFOLDS = False
 
-date = '11-06-2022'
+date = '14-06-2022'
 finished = glob.glob(str(FIT_PATH.joinpath(kwargs['neural_dtype'], "*", "*", "*", "*%s*" % date)))
 
 indexers = ['subject', 'eid', 'probe', 'region']

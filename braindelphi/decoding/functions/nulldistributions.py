@@ -37,14 +37,14 @@ def generate_null_distribution_session(trials_df, metadata, **kwargs):
                 'modeltype': kwargs['model'],
                 'behfit_path': kwargs['behfit_path'],
             }
-            pseudosess['choice'] = generate_choices(
-                pseudosess, trials_df, subjModel, kwargs['modeldispatcher'], kwargs['model_parameters'])
+            pseudosess['choice'] = generate_choices(pseudosess, trials_df, subjModel, kwargs['modeldispatcher'],
+                                                    kwargs['constrain_null_session_with_beh'], kwargs['model_parameters'])
         else:
             pseudosess['choice'] = trials_df.choice
     return pseudosess
 
 
-def generate_choices(pseudosess, trials_df, subjModel, modeldispatcher, model_parameters=None):
+def generate_choices(pseudosess, trials_df, subjModel, modeldispatcher, constrain_null_session_with_beh, model_parameters=None):
 
     if model_parameters is None:
         istrained, fullpath = check_bhv_fit_exists(subjModel['subject'], subjModel['modeltype'],
@@ -75,21 +75,29 @@ def generate_choices(pseudosess, trials_df, subjModel, modeldispatcher, model_pa
                                          stim,
                                          side,
                                          torch.from_numpy(valid),
-                                         nb_simul=10000,
+                                         nb_simul=10000 if constrain_null_session_with_beh else 1,
                                          only_perf=False)
     act_sim = np.array(act_sim.squeeze().T, dtype=np.int64)
-    perf_0contrast_sims = np.array([torch.mean((torch.from_numpy(a_s) == side.squeeze())[stim.squeeze() == 0] * 1.).numpy()
-                                    for a_s in act_sim])
-    repBias_sims = np.array([np.mean(a_s[1:] == a_s[:-1]) for a_s in act_sim])
-    perf_sims = np.array([np.mean(a_s == side.squeeze().numpy()) for a_s in act_sim])
 
-    perf = (trials_df.feedbackType.values > 0).mean()
-    perf_0contrast = (trials_df.feedbackType.values > 0)[(trials_df.contrastRight == 0) + (trials_df.contrastLeft == 0)].mean()
-    repBias = np.mean(trials_df.choice.values[1:] == trials_df.choice.values[:-1])
+    if constrain_null_session_with_beh:
+        # behavior on simulations
+        perf_1contrast_sims = np.array([torch.mean((torch.from_numpy(a_s) == side.squeeze())[stim.abs().squeeze() == 1] * 1.).numpy()
+                                        for a_s in act_sim])
+        perf_0contrast_sims = np.array([torch.mean((torch.from_numpy(a_s) == side.squeeze())[stim.squeeze() == 0] * 1.).numpy()
+                                        for a_s in act_sim])
+        repBias_sims = np.array([np.mean(a_s[1:] == a_s[:-1]) for a_s in act_sim])
 
-    distance = (perf - perf_sims) ** 2 + (repBias_sims - repBias) ** 2 + (perf_0contrast_sims - perf_0contrast) ** 2
-    perf_sims[np.argmin(distance)]
-    return
+        # behavior of animal
+        perf_1contrast = (trials_df.feedbackType.values > 0)[(trials_df.contrastRight == 1) + (trials_df.contrastLeft == 1)].mean()
+        perf_0contrast = (trials_df.feedbackType.values > 0)[(trials_df.contrastRight == 0) + (trials_df.contrastLeft == 0)].mean()
+        repBias = np.mean(trials_df.choice.values[1:] == trials_df.choice.values[:-1])
+
+        # distance between both
+        distance = (repBias_sims - repBias) ** 2 + (perf_0contrast_sims - perf_0contrast) ** 2 + (perf_1contrast_sims - perf_1contrast) ** 2
+
+        act_sim = act_sim[np.argmin(distance)]
+
+    return act_sim
 
 
 def generate_imposter_session(imposterdf,
