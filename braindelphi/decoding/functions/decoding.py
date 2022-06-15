@@ -25,6 +25,8 @@ from braindelphi.decoding.functions.utils import get_save_path
 from braindelphi.decoding.functions.balancedweightings import get_balanced_weighting
 from braindelphi.decoding.functions.nulldistributions import generate_null_distribution_session
 from braindelphi.decoding.functions.process_targets import check_bhv_fit_exists
+from braindelphi.decoding.functions.process_targets import optimal_Bayesian
+
 
 def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **kwargs):
     """High-level function to decode a given target variable from brain regions for a single eid.
@@ -127,14 +129,15 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
     else:
         kwargs['model_parameters'] = None
         # train model if not trained already
-        side, stim, act, _ = format_data_mut(trials_df)
-        stimuli, actions, stim_side = format_input_mut([stim], [act], [side])
-        behmodel = kwargs['model'](kwargs['behfit_path'], np.array(metadata['eids_train']), metadata['subject'],
-                                   actions, stimuli, stim_side)
-        istrained, pa = check_bhv_fit_exists(metadata['subject'], kwargs['model'], metadata['eids_train'],
-                                            kwargs['behfit_path'], modeldispatcher=kwargs['modeldispatcher'])
-        if not istrained:
-            behmodel.load_or_train(remove_old=False)
+        if  kwargs['model'] != optimal_Bayesian
+            side, stim, act, _ = format_data_mut(trials_df)
+            stimuli, actions, stim_side = format_input_mut([stim], [act], [side])
+            behmodel = kwargs['model'](kwargs['behfit_path'], np.array(metadata['eids_train']), metadata['subject'],
+                                       actions, stimuli, stim_side)
+            istrained, _ = check_bhv_fit_exists(metadata['subject'], kwargs['model'], metadata['eids_train'],
+                                                kwargs['behfit_path'], modeldispatcher=kwargs['modeldispatcher'])
+            if not istrained:
+                behmodel.load_or_train(remove_old=False)
 
     target_distribution = get_balanced_weighting(trials_df, metadata, **kwargs)
 
