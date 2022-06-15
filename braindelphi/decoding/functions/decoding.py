@@ -129,7 +129,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
     else:
         kwargs['model_parameters'] = None
         # train model if not trained already
-        if  kwargs['model'] != optimal_Bayesian
+        if  kwargs['model'] != optimal_Bayesian:
             side, stim, act, _ = format_data_mut(trials_df)
             stimuli, actions, stim_side = format_input_mut([stim], [act], [side])
             behmodel = kwargs['model'](kwargs['behfit_path'], np.array(metadata['eids_train']), metadata['subject'],
