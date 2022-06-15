@@ -14,7 +14,7 @@ BEHAVIOR_MOD_PATH.mkdir(parents=True, exist_ok=True)
 logger = logging.getLogger('ibllib')
 logger.disabled = True
 
-NEURAL_DTYPE = 'widefield'  # 'ephys' or 'widefield'
+NEURAL_DTYPE = 'ephys'  # 'ephys' or 'widefield'
 DATE = '17-06-2022'  # date
 
 # aligned -> histology was performed by one experimenter
@@ -26,7 +26,7 @@ if TARGET not in ['pLeft', 'signcont', 'choice', 'feedback']:
     raise ValueError('TARGET can only be pLeft, signcont, choice or feedback')
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
 # if MODEL is a path, this will be the interindividual results
-MODEL = expSmoothing_prevAction # 'population_level_Nmice101_NmodelsClasses7_processed.pkl' #expSmoothing_stimside, expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
+MODEL = expSmoothing_prevAction  # 'population_level_Nmice101_NmodelsClasses7_processed.pkl' #expSmoothing_stimside, expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
 BEH_MOUSELEVEL_TRAINING = False  # if True, trains the behavioral model session-wise else mouse-wise
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
@@ -39,9 +39,9 @@ N_RUNS = 10
 MIN_UNITS = 10
 MIN_BEHAV_TRIAS = 200 if NEURAL_DTYPE == 'ephys' else 200  # default BWM setting is 400. 200 must remain after filtering
 MIN_RT = 0.08  # 0.08  # Float (s) or None
-SINGLE_REGION = False  # perform decoding on region-wise or whole brain analysis
-MERGED_PROBES = True  # merge probes before performing analysis
-NO_UNBIAS = False  # take out unbiased trials
+SINGLE_REGION = True  # perform decoding on region-wise or whole brain analysis
+MERGED_PROBES = False  # merge probes before performing analysis
+NO_UNBIAS = True  # take out unbiased trials
 SHUFFLE = True  # interleaved cross validation
 BORDER_QUANTILES_NEUROMETRIC = [.3, .7]  # [.3, .4, .5, .6, .7]
 COMPUTE_NEUROMETRIC = False
@@ -55,12 +55,12 @@ NORMALIZE_OUTPUT = False  # take out mean of output to predict
 if NORMALIZE_INPUT or NORMALIZE_OUTPUT:
     warnings.warn('This feature has not been tested')
 USE_IMPOSTER_SESSION = False  # if false, it uses pseudosessions and simulates the model when action are necessary
-CONSTRAIN_NULL_SESSION_WITH_BEH = True
+CONSTRAIN_NULL_SESSION_WITH_BEH = False  # add behavioral constraints
 USE_IMPOSTER_SESSION_FOR_BALANCING = False  # if false, it simulates the model (should be False)
 SIMULATE_NEURAL_DATA = False
 QUASI_RANDOM = False  # if TRUE, decoding is launched in a quasi-random, reproducible way => it sets the seed
 
-BALANCED_WEIGHT = False  # seems to work better with BALANCED_WEIGHT=False, but putting True is important
+BALANCED_WEIGHT = True  # seems to work better with BALANCED_WEIGHT=False, but putting True is important
 BALANCED_CONTINUOUS_TARGET = True  # is target continuous or discrete FOR BALANCED WEIGHTING
 USE_OPENTURNS = False  # uses openturns to perform kernel density estimation
 BIN_SIZE_KDE = 0.05  # size of the kde bin
@@ -110,6 +110,10 @@ strlut = {sklm.Lasso: "Lasso",
           sklm.RidgeCV: "RidgeCV",
           sklm.LinearRegression: "PureLinear",
           sklm.LogisticRegression: "Logistic"}
+
+
+if USE_IMPOSTER_SESSION_FOR_BALANCING:
+    raise ValueError('this is not implemented yet -- or it is but unsure of the state given recent code featuring')
 
 if ESTIMATOR == sklm.LogisticRegression and BALANCED_CONTINUOUS_TARGET:
     raise ValueError('you can not have a continuous target with logistic regression')

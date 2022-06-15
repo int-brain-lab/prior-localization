@@ -6,6 +6,8 @@ from sklearn import linear_model as sklm
 from sklearn.metrics import accuracy_score, balanced_accuracy_score, r2_score
 from sklearn.model_selection import GridSearchCV, KFold, train_test_split
 from tqdm import tqdm
+from behavior_models.models.utils import format_data as format_data_mut
+from behavior_models.models.utils import format_input as format_input_mut
 
 from ibllib.atlas import BrainRegions
 
@@ -22,7 +24,7 @@ from braindelphi.decoding.functions.utils import save_region_results
 from braindelphi.decoding.functions.utils import get_save_path
 from braindelphi.decoding.functions.balancedweightings import get_balanced_weighting
 from braindelphi.decoding.functions.nulldistributions import generate_null_distribution_session
-
+from braindelphi.decoding.functions.process_targets import check_bhv_fit_exists
 
 def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **kwargs):
     """High-level function to decode a given target variable from brain regions for a single eid.
@@ -91,22 +93,6 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
     print(f'Working on eid : %s' % metadata['eid'])
     filenames = []  # this will contain paths to saved decoding results for this eid
 
-    if isinstance(kwargs['model'], str):
-        import pickle
-        inter_individual = pickle.load(open(kwargs['model'], 'rb'))
-        if metadata['eid'] not in inter_individual.keys():
-            logging.exception('no inter individual model found')
-            return filenames
-        inter_indiv_model_specifications = inter_individual[metadata['eid']]
-        print('winning interindividual model is %s' % inter_indiv_model_specifications['model_name'])
-        if inter_indiv_model_specifications['model_name'] not in kwargs['modeldispatcher'].values():
-            logging.exception('winning inter individual model is LeftKernel or RightKernel')
-            return filenames
-        kwargs['model'] = {v: k for k, v in kwargs['modeldispatcher'].items()}[inter_indiv_model_specifications['model_name']]
-        kwargs['model_parameters'] = inter_indiv_model_specifications['model_parameters']
-    else:
-        kwargs['model_parameters'] = None
-
     if 0 in pseudo_ids:
         raise ValueError(
             'pseudo id can be -1 (actual session) or strictly greater than 0 (pseudo session)')
@@ -123,6 +109,32 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
     else:
         raise ValueError(f'eids_train are not supported yet. If you do not understand this error, '
                          f'just take out the eids_train key in the metadata to solve it')
+
+    if isinstance(kwargs['model'], str):
+        import pickle
+        from braindelphi.params import INTER_INDIVIDUAL_PATH
+        inter_individual = pickle.load(open(INTER_INDIVIDUAL_PATH.joinpath(kwargs['model']), 'rb'))
+        if metadata['eid'] not in inter_individual.keys():
+            logging.exception('no inter individual model found')
+            return filenames
+        inter_indiv_model_specifications = inter_individual[metadata['eid']]
+        print('winning interindividual model is %s' % inter_indiv_model_specifications['model_name'])
+        if inter_indiv_model_specifications['model_name'] not in kwargs['modeldispatcher'].values():
+            logging.exception('winning inter individual model is LeftKernel or RightKernel')
+            return filenames
+        kwargs['model'] = {v: k for k, v in kwargs['modeldispatcher'].items()}[inter_indiv_model_specifications['model_name']]
+        kwargs['model_parameters'] = inter_indiv_model_specifications['model_parameters']
+    else:
+        kwargs['model_parameters'] = None
+        # train model if not trained already
+        side, stim, act, _ = format_data_mut(trials_df)
+        stimuli, actions, stim_side = format_input_mut([stim], [act], [side])
+        behmodel = kwargs['model'](kwargs['behfit_path'], np.array(metadata['eids_train']), metadata['subject'],
+                                   actions, stimuli, stim_side)
+        istrained, pa = check_bhv_fit_exists(metadata['subject'], kwargs['model'], metadata['eids_train'],
+                                            kwargs['behfit_path'], modeldispatcher=kwargs['modeldispatcher'])
+        if not istrained:
+            behmodel.load_or_train(remove_old=False)
 
     target_distribution = get_balanced_weighting(trials_df, metadata, **kwargs)
 

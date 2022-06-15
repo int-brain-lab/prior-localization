@@ -120,7 +120,7 @@ metadata_df.to_pickle(metadata_fn)
 print('metadata saved')
 
 
-
+"""
 # save weights
 weight_indexers = ['subject', 'eid', 'probe']
 weightsdict = {}
@@ -140,4 +140,4 @@ pseudo_weights = weights[weights["level_3"] != "pseudo_id_-1"].reset_index()
 with open(metadata_fn.split('.metadata.pkl')[0] + 'w.pkl', 'wb') as f:
     pickle.dump(pd.Series(weightsdict).reset_index(), f)
 
-
+"""
