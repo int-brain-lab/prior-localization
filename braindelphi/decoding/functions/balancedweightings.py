@@ -9,6 +9,9 @@ from braindelphi.decoding.functions.nulldistributions import generate_imposter_s
 from behavior_models.models.utils import format_data as format_data_mut
 from behavior_models.models.utils import format_input as format_input_mut
 import torch
+from braindelphi.decoding.settings import modeldispatcher
+from behavior_models.models.expSmoothing_prevAction import expSmoothing_prevAction
+from behavior_models.models.expSmoothing_stimside import expSmoothing_stimside
 
 
 def pdf_from_histogram(x, out):
@@ -51,18 +54,20 @@ def get_target_pLeft(
         nb_trials, nb_sessions, take_out_unbiased, bin_size_kde, subjModel=None, antithetic=False):
     # if subjModel is empty, compute the optimal Bayesian prior
     if subjModel is not None:
-        istrained, fullpath = check_bhv_fit_exists(subjModel['subject'], subjModel['modeltype'],
-                                                   subjModel['subjeids'],
-                                                   subjModel['modelfit_path'].as_posix() + '/')
-        if not istrained:
-            raise ValueError('Something is wrong. The model should be trained by this line')
         model = subjModel['modeltype'](subjModel['modelfit_path'].as_posix() + '/',
                                        subjModel['subjeids'],
                                        subjModel['subject'],
                                        actions=None,
                                        stimuli=None,
                                        stim_side=None)
-        model.load_or_train(loadpath=str(fullpath))
+        if subjModel['model_parameters'] is None:
+            istrained, fullpath = check_bhv_fit_exists(subjModel['subject'], subjModel['modeltype'],
+                                                       subjModel['subjeids'],
+                                                       subjModel['modelfit_path'].as_posix() + '/',
+                                                       modeldispatcher=subjModel['modeldispatcher'])
+            if not istrained:
+                raise ValueError('Something is wrong. The model should be trained by this line')
+            model.load_or_train(loadpath=str(fullpath))
     else:
         model = None
     contrast_set = np.array([0., 0.0625, 0.125, 0.25, 1])
@@ -82,7 +87,7 @@ def get_target_pLeft(
             pseudo_trials['signed_contrast'] = pseudo_trials['contrastRight']
             pseudo_trials.loc[pseudo_trials['signed_contrast'].isnull(),
                               'signed_contrast'] = -pseudo_trials['contrastLeft']
-            pseudo_trials['choice'] = np.NaN  # choice padding
+            pseudo_trials['choice'] = 1  # choice padding
         else:
             pseudo_trials = generate_imposter_session(subjModel['imposterdf'],
                                                       subjModel['eid'],
@@ -90,28 +95,39 @@ def get_target_pLeft(
                                                       nbSampledSess=10)
         side, stim, act, _ = format_data_mut(pseudo_trials)
         if model is None:
-            msub_pseudo_tvec = optimal_Bayesian(act.values, stim, side.values)
-        elif not subjModel['use_imposter_session_for_balancing']:
-            arr_params = model.get_parameters(parameter_type='posterior_mean')[None]
+            msub_pseudo_tvec = optimal_Bayesian(act, side)
+        elif not subjModel['use_imposter_session_for_balancing'] and model.name == modeldispatcher[expSmoothing_prevAction]:
+            arr_params = (model.get_parameters(parameter_type='posterior_mean')[None] if subjModel['model_parameters'] is None
+                          else np.array(list(subjModel['model_parameters'].values())))
             valid = np.ones([1, pseudo_trials.index.size], dtype=bool)
-            stim, act, side = format_input_mut([stim], [act.values], [side.values])
-            act_sim, stim, side = model.simulate(arr_params,
-                                                 stim,
-                                                 side,
-                                                 torch.from_numpy(valid),
-                                                 nb_simul=10,
-                                                 only_perf=False)
-            act_sim = act_sim.squeeze().T
-            stim = torch.tile(stim.squeeze()[None], (act_sim.shape[0], 1))
-            side = torch.tile(side.squeeze()[None], (act_sim.shape[0], 1))
-            msub_pseudo_tvec = model.compute_signal(
-                signal=('prior' if subjModel['target'] == 'pLeft' else subjModel['target']),
-                act=act_sim,
-                stim=stim,
-                side=side)
-            msub_pseudo_tvec = msub_pseudo_tvec['prior'].T
+            stim, _, side = format_input_mut([stim], [act], [side])
+            act_sim, stim, side, msub_pseudo_tvec = model.simulate(arr_params,
+                                                                   stim,
+                                                                   side,
+                                                                   torch.from_numpy(valid),
+                                                                   nb_simul=10,
+                                                                   only_perf=False,
+                                                                   return_prior=True)
+#            act_sim = act_sim.squeeze().T
+#            stim = torch.tile(stim.squeeze()[None], (act_sim.shape[0], 1))
+#            side = torch.tile(side.squeeze()[None], (act_sim.shape[0], 1))
+#            msub_pseudo_tvec_ = model.compute_signal(
+#                signal=('prior' if subjModel['target'] == 'pLeft' else subjModel['target']),
+#                act=act_sim,
+#                stim=stim,
+#                side=side)
+#            assert False
+            msub_pseudo_tvec = msub_pseudo_tvec.squeeze().numpy()
+        elif not subjModel['use_imposter_session_for_balancing'] and model.name == modeldispatcher[expSmoothing_stimside]:
+            arr_params = (model.get_parameters(parameter_type='posterior_mean')[None] if subjModel['model_parameters'] is None
+                          else np.array(list(subjModel['model_parameters'].values())))
+            valid = np.ones([1, pseudo_trials.index.size], dtype=bool)
+            stim, act, side = format_input_mut([stim], [act], [side])
+            output = model.evaluate(arr_params[None],
+                                    return_details=True, act=act, stim=stim, side=side)
+            msub_pseudo_tvec = output[1].squeeze()
         else:
-            stim, act, side = format_input_mut([stim], [act.values], [side.values])
+            stim, act, side = format_input_mut([stim], [act], [side])
             msub_pseudo_tvec = model.compute_signal(
                 signal=('prior' if subjModel['target'] == 'pLeft' else subjModel['target']),
                 act=act,
@@ -119,12 +135,13 @@ def get_target_pLeft(
                 side=side)
             msub_pseudo_tvec = msub_pseudo_tvec['prior' if subjModel['target'] ==
                                                            'pLeft' else subjModel['target']]
+            raise NotImplementedError('this is not supported since merge with wheel velocity')
         if take_out_unbiased:
             target_pLeft.append(
                 msub_pseudo_tvec[(pseudo_trials.probabilityLeft != 0.5).values].ravel())
         else:
             target_pLeft.append(msub_pseudo_tvec.ravel())
-    target_pLeft = np.concatenate(target_pLeft)
+    target_pLeft = np.concatenate(target_pLeft).ravel()
     if antithetic:
         target_pLeft = np.concatenate([target_pLeft, 1 - target_pLeft])
     out = np.histogram(target_pLeft,
@@ -136,30 +153,23 @@ def get_target_pLeft(
 
 def get_balanced_weighting(trials_df, metadata, **kwargs):
     if kwargs['balanced_weight'] and kwargs['balanced_continuous_target']:
-        if (kwargs['no_unbias']
-                and not kwargs['use_imposter_session_for_balancing']
-                and (kwargs['model'] == optimal_Bayesian)):
-            with open(
-                    kwargs['decoding_path'].joinpath(
-                        'targetpLeft_optBay_%s.pkl' %
-                        str(kwargs['bin_size_kde']).replace('.', '_')), 'rb') as f:
-                target_distribution = pickle.load(f)
-        elif not kwargs['use_imposter_session_for_balancing'] and (kwargs['model']
-                                                                   == optimal_Bayesian):
+        if not kwargs['use_imposter_session_for_balancing'] and (kwargs['model'] == optimal_Bayesian):
             target_distribution, _ = get_target_pLeft(nb_trials=trials_df.index.size,
                                                       nb_sessions=250,
-                                                      take_out_unbiased=False,
+                                                      take_out_unbiased=kwargs['no_unbias'],
                                                       bin_size_kde=kwargs['bin_size_kde'])
         else:
             subjModel = {
                 'modeltype': kwargs['model'],
                 'subjeids': metadata['eids_train'],
                 'subject': metadata['subject'],
-                'modelfit_path': kwargs['modelfit_path'],
+                'modelfit_path': kwargs['behfit_path'],
                 'imposterdf': kwargs['imposterdf'],
                 'use_imposter_session_for_balancing': kwargs['use_imposter_session_for_balancing'],
                 'eid': metadata['eid'],
-                'target': kwargs['target']
+                'target': kwargs['target'],
+                'model_parameters': kwargs['model_parameters'],
+                'modeldispatcher': kwargs['modeldispatcher'],
             }
             target_distribution, allV_t = get_target_pLeft(
                 nb_trials=trials_df.index.size,
