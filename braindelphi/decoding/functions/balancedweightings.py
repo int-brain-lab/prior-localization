@@ -98,7 +98,7 @@ def get_target_pLeft(
             msub_pseudo_tvec = optimal_Bayesian(act, side)
         elif not subjModel['use_imposter_session_for_balancing'] and model.name == modeldispatcher[expSmoothing_prevAction]:
             arr_params = (model.get_parameters(parameter_type='posterior_mean')[None] if subjModel['model_parameters'] is None
-                          else np.array(list(subjModel['model_parameters'].values())))
+                          else np.array(list(subjModel['model_parameters'].values()))[None])
             valid = np.ones([1, pseudo_trials.index.size], dtype=bool)
             stim, _, side = format_input_mut([stim], [act], [side])
             act_sim, stim, side, msub_pseudo_tvec = model.simulate(arr_params,
@@ -120,7 +120,7 @@ def get_target_pLeft(
             msub_pseudo_tvec = msub_pseudo_tvec.squeeze().numpy()
         elif not subjModel['use_imposter_session_for_balancing'] and model.name == modeldispatcher[expSmoothing_stimside]:
             arr_params = (model.get_parameters(parameter_type='posterior_mean')[None] if subjModel['model_parameters'] is None
-                          else np.array(list(subjModel['model_parameters'].values())))
+                          else np.array(list(subjModel['model_parameters'].values()))[None])
             valid = np.ones([1, pseudo_trials.index.size], dtype=bool)
             stim, act, side = format_input_mut([stim], [act], [side])
             output = model.evaluate(arr_params[None],
