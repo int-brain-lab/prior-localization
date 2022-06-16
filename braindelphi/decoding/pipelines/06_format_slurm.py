@@ -10,7 +10,7 @@ from braindelphi.decoding.settings import modeldispatcher
 
 SAVE_KFOLDS = False
 
-date = '14-06-2022'
+date = '16-06-2019'
 finished = glob.glob(str(FIT_PATH.joinpath(kwargs['neural_dtype'], "*", "*", "*", "*%s*" % date)))
 
 indexers = ['subject', 'eid', 'probe', 'region']
@@ -93,8 +93,9 @@ subdf = resultsdf.set_index(['subject', 'eid', 'probe', 'region']).drop('fold', 
 
 estimatorstr = strlut[ESTIMATOR]
 start_tw, end_tw = TIME_WINDOW
+model_str = 'interIndividual' if isinstance(MODEL, str) else modeldispatcher[MODEL]
 fn = str(FIT_PATH.joinpath(kwargs['neural_dtype'], '_'.join([date, 'decode', TARGET,
-                                                               modeldispatcher[MODEL] if TARGET in ['prior',
+                                                               model_str if TARGET in ['prior',
                                                                                                         'pLeft']
                                                                else 'task',
                                                                estimatorstr, 'align', ALIGN_TIME, str(N_PSEUDO),
