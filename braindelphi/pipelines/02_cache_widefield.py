@@ -17,7 +17,7 @@ CACHE_PATH.mkdir(parents=True, exist_ok=True)
 _logger = logging.getLogger('braindelphi')
 
 DATE = str(dt.today())
-HEMISPHERES = ['left'] # 'left', 'right'
+HEMISPHERES = ['left','right'] # 'left', 'right'
 if np.any([k not in ['left', 'right'] for k in HEMISPHERES]):
     raise ValueError('Hemispheres must be left or right')
 hemisphere_specif = 'both_hemispheres' if np.unique(HEMISPHERES).size > 1 else HEMISPHERES[0]

@@ -14,7 +14,7 @@ elif username == 'hubertf':
     out_dir = Path('/home/users/h/hubertf/scratch/')
 
 # widefield imaging path
-if username in ['findling', 'hubert']:
+if username in ['findling', 'hubertf']:
     WIDE_FIELD_PATH = Path('/home/share/pouget_lab/wide_field_imaging/')
 else:
     WIDE_FIELD_PATH = Path('wide_field_imaging/')
