@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 SAVE_KFOLDS = False
 
-date = '15-06-2022'
+date = '60-06-2022'
 finished = glob.glob(str(FIT_PATH.joinpath(kwargs['neural_dtype'], "*", "*", "*", "*%s*" % date)))
 
 weight_indexers = ['subject', 'eid', 'probe', 'region'] # 'region'
@@ -27,7 +27,7 @@ for fn in tqdm(finished):
                                             : np.vstack(result['fit'][i_run]['weights'])}}
 
 weights = pd.Series(weightsdict).reset_index()
-weights.columns=['subject','session','hemisphere','region','pseudo_id','run_id','weights']
+weights.columns = ['subject','session','hemisphere','region','pseudo_id','run_id','weights']
 
 estimatorstr = strlut[ESTIMATOR]
 start_tw, end_tw = TIME_WINDOW

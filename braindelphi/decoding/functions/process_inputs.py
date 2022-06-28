@@ -178,9 +178,9 @@ def select_widefield_imaging_regions(neural_dict, region, **kwargs):
     region_labels = []
     reg_lab = neural_dict['atlas'][neural_dict['atlas'].acronym.isin(region).values].label.values.squeeze()
     if 'left' in kwargs['wfi_hemispheres']:
-        region_labels.append(reg_lab)
+        region_labels.extend(reg_lab)
     if 'right' in kwargs['wfi_hemispheres']:
-        region_labels.append(-reg_lab)
+        region_labels.extend(-reg_lab)
 
     reg_mask = np.isin(neural_dict['regions'], region_labels)
     return reg_mask

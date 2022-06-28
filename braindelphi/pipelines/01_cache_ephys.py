@@ -37,7 +37,7 @@ def delayed_save(subject, eid, probe_name, params, outputs):
 # Parameters
 ALGN_RESOLVED = True
 DATE = str(dt.today())
-MAX_LEN = None
+MAX_LEN = 1
 T_BEF = 0.6
 T_AFT = 0.6
 BINWIDTH = 0.02

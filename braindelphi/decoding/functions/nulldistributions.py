@@ -7,11 +7,11 @@ from braindelphi.decoding.functions.process_targets import optimal_Bayesian, che
 
 def generate_null_distribution_session(trials_df, metadata, **kwargs):
     if kwargs['use_imposter_session']:
-        if not kwargs['constrain_imposter_session_with_beh']:
+        if not kwargs['constrain_null_session_with_beh']:
             pseudosess = generate_imposter_session(kwargs['imposterdf'],
                                                    metadata['eid'],
                                                    trials_df.index.size,
-                                                   nbSampledSess=10)
+                                                   nbSampledSess=5)
         else:
             feedback_0contrast = trials_df[(trials_df.contrastLeft == 0).values + (
                     trials_df.contrastRight == 0).values].feedbackType.mean()
