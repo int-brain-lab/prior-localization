@@ -32,7 +32,7 @@ def optimal_Bayesian(act, side):
 
     alpha = torch.zeros([act.shape[-1], nb_blocklengths, nb_typeblocks])
     alpha[0, 0, 1] = 1
-    alpha = alpha.reshape(-1, nb_typeblocks * nb_blocklengths)
+    alpha = alpha.reshape(-1, nb_blocklengths * nb_typeblocks)
     h = torch.zeros([nb_typeblocks * nb_blocklengths])
 
     # build transition matrix
@@ -66,12 +66,15 @@ def optimal_Bayesian(act, side):
                 alpha[i_trial] = torch.sum(torch.unsqueeze(h, -1) * transition, axis=0) * to_update[i_trial - 1] \
                                  + alpha[i_trial - 1] * (1 - to_update[i_trial - 1])
             else:
+                alpha = alpha.reshape(-1, nb_blocklengths, nb_typeblocks)
                 alpha[i_trial, 0, 0] = 0.5
                 alpha[i_trial, 0, -1] = 0.5
+                alpha = alpha.reshape(-1, nb_blocklengths * nb_typeblocks)
             h = alpha[i_trial] * lks[i_trial].repeat(nb_blocklengths)
             h = h / torch.unsqueeze(torch.sum(h, axis=-1), -1)
         else:
-            alpha[i_trial, 0, 1] = 1
+            if i_trial > 0:
+                alpha[i_trial, :] = alpha[i_trial - 1, :]
 
     predictive = torch.sum(alpha.reshape(-1, nb_blocklengths, nb_typeblocks), 1)
     Pis = predictive[:, 0] * gamma + predictive[:, 1] * 0.5 + predictive[:, 2] * (1 - gamma)
