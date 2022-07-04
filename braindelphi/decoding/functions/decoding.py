@@ -106,6 +106,10 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
     eids_train = ([metadata['eid']] if 'eids_train' not in metadata.keys()
                    else metadata['eids_train'])
 
+    if kwargs['model'] == optimal_Bayesian and np.any(trials_df.probabilityLeft.values[:90] != 0.5):
+        raise ValueError('The optimal Bayesian model assumes 90 unbiased trials at the beginning of the session,'
+                         'which is not the case here.')
+
     if 'eids_train' not in metadata.keys():
         metadata['eids_train'] = eids_train
     else:
