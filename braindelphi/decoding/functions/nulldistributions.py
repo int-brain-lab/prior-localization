@@ -104,6 +104,7 @@ def generate_imposter_session(imposterdf,
                               eid,
                               nbtrials,
                               nbSampledSess=10,
+                              stitching_for_imposter_session=True,
                               pLeftChange_when_stitch=True):
     """
 
@@ -131,10 +132,17 @@ def generate_imposter_session(imposterdf,
     temp_trick.append(-1)
     template_sess_eid = temp_trick[0]
 
-    imposter_eids = np.random.choice(
-        imposterdf[imposterdf.template_sess != template_sess_eid].eid.unique(),
-        size=nbSampledSess,
-        replace=False)
+    if stitching_for_imposter_session:
+        imposter_eids = np.random.choice(
+            imposterdf[imposterdf.template_sess != template_sess_eid].eid.unique(),
+            size=nbSampledSess,
+            replace=False)
+    else:
+        imposterdf['sess_size'] = imposterdf['template_sess'].map(imposterdf['template_sess'].value_counts().to_dict())
+        imposter_eids = np.random.choice(
+            imposterdf[(imposterdf.template_sess != template_sess_eid) * (imposterdf['sess_size'] >= nbtrials)].eid.unique(),
+            size=1,
+            replace=False)
     sub_imposterdf = imposterdf[imposterdf.eid.isin(imposter_eids)].reset_index(drop=True)
     sub_imposterdf['row_id'] = sub_imposterdf.index
     sub_imposterdf['sorted_eids'] = sub_imposterdf.apply(
@@ -142,17 +150,19 @@ def generate_imposter_session(imposterdf,
         axis=1)
     identical_comp = np.argmax(sub_imposterdf.eid.values[None] == imposter_eids[:, None],
                                axis=0) * sub_imposterdf.index.size + sub_imposterdf.row_id
+
     if np.any(identical_comp.values != sub_imposterdf['sorted_eids'].values):
         raise ValueError('There is certainly a bug in the code. Sorry!')
 
     if np.any(sub_imposterdf['sorted_eids'].unique() != sub_imposterdf['sorted_eids']):
         raise ValueError('There is most probably a bug in the function')
+
     sub_imposterdf = sub_imposterdf.sort_values(by=['sorted_eids'])
     # seems to work better when starting the imposter session as the actual session, with an unbiased block
     sub_imposterdf = sub_imposterdf[(sub_imposterdf.probabilityLeft != 0.5) |
                                     (sub_imposterdf.eid == imposter_eids[0])].reset_index(
                                         drop=True)
-    if pLeftChange_when_stitch:
+    if pLeftChange_when_stitch and stitching_for_imposter_session:
         valid_imposter_eids, current_last_pLeft = [], 0
         for i, imposter_eid in enumerate(imposter_eids):
             #  get first pLeft

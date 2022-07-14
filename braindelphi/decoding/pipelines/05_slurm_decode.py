@@ -10,7 +10,7 @@ import pickle
 try:
     index = int(sys.argv[1]) - 1
 except:
-    index = 18
+    index = 32
     pass
 
 # import most recent cached data
