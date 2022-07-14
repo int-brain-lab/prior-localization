@@ -93,6 +93,9 @@ def compute_mask(trials_df, align_time, time_window, min_len, max_len, no_unbias
     # get rid of trials where animal does not respond
     mask = mask & (trials_df.choice != 0)
 
+    if kwargs['nb_trials_takeout_end'] > 0:
+        mask[-int(kwargs['nb_trials_takeout_end']):] = False
+
     return mask
 
 

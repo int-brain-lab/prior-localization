@@ -26,7 +26,7 @@ if TARGET not in ['pLeft', 'signcont', 'choice', 'feedback']:
     raise ValueError('TARGET can only be pLeft, signcont, choice or feedback')
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
 # if MODEL is a path, this will be the interindividual results
-MODEL = expSmoothing_prevAction  # 'population_level_Nmice101_NmodelsClasses7_processed.pkl' #expSmoothing_stimside, expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
+MODEL = optimal_Bayesian   # 'population_level_Nmice101_NmodelsClasses7_processed.pkl' #expSmoothing_stimside, expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
 BEH_MOUSELEVEL_TRAINING = False  # if True, trains the behavioral model session-wise else mouse-wise
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
@@ -37,10 +37,11 @@ N_PSEUDO_PER_JOB = 1
 N_JOBS_PER_SESSION = N_PSEUDO // N_PSEUDO_PER_JOB
 N_RUNS = 10
 MIN_UNITS = 10
+NB_TRIALS_TAKEOUT_END = 50
 MIN_BEHAV_TRIAS = 200 if NEURAL_DTYPE == 'ephys' else 200  # default BWM setting is 400. 200 must remain after filtering
 MIN_RT = 0.08  # 0.08  # Float (s) or None
-SINGLE_REGION = True  # perform decoding on region-wise or whole brain analysis
-MERGED_PROBES = False  # merge probes before performing analysis
+SINGLE_REGION = False  # perform decoding on region-wise or whole brain analysis
+MERGED_PROBES = True  # merge probes before performing analysis
 NO_UNBIAS = True  # take out unbiased trials
 SHUFFLE = True  # interleaved cross validation
 BORDER_QUANTILES_NEUROMETRIC = [.3, .7]  # [.3, .4, .5, .6, .7]
@@ -60,7 +61,7 @@ USE_IMPOSTER_SESSION_FOR_BALANCING = False  # if false, it simulates the model (
 SIMULATE_NEURAL_DATA = False
 QUASI_RANDOM = False  # if TRUE, decoding is launched in a quasi-random, reproducible way => it sets the seed
 
-BALANCED_WEIGHT = True  # seems to work better with BALANCED_WEIGHT=False, but putting True is important
+BALANCED_WEIGHT = False  # seems to work better with BALANCED_WEIGHT=False, but putting True is important
 BALANCED_CONTINUOUS_TARGET = True  # is target continuous or discrete FOR BALANCED WEIGHTING
 USE_OPENTURNS = False  # uses openturns to perform kernel density estimation
 BIN_SIZE_KDE = 0.05  # size of the kde bin
@@ -77,9 +78,9 @@ ADD_TO_SAVING_PATH = (
        BEH_MOUSELEVEL_TRAINING, SIMULATE_NEURAL_DATA, CONSTRAIN_NULL_SESSION_WITH_BEH))
 
 # WIDE FIELD IMAGING
-WFI_HEMISPHERES = ['left']  # 'left' and/or 'right'
+WFI_HEMISPHERES = ['left', 'right']  # 'left' and/or 'right'
 WFI_NB_FRAMES_START = -2  # left signed number of frames from ALIGN_TIME (frame included)
-WFI_NB_FRAMES_END = -1 # right signed number of frames from ALIGN_TIME (frame included). If 0, the align time frame is included
+WFI_NB_FRAMES_END = -2 # right signed number of frames from ALIGN_TIME (frame included). If 0, the align time frame is included
 
 if NEURAL_DTYPE == 'widefield' and WFI_NB_FRAMES_START > WFI_NB_FRAMES_END:
     raise ValueError('there is a problem in the specification of the timing of the widefield')
@@ -235,4 +236,5 @@ kwargs = {
     'wfi_nb_frames_start': WFI_NB_FRAMES_START,
     'wfi_nb_frames_end': WFI_NB_FRAMES_END,
     'quasi_random': QUASI_RANDOM,
+    'nb_trials_takeout_end': NB_TRIALS_TAKEOUT_END,
 }
