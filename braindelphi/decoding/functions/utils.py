@@ -31,7 +31,7 @@ def load_metadata(neural_dtype_path_regex, date=None):
     return pickle.load(open(neural_dtype_paths[path_id], 'rb')), neural_dtype_dates[path_id].strftime("%m-%d-%Y_%H:%M:%S")
 
 
-def compute_mask(trials_df, align_time, time_window, min_len, max_len, no_unbias, min_rt, **kwargs):
+def compute_mask(trials_df, align_time, time_window, min_len, max_len, no_unbias, min_rt, max_rt, **kwargs):
     """Create a mask that denotes "good" trials which will be used for further analysis.
 
     Parameters
@@ -78,6 +78,8 @@ def compute_mask(trials_df, align_time, time_window, min_len, max_len, no_unbias
     # keep trials with reasonable reaction times
     if min_rt is not None:
         mask = mask & (~(trials_df.react_times < min_rt)).values
+    if max_rt is not None:
+        mask = mask & (~(trials_df.react_times > max_rt)).values
 
     if 'goCue_times' in trials_df.columns and max_len is not None and min_len is not None:
         # get rid of trials that are too short or too long

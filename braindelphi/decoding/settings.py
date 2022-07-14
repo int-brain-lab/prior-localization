@@ -40,6 +40,7 @@ MIN_UNITS = 10
 NB_TRIALS_TAKEOUT_END = 50
 MIN_BEHAV_TRIAS = 200 if NEURAL_DTYPE == 'ephys' else 200  # default BWM setting is 400. 200 must remain after filtering
 MIN_RT = 0.08  # 0.08  # Float (s) or None
+MAX_RT = 1
 SINGLE_REGION = False  # perform decoding on region-wise or whole brain analysis
 MERGED_PROBES = True  # merge probes before performing analysis
 NO_UNBIAS = True  # take out unbiased trials
@@ -213,6 +214,7 @@ kwargs = {
     'align_time': ALIGN_TIME,
     'no_unbias': NO_UNBIAS,
     'min_rt': MIN_RT,
+    'max_rt': MAX_RT,
     'min_behav_trials': MIN_BEHAV_TRIAS,
     'qc_criteria': QC_CRITERIA,
     'min_units': MIN_UNITS,
