@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 SAVE_KFOLDS = False
 
-date = '21-06-2022'
+date = '04-07-2022'
 finished = glob.glob(str(FIT_PATH.joinpath(kwargs['neural_dtype'], "*", "*", "*", "*%s*" % date)))
 
 indexers = ['subject', 'eid', 'probe', 'region']
