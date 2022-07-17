@@ -61,15 +61,15 @@ def optimal_Bayesian(act, side):
 
     for i_trial in range(act.shape[-1]):
         # save priors
-        if i_trial >= 90:
-            if i_trial > 90:
+        if i_trial >= 0:
+            if i_trial > 0:
                 alpha[i_trial] = torch.sum(torch.unsqueeze(h, -1) * transition, axis=0) * to_update[i_trial - 1] \
                                  + alpha[i_trial - 1] * (1 - to_update[i_trial - 1])
-            else:
-                alpha = alpha.reshape(-1, nb_blocklengths, nb_typeblocks)
-                alpha[i_trial, 0, 0] = 0.5
-                alpha[i_trial, 0, -1] = 0.5
-                alpha = alpha.reshape(-1, nb_blocklengths * nb_typeblocks)
+            #else:
+            #    alpha = alpha.reshape(-1, nb_blocklengths, nb_typeblocks)
+            #    alpha[i_trial, 0, 0] = 0.5
+            #    alpha[i_trial, 0, -1] = 0.5
+            #    alpha = alpha.reshape(-1, nb_blocklengths * nb_typeblocks)
             h = alpha[i_trial] * lks[i_trial].repeat(nb_blocklengths)
             h = h / torch.unsqueeze(torch.sum(h, axis=-1), -1)
         else:
