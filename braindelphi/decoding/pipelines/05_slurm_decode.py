@@ -10,7 +10,7 @@ import pickle
 try:
     index = int(sys.argv[1]) - 1
 except:
-    index = 10
+    index = 32
     pass
 
 # import most recent cached data
@@ -20,7 +20,6 @@ if kwargs['use_imposter_session']:
     kwargs['imposterdf'] = pd.read_parquet(IMPOSTER_SESSION_PATH.joinpath('imposterSessions_beforeRecordings.pqt'))
 else:
     kwargs['imposterdf'] = None
-
 
 pid_id = index % bwmdf['dataset_filenames'].index.size
 job_id = index // bwmdf['dataset_filenames'].index.size
@@ -34,7 +33,7 @@ if kwargs['neural_dtype'] == 'widefield':
 else:
     trials_df, neural_dict = regressors['trials_df'], regressors
 
-#metadata['probe_name'] = 'probe00'
+# metadata['probe_name'] = 'probe00'
 if (job_id + 1) * N_PSEUDO_PER_JOB <= N_PSEUDO:
     print(f"pid_id: {pid_id}")
     pseudo_ids = np.arange(job_id * N_PSEUDO_PER_JOB, (job_id + 1) * N_PSEUDO_PER_JOB) + 1

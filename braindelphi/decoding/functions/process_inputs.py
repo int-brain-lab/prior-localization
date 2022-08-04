@@ -173,14 +173,29 @@ def select_ephys_regions(regressors, beryl_reg, region, **kwargs):
     return reg_clu_ids
 
 
+def get_bery_reg_wfi(neural_dict, **kwargs):
+    uniq_regions = np.unique(neural_dict['regions'])
+    if 'left' in kwargs['wfi_hemispheres'] and 'right' in kwargs['wfi_hemispheres']:
+        return neural_dict['atlas'].acronym[np.array([k in np.abs(uniq_regions)
+                                                      for k in neural_dict['atlas'].label])]
+    elif 'left' in kwargs['wfi_hemispheres']:
+        return neural_dict['atlas'].acronym[np.array([k in np.abs(uniq_regions[uniq_regions > 0])
+                                                      for k in neural_dict['atlas'].label])]
+    elif 'right' in kwargs['wfi_hemispheres']:
+        return neural_dict['atlas'].acronym[np.array([k in np.abs(uniq_regions[uniq_regions < 0])
+                                                      for k in neural_dict['atlas'].label])]
+    else:
+        raise ValueError('there is a problem in the wfi_hemispheres argument')
+
+
 def select_widefield_imaging_regions(neural_dict, region, **kwargs):
     """Select pixels based on brain region."""
     region_labels = []
     reg_lab = neural_dict['atlas'][neural_dict['atlas'].acronym.isin(region).values].label.values.squeeze()
     if 'left' in kwargs['wfi_hemispheres']:
-        region_labels.append(reg_lab)
+        region_labels.extend(reg_lab)
     if 'right' in kwargs['wfi_hemispheres']:
-        region_labels.append(-reg_lab)
+        region_labels.extend(-reg_lab)
 
     reg_mask = np.isin(neural_dict['regions'], region_labels)
     return reg_mask

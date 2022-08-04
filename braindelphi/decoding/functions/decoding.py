@@ -14,6 +14,7 @@ from ibllib.atlas import BrainRegions
 from braindelphi.decoding.functions.balancedweightings import balanced_weighting
 from braindelphi.decoding.functions.process_inputs import build_predictor_matrix
 from braindelphi.decoding.functions.process_inputs import select_ephys_regions
+from braindelphi.decoding.functions.process_inputs import get_bery_reg_wfi
 from braindelphi.decoding.functions.process_inputs import select_widefield_imaging_regions
 from braindelphi.decoding.functions.process_inputs import preprocess_ephys
 from braindelphi.decoding.functions.process_inputs import preprocess_widefield_imaging
@@ -95,6 +96,9 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
     print(f'Working on eid : %s' % metadata['eid'])
     filenames = []  # this will contain paths to saved decoding results for this eid
 
+    if kwargs['use_imposter_session'] and not kwargs['stitching_for_imposter_session']:
+        trials_df = trials_df[:int(kwargs['max_number_trials_when_no_stitching_for_imposter_session'])]
+
     if 0 in pseudo_ids:
         raise ValueError(
             'pseudo id can be -1 (actual session) or strictly greater than 0 (pseudo session)')
@@ -105,6 +109,10 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
     # check if is trained
     eids_train = ([metadata['eid']] if 'eids_train' not in metadata.keys()
                    else metadata['eids_train'])
+
+    if kwargs['model'] == optimal_Bayesian and np.any(trials_df.probabilityLeft.values[:90] != 0.5):
+        raise ValueError('The optimal Bayesian model assumes 90 unbiased trials at the beginning of the session,'
+                         'which is not the case here.')
 
     if 'eids_train' not in metadata.keys():
         metadata['eids_train'] = eids_train
@@ -162,8 +170,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
     brainreg = BrainRegions()
     beryl_reg = (
         brainreg.acronym2acronym(neural_dict['clu_regions'], mapping='Beryl') if kwargs['neural_dtype'] == 'ephys'
-        else neural_dict['atlas'].acronym[np.array([k in np.unique(neural_dict['regions'])
-                                                    for k in neural_dict['atlas'].label])]
+        else get_bery_reg_wfi(neural_dict, **kwargs)
     )
 
     regions = (
