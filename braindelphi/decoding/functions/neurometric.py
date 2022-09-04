@@ -1,13 +1,6 @@
-import os
-import pickle
 import numpy as np
 import pandas as pd
 import brainbox.behavior.pyschofit as pfit
-import brainbox.io.one as bbone
-from pathlib import Path
-from one.api import ONE
-from tqdm import tqdm
-from scipy.stats import zscore, percentileofscore
 
 '''
 trialsdf_neurometric = nb_trialsdf.reset_index() if (pseudo_id == -1) else \
@@ -22,8 +15,7 @@ if kwargs['model'] is not None:
         binarization_value=kwargs['binarization_value'],
         modeltype=kwargs['model'],
         beh_data_test=trialsdf if pseudo_id == -1 else pseudosess,
-        behavior_data_train=behavior_data_train,
-        one=one)
+        behavior_data_train=behavior_data_train,)
 
     trialsdf_neurometric['blockprob_neurometric'] = np.stack([
         np.greater_equal(
@@ -38,7 +30,7 @@ else:
     trialsdf_neurometric['blockprob_neurometric'] = blockprob_neurometric
 '''
 
-def get_target_df(target, pred, test_idxs, trialsdf, one):
+def get_target_df(target, pred, test_idxs, trialsdf):
     """
     Get two arrays needed for the psychofit method for fitting an erf.
     Parameters
@@ -155,75 +147,7 @@ def fit_get_shift_range(prob_arrs,
                                    'quantile_%i_range' % k: mediums['range']}}
     return params
 
-def fit_file(file, overwrite=False):
-    one = ONE()
-    filedata = np.load(file, allow_pickle=True)
-    parentfolder = file.parent
-    outparts = list(file.name.partition('.'))
-    outparts.insert(1, '_neurometric_fits')
-    outfn = parentfolder.joinpath(''.join(outparts))
-    if not overwrite:
-        if os.path.exists(outfn):
-            cached_results = np.load(outfn, allow_pickle=True)
-            return cached_results['fileresults']
-    target = filedata['fit']['target']
-    pred = filedata['fit']['prediction']
-    test_idxs = filedata['fit']['idxes_test']
-    trialsdf = bbone.load_trials_df(filedata['eid'], one=one)
-    fileresults = {x: filedata[x] for x in filedata if x in ['subject', 'eid', 'probe', 'region']}
-
-    lowprob_arr, highprob_arr = get_target_df(target, pred, test_idxs, trialsdf, one)
-    params, low_slope, high_slope, shift = fit_get_shift_range(lowprob_arr, highprob_arr)
-    fileresults['low_pLeft_slope'] = low_slope
-    fileresults['high_pLeft_slope'] = high_slope
-    fileresults['shift'] = shift
-    fileresults['low_bias'] = params['low_pars'][0]
-    fileresults['high_bias'] = params['high_pars'][0]
-    fileresults['low_gamma1'] = params['low_pars'][2]
-    fileresults['high_gamma1'] = params['high_pars'][2]
-    fileresults['low_gamma2'] = params['low_pars'][3]
-    fileresults['high_gamma2'] = params['high_pars'][3]
-    fileresults['low_L'] = params['low_likelihood']
-    fileresults['high_L'] = params['high_likelihood']
-    fileresults['low_range'] = params['low_fit_trace'][-1] - params['low_fit_trace'][0]
-    fileresults['high_range'] = params['high_fit_trace'][-1] - params['high_fit_trace'][0]
-    fileresults['mean_range'] = np.mean([fileresults['low_range'], fileresults['high_range']])
-
-    input_arrs = {'lowprob_arr': lowprob_arr, 'highprob_arr': highprob_arr}
-    fit_pars = params
-    null_pars = []
-    for i in tqdm(range(len(filedata['pseudosessions'])), 'Pseudo num:', leave=False):
-        keystr = f'run{i}_'
-        fit = filedata['pseudosessions'][i]
-        target = fit['target']
-        pred = fit['prediction']
-        test_idxs = fit['idxes_test']
-        lowprob_arr, highprob_arr = get_target_df(target, pred, test_idxs, trialsdf, one)
-        try:
-            params, low_slope, high_slope, shift = fit_get_shift_range(lowprob_arr, highprob_arr)
-            null_pars.append(params)
-        except IndexError:
-            fileresults[keystr + 'high_slope'] = np.nan
-            fileresults[keystr + 'low_slope'] = np.nan
-            fileresults[keystr + 'range'] = np.nan
-            fileresults[keystr + 'shift'] = np.nan
-            null_pars.append(np.nan)
-            continue
-        fileresults[keystr + 'low_slope'] = low_slope
-        fileresults[keystr + 'high_slope'] = high_slope
-        ltrace = params['low_fit_trace']
-        htrace = params['high_fit_trace']
-        fileresults[keystr + 'range'] = np.mean([ltrace[-1] - ltrace[0],
-                                                 htrace[-1] - htrace[0]])
-        fileresults[keystr + 'shift'] = shift
-    outdict = {'fileresults': fileresults, 'fit_params': fit_pars, 'input_arrs': input_arrs,
-               'null_pars': null_pars}
-    fw = open(outfn, 'wb')
-    pickle.dump(outdict, fw)
-    fw.close()
-    return fileresults
-
-def get_neurometric_parameters(fit_result, trialsdf, one, compute_on_each_fold, force_positive_neuro_slopes):
+def get_neurometric_parameters(fit_result, trialsdf, compute_on_each_fold, force_positive_neuro_slopes):
     # fold-wise neurometric curve
     if compute_on_each_fold:
         raise NotImplementedError('Sorry, this is not up to date to perform computation on each folds. Ask Charles F.')
@@ -232,7 +156,7 @@ def get_neurometric_parameters(fit_result, trialsdf, one, compute_on_each_fold, 
             prob_arrays = [get_target_df(fit_result['target'],
                                          fit_result['predictions'][k],
                                          fit_result['idxes_test'][k],
-                                         trialsdf, one)
+                                         trialsdf)
                            for k in range(fit_result['nFolds'])]
 
             fold_neurometric = [fit_get_shift_range(prob_arrays[k][0], prob_arrays[k][1], force_positive_neuro_slopes)
@@ -248,121 +172,7 @@ def get_neurometric_parameters(fit_result, trialsdf, one, compute_on_each_fold, 
         full_test_prediction[fit_result['idxes_test'][k]] = fit_result['predictions_test'][k]
 
     prob_arrs = get_target_df(fit_result['target'], full_test_prediction,
-                              np.arange(len(fit_result['target'])), trialsdf, one)
+                              np.arange(len(fit_result['target'])), trialsdf)
     full_neurometric = fit_get_shift_range(prob_arrs, force_positive_neuro_slopes)
 
     return full_neurometric, fold_neurometric
-
-
-if __name__ == "__main__":
-    from dask.distributed import Client
-    from dask_jobqueue import SLURMCluster
-
-    fitpath = Path('/home/gercek/scratch/results/decoding/')
-    fitdate = '2021-11-08'
-    meta_f = fitdate + \
-             '_decode_signcont_task_Lasso_align_stimOn_times_2_pseudosessions.metadata.pkl'
-    fit_metadata = pd.read_pickle(meta_f)
-
-    filenames = []
-    ignorestrs = ['void', 'root', 'neurometric']
-    for path in fitpath.rglob(f'{fitdate}*.pkl'):
-        pathstr = str(path)
-        if not any(pathstr.find(x) > -1 for x in ignorestrs):
-            filenames.append(path)
-
-    N_CORES = 1
-    cluster = SLURMCluster(cores=N_CORES, memory='8GB', processes=1, queue="shared-cpu",
-                           walltime="00:45:00", log_directory='/home/gercek/dask-worker-logs',
-                           interface='ib0',
-                           extra=["--lifetime", "45m"],
-                           job_cpu=N_CORES, env_extra=[f'export OMP_NUM_THREADS={N_CORES}',
-                                                       f'export MKL_NUM_THREADS={N_CORES}',
-                                                       f'export OPENBLAS_NUM_THREADS={N_CORES}'])
-    cluster.adapt(minimum_jobs=0, maximum_jobs=500)
-    client = Client(cluster)
-
-    fitresults = []
-    for file in tqdm(filenames, 'Region rec:'):
-        fitresults.append(client.submit(fit_file, file, pure=False, overwrite=True))
-
-    columnorder = [*[f'run{i}_shift' for i in range(200)],
-                   *[f'run{i}_low_slope' for i in range(200)],
-                   *[f'run{i}_high_slope' for i in range(200)],
-                   *[f'run{i}_range' for i in range(200)]]
-
-    resultsdf = pd.DataFrame([x.result() for x in fitresults if x.status == 'finished'])
-    resultsdf = resultsdf.set_index(['eid', 'probe', 'region'])
-    resultsdf = resultsdf.reindex(columns=['subject',
-                                           'low_pLeft_slope',
-                                           'high_pLeft_slope',
-                                           'shift',
-                                           'low_bias',
-                                           'high_bias'
-                                           'low_range',
-                                           'high_range',
-                                           'mean_range',
-                                           'low_gamma1',
-                                           'high_gamma1',
-                                           'low_gamma2',
-                                           'high_gamma2',
-                                           'low_L',
-                                           'high_L',
-                                           *columnorder])
-
-    def compute_perc(row, target):
-        mapper = {'high_pLeft_slope': 'high_slope',
-                  'low_pLeft_slope': 'low_slope',
-                  'shift': 'shift'}
-        base = row[target]
-        null = row['run0_' + mapper[target]:'run199_' + mapper[target]]
-        return percentileofscore(null, base)
-
-    def compute_zsc(row, target):
-        mapper = {'high_pLeft_slope': 'high_slope',
-                  'low_pLeft_slope': 'low_slope',
-                  'shift': 'shift'}
-        base = row.loc[target]
-        null = row.loc['run0_' + mapper[target]:'run199_' + mapper[target]]
-        return zscore(np.append(null.astype(float).values, base))[-1]
-
-    targets = ['high_pLeft_slope', 'low_pLeft_slope', 'shift']
-    for target in targets:
-        for name, metric in {'perc': compute_perc, 'zsc': compute_zsc}.items():
-            colname = f'{target}_{name}'
-            resultsdf[colname] = resultsdf.apply(metric, target=target, axis=1)
-
-    resultsdf['mean_shift_null'] = resultsdf.apply(lambda x:
-                                                   np.mean(x.loc['run0_shift':'run199_shift']),
-                                                   axis=1)
-    resultsdf['mean_slope'] = resultsdf.apply(lambda x:
-                                              np.mean([x.low_pLeft_slope, x.high_pLeft_slope]),
-                                              axis=1)
-    resultsdf['mean_slope_null'] = resultsdf.apply(
-        lambda x: np.mean(
-            np.vstack([x.loc['run0_high_slope':'run199_high_slope'].astype(float).values,
-                       x.loc['run0_low_slope':'run199_low_slope'].astype(float).values])),
-        axis=1)
-
-    grpbyagg = resultsdf.groupby('region').agg({'mean_range': 'mean', 'shift': 'mean',
-                                                'shift_zsc': 'mean', 'shift_perc': 'mean',
-                                                'run0_range': 'mean',
-                                                'run0_shift': 'mean'})
-    slopedf = grpbyagg['mean_range'].to_frame()
-    slopedf['pseudo'] = False
-    slopedf = slopedf.set_index('pseudo', append=True)
-    null_slopedf = grpbyagg['run0_range'].to_frame()
-    null_slopedf = null_slopedf.rename(columns={'run0_range': 'mean_range'})
-    null_slopedf['pseudo'] = True
-    null_slopedf = null_slopedf.set_index('pseudo', append=True)
-    full_slopes = slopedf.append(null_slopedf)
-
-    shiftdf = grpbyagg['shift'].to_frame()
-    shiftdf['pseudo'] = False
-    shiftdf = shiftdf.set_index('pseudo', append=True)
-    null_shiftdf = grpbyagg['run0_shift'].to_frame()
-    null_shiftdf = null_shiftdf.rename(columns={'run0_shift': 'shift'})
-    null_shiftdf['pseudo'] = True
-    null_shiftdf = null_shiftdf.set_index('pseudo', append=True)
-    full_shifts = shiftdf.append(null_shiftdf)
-    slope_shift_arr = full_slopes.join(full_shifts)

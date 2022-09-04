@@ -191,7 +191,7 @@ def get_bery_reg_wfi(neural_dict, **kwargs):
 def select_widefield_imaging_regions(neural_dict, region, **kwargs):
     """Select pixels based on brain region."""
     region_labels = []
-    reg_lab = neural_dict['atlas'][neural_dict['atlas'].acronym.isin(region).values].label.values.squeeze()
+    reg_lab = neural_dict['atlas'][neural_dict['atlas'].acronym.isin(region).values].label.values
     if 'left' in kwargs['wfi_hemispheres']:
         region_labels.extend(reg_lab)
     if 'right' in kwargs['wfi_hemispheres']:

@@ -116,7 +116,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
 
     if 'eids_train' not in metadata.keys():
         metadata['eids_train'] = eids_train
-    else:
+    elif metadata['eids_train'] != eids_train:
         raise ValueError(f'eids_train are not supported yet. If you do not understand this error, '
                          f'just take out the eids_train key in the metadata to solve it')
 

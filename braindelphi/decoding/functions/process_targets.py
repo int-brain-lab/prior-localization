@@ -135,12 +135,15 @@ def compute_beh_target(trials_df, metadata, remove_old=False, **kwargs):
     else:
         istrained, fullpath = False, ''
 
-    if kwargs['target'] == 'signcont':
+    if kwargs['target'] in ['signcont', 'strengthcont']:
         if 'signedContrast' in trials_df.keys():
             out = trials_df['signedContrast']
         else:
             out = np.nan_to_num(trials_df.contrastLeft) - np.nan_to_num(trials_df.contrastRight)
-        return out
+        if kwargs['target'] == 'signcont':
+            return out
+        else:
+            return np.abs(out)
     if kwargs['target'] == 'choice':
         return trials_df.choice.values
     if kwargs['target'] == 'feedback':
