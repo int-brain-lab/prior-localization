@@ -137,7 +137,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
     else:
         kwargs['model_parameters'] = None
         # train model if not trained already
-        if  kwargs['model'] != optimal_Bayesian:
+        if kwargs['model'] != optimal_Bayesian and kwargs['model'] is not None:
             side, stim, act, _ = format_data_mut(trials_df)
             stimuli, actions, stim_side = format_input_mut([stim], [act], [side])
             behmodel = kwargs['model'](kwargs['behfit_path'], np.array(metadata['eids_train']), metadata['subject'],
@@ -150,7 +150,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
     target_distribution = get_balanced_weighting(trials_df, metadata, **kwargs)
 
     # TODO: stim, choice, feedback, etc
-    if kwargs['target'] in ['pLeft', 'signcont', 'choice', 'feedback']:
+    if kwargs['target'] in ['pLeft', 'signcont', 'strengthcont', 'choice', 'feedback']:
         target_vals_list = compute_beh_target(trials_df, metadata, **kwargs)
         mask_target = np.ones(len(target_vals_list), dtype=bool)
     else:
