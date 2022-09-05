@@ -158,9 +158,10 @@ def preprocess_widefield_imaging(neural_dict, reg_mask, **kwargs):
         np.arange(kwargs['wfi_nb_frames_start'], kwargs['wfi_nb_frames_end'] + 1),
         axis=1,
     )
-    binned = np.take(neural_dict['activity'][:, reg_mask],
+    binned = np.take(neural_dict['activity'], # [:, reg_mask]
                      frames_idx,
                      axis=0)
+    binned = binned[:, :, reg_mask]
     binned = list(binned.reshape(binned.shape[0], -1)[:, None])
     return binned
 
