@@ -28,6 +28,8 @@ from braindelphi.decoding.functions.nulldistributions import generate_null_distr
 from braindelphi.decoding.functions.process_targets import check_bhv_fit_exists
 from braindelphi.decoding.functions.process_targets import optimal_Bayesian
 
+from braindelphi.decoding.functions.process_motors import preprocess_motors
+
 
 def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **kwargs):
     """High-level function to decode a given target variable from brain regions for a single eid.
@@ -108,17 +110,17 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
 
     # check if is trained
     eids_train = ([metadata['eid']] if 'eids_train' not in metadata.keys()
-                   else metadata['eids_train'])
+                    else metadata['eids_train'])
 
     if kwargs['model'] == optimal_Bayesian and np.any(trials_df.probabilityLeft.values[:90] != 0.5):
         raise ValueError('The optimal Bayesian model assumes 90 unbiased trials at the beginning of the session,'
-                         'which is not the case here.')
+                            'which is not the case here.')
 
     if 'eids_train' not in metadata.keys():
         metadata['eids_train'] = eids_train
     else:
         raise ValueError(f'eids_train are not supported yet. If you do not understand this error, '
-                         f'just take out the eids_train key in the metadata to solve it')
+                            f'just take out the eids_train key in the metadata to solve it')
 
     if isinstance(kwargs['model'], str):
         import pickle
@@ -141,7 +143,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
             side, stim, act, _ = format_data_mut(trials_df)
             stimuli, actions, stim_side = format_input_mut([stim], [act], [side])
             behmodel = kwargs['model'](kwargs['behfit_path'], np.array(metadata['eids_train']), metadata['subject'],
-                                       actions, stimuli, stim_side)
+                                        actions, stimuli, stim_side)
             istrained, _ = check_bhv_fit_exists(metadata['subject'], kwargs['model'], metadata['eids_train'],
                                                 kwargs['behfit_path'], modeldispatcher=kwargs['modeldispatcher'])
             if not istrained:
@@ -201,6 +203,20 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
 
         if kwargs['simulate_neural_data']:
             raise NotImplementedError
+
+
+        ##### motor signal regressors #####
+        
+        if kwargs['motor_regressors'] :
+            print('motor regressors')
+            motor_binned = preprocess_motors(metadata['eid'],kwargs) # size (nb_trials,nb_motor_regressors) => one bin per trial
+            
+            if kwargs['motor_regressors_only']:
+                msub_binned = motor_binned
+            else :
+                msub_binned = np.concatenate([msub_binned,motor_binned],axis=2)
+
+        ##################################
 
         # make design matrix
         bins_per_trial = msub_binned[0].shape[0]

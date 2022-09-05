@@ -164,3 +164,6 @@ ipython_config.py
 
 # pyenv
 .python-version
+
+# felix debugging
+braindelphi/decoding/investigation/

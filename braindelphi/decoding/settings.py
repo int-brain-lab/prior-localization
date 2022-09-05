@@ -14,14 +14,14 @@ BEHAVIOR_MOD_PATH.mkdir(parents=True, exist_ok=True)
 logger = logging.getLogger('ibllib')
 logger.disabled = True
 
-NEURAL_DTYPE = 'ephys'  # 'ephys' or 'widefield'
-DATE = '17-06-2022'  # date
+NEURAL_DTYPE = 'widefield'  # 'ephys' or 'widefield'
+DATE = '26-08-2022' 
 
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
 SESS_CRITERION = 'resolved-behavior'  # aligned and behavior
 ALIGN_TIME = 'stimOn_times'
-TARGET = 'pLeft'  # 'signcont' or 'pLeft'
+TARGET = 'signcont'  # 'signcont' or 'pLeft'
 if TARGET not in ['pLeft', 'signcont', 'choice', 'feedback']:
     raise ValueError('TARGET can only be pLeft, signcont, choice or feedback')
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
@@ -33,7 +33,7 @@ ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 BINARIZATION_VALUE = None  # to binarize the target -> could be useful with logistic regression estimator
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 20000, 'fit_intercept': True}
 N_PSEUDO = 200
-N_PSEUDO_PER_JOB = 1
+N_PSEUDO_PER_JOB = 10
 N_JOBS_PER_SESSION = N_PSEUDO // N_PSEUDO_PER_JOB
 N_RUNS = 10
 MIN_UNITS = 10
@@ -41,14 +41,14 @@ NB_TRIALS_TAKEOUT_END = 50
 MIN_BEHAV_TRIAS = 200 if NEURAL_DTYPE == 'ephys' else 200  # default BWM setting is 400. 200 must remain after filtering
 MIN_RT = 0.08  # 0.08  # Float (s) or None
 MAX_RT = None
-SINGLE_REGION = False  # perform decoding on region-wise or whole brain analysis
+SINGLE_REGION = True  # perform decoding on region-wise or whole brain analysis
 MERGED_PROBES = True  # merge probes before performing analysis
 NO_UNBIAS = True  # take out unbiased trials
 SHUFFLE = True  # interleaved cross validation
 BORDER_QUANTILES_NEUROMETRIC = [.3, .7]  # [.3, .4, .5, .6, .7]
 COMPUTE_NEUROMETRIC = False
 FORCE_POSITIVE_NEURO_SLOPES = False
-SAVE_PREDICTIONS = False
+SAVE_PREDICTIONS = True
 
 # Basically, quality metric on the stability of a single unit. Should have 1 metric per neuron
 QC_CRITERIA = 3 / 3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
@@ -80,8 +80,8 @@ ADD_TO_SAVING_PATH = (
 
 # WIDE FIELD IMAGING
 WFI_HEMISPHERES = ['left', 'right']  # 'left' and/or 'right'
-WFI_NB_FRAMES_START = -2  # left signed number of frames from ALIGN_TIME (frame included)
-WFI_NB_FRAMES_END = -2 # right signed number of frames from ALIGN_TIME (frame included). If 0, the align time frame is included
+WFI_NB_FRAMES_START = -5  # left signed number of frames from ALIGN_TIME (frame included)
+WFI_NB_FRAMES_END = -1 # right signed number of frames from ALIGN_TIME (frame included). If 0, the align time frame is included
 
 if NEURAL_DTYPE == 'widefield' and WFI_NB_FRAMES_START > WFI_NB_FRAMES_END:
     raise ValueError('there is a problem in the specification of the timing of the widefield')
@@ -89,6 +89,13 @@ if NEURAL_DTYPE == 'widefield' and WFI_NB_FRAMES_START > WFI_NB_FRAMES_END:
 # WHEEL VELOCITY
 MIN_LEN = None  # min length of trial
 MAX_LEN = None  # max length of trial
+
+# DEEPLABCUT MOVEMENT REGRESSORS
+MOTOR_REGRESSORS = False
+MOTOR_REGRESSORS_ONLY = False # only _use motor regressors
+
+# DO WE WANT TO DECODE THE PREVIOUS CONTRAST ? (FOR DEBUGGING)
+DECODE_PREV_CONTRAST = True
 
 # session to be excluded (by Olivier Winter)
 excludes = [
@@ -184,6 +191,9 @@ fit_metadata = {
     'wfi_nb_frames_start': WFI_NB_FRAMES_START,
     'wfi_nb_frames_end': WFI_NB_FRAMES_END,
     'quasi_random': QUASI_RANDOM,
+    'motor_regressors':MOTOR_REGRESSORS,
+    'motor_regressors_only':MOTOR_REGRESSORS_ONLY,
+    'decode_prev_contrast':DECODE_PREV_CONTRAST
 }
 
 if NEURAL_DTYPE == 'widefield':
@@ -239,4 +249,8 @@ kwargs = {
     'wfi_nb_frames_end': WFI_NB_FRAMES_END,
     'quasi_random': QUASI_RANDOM,
     'nb_trials_takeout_end': NB_TRIALS_TAKEOUT_END,
+
+    'motor_regressors':MOTOR_REGRESSORS,
+    'motor_regressors_only':MOTOR_REGRESSORS_ONLY,
+    'decode_prev_contrast':DECODE_PREV_CONTRAST
 }
