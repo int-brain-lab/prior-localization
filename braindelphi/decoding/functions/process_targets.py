@@ -11,8 +11,6 @@ from behavior_models.models.utils import build_path as build_path_mut
 from braindelphi.pipelines.utils_common_pipelines import load_behavior
 from braindelphi.decoding.functions.utils import compute_mask
 
-possible_targets = ['choice', 'feedback', 'signcont', 'pLeft']
-
 
 def optimal_Bayesian(act, side):
     '''
@@ -114,8 +112,6 @@ def compute_beh_target(trials_df, metadata, remove_old=False, **kwargs):
     pandas.Series
         Pandas series in which index is trial number, and value is the target
     """
-    if kwargs['target'] not in possible_targets:
-        raise ValueError('target should be in {}'.format(possible_targets))
 
     '''
     load/fit a behavioral model to compute target on a single session
@@ -135,12 +131,15 @@ def compute_beh_target(trials_df, metadata, remove_old=False, **kwargs):
     else:
         istrained, fullpath = False, ''
 
-    if kwargs['target'] == 'signcont':
+    if kwargs['target'] in ['signcont', 'strengthcont']:
         if 'signedContrast' in trials_df.keys():
-            out = trials_df['signedContrast']
+            out = trials_df['signedContrast'].values
         else:
             out = np.nan_to_num(trials_df.contrastLeft) - np.nan_to_num(trials_df.contrastRight)
-        return out
+        if kwargs['target'] == 'signcont':
+            return out
+        else:
+            return np.abs(out)
     if kwargs['target'] == 'choice':
         return trials_df.choice.values
     if kwargs['target'] == 'feedback':

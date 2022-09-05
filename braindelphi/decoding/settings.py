@@ -15,18 +15,18 @@ logger = logging.getLogger('ibllib')
 logger.disabled = True
 
 NEURAL_DTYPE = 'widefield'  # 'ephys' or 'widefield'
-DATE = '26-08-2022' 
+DATE = '04-09-2022'  # date
 
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
 SESS_CRITERION = 'resolved-behavior'  # aligned and behavior
 ALIGN_TIME = 'stimOn_times'
-TARGET = 'signcont'  # 'signcont' or 'pLeft'
-if TARGET not in ['pLeft', 'signcont', 'choice', 'feedback']:
-    raise ValueError('TARGET can only be pLeft, signcont, choice or feedback')
+TARGET = 'strengthcont'  # 'signcont' or 'pLeft'
+if TARGET not in ['pLeft', 'signcont', 'strengthcont', 'choice', 'feedback']:
+    raise ValueError('TARGET can only be pLeft, signcont, strengthcont, choice or feedback')
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
 # if MODEL is a path, this will be the interindividual results
-MODEL = optimal_Bayesian   # 'population_level_Nmice101_NmodelsClasses7_processed.pkl' #expSmoothing_stimside, expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
+MODEL = None  # 'population_level_Nmice101_NmodelsClasses7_processed.pkl' #expSmoothing_stimside, expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
 BEH_MOUSELEVEL_TRAINING = False  # if True, trains the behavioral model session-wise else mouse-wise
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
@@ -38,14 +38,14 @@ N_JOBS_PER_SESSION = N_PSEUDO // N_PSEUDO_PER_JOB
 N_RUNS = 10
 MIN_UNITS = 10
 NB_TRIALS_TAKEOUT_END = 50
-MIN_BEHAV_TRIAS = 200 if NEURAL_DTYPE == 'ephys' else 200  # default BWM setting is 400. 200 must remain after filtering
+MIN_BEHAV_TRIAS = 150 if NEURAL_DTYPE == 'ephys' else 150  # default BWM setting is 400. 200 must remain after filtering
 MIN_RT = 0.08  # 0.08  # Float (s) or None
 MAX_RT = None
 SINGLE_REGION = True  # perform decoding on region-wise or whole brain analysis
 MERGED_PROBES = True  # merge probes before performing analysis
 NO_UNBIAS = True  # take out unbiased trials
 SHUFFLE = True  # interleaved cross validation
-BORDER_QUANTILES_NEUROMETRIC = [.3, .7]  # [.3, .4, .5, .6, .7]
+BORDER_QUANTILES_NEUROMETRIC = [] # [.3, .7]  # [.3, .4, .5, .6, .7]
 COMPUTE_NEUROMETRIC = False
 FORCE_POSITIVE_NEURO_SLOPES = False
 SAVE_PREDICTIONS = True
@@ -57,6 +57,10 @@ NORMALIZE_OUTPUT = False  # take out mean of output to predict
 if NORMALIZE_INPUT or NORMALIZE_OUTPUT:
     warnings.warn('This feature has not been tested')
 USE_IMPOSTER_SESSION = False  # if false, it uses pseudosessions and simulates the model when action are necessary
+STITCHING_FOR_IMPORTER_SESSION = False  # if true, stitches sessions to create importers
+MAX_NUMBER_TRIALS_WHEN_NO_STITCHING_FOR_IMPORTER_SESSION = 700  # this is a constraint on the number of trials of a session
+# to insure that there will be at least 1000 unstitched imposter sessions. IMPORTANT, with this number, you can not
+# generate more than 1000 control imposter sessions
 CONSTRAIN_NULL_SESSION_WITH_BEH = False  # add behavioral constraints
 USE_IMPOSTER_SESSION_FOR_BALANCING = False  # if false, it simulates the model (should be False)
 SIMULATE_NEURAL_DATA = False
@@ -80,7 +84,7 @@ ADD_TO_SAVING_PATH = (
 
 # WIDE FIELD IMAGING
 WFI_HEMISPHERES = ['left', 'right']  # 'left' and/or 'right'
-WFI_NB_FRAMES_START = -5  # left signed number of frames from ALIGN_TIME (frame included)
+WFI_NB_FRAMES_START = -2  # left signed number of frames from ALIGN_TIME (frame included)
 WFI_NB_FRAMES_END = -1 # right signed number of frames from ALIGN_TIME (frame included). If 0, the align time frame is included
 
 if NEURAL_DTYPE == 'widefield' and WFI_NB_FRAMES_START > WFI_NB_FRAMES_END:
@@ -249,6 +253,8 @@ kwargs = {
     'wfi_nb_frames_end': WFI_NB_FRAMES_END,
     'quasi_random': QUASI_RANDOM,
     'nb_trials_takeout_end': NB_TRIALS_TAKEOUT_END,
+    'stitching_for_imposter_session': STITCHING_FOR_IMPORTER_SESSION,
+    'max_number_trials_when_no_stitching_for_imposter_session': MAX_NUMBER_TRIALS_WHEN_NO_STITCHING_FOR_IMPORTER_SESSION,
 
     'motor_regressors':MOTOR_REGRESSORS,
     'motor_regressors_only':MOTOR_REGRESSORS_ONLY,
