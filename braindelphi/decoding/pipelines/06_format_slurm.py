@@ -43,13 +43,17 @@ for fn in tqdm(finished):
                        'run_id': i_run + 1,
                        'mask': ''.join([str(item) for item in list(result['fit'][i_run]['mask'].values * 1)]),
                        'R2_test': result['fit'][i_run]['Rsquared_test_full'],
-                       'prediction': list(result["fit"][i_run]['predictions_test']),
-                       'target': list(result["fit"][i_run]["target"]),
+                       # 'prediction': list(result["fit"][i_run]['predictions_test']),
+                       # 'target': list(result["fit"][i_run]["target"]),
                        # 'perf_allcontrast': perf_allcontrasts,
                        # 'perf_allcontrasts_prevtrial': perf_allcontrasts_prevtrial,
                        # 'perf_0contrast': perf_0contrasts,
                        # 'nb_trials_act_is_0': nb_trials_act_is_0,
                        }
+            if 'predictions_test' in result['fit'][i_run].keys():
+                tmpdict = {**tmpdict,
+                           'prediction': result['fit'][i_run]['predictions_test'],
+                           'target': result['fit'][i_run]['target']}
             if 'acc_test_full' in result['fit'][i_run].keys():
                 tmpdict = {**tmpdict, 'acc_test': result['fit'][i_run]['acc_test_full'],
                            'balanced_acc_test': result['fit'][i_run]['balanced_acc_test_full']}
