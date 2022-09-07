@@ -10,8 +10,9 @@ from tqdm import tqdm
 
 SAVE_KFOLDS = False
 
-date = '04-07-2022'
+date = '25-08-2022'
 finished = glob.glob(str(FIT_PATH.joinpath(kwargs['neural_dtype'], "*", "*", "*", "*%s*" % date)))
+print('nb files:',len(finished))
 
 indexers = ['subject', 'eid', 'probe', 'region']
 indexers_neurometric = ['low_slope', 'high_slope', 'low_range', 'high_range', 'shift', 'mean_range', 'mean_slope']
