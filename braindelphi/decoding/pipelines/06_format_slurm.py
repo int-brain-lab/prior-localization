@@ -51,6 +51,10 @@ for fn in tqdm(finished):
                        # 'perf_0contrast': perf_0contrasts,
                        # 'nb_trials_act_is_0': nb_trials_act_is_0,
                        }
+            if 'predictions_test' in result['fit'][i_run].keys():
+                tmpdict = {**tmpdict,
+                           'prediction': result['fit'][i_run]['predictions_test'],
+                           'target': result['fit'][i_run]['target']}
             if 'acc_test_full' in result['fit'][i_run].keys():
                 tmpdict = {**tmpdict, 'acc_test': result['fit'][i_run]['acc_test_full'],
                            'balanced_acc_test': result['fit'][i_run]['balanced_acc_test_full']}
