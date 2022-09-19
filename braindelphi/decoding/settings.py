@@ -57,6 +57,7 @@ NORMALIZE_OUTPUT = False  # take out mean of output to predict
 if NORMALIZE_INPUT or NORMALIZE_OUTPUT:
     warnings.warn('This feature has not been tested')
 USE_IMPOSTER_SESSION = False  # if false, it uses pseudosessions and simulates the model when action are necessary
+FILTER_PSEUDOSESSIONS_ON_MUTUALINFORMATION = True
 STITCHING_FOR_IMPORTER_SESSION = False  # if true, stitches sessions to create importers
 MAX_NUMBER_TRIALS_WHEN_NO_STITCHING_FOR_IMPORTER_SESSION = 700  # this is a constraint on the number of trials of a session
 # to insure that there will be at least 1000 unstitched imposter sessions. IMPORTANT, with this number, you can not
@@ -98,8 +99,8 @@ MAX_LEN = None  # max length of trial
 MOTOR_REGRESSORS = False
 MOTOR_REGRESSORS_ONLY = False # only _use motor regressors
 
-# DO WE WANT TO DECODE THE PREVIOUS CONTRAST ? (FOR DEBUGGING)
-DECODE_PREV_CONTRAST = True
+# DO WE WANT TO DECODE THE PREVIOUS CONTRAST ? (FOR DEBUGGING THE FACT THAT WE CAN PREDICT THE NEXT ABS CONTRAST)
+DECODE_PREV_CONTRAST = False
 
 # session to be excluded (by Olivier Winter)
 excludes = [
@@ -255,7 +256,7 @@ kwargs = {
     'nb_trials_takeout_end': NB_TRIALS_TAKEOUT_END,
     'stitching_for_imposter_session': STITCHING_FOR_IMPORTER_SESSION,
     'max_number_trials_when_no_stitching_for_imposter_session': MAX_NUMBER_TRIALS_WHEN_NO_STITCHING_FOR_IMPORTER_SESSION,
-
+    'filter_pseudosessions_on_mutualInformation': FILTER_PSEUDOSESSIONS_ON_MUTUALINFORMATION,
     'motor_regressors':MOTOR_REGRESSORS,
     'motor_regressors_only':MOTOR_REGRESSORS_ONLY,
     'decode_prev_contrast':DECODE_PREV_CONTRAST
