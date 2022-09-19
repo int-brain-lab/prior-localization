@@ -8,9 +8,9 @@ from braindelphi.params import FIT_PATH
 from braindelphi.decoding.settings import modeldispatcher
 from tqdm import tqdm
 
-SAVE_KFOLDS = False
+SAVE_KFOLDS = True
 
-date = '25-08-2022'
+date = '16-09-2022'
 finished = glob.glob(str(FIT_PATH.joinpath(kwargs['neural_dtype'], "*", "*", "*", "*%s*" % date)))
 print('nb files:',len(finished))
 
@@ -44,20 +44,20 @@ for fn in tqdm(finished):
                        'run_id': i_run + 1,
                        'mask': ''.join([str(item) for item in list(result['fit'][i_run]['mask'].values * 1)]),
                        'R2_test': result['fit'][i_run]['Rsquared_test_full'],
-                       # 'prediction': list(result["fit"][i_run]['predictions_test']),
-                       # 'target': list(result["fit"][i_run]["target"]),
+                       'prediction': list(result["fit"][i_run]['predictions_test']),
+                       'target': list(result["fit"][i_run]["target"]),
                        # 'perf_allcontrast': perf_allcontrasts,
                        # 'perf_allcontrasts_prevtrial': perf_allcontrasts_prevtrial,
                        # 'perf_0contrast': perf_0contrasts,
                        # 'nb_trials_act_is_0': nb_trials_act_is_0,
                        }
-            if 'predictions_test' in result['fit'][i_run].keys():
-                tmpdict = {**tmpdict,
-                           'prediction': result['fit'][i_run]['predictions_test'],
-                           'target': result['fit'][i_run]['target']}
-            if 'acc_test_full' in result['fit'][i_run].keys():
-                tmpdict = {**tmpdict, 'acc_test': result['fit'][i_run]['acc_test_full'],
-                           'balanced_acc_test': result['fit'][i_run]['balanced_acc_test_full']}
+#            if 'predictions_test' in result['fit'][i_run].keys():
+#                tmpdict = {**tmpdict,
+#                           'prediction': result['fit'][i_run]['predictions_test'],
+#                           'target': result['fit'][i_run]['target']}
+#            if 'acc_test_full' in result['fit'][i_run].keys():
+#                tmpdict = {**tmpdict, 'acc_test': result['fit'][i_run]['acc_test_full'],
+#                           'balanced_acc_test': result['fit'][i_run]['balanced_acc_test_full']}
             if result['fit'][i_run]['full_neurometric'] is not None:
                 tmpdict = {**tmpdict,
                            **{idx_neuro: result['fit'][i_run]['full_neurometric'][idx_neuro]
@@ -65,13 +65,13 @@ for fn in tqdm(finished):
             resultslist.append(tmpdict)
 
             if SAVE_KFOLDS:
-                for kfold in range(result['fit'][i_run]['nFolds']):
+                for kfold in range(result['fit'][i_run]['n_folds']):
                     tmpdict = {**{x: result[x] for x in indexers},
                                'fold': kfold,
                                'pseudo_id': result['pseudo_id'],
                                'N_units': result['N_units'],
                                'run_id': i_run + 1,
-                               'R2_test': result['fit'][i_run]['Rsquareds_test'][kfold],
+                               'R2_test': result['fit'][i_run]['scores_test'][kfold],
                                'Best_regulCoef': result['fit'][i_run]['best_params'][kfold],
                                }
                     if result['fit'][i_run]['fold_neurometric'] is not None:
@@ -79,7 +79,7 @@ for fn in tqdm(finished):
                                    **{idx_neuro: result['fit'][i_run]['fold_neurometric'][kfold][idx_neuro]
                                       for idx_neuro in indexers_neurometric}}
                     resultslist.append(tmpdict)
-    except EOFError:
+    except:
         failed_load += 1
         pass
 print('loading of %i files failed' % failed_load)
