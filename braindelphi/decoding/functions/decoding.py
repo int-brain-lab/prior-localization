@@ -28,9 +28,6 @@ from braindelphi.decoding.functions.nulldistributions import generate_null_distr
 from braindelphi.decoding.functions.process_targets import check_bhv_fit_exists
 from braindelphi.decoding.functions.process_targets import optimal_Bayesian
 
-from braindelphi.decoding.functions.process_motors import preprocess_motors
-
-
 def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **kwargs):
     """High-level function to decode a given target variable from brain regions for a single eid.
 
@@ -209,6 +206,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
         
         if kwargs['motor_regressors'] :
             print('motor regressors')
+            from braindelphi.decoding.functions.process_motors import preprocess_motors
             motor_binned = preprocess_motors(metadata['eid'],kwargs) # size (nb_trials,nb_motor_regressors) => one bin per trial
             
             if kwargs['motor_regressors_only']:
@@ -264,7 +262,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                 fit_result = decode_cv(
                     ys=([target_vals_list[m] for m in np.squeeze(np.where(mask))] if pseudo_id == -1
                         else [controltarget_vals_list[m] for m in np.squeeze(np.where(mask))]),
-                    Xs=[Xs[m] for m in np.squeeze(np.where(mask))],
+                    Xs=[Xs[m] for m in np.squeeze(np.where(mask))],                    
                     estimator=kwargs['estimator'],
                     use_openturns=kwargs['use_openturns'],
                     target_distribution=target_distribution,
