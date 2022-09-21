@@ -7,7 +7,6 @@ from braindelphi.params import IMPOSTER_SESSION_PATH
 from one.api import ONE
 from brainwidemap import bwm_query, load_good_units
 from brainbox.io.one import SessionLoader
-from braindelphi.params import CACHE_PATH
 
 T_BEF = 0.6
 T_AFT = 0.6
@@ -21,8 +20,7 @@ except:
     pass
 
 # Load the list of probe insertions and select probe (not sure about this, why not just index directly)
-one = ONE(mode='local', cache_dir=CACHE_PATH, base_url='https://alyx.internationalbrainlab.org')
-# one = ONE()
+one = ONE()
 bwm_df = bwm_query(one)
 
 pid_idx = index % bwm_df.index.size
