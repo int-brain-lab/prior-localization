@@ -27,6 +27,7 @@ from braindelphi.decoding.functions.balancedweightings import get_balanced_weigh
 from braindelphi.decoding.functions.nulldistributions import generate_null_distribution_session
 from braindelphi.decoding.functions.process_targets import check_bhv_fit_exists
 from braindelphi.decoding.functions.process_targets import optimal_Bayesian
+from braindelphi.decoding.functions.neurometric import get_neurometric_parameters
 
 def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **kwargs):
     """High-level function to decode a given target variable from brain regions for a single eid.
@@ -285,14 +286,12 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
 
                 # compute neurometric curves
                 if kwargs['compute_neurometric']:
-                    raise NotImplementedError
-                    # fit_result['full_neurometric'], fit_result['fold_neurometric'] = \
-                    #     get_neurometric_parameters(
-                    #         fit_result,
-                    #         trials_df=trials_df_neurometric,
-                    #         one=one,
-                    #         compute_on_each_fold=kwargs['compute_on_each_fold'],
-                    #         force_positive_neuro_slopes=kwargs['compute_on_each_fold'])
+                    fit_result['full_neurometric'], fit_result['fold_neurometric'] = \
+                         get_neurometric_parameters(
+                             fit_result,
+                             trials_df=(trials_df[mask] if pseudo_id==-1 else controlsess_df[mask]),
+                             compute_on_each_fold=kwargs['compute_on_each_fold'],
+                             force_positive_neuro_slopes=kwargs['compute_on_each_fold'])
                 else:
                     fit_result['full_neurometric'] = None
                     fit_result['fold_neurometric'] = None
