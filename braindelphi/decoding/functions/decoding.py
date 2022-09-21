@@ -141,9 +141,9 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
             side, stim, act, _ = format_data_mut(trials_df)
             stimuli, actions, stim_side = format_input_mut([stim], [act], [side])
             behmodel = kwargs['model'](kwargs['behfit_path'], np.array(metadata['eids_train']), metadata['subject'],
-                                        actions, stimuli, stim_side)
+                                        actions, stimuli, stim_side, single_zeta=True)
             istrained, _ = check_bhv_fit_exists(metadata['subject'], kwargs['model'], metadata['eids_train'],
-                                                kwargs['behfit_path'], modeldispatcher=kwargs['modeldispatcher'])
+                                                kwargs['behfit_path'], modeldispatcher=kwargs['modeldispatcher'], single_zeta=True)
             if not istrained:
                 behmodel.load_or_train(remove_old=False)
 

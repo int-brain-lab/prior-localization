@@ -21,12 +21,12 @@ DATE = '14-09-2022'  # date 12 prev, 13 next, 14 prev
 # resolved -> histology was performed by 2-3 experiments
 SESS_CRITERION = 'resolved-behavior'  # aligned and behavior
 ALIGN_TIME = 'stimOn_times'
-TARGET = 'pLeft'  # 'signcont' or 'pLeft'
+TARGET = 'feedback'  # 'signcont' or 'pLeft'
 if TARGET not in ['pLeft', 'signcont', 'strengthcont', 'choice', 'feedback']:
     raise ValueError('TARGET can only be pLeft, signcont, strengthcont, choice or feedback')
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
 # if MODEL is a path, this will be the interindividual results
-MODEL = optimal_Bayesian  # 'population_level_Nmice101_NmodelsClasses7_processed.pkl' #expSmoothing_stimside, expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
+MODEL = expSmoothing_prevAction  # 'population_level_Nmice101_NmodelsClasses7_processed.pkl' #expSmoothing_stimside, expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
 BEH_MOUSELEVEL_TRAINING = False  # if True, trains the behavioral model session-wise else mouse-wise
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
 ESTIMATOR = sklm.Ridge  # Must be in keys of strlut above
@@ -45,7 +45,7 @@ SINGLE_REGION = False  # perform decoding on region-wise or whole brain analysis
 MERGED_PROBES = True  # merge probes before performing analysis
 NO_UNBIAS = False  # take out unbiased trials
 SHUFFLE = True  # interleaved cross validation
-BORDER_QUANTILES_NEUROMETRIC = [] # [.3, .7]  # [.3, .4, .5, .6, .7]
+BORDER_QUANTILES_NEUROMETRIC = [.3, .7]  # [.3, .4, .5, .6, .7]
 COMPUTE_NEUROMETRIC = False
 FORCE_POSITIVE_NEURO_SLOPES = False
 SAVE_PREDICTIONS = True
@@ -125,6 +125,9 @@ strlut = {sklm.Lasso: "Lasso",
           sklm.RidgeCV: "RidgeCV",
           sklm.LinearRegression: "PureLinear",
           sklm.LogisticRegression: "Logistic"}
+
+if TARGET in ['choice', 'feedback'] and (MODEL != expSmoothing_prevAction or USE_IMPOSTER_SESSION):
+    raise ValueError('if you want to decode choice or feedback, you must use the actionKernel model and frankenstein sessions')
 
 if USE_IMPOSTER_SESSION and COMPUTE_NEUROMETRIC:
     raise ValueError('you can not use imposter sessions if you want to to compute the neurometric')

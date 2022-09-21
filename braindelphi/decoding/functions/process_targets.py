@@ -127,7 +127,7 @@ def compute_beh_target(trials_df, metadata, remove_old=False, **kwargs):
     if kwargs['model_parameters'] is None:
         istrained, fullpath = check_bhv_fit_exists(
             metadata['subject'], kwargs['model'], metadata['eids_train'], kwargs['behfit_path'],
-            modeldispatcher=kwargs['modeldispatcher'])
+            modeldispatcher=kwargs['modeldispatcher'], single_zeta=True)
     else:
         istrained, fullpath = False, ''
 
@@ -163,7 +163,7 @@ def compute_beh_target(trials_df, metadata, remove_old=False, **kwargs):
             datadict['actions'].append(act)
         stimuli, actions, stim_side = format_input_mut(datadict['stimuli'], datadict['actions'], datadict['stim_side'])
         model = kwargs['model'](kwargs['behfit_path'], np.array(metadata['eids_train']), metadata['subject'],
-                                actions, stimuli, stim_side)
+                                actions, stimuli, stim_side, single_zeta=True)
         model.load_or_train(remove_old=remove_old)
     elif (kwargs['target'] != 'signcont') and (kwargs['model'] is not None):
         model = kwargs['model'](kwargs['behfit_path'],
@@ -171,7 +171,7 @@ def compute_beh_target(trials_df, metadata, remove_old=False, **kwargs):
                                 metadata['subject'],
                                 actions=None,
                                 stimuli=None,
-                                stim_side=None)
+                                stim_side=None, single_zeta=True)
         if kwargs['model_parameters'] is None:
             model.load_or_train(loadpath=str(fullpath))
 
@@ -377,7 +377,7 @@ def get_target_variable_in_df(one, eid, target, align_time, time_window, binsize
         return trials_df[mask]
 
 
-def check_bhv_fit_exists(subject, model, eids, resultpath, modeldispatcher):
+def check_bhv_fit_exists(subject, model, eids, resultpath, modeldispatcher, single_zeta):
     '''
     subject: subject_name
     eids: sessions on which the model was fitted
@@ -386,7 +386,7 @@ def check_bhv_fit_exists(subject, model, eids, resultpath, modeldispatcher):
     '''
     if model not in modeldispatcher.keys():
         raise KeyError('Model is not an instance of a model from behavior_models')
-    path_results_mouse = 'model_%s_' % modeldispatcher[model]
+    path_results_mouse = 'model_%s_' % modeldispatcher[model] + 'single_zeta_' * single_zeta
     trunc_eids = [eid.split('-')[0] for eid in eids]
     filen = build_path_mut(path_results_mouse, trunc_eids)
     subjmodpath = Path(resultpath).joinpath(Path(subject))
