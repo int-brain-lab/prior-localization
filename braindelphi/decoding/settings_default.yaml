@@ -115,8 +115,9 @@ criterion: aligned-behavior
 # minimum number of behavioral trials completed by subject
 min_behav_trials: 300
 
-# remove trials with reaction times below this value (seconds)
+# remove trials with reaction times below/above these values (seconds)
 min_rt: 0.08
+max_rt: null
 
 # min length of trials (seconds) (can be null)
 min_len: 1.0
@@ -127,17 +128,23 @@ max_len: 5.0
 # true to take out unbiased block at beginning of session
 no_unbias: false
 
+# number of trials to remove from the end of the session (why?)
+nb_trials_takeout_end: 0
+
 
 # NULL DISTRIBUTION PARAMS
 # --------------------------------------------------
 # false will use pseudo-sessions to create null distributions
-use_imposter_session: true
+use_imposter_session: false
 
 # true to just use ephys sessions, false to use training sessions (more templates)
 imposter_generate_from_ephys: true
 
 # TODO
 constrain_imposter_session_with_beh: false
+
+# TODO
+stitching_for_imposter_session: false
 
 # if false, simulate the model (should be false)
 use_imposter_session_for_balancing: false
@@ -169,6 +176,9 @@ binarization_value: null
 
 # TODO
 compute_on_each_fold: true
+
+# control random seeds while fitting
+quasi_random: true
 
 
 # NEUROMETRIC PARAMS
