@@ -56,6 +56,7 @@ def generate_null_distribution_session(trials_df, metadata, **kwargs):
             }
             pseudosess['choice'] = generate_choices(pseudosess, trials_df, subjModel, kwargs['modeldispatcher'],
                                                     kwargs['constrain_null_session_with_beh'], kwargs['model_parameters'])
+            pseudosess['feedbackType'] = np.where(pseudosess['choice'] == pseudosess['stim_side'], 1, -1)
         else:
             pseudosess['choice'] = trials_df.choice
     return pseudosess
@@ -67,7 +68,7 @@ def generate_choices(pseudosess, trials_df, subjModel, modeldispatcher, constrai
         istrained, fullpath = check_bhv_fit_exists(subjModel['subject'], subjModel['modeltype'],
                                                    subjModel['eids_train'],
                                                    subjModel['behfit_path'].as_posix() + '/',
-                                                   modeldispatcher)
+                                                   modeldispatcher, single_zeta=True)
     else:
         istrained, fullpath = True, ''
 
@@ -78,7 +79,8 @@ def generate_choices(pseudosess, trials_df, subjModel, modeldispatcher, constrai
                                    subjModel['subject'],
                                    actions=None,
                                    stimuli=None,
-                                   stim_side=None)
+                                   stim_side=None,
+                                   single_zeta=True)
 
     if model_parameters is None:
         model.load_or_train(loadpath=str(fullpath))

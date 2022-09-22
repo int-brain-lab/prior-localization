@@ -62,6 +62,7 @@ params = {
 dataset_futures = []
 
 one = ONE()
+one.alyx.clear_rest_cache()
 bwm_df = bwm_query(one, alignment_resolved=ALGN_RESOLVED).set_index(['subject', 'eid'])
 
 for eid in bwm_df.index.unique(level='eid'):
@@ -99,7 +100,7 @@ cluster = SLURMCluster(cores=N_CORES,
                        ])
 
 # cluster = LocalCluster()
-cluster.scale(20)
+cluster.scale(10)
 
 client = Client(cluster)
 

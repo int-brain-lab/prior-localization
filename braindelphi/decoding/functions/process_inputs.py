@@ -162,6 +162,8 @@ def preprocess_widefield_imaging(neural_dict, reg_mask, **kwargs):
                      frames_idx,
                      axis=0)
     binned = binned[:, :, reg_mask]
+    if kwargs['wfi_average_over_frames']:
+        binned = binned.mean(axis=1, keepdims=True)
     binned = list(binned.reshape(binned.shape[0], -1)[:, None])
     return binned
 
