@@ -43,6 +43,7 @@ kwargs = check_settings(settings)
 dataset_futures = []
 
 one = ONE()
+one.alyx.clear_rest_cache()
 alignment_resolved = True if kwargs['criterion'] == 'aligned-behavior' else False
 bwm_df = bwm_query(one, alignment_resolved=alignment_resolved).set_index(['subject', 'eid'])
 
