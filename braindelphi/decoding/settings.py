@@ -57,7 +57,7 @@ NORMALIZE_OUTPUT = False  # take out mean of output to predict
 if NORMALIZE_INPUT or NORMALIZE_OUTPUT:
     warnings.warn('This feature has not been tested')
 USE_IMPOSTER_SESSION = False  # if false, it uses pseudosessions and simulates the model when action are necessary
-FILTER_PSEUDOSESSIONS_ON_MUTUALINFORMATION = True
+FILTER_PSEUDOSESSIONS_ON_MUTUALINFORMATION = False
 STITCHING_FOR_IMPORTER_SESSION = False  # if true, stitches sessions to create importers
 MAX_NUMBER_TRIALS_WHEN_NO_STITCHING_FOR_IMPORTER_SESSION = 700  # this is a constraint on the number of trials of a session
 # to insure that there will be at least 1000 unstitched imposter sessions. IMPORTANT, with this number, you can not
