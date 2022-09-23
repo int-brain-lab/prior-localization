@@ -23,6 +23,35 @@ def brain_SwansonFlat_results(acronyms, values,
                   extend=None,
                   value_title='',
                   FILE_PATH='/home/bensonb/IntBrainLab/prior-localization/braindelphi/decoding_figures/'):
+    '''
+
+    Parameters
+    ----------
+    acronyms : TYPE
+        DESCRIPTION.
+    values : TYPE
+        DESCRIPTION.
+    filename : TYPE, optional
+        DESCRIPTION. The default is None.
+    cmap : TYPE, optional
+        DESCRIPTION. The default is 'viridis'.
+    clevels : TYPE, optional
+        DESCRIPTION. The default is [None, None].
+    ticks : tuple, (tick_list, tick_label_list)
+        DESCRIPTION. The default is None.
+    extend : TYPE, optional
+        DESCRIPTION. The default is None.
+    value_title : TYPE, optional
+        DESCRIPTION. The default is ''.
+    FILE_PATH : TYPE, optional
+        DESCRIPTION. The default is '/home/bensonb/IntBrainLab/prior-localization/braindelphi/decoding_figures/'.
+
+    Returns
+    -------
+    None.
+
+    '''
+    
     print(clevels)
     if clevels[0] is None:
         print('min')
@@ -59,6 +88,7 @@ def brain_SwansonFlat_results(acronyms, values,
     cb_ax.set_title(value_title)
     if not (ticks is None):
         cb_ax.set_yticklabels(ticks[1])
+        cb_ax.set_yticks(ticks[0])
     #cb_ax.set_visible(False)
     # cbar.set_ticks([0,.2,.4,.6,.8,1])
     # cb_ax.set_title(value_title)

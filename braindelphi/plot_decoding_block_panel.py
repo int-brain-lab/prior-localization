@@ -12,12 +12,11 @@ import os
 import matplotlib.pyplot as plt
 import scipy.stats
 import seaborn as sns
-from sklearn.metrics import r2_score
 
 
 
 #%% Block
-res_table = pd.read_csv('decoding_processing/10-09-2022_block.csv')
+res_table = pd.read_csv('decoding_processing/20-09-2022_block.csv')
 
 frac_sig_region = lambda reg: np.mean(np.array(res_table.loc[res_table['region']==reg,'p-value']<=0.05))
 uni_regs = np.unique(res_table['region'])
@@ -49,18 +48,21 @@ brain_SwansonFlat_results(uni_regs, ms_regs,
 
 n_reg = lambda reg: len(np.array(res_table.loc[res_table['region']==reg,'p-value']))
 n_regs = [n_reg(reg) for reg in uni_regs]
+assert not np.any(np.array(n_regs)==0)
+n_regs = np.log(n_regs)/np.log(2)
 
 brain_SwansonFlat_results(uni_regs, n_regs, 
                   filename='block_swanson_n', 
                   cmap='Purples',
                   clevels=[None, None],
-                  ticks=None,
+                  ticks=([0,1,2,3,4,5],[1,2,4,8,16,32]),
                   extend=None,
                   value_title='N Sessions')
 
 get_vals = lambda reg: np.array(res_table.loc[res_table['region']==reg,'score'])
 get_nulls = lambda reg: np.array(res_table.loc[res_table['region']==reg,'median-null'])
 
+# TODO assert that topN regions have at least 1 sig session, greatest median performance, and greater than median-null
 regions = np.unique(res_table['region'])
 values = np.array([get_vals(reg) for reg in regions])
 nulls = np.array([np.median(get_nulls(reg)) for reg in regions])
@@ -72,6 +74,8 @@ bar_results(regions,
             ylab='Bal. Acc.',
             TOP_N=15)
 
+
+#%% plot single session traces
 file = 'decoding_results/10-09-2022_decode_pLeft_oracle_Logistic_align_stimOn_times_100_pseudosessions_regionWise_timeWindow_-0_4_-0_1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_simulated_0_constrainNullSess_0.parquet'
 res = pd.read_parquet(file)
 

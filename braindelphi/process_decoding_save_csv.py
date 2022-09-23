@@ -10,7 +10,7 @@ import pandas as pd
 
 def create_pdtable_from_raw(res, 
                             score_name='balanced_acc_test',
-                            N_PSEUDO=90):
+                            N_PSEUDO=200):
     
     res_table = []
     
@@ -26,7 +26,9 @@ def create_pdtable_from_raw(res,
             if len(pids) == N_PSEUDO+1:
                 assert pids[0] == -1
                 assert np.all(pids[1:] == np.arange(1,N_PSEUDO+1))
-                score = np.mean(reseidreg.loc[reseidreg['pseudo_id']==-1,score_name])
+                real_scores = reseidreg.loc[reseidreg['pseudo_id']==-1,score_name]
+                assert len(real_scores) == 10 # 10 repeats of decoding to reduce variance
+                score = np.mean(real_scores)
             
                 p_scores = [np.mean(reseidreg.loc[reseidreg['pseudo_id']==pid,score_name]) for pid in pids[1:]]
                 median_null = np.median(p_scores)
@@ -41,8 +43,8 @@ def create_pdtable_from_raw(res,
                                                  'median-null'])
     return res_table
 
-DATE = '10-09-2022'
-file = 'decoding_results/10-09-2022_decode_pLeft_oracle_Logistic_align_stimOn_times_100_pseudosessions_regionWise_timeWindow_-0_4_-0_1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_simulated_0_constrainNullSess_0.parquet'
+DATE = '20-09-2022'
+file = 'decoding_results/20-09-2022_decode_pLeft_oracle_Logistic_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_-0_4_-0_1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_simulated_0_constrainNullSess_0.parquet'
 res = pd.read_parquet(file)
 res_table = create_pdtable_from_raw(res)
 res_table.to_csv(f'decoding_processing/{DATE}_block.csv')
