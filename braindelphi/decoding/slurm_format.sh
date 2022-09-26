@@ -3,13 +3,15 @@
 #SBATCH --output=logs/slurm/format_decoding.%A.%a.out
 #SBATCH --error=logs/slurm/format_decoding.%A.%a.err
 #SBATCH --partition=public-bigmem
-#SBATCH --array=1-1:1
+#SBATCH --array=1-11
 #SBATCH --mem=50000
 #SBATCH --time=50:00:00
 
 export PYTHONPATH="$PWD":$PYTHONPATH
 # calling script
 
+# extracting settings from $SLURM_ARRAY_TASK_ID
+echo index $SLURM_ARRAY_TASK_ID
+
 echo
-# change to conda  => which python
-python  pipelines/06_format_slurm.py
+python  pipelines/06_format_slurm.py $SLURM_ARRAY_TASK_ID

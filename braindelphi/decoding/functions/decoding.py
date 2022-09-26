@@ -28,6 +28,8 @@ from braindelphi.decoding.functions.nulldistributions import generate_null_distr
 from braindelphi.decoding.functions.process_targets import check_bhv_fit_exists
 from braindelphi.decoding.functions.process_targets import optimal_Bayesian
 
+from braindelphi.decoding.functions.utils import derivative
+
 def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **kwargs):
     """High-level function to decode a given target variable from brain regions for a single eid.
 
@@ -256,6 +258,14 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
 
             if kwargs['compute_neurometric']:  # compute prior for neurometric curve
                 raise NotImplementedError
+
+
+            ### derivative of target signal before mask application ###
+            if kwargs['decode_derivative']:
+                if pseudo_id == -1 :
+                    target_vals_list = derivative(target_vals_list)
+                else :
+                    controltarget_vals_list = derivative(controltarget_vals_list)
 
             # run decoders
             for i_run in range(kwargs['nb_runs']):

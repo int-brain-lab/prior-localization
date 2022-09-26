@@ -15,25 +15,25 @@ logger = logging.getLogger('ibllib')
 logger.disabled = True
 
 NEURAL_DTYPE = 'widefield'  # 'ephys' or 'widefield'
-DATE = '14-09-2022'  # date 12 prev, 13 next, 14 prev
+DATE = '40-09-2022'  # date 12 prev, 13 next, 14 prev,
 
 # aligned -> histology was performed by one experimenter 
 # resolved -> histology was performed by 2-3 experiments
 SESS_CRITERION = 'resolved-behavior'  # aligned and behavior
 ALIGN_TIME = 'stimOn_times'
-TARGET = 'strengthcont'  # 'signcont' or 'pLeft'
+TARGET = 'pLeft'  # 'signcont' or 'pLeft'
 if TARGET not in ['pLeft', 'signcont', 'strengthcont', 'choice', 'feedback']:
     raise ValueError('TARGET can only be pLeft, signcont, strengthcont, choice or feedback')
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
 # if MODEL is a path, this will be the interindividual results
-MODEL = None  # 'population_level_Nmice101_NmodelsClasses7_processed.pkl' #expSmoothing_stimside, expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
+MODEL = optimal_Bayesian  # 'population_level_Nmice101_NmodelsClasses7_processed.pkl' #expSmoothing_stimside, expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
 BEH_MOUSELEVEL_TRAINING = False  # if True, trains the behavioral model session-wise else mouse-wise
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
 ESTIMATOR = sklm.Ridge  # Must be in keys of strlut above
 BINARIZATION_VALUE = None  # to binarize the target -> could be useful with logistic regression estimator
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 20000, 'fit_intercept': True}
 N_PSEUDO = 200
-N_PSEUDO_PER_JOB = 8
+N_PSEUDO_PER_JOB = 10
 N_JOBS_PER_SESSION = N_PSEUDO // N_PSEUDO_PER_JOB
 N_RUNS = 10
 MIN_UNITS = 10
@@ -41,11 +41,11 @@ NB_TRIALS_TAKEOUT_END = 50
 MIN_BEHAV_TRIAS = 150 if NEURAL_DTYPE == 'ephys' else 150  # default BWM setting is 400. 200 must remain after filtering
 MIN_RT = 0.08  # 0.08  # Float (s) or None
 MAX_RT = None
-SINGLE_REGION = False  # perform decoding on region-wise or whole brain analysis
+SINGLE_REGION = True  # perform decoding on region-wise or whole brain analysis
 MERGED_PROBES = True  # merge probes before performing analysis
 NO_UNBIAS = True  # take out unbiased trials
 SHUFFLE = True  # interleaved cross validation
-BORDER_QUANTILES_NEUROMETRIC = [] # [.3, .7]  # [.3, .4, .5, .6, .7]
+BORDER_QUANTILES_NEUROMETRIC = [.3, .7]  # [.3, .4, .5, .6, .7]
 COMPUTE_NEUROMETRIC = False
 FORCE_POSITIVE_NEURO_SLOPES = False
 SAVE_PREDICTIONS = True
@@ -84,8 +84,8 @@ ADD_TO_SAVING_PATH = (
 
 # WIDE FIELD IMAGING
 WFI_HEMISPHERES = ['left', 'right']  # 'left' and/or 'right'
-WFI_NB_FRAMES_START = -5  # left signed number of frames from ALIGN_TIME (frame included)
-WFI_NB_FRAMES_END = -2 # right signed number of frames from ALIGN_TIME (frame included). If 0, the align time frame is included
+WFI_NB_FRAMES_START = 0  # left signed number of frames from ALIGN_TIME (frame included)
+WFI_NB_FRAMES_END = 0 # right signed number of frames from ALIGN_TIME (frame included). If 0, the align time frame is included
 
 if NEURAL_DTYPE == 'widefield' and WFI_NB_FRAMES_START > WFI_NB_FRAMES_END:
     raise ValueError('there is a problem in the specification of the timing of the widefield')
@@ -99,7 +99,11 @@ MOTOR_REGRESSORS = False
 MOTOR_REGRESSORS_ONLY = False # only _use motor regressors
 
 # DO WE WANT TO DECODE THE PREVIOUS CONTRAST ? (FOR DEBUGGING)
-DECODE_PREV_CONTRAST = True
+DECODE_PREV_CONTRAST = False
+
+# DO WE WANT TO DECODE THE DERIVATIVE OF THE TARGET SIGNAL ?
+DECODE_DERIVATIVE = True
+
 
 # session to be excluded (by Olivier Winter)
 excludes = [
@@ -197,7 +201,8 @@ fit_metadata = {
     'quasi_random': QUASI_RANDOM,
     'motor_regressors':MOTOR_REGRESSORS,
     'motor_regressors_only':MOTOR_REGRESSORS_ONLY,
-    'decode_prev_contrast':DECODE_PREV_CONTRAST
+    'decode_prev_contrast':DECODE_PREV_CONTRAST,
+    'decode_derivative':DECODE_DERIVATIVE
 }
 
 if NEURAL_DTYPE == 'widefield':
@@ -258,5 +263,6 @@ kwargs = {
 
     'motor_regressors':MOTOR_REGRESSORS,
     'motor_regressors_only':MOTOR_REGRESSORS_ONLY,
-    'decode_prev_contrast':DECODE_PREV_CONTRAST
+    'decode_prev_contrast':DECODE_PREV_CONTRAST,
+    'decode_derivative':DECODE_DERIVATIVE
 }
