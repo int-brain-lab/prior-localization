@@ -27,6 +27,7 @@ from braindelphi.decoding.functions.balancedweightings import get_balanced_weigh
 from braindelphi.decoding.functions.nulldistributions import generate_null_distribution_session
 from braindelphi.decoding.functions.process_targets import check_bhv_fit_exists
 from braindelphi.decoding.functions.process_targets import optimal_Bayesian
+from braindelphi.decoding.functions.neurometric import get_neurometric_parameters
 
 from braindelphi.decoding.functions.utils import derivative
 
@@ -142,9 +143,9 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
             side, stim, act, _ = format_data_mut(trials_df)
             stimuli, actions, stim_side = format_input_mut([stim], [act], [side])
             behmodel = kwargs['model'](kwargs['behfit_path'], np.array(metadata['eids_train']), metadata['subject'],
-                                        actions, stimuli, stim_side)
+                                        actions, stimuli, stim_side, single_zeta=True)
             istrained, _ = check_bhv_fit_exists(metadata['subject'], kwargs['model'], metadata['eids_train'],
-                                                kwargs['behfit_path'], modeldispatcher=kwargs['modeldispatcher'])
+                                                kwargs['behfit_path'], modeldispatcher=kwargs['modeldispatcher'], single_zeta=True)
             if not istrained:
                 behmodel.load_or_train(remove_old=False)
 
@@ -206,7 +207,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
 
         ##### motor signal regressors #####
         
-        if kwargs['motor_regressors'] :
+        if kwargs.get('motor_regressors', None):
             print('motor regressors')
             from braindelphi.decoding.functions.process_motors import preprocess_motors
             motor_binned = preprocess_motors(metadata['eid'],kwargs) # size (nb_trials,nb_motor_regressors) => one bin per trial
@@ -269,6 +270,15 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
 
             # run decoders
             for i_run in range(kwargs['nb_runs']):
+
+                if kwargs['quasi_random']:
+                    if pseudo_id == -1:
+                        rng_seed = i_run
+                    else:
+                        rng_seed = pseudo_id * kwargs['nb_runs'] + i_run
+                else:
+                    rng_seed = None
+
                 fit_result = decode_cv(
                     ys=([target_vals_list[m] for m in np.squeeze(np.where(mask))] if pseudo_id == -1
                         else [controltarget_vals_list[m] for m in np.squeeze(np.where(mask))]),
@@ -286,7 +296,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                     balanced_weight=kwargs['balanced_weight'],
                     normalize_input=kwargs['normalize_input'],
                     normalize_output=kwargs['normalize_output'],
-                    rng_seed=pseudo_id * kwargs['nb_runs'] + i_run if kwargs['quasi_random'] else None
+                    rng_seed=rng_seed,
                 )
                 fit_result['mask'] = mask
                 fit_result['df'] = trials_df if pseudo_id == -1 else controlsess_df
@@ -295,14 +305,12 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
 
                 # compute neurometric curves
                 if kwargs['compute_neurometric']:
-                    raise NotImplementedError
-                    # fit_result['full_neurometric'], fit_result['fold_neurometric'] = \
-                    #     get_neurometric_parameters(
-                    #         fit_result,
-                    #         trials_df=trials_df_neurometric,
-                    #         one=one,
-                    #         compute_on_each_fold=kwargs['compute_on_each_fold'],
-                    #         force_positive_neuro_slopes=kwargs['compute_on_each_fold'])
+                    fit_result['full_neurometric'], fit_result['fold_neurometric'] = \
+                         get_neurometric_parameters(
+                             fit_result,
+                             trials_df=(trials_df[mask] if pseudo_id==-1 else controlsess_df[mask]),
+                             compute_on_each_fold=kwargs['compute_on_each_fold'],
+                             force_positive_neuro_slopes=kwargs['compute_on_each_fold'])
                 else:
                     fit_result['full_neurometric'] = None
                     fit_result['fold_neurometric'] = None

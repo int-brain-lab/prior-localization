@@ -26,7 +26,7 @@ if TARGET not in ['pLeft', 'signcont', 'strengthcont', 'choice', 'feedback']:
     raise ValueError('TARGET can only be pLeft, signcont, strengthcont, choice or feedback')
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
 # if MODEL is a path, this will be the interindividual results
-MODEL = optimal_Bayesian  # 'population_level_Nmice101_NmodelsClasses7_processed.pkl' #expSmoothing_stimside, expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
+MODEL = expSmoothing_prevAction  # 'population_level_Nmice101_NmodelsClasses7_processed.pkl' #expSmoothing_stimside, expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
 BEH_MOUSELEVEL_TRAINING = False  # if True, trains the behavioral model session-wise else mouse-wise
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
 ESTIMATOR = sklm.Ridge  # Must be in keys of strlut above
@@ -37,13 +37,13 @@ N_PSEUDO_PER_JOB = 10
 N_JOBS_PER_SESSION = N_PSEUDO // N_PSEUDO_PER_JOB
 N_RUNS = 10
 MIN_UNITS = 10
-NB_TRIALS_TAKEOUT_END = 50
+NB_TRIALS_TAKEOUT_END = 0
 MIN_BEHAV_TRIAS = 150 if NEURAL_DTYPE == 'ephys' else 150  # default BWM setting is 400. 200 must remain after filtering
 MIN_RT = 0.08  # 0.08  # Float (s) or None
 MAX_RT = None
 SINGLE_REGION = True  # perform decoding on region-wise or whole brain analysis
 MERGED_PROBES = True  # merge probes before performing analysis
-NO_UNBIAS = True  # take out unbiased trials
+NO_UNBIAS = False  # take out unbiased trials
 SHUFFLE = True  # interleaved cross validation
 BORDER_QUANTILES_NEUROMETRIC = [.3, .7]  # [.3, .4, .5, .6, .7]
 COMPUTE_NEUROMETRIC = False
@@ -57,6 +57,7 @@ NORMALIZE_OUTPUT = False  # take out mean of output to predict
 if NORMALIZE_INPUT or NORMALIZE_OUTPUT:
     warnings.warn('This feature has not been tested')
 USE_IMPOSTER_SESSION = False  # if false, it uses pseudosessions and simulates the model when action are necessary
+FILTER_PSEUDOSESSIONS_ON_MUTUALINFORMATION = False
 STITCHING_FOR_IMPORTER_SESSION = False  # if true, stitches sessions to create importers
 MAX_NUMBER_TRIALS_WHEN_NO_STITCHING_FOR_IMPORTER_SESSION = 700  # this is a constraint on the number of trials of a session
 # to insure that there will be at least 1000 unstitched imposter sessions. IMPORTANT, with this number, you can not
@@ -84,8 +85,9 @@ ADD_TO_SAVING_PATH = (
 
 # WIDE FIELD IMAGING
 WFI_HEMISPHERES = ['left', 'right']  # 'left' and/or 'right'
-WFI_NB_FRAMES_START = 0  # left signed number of frames from ALIGN_TIME (frame included)
-WFI_NB_FRAMES_END = 0 # right signed number of frames from ALIGN_TIME (frame included). If 0, the align time frame is included
+WFI_NB_FRAMES_START = -2  # left signed number of frames from ALIGN_TIME (frame included)
+WFI_NB_FRAMES_END = -2  # right signed number of frames from ALIGN_TIME (frame included). If 0, the align time frame is included
+WFI_AVERAGE_OVER_FRAMES = False
 
 if NEURAL_DTYPE == 'widefield' and WFI_NB_FRAMES_START > WFI_NB_FRAMES_END:
     raise ValueError('there is a problem in the specification of the timing of the widefield')
@@ -102,7 +104,7 @@ MOTOR_REGRESSORS_ONLY = False # only _use motor regressors
 DECODE_PREV_CONTRAST = False
 
 # DO WE WANT TO DECODE THE DERIVATIVE OF THE TARGET SIGNAL ?
-DECODE_DERIVATIVE = True
+DECODE_DERIVATIVE = False
 
 
 # session to be excluded (by Olivier Winter)
@@ -128,6 +130,11 @@ strlut = {sklm.Lasso: "Lasso",
           sklm.LinearRegression: "PureLinear",
           sklm.LogisticRegression: "Logistic"}
 
+if TARGET in ['choice', 'feedback'] and (MODEL != expSmoothing_prevAction or USE_IMPOSTER_SESSION):
+    raise ValueError('if you want to decode choice or feedback, you must use the actionKernel model and frankenstein sessions')
+
+if USE_IMPOSTER_SESSION and COMPUTE_NEUROMETRIC:
+    raise ValueError('you can not use imposter sessions if you want to to compute the neurometric')
 
 if USE_IMPOSTER_SESSION_FOR_BALANCING:
     raise ValueError('this is not implemented yet -- or it is but unsure of the state given recent code featuring')
@@ -260,9 +267,10 @@ kwargs = {
     'nb_trials_takeout_end': NB_TRIALS_TAKEOUT_END,
     'stitching_for_imposter_session': STITCHING_FOR_IMPORTER_SESSION,
     'max_number_trials_when_no_stitching_for_imposter_session': MAX_NUMBER_TRIALS_WHEN_NO_STITCHING_FOR_IMPORTER_SESSION,
-
+    'filter_pseudosessions_on_mutualInformation': FILTER_PSEUDOSESSIONS_ON_MUTUALINFORMATION,
     'motor_regressors':MOTOR_REGRESSORS,
     'motor_regressors_only':MOTOR_REGRESSORS_ONLY,
     'decode_prev_contrast':DECODE_PREV_CONTRAST,
-    'decode_derivative':DECODE_DERIVATIVE
+    'decode_derivative':DECODE_DERIVATIVE,
+    'wfi_average_over_frames': WFI_AVERAGE_OVER_FRAMES,
 }
