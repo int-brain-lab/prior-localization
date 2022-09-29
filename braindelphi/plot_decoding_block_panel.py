@@ -62,13 +62,14 @@ brain_SwansonFlat_results(uni_regs,
 get_vals = lambda reg: np.array(res_table.loc[res_table['region']==reg,'score'])
 get_nulls = lambda reg: np.array(res_table.loc[res_table['region']==reg,'median-null'])
 
-# assert regions have at least 1 sig session, 
+# assert regions have at least 1 sig session TODO bon. corr, 
 #        sorted by best median performance (TOPN values plotted), 
 #        and greater median performance than the median of the null
 
 regions = np.unique(res_table['region'])
 reg_1sigsession = lambda reg: np.any(res_table.loc[res_table['region']==reg,
-                                                   'p-value']<=0.05)
+                                                   'p-value']<=(0.05/len(res_table.loc[res_table['region']==reg,
+                                                                                                      'p-value'])))
 regions = np.array([reg for reg in regions if reg_1sigsession(reg)])
 values = np.array([get_vals(reg) for reg in regions])
 nulls = np.array([np.median(get_nulls(reg)) for reg in regions])
@@ -80,9 +81,13 @@ acr_plotted = bar_results(regions,
                             ylab='Bal. Acc.',
                             ticks=([0.5,0.6,0.7,0.8],[0.5,0.6,0.7,0.8]),
                             TOP_N=15)
+# check criteria.
 for reg in acr_plotted:
     print(reg)
-    assert np.any(res_table.loc[res_table['region']==reg,'p-value']<=0.05)
+    assert np.any(res_table.loc[res_table['region']==reg,
+                                'p-value']<=(0.05/len(res_table.loc[res_table['region']==reg,
+                                                       'p-value'])))
+    assert np.median(get_vals(reg)) > np.median(get_nulls(reg))
 
 
 #%% plot single session traces
