@@ -15,6 +15,8 @@ from ibllib.atlas.flatmaps import plot_swanson
 from ibllib.atlas import BrainRegions
 from ibllib.atlas.plots import reorder_data
 
+PATH_TO_ALLEN_COLOR_CSV = '../../allen_structure_tree.csv'
+
 def brain_SwansonFlat_results(acronyms, values, 
                   filename=None, 
                   cmap='viridis',
@@ -71,8 +73,7 @@ def brain_SwansonFlat_results(acronyms, values,
     fig = plt.figure()
     ax_swan = plot_swanson(acronyms, 
                     values, 
-                    cmap=cmap,
-                    empty_color = 'grey',
+                    cmap=cmap, # empty_color = 'grey',
                     hemisphere='left',
                     br=BrainRegions())#,ax=axes[0:9])
     ax_swan.grid(False)
@@ -100,7 +101,8 @@ def brain_SwansonFlat_results(acronyms, values,
     plt.show()
     return
 
-allen_color_data = np.genfromtxt('../../allen_structure_tree.csv', 
+
+allen_color_data = np.genfromtxt(PATH_TO_ALLEN_COLOR_CSV, 
                                  delimiter=',',dtype=str)
 def hex2rgba(hex):
     if '' == hex:
@@ -129,6 +131,7 @@ def discretize_target(target_continuous,
 def bar_results(acronyms_unordered, values_eids_unordered, nulls_unordered, 
                 filename='test.png', 
                 ylab='',
+                ticks=None,
                 FILE_PATH='/home/bensonb/IntBrainLab/prior-localization/braindelphi/decoding_figures/',
                 YMIN=None,
                 TOP_N=np.nan,
@@ -150,18 +153,20 @@ def bar_results(acronyms_unordered, values_eids_unordered, nulls_unordered,
         DESCRIPTION. The default is 'test.png'.
     ylab : str, optional
         DESCRIPTION. The default is ''.
+    ticks : tuple, (list of ticks, list of labels), y-ticks to use
     FILE_PATH : str, optional
         DESCRIPTION. The default is '/home/bensonb/IntBrainLab/prior-localization/decoding_figures/'.
     YMIN : float, optional
         DESCRIPTION. The default is None.
     TOP_N : int, optional
-        only plot the top n values. The default is np.nan.
+        only plot the top n values. The default is np.nan. sorted by maximum
+        value conditioned on the center value being larger then the null center
     POOL_PROTOCOL : str, optional
         'median' or 'mean'.  how to do per-region pooling across sessions.
         The default is 'median'.
     Returns
     -------
-    None.
+    acronyms of TOP_N values
 
     '''
     if POOL_PROTOCOL == 'median':
@@ -227,6 +232,8 @@ def bar_results(acronyms_unordered, values_eids_unordered, nulls_unordered,
                      vs, 
                      'ko', markersize=4 )
     plt.xticks(inds, labels=acronyms, rotation=90)
+    if not (ticks is None):
+        plt.yticks(ticks[0], labels=ticks[1])
     #print(acronyms)
     plt.ylabel(ylab)
     if not (YMIN is None):
@@ -236,4 +243,4 @@ def bar_results(acronyms_unordered, values_eids_unordered, nulls_unordered,
     plt.tight_layout()
     plt.savefig(SAVE_PATH, dpi=600)
     plt.show()
-    return
+    return acronyms

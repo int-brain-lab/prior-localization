@@ -87,8 +87,10 @@ for reg in acr_plotted:
 
 #%% plot single session traces
 
-folder = 'decoding_results/20-09-2022_singlesessions/CSHL060_1191f865-b10a-45c8-9c48-24a980fd9402/'
-file = '20-09-2022_ORBvl_target_pLeft_timeWindow_-0_4_-0_1_pseudo_id_-1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_simulated_0_constrainNullSess_0.pkl'
+folder = 'decoding_results/20-09-2022_singlesessions/DY_011_7bee9f09-a238-42cf-b499-f51f765c6ded/'
+file = '20-09-2022_MOp_target_strengthcont_timeWindow_0_0_1_pseudo_id_-1_imposterSess_0_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_simulated_0_constrainNullSess_0.pkl'
+
+inverse_stim_transf = lambda x: np.arctanh(x*np.tanh(5))/5
 ss_res = pd.read_pickle(folder+file)
 all_test_predictions = []
 all_targets = []
@@ -102,37 +104,57 @@ for i_run in range(len(ss_res['fit'])):
     #     full_test_prediction[ss_res["fit"][i_run]['idxes_test'][k]] = ss_res["fit"][i_run]['predictions_test'][k]
     pt = ss_res["fit"][i_run]["predictions_test"]
     full_test_prediction = np.array([p[0] for p in pt])
-    all_test_predictions.append(full_test_prediction)
+    all_test_predictions.append(inverse_stim_transf(full_test_prediction))
     all_targets.append(ss_res["fit"][i_run]["target"])
     all_masks.append(ss_res["fit"][i_run]["mask"])
     all_scores.append(ss_res["fit"][i_run]["scores_test_full"])
-    
-probs = np.mean(np.vstack(all_test_predictions),axis=0)
+
+preds = all_test_predictions[0]
+preds = np.mean(np.vstack(all_test_predictions),axis=0)
 fltg = lambda j: [all_targets[j][i][0] for i in range(len(all_targets[j]))]
 targs = np.array([np.array(fltg(j)) for j in range(len(all_targets))])
-assert np.all(np.std(np.vstack(targs),axis=0)==0)
+assert np.all(np.abs(np.std(np.vstack(targs),axis=0))<1e-12)
 assert np.all(np.std(np.vstack(all_masks),axis=0)==0)
 targs = targs[0]
 mask = np.array(all_masks[0])+0
 
 
 trials = np.arange(len(mask))[[m==1 for m in mask]]
-plt.figure(figsize=(10,2.5))
+plt.figure(figsize=(10,5))#2.5
 sessreg_score = np.array(res_table.loc[(res_table['eid']==ss_res['eid'])&
-                                       (res_table['region']=='ORBvl'),'score'])
+                                       (res_table['region']=='MOp'),'score'])
 assert len(sessreg_score) == 1
 sessreg_score = sessreg_score[0]
-plt.title(f'session: {ss_res["eid"]} \n region: ORBvl \n balanced accuracy = {sessreg_score:.3f} (average across 10 models)')
-plt.plot(trials, targs, '-', c='k',lw=4)
-plt.plot(trials, probs, '-', c='mediumpurple')
-cs = (np.array(ss_res["fit"][0]["df"]["choice"])+1)*.5
-# plt.plot(np.arange(len(cs)), cs,alpha=.3)
-plt.yticks([0,.5,1])
-plt.ylim(-0.1,1.1)
-plt.xlim(0,len(mask))
-plt.legend(['Left Biased Block','Probability of left prediction \n(across 10 models)'],frameon=True,loc=(-0.15,1.1))
+plt.title(f'session: {ss_res["eid"]} \n region: MOp \n $R^2$ = {sessreg_score:.3f} (average across 10 models)')
+
+plt.plot(trials[targs>0], preds[targs>0],'C0o',lw=2,ms=4)
+plt.plot(trials[targs<0],preds[targs<0],'C1o',lw=2,ms=4)
+# plt.yticks([-1,0,1])
+# plt.ylim(-1,1)
+plt.legend(['Prediction given stimulus $> 0$', 
+            'Prediction given stimulus $< 0$'],frameon=True,loc=(-0.15,1.1))
 plt.xlabel('Trials')
-plt.ylabel('Block')
+plt.ylabel('Stimulus')
 plt.tight_layout()
-plt.savefig('decoding_figures/block_trace', dpi=600)
+plt.savefig('decoding_figures/stim_trace', dpi=600)
 plt.show()
+
+# plt.figure(figsize=(10,2.5))
+# sessreg_score = np.array(res_table.loc[(res_table['eid']==ss_res['eid'])&
+#                                        (res_table['region']=='ORBvl'),'score'])
+# assert len(sessreg_score) == 1
+# sessreg_score = sessreg_score[0]
+# plt.title(f'session: {ss_res["eid"]} \n region: ORBvl \n balanced accuracy = {sessreg_score:.3f} (average across 10 models)')
+# plt.plot(trials, targs, '-', c='k',lw=4)
+# plt.plot(trials, probs, '-', c='mediumpurple')
+# cs = (np.array(ss_res["fit"][0]["df"]["choice"])+1)*.5
+# # plt.plot(np.arange(len(cs)), cs,alpha=.3)
+# plt.yticks([0,.5,1])
+# plt.ylim(-0.1,1.1)
+# plt.xlim(0,len(mask))
+# plt.legend(['Left Biased Block','Probability of left prediction \n(across 10 models)'],frameon=True,loc=(-0.15,1.1))
+# plt.xlabel('Trials')
+# plt.ylabel('Block')
+# plt.tight_layout()
+# plt.savefig('decoding_figures/block_trace', dpi=600)
+# plt.show()
