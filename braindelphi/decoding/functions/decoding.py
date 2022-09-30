@@ -29,6 +29,8 @@ from braindelphi.decoding.functions.process_targets import check_bhv_fit_exists
 from braindelphi.decoding.functions.process_targets import optimal_Bayesian
 from braindelphi.decoding.functions.neurometric import get_neurometric_parameters
 
+from braindelphi.decoding.functions.utils import derivative
+
 def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **kwargs):
     """High-level function to decode a given target variable from brain regions for a single eid.
 
@@ -205,7 +207,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
 
         ##### motor signal regressors #####
         
-        if kwargs['motor_regressors'] :
+        if kwargs.get('motor_regressors', None):
             print('motor regressors')
             from braindelphi.decoding.functions.process_motors import preprocess_motors
             motor_binned = preprocess_motors(metadata['eid'],kwargs) # size (nb_trials,nb_motor_regressors) => one bin per trial
@@ -258,8 +260,25 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
             if kwargs['compute_neurometric']:  # compute prior for neurometric curve
                 raise NotImplementedError
 
+
+            ### derivative of target signal before mask application ###
+            if kwargs['decode_derivative']:
+                if pseudo_id == -1 :
+                    target_vals_list = derivative(target_vals_list)
+                else :
+                    controltarget_vals_list = derivative(controltarget_vals_list)
+
             # run decoders
             for i_run in range(kwargs['nb_runs']):
+
+                if kwargs['quasi_random']:
+                    if pseudo_id == -1:
+                        rng_seed = i_run
+                    else:
+                        rng_seed = pseudo_id * kwargs['nb_runs'] + i_run
+                else:
+                    rng_seed = None
+
                 fit_result = decode_cv(
                     ys=([target_vals_list[m] for m in np.squeeze(np.where(mask))] if pseudo_id == -1
                         else [controltarget_vals_list[m] for m in np.squeeze(np.where(mask))]),
@@ -277,7 +296,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                     balanced_weight=kwargs['balanced_weight'],
                     normalize_input=kwargs['normalize_input'],
                     normalize_output=kwargs['normalize_output'],
-                    rng_seed=pseudo_id * kwargs['nb_runs'] + i_run if kwargs['quasi_random'] else None
+                    rng_seed=rng_seed,
                 )
                 fit_result['mask'] = mask
                 fit_result['df'] = trials_df if pseudo_id == -1 else controlsess_df

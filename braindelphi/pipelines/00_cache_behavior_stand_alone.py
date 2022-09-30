@@ -9,13 +9,14 @@ import yaml
 import pandas as pd
 
 # IBL libraries
+from brainwidemap import bwm_query
+from one.api import ONE
+
+# braindelphi repo imports
 from braindelphi.params import CACHE_PATH, SETTINGS_PATH
 from braindelphi.pipelines.utils_common_pipelines import load_behavior
 from braindelphi.pipelines.utils_common_pipelines import cache_behavior
 from braindelphi.decoding.functions.utils import check_settings
-
-# braindelphi repo imports
-from braindelphi.utils_root import query_sessions
 
 _logger = logging.getLogger('braindelphi')
 
@@ -37,13 +38,16 @@ kwargs = check_settings(settings)
 
 dataset_futures = []
 
-sessdf = query_sessions(kwargs['criterion']).set_index(['subject', 'eid'])
+one = ONE()
+alignment_resolved = True if kwargs['criterion'].find('algined') > -1 else False
+bwm_df = bwm_query(one, alignment_resolved=alignment_resolved).set_index(['subject', 'eid'])
 
-for eid in sessdf.index.unique(level='eid'):
-    xsdf = sessdf.xs(eid, level='eid')
-    subject = xsdf.index[0]
+for eid in bwm_df.index.unique(level='eid'):
+    session_df = bwm_df.xs(eid, level='eid')
+    subject = session_df.index[0]
     load_outputs = delayed_load(eid, kwargs['target'])
     if not load_outputs['skip']:
+        load_outputs.pop('skip')
         save_future = delayed_save(subject, eid, kwargs['target'], load_outputs)
         dataset_futures.append([subject, eid, save_future])
 

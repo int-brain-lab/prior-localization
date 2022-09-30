@@ -32,8 +32,8 @@ TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
 ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 BINARIZATION_VALUE = None  # to binarize the target -> could be useful with logistic regression estimator
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 20000, 'fit_intercept': True}
-N_PSEUDO = 1
-N_PSEUDO_PER_JOB = 1
+N_PSEUDO = 200
+N_PSEUDO_PER_JOB = 10
 N_JOBS_PER_SESSION = N_PSEUDO // N_PSEUDO_PER_JOB
 N_RUNS = 10
 MIN_UNITS = 10
@@ -41,7 +41,7 @@ NB_TRIALS_TAKEOUT_END = 0
 MIN_BEHAV_TRIAS = 150 if NEURAL_DTYPE == 'ephys' else 150  # default BWM setting is 400. 200 must remain after filtering
 MIN_RT = 0.08  # 0.08  # Float (s) or None
 MAX_RT = None
-SINGLE_REGION = False  # perform decoding on region-wise or whole brain analysis
+SINGLE_REGION = True  # perform decoding on region-wise or whole brain analysis
 MERGED_PROBES = True  # merge probes before performing analysis
 NO_UNBIAS = False  # take out unbiased trials
 SHUFFLE = True  # interleaved cross validation
@@ -86,7 +86,7 @@ ADD_TO_SAVING_PATH = (
 
 # WIDE FIELD IMAGING
 WFI_HEMISPHERES = ['left', 'right']  # 'left' and/or 'right'
-WFI_NB_FRAMES_START = -5  # left signed number of frames from ALIGN_TIME (frame included)
+WFI_NB_FRAMES_START = -2  # left signed number of frames from ALIGN_TIME (frame included)
 WFI_NB_FRAMES_END = -2  # right signed number of frames from ALIGN_TIME (frame included). If 0, the align time frame is included
 WFI_AVERAGE_OVER_FRAMES = False
 
@@ -101,8 +101,12 @@ MAX_LEN = None  # max length of trial
 MOTOR_REGRESSORS = False
 MOTOR_REGRESSORS_ONLY = False # only _use motor regressors
 
-# DO WE WANT TO DECODE THE PREVIOUS CONTRAST ? (FOR DEBUGGING THE FACT THAT WE CAN PREDICT THE NEXT ABS CONTRAST)
+# DO WE WANT TO DECODE THE PREVIOUS CONTRAST ? (FOR DEBUGGING)
 DECODE_PREV_CONTRAST = False
+
+# DO WE WANT TO DECODE THE DERIVATIVE OF THE TARGET SIGNAL ?
+DECODE_DERIVATIVE = False
+
 
 # session to be excluded (by Olivier Winter)
 excludes = [
@@ -205,7 +209,8 @@ fit_metadata = {
     'quasi_random': QUASI_RANDOM,
     'motor_regressors':MOTOR_REGRESSORS,
     'motor_regressors_only':MOTOR_REGRESSORS_ONLY,
-    'decode_prev_contrast':DECODE_PREV_CONTRAST
+    'decode_prev_contrast':DECODE_PREV_CONTRAST,
+    'decode_derivative':DECODE_DERIVATIVE
 }
 
 if NEURAL_DTYPE == 'widefield':
@@ -266,6 +271,7 @@ kwargs = {
     'filter_pseudosessions_on_mutualInformation': FILTER_PSEUDOSESSIONS_ON_MUTUALINFORMATION,
     'motor_regressors':MOTOR_REGRESSORS,
     'motor_regressors_only':MOTOR_REGRESSORS_ONLY,
-    'decode_prev_contrast': DECODE_PREV_CONTRAST,
+    'decode_prev_contrast':DECODE_PREV_CONTRAST,
+    'decode_derivative':DECODE_DERIVATIVE,
     'wfi_average_over_frames': WFI_AVERAGE_OVER_FRAMES,
 }
