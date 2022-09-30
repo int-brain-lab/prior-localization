@@ -15,13 +15,13 @@ logger = logging.getLogger('ibllib')
 logger.disabled = True
 
 NEURAL_DTYPE = 'widefield'  # 'ephys' or 'widefield'
-DATE = '14-09-2022'  # date 12 prev, 13 next, 14 prev
+DATE = '27-09-2022'  # date 12 prev, 13 next, 14 prev
 
 # aligned -> histology was performed by one experimenter 
 # resolved -> histology was performed by 2-3 experiments
 SESS_CRITERION = 'resolved-behavior'  # aligned and behavior
 ALIGN_TIME = 'stimOn_times'
-TARGET = 'feedback'  # 'signcont' or 'pLeft'
+TARGET = 'pLeft'  # 'signcont' or 'pLeft'
 if TARGET not in ['pLeft', 'signcont', 'strengthcont', 'choice', 'feedback']:
     raise ValueError('TARGET can only be pLeft, signcont, strengthcont, choice or feedback')
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
@@ -29,11 +29,11 @@ if TARGET not in ['pLeft', 'signcont', 'strengthcont', 'choice', 'feedback']:
 MODEL = expSmoothing_prevAction  # 'population_level_Nmice101_NmodelsClasses7_processed.pkl' #expSmoothing_stimside, expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
 BEH_MOUSELEVEL_TRAINING = False  # if True, trains the behavioral model session-wise else mouse-wise
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
-ESTIMATOR = sklm.Ridge  # Must be in keys of strlut above
+ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 BINARIZATION_VALUE = None  # to binarize the target -> could be useful with logistic regression estimator
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 20000, 'fit_intercept': True}
-N_PSEUDO = 200
-N_PSEUDO_PER_JOB = 8
+N_PSEUDO = 1
+N_PSEUDO_PER_JOB = 1
 N_JOBS_PER_SESSION = N_PSEUDO // N_PSEUDO_PER_JOB
 N_RUNS = 10
 MIN_UNITS = 10
@@ -72,7 +72,8 @@ BALANCED_CONTINUOUS_TARGET = True  # is target continuous or discrete FOR BALANC
 USE_OPENTURNS = False  # uses openturns to perform kernel density estimation
 BIN_SIZE_KDE = 0.05  # size of the kde bin
 HPARAM_GRID = ({
-    'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])
+    #'alpha': np.array([0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000, 100000])
+     'alpha': np.array([0.001, 0.01, 0.1]) #lasso
 } if not (sklm.LogisticRegression == ESTIMATOR) else {
     'C': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])
 })
@@ -87,7 +88,7 @@ ADD_TO_SAVING_PATH = (
 WFI_HEMISPHERES = ['left', 'right']  # 'left' and/or 'right'
 WFI_NB_FRAMES_START = -5  # left signed number of frames from ALIGN_TIME (frame included)
 WFI_NB_FRAMES_END = -2  # right signed number of frames from ALIGN_TIME (frame included). If 0, the align time frame is included
-WFI_AVERAGE_OVER_FRAMES = True
+WFI_AVERAGE_OVER_FRAMES = False
 
 if NEURAL_DTYPE == 'widefield' and WFI_NB_FRAMES_START > WFI_NB_FRAMES_END:
     raise ValueError('there is a problem in the specification of the timing of the widefield')
