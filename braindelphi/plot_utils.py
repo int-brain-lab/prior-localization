@@ -244,3 +244,54 @@ def bar_results(acronyms_unordered, values_eids_unordered, nulls_unordered,
     plt.savefig(SAVE_PATH, dpi=600)
     plt.show()
     return acronyms
+
+def sess2preds(ss_res, inverse_transf = None):
+    '''
+    
+
+    Parameters
+    ----------
+    ss_res : TYPE
+        DESCRIPTION.
+    inverse_transf : TYPE, optional
+        DESCRIPTION. The default is None.
+
+    Returns
+    -------
+    preds : TYPE
+        DESCRIPTION.
+    targs : TYPE
+        DESCRIPTION.
+    mask : TYPE
+        DESCRIPTION.
+
+    '''
+    if inverse_transf is None:
+        inverse_transf = lambda x: x
+        
+    all_test_predictions = []
+    all_targets = []
+    all_masks = []
+    all_scores = []
+    for i_run in range(len(ss_res['fit'])):
+        # side, stim, act, _ = format_data_mut(result["fit"][i_run]["df"])
+        mask = ss_res["fit"][i_run]["mask"]  # np.all(result["fit"][i_run]["target"] == stim[mask])
+        # full_test_prediction = np.zeros(np.array(ss_res["fit"][i_run]["target"]).size)
+        # for k in range(len(ss_res["fit"][i_run]["idxes_test"])):
+        #     full_test_prediction[ss_res["fit"][i_run]['idxes_test'][k]] = ss_res["fit"][i_run]['predictions_test'][k]
+        pt = ss_res["fit"][i_run]["predictions_test"]
+        full_test_prediction = np.array([p[0] for p in pt])
+        all_test_predictions.append(inverse_transf(full_test_prediction))
+        all_targets.append(inverse_transf(ss_res["fit"][i_run]["target"]))
+        all_masks.append(ss_res["fit"][i_run]["mask"])
+        all_scores.append(ss_res["fit"][i_run]["scores_test_full"])
+    
+    preds = all_test_predictions[0]
+    preds = np.mean(np.vstack(all_test_predictions),axis=0)
+    fltg = lambda j: [all_targets[j][i][0] for i in range(len(all_targets[j]))]
+    targs = np.array([np.array(fltg(j)) for j in range(len(all_targets))])
+    assert np.all(np.abs(np.std(np.vstack(targs),axis=0))<1e-12)
+    assert np.all(np.std(np.vstack(all_masks),axis=0)==0)
+    targs = targs[0]
+    mask = np.array(all_masks[0])+0
+    return preds, targs, mask
