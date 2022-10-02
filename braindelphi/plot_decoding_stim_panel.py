@@ -7,7 +7,7 @@ Created on Tue Sep 20 14:29:32 2022
 """
 import numpy as np
 import pandas as pd
-from plot_utils import brain_SwansonFlat_results, bar_results, discretize_target
+from plot_utils import brain_SwansonFlat_results, bar_results, sess2preds
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -68,7 +68,9 @@ get_nulls = lambda reg: np.array(res_table.loc[res_table['region']==reg,'median-
 
 regions = np.unique(res_table['region'])
 reg_1sigsession = lambda reg: np.any(res_table.loc[res_table['region']==reg,
-                                                   'p-value']<=0.05)
+                                                   'p-value']<=(0.05/len(res_table.loc[res_table['region']==reg,
+                                                                                                      'p-value'])))
+                                                     
 regions = np.array([reg for reg in regions if reg_1sigsession(reg)])
 values = np.array([get_vals(reg) for reg in regions])
 nulls = np.array([np.median(get_nulls(reg)) for reg in regions])
@@ -79,43 +81,15 @@ acr_plotted = bar_results(regions,
                             YMIN=np.min([np.min(v) for v in values]),
                             ylab='Bal. Acc.', #ticks=([0.5,0.6,0.7,0.8],[0.5,0.6,0.7,0.8]),
                             TOP_N=15)
+# check criteria.
 for reg in acr_plotted:
     print(reg)
-    assert np.any(res_table.loc[res_table['region']==reg,'p-value']<=0.05)
-
+    assert np.any(res_table.loc[res_table['region']==reg,
+                                'p-value']<=(0.05/len(res_table.loc[res_table['region']==reg,
+                                                       'p-value'])))
+    assert np.median(get_vals(reg)) > np.median(get_nulls(reg))
 
 #%% plot single session traces
-
-def sess2preds(ss_res, inverse_transf = None):
-    if inverse_transf is None:
-        inverse_transf = lambda x: x
-        
-    all_test_predictions = []
-    all_targets = []
-    all_masks = []
-    all_scores = []
-    for i_run in range(len(ss_res['fit'])):
-        # side, stim, act, _ = format_data_mut(result["fit"][i_run]["df"])
-        mask = ss_res["fit"][i_run]["mask"]  # np.all(result["fit"][i_run]["target"] == stim[mask])
-        # full_test_prediction = np.zeros(np.array(ss_res["fit"][i_run]["target"]).size)
-        # for k in range(len(ss_res["fit"][i_run]["idxes_test"])):
-        #     full_test_prediction[ss_res["fit"][i_run]['idxes_test'][k]] = ss_res["fit"][i_run]['predictions_test'][k]
-        pt = ss_res["fit"][i_run]["predictions_test"]
-        full_test_prediction = np.array([p[0] for p in pt])
-        all_test_predictions.append(inverse_transf(full_test_prediction))
-        all_targets.append(inverse_transf(ss_res["fit"][i_run]["target"]))
-        all_masks.append(ss_res["fit"][i_run]["mask"])
-        all_scores.append(ss_res["fit"][i_run]["scores_test_full"])
-    
-    preds = all_test_predictions[0]
-    preds = np.mean(np.vstack(all_test_predictions),axis=0)
-    fltg = lambda j: [all_targets[j][i][0] for i in range(len(all_targets[j]))]
-    targs = np.array([np.array(fltg(j)) for j in range(len(all_targets))])
-    assert np.all(np.abs(np.std(np.vstack(targs),axis=0))<1e-12)
-    assert np.all(np.std(np.vstack(all_masks),axis=0)==0)
-    targs = targs[0]
-    mask = np.array(all_masks[0])+0
-    return preds, targs, mask
 
 clp = lambda x: np.minimum(np.maximum(x,-1),1)
 inverse_stim_transf = lambda x : np.round(np.arctanh(clp(x)*np.tanh(5))/5,

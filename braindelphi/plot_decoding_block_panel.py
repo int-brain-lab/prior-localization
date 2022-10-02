@@ -92,31 +92,6 @@ for reg in acr_plotted:
 
 #%% plot single session traces
 
-# all_test_predictions = []
-# all_targets = []
-# all_masks = []
-# all_scores = []
-# for i_run in range(len(ss_res['fit'])):
-#     # side, stim, act, _ = format_data_mut(result["fit"][i_run]["df"])
-#     mask = ss_res["fit"][i_run]["mask"]  # np.all(result["fit"][i_run]["target"] == stim[mask])
-#     # full_test_prediction = np.zeros(np.array(ss_res["fit"][i_run]["target"]).size)
-#     # for k in range(len(ss_res["fit"][i_run]["idxes_test"])):
-#     #     full_test_prediction[ss_res["fit"][i_run]['idxes_test'][k]] = ss_res["fit"][i_run]['predictions_test'][k]
-#     pt = ss_res["fit"][i_run]["predictions_test"]
-#     full_test_prediction = np.array([p[0] for p in pt])
-#     all_test_predictions.append(full_test_prediction)
-#     all_targets.append(ss_res["fit"][i_run]["target"])
-#     all_masks.append(ss_res["fit"][i_run]["mask"])
-#     all_scores.append(ss_res["fit"][i_run]["scores_test_full"])
-    
-# probs = np.mean(np.vstack(all_test_predictions),axis=0)
-# fltg = lambda j: [all_targets[j][i][0] for i in range(len(all_targets[j]))]
-# targs = np.array([np.array(fltg(j)) for j in range(len(all_targets))])
-# assert np.all(np.std(np.vstack(targs),axis=0)==0)
-# assert np.all(np.std(np.vstack(all_masks),axis=0)==0)
-# targs = targs[0]
-# mask = np.array(all_masks[0])+0
-
 
 folder = 'decoding_results/20-09-2022_singlesessions/CSHL060_1191f865-b10a-45c8-9c48-24a980fd9402/'
 cur_plot_region = 'ORBvl'
