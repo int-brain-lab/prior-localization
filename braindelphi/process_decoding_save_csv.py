@@ -32,10 +32,11 @@ def create_pdtable_from_raw(res,
                 real_scores = reseidreg.loc[reseidreg['pseudo_id']==-1,score_name]
                 assert len(real_scores) == 10 # 10 repeats of decoding to reduce variance
                 score = np.mean(real_scores)
-            
-                p_scores = [np.mean(reseidreg.loc[reseidreg['pseudo_id']==pid,score_name]) for pid in pids[1:]]
+                
+                # include 
+                p_scores = [np.mean(reseidreg.loc[reseidreg['pseudo_id']==pid,score_name]) for pid in pids]#[1:]
                 median_null = np.median(p_scores)
-                pval = np.mean(np.array(p_scores)>score)
+                pval = np.mean(np.array(p_scores)>=score)
                 
                 
                 res_table.append([subject,eid,reg,score,pval,median_null])
@@ -70,7 +71,7 @@ valid_reg = np.array([len(res_table.loc[res_table['region']==reg])>=2 for reg in
 res_table = res_table.loc[valid_reg]
 res_table.to_csv(f'decoding_processing/{DATE}_stim.csv')
 
-file_pre = 'decoding_results/20-09-2022_decode_strengthcont_task_Lasso_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_0_0_1_imposterSess_0_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_simulated_0_constrainNullSess_0_paraindex'
+file_pre = 'decoding_results/20-09-2022_decode_choice_task_Logistic_align_firstMovement_times_200_pseudosessions_regionWise_timeWindow_-0_1_0_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_simulated_0_constrainNullSess_0_paraindex'
 res = pd.DataFrame()
 for i in range(50):
     res_new = pd.read_parquet(file_pre+str(i)+'.parquet')

@@ -135,7 +135,8 @@ def bar_results(acronyms_unordered, values_eids_unordered, nulls_unordered,
                 FILE_PATH='/home/bensonb/IntBrainLab/prior-localization/braindelphi/decoding_figures/',
                 YMIN=None,
                 TOP_N=np.nan,
-                POOL_PROTOCOL='median'):
+                POOL_PROTOCOL='median',
+                sort_args=None):
     '''
     
 
@@ -164,6 +165,13 @@ def bar_results(acronyms_unordered, values_eids_unordered, nulls_unordered,
     POOL_PROTOCOL : str, optional
         'median' or 'mean'.  how to do per-region pooling across sessions.
         The default is 'median'.
+    sort_args : None or array
+        if None and TOP_N is given, the top arguments are show after sorting
+        by pooled values. (if pooled values are less than the null, 
+                           then they are automatically considered the worst 
+                           in sorting)
+        if array and TOP_N is given, the first TOP_N arguments in sort_args
+        will be plotted
     Returns
     -------
     acronyms of TOP_N values
@@ -177,8 +185,12 @@ def bar_results(acronyms_unordered, values_eids_unordered, nulls_unordered,
         raise ValueError('This value of POOL_PROTOCOL is not implemented.')
         
     if not np.isnan(TOP_N):
-        v_to_sort_on = values_unordered*np.maximum(values_unordered-nulls_unordered,0)
-        sinds = np.argsort(v_to_sort_on)[::-1][:TOP_N]
+        if sort_args is None:
+            v_to_sort_on = values_unordered*np.maximum(values_unordered-nulls_unordered,0)
+            sinds = np.argsort(v_to_sort_on)[::-1][:TOP_N]
+        else:
+            sinds = sort_args[:TOP_N]
+        
         acronyms_unordered = acronyms_unordered[sinds]
         if len(nulls_unordered.shape)==1:
             nulls_unordered = nulls_unordered[sinds]

@@ -7,6 +7,7 @@ Created on Tue Sep 20 14:29:32 2022
 """
 import numpy as np
 import pandas as pd
+import scipy.stats
 from plot_utils import brain_SwansonFlat_results, bar_results, sess2preds
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -60,33 +61,42 @@ brain_SwansonFlat_results(uni_regs,
                   value_title='N Sessions')
 
 get_vals = lambda reg: np.array(res_table.loc[res_table['region']==reg,'score'])
+get_pvals = lambda reg: np.array(res_table.loc[res_table['region']==reg,'p-value'])
 get_nulls = lambda reg: np.array(res_table.loc[res_table['region']==reg,'median-null'])
 
-# assert regions have at least 1 sig session, 
+# assert regions have at least 1 sig session TODO bon. corr, 
 #        sorted by best median performance (TOPN values plotted), 
 #        and greater median performance than the median of the null
 
 regions = np.unique(res_table['region'])
-reg_1sigsession = lambda reg: np.any(res_table.loc[res_table['region']==reg,
-                                                   'p-value']<=(0.05/len(res_table.loc[res_table['region']==reg,
-                                                                                                      'p-value'])))
-                                                     
-regions = np.array([reg for reg in regions if reg_1sigsession(reg)])
+regions = np.array([reg for reg in regions if not ((reg=='root') or (reg=='void'))])
+reg_comb_pval = lambda reg: scipy.stats.combine_pvalues(get_pvals(reg)
+                                                        , method='fisher')[1]
+# reg_1sigsession = lambda reg: np.any(res_table.loc[res_table['region']==reg,
+#                                                    'p-value']<=(0.05/len(res_table.loc[res_table['region']==reg,
+#                                                                                                       'p-value'])))
+# regions = np.array([reg for reg in regions if reg_1sigsession(reg)])
+regions = np.array([reg for reg in regions if reg_comb_pval(reg)<0.05])
+print('regions 1sig', regions, np.unique(res_table['region']))
+print('frac regions', (len(regions)-1)/(len(np.unique(res_table['region']))-2))
 values = np.array([get_vals(reg) for reg in regions])
-nulls = np.array([np.median(get_nulls(reg)) for reg in regions])
+comb_pvalues = np.array([reg_comb_pval(reg) for reg in regions])
+comb_nulls = np.array([np.median(get_nulls(reg)) for reg in regions])
 acr_plotted = bar_results(regions, 
                             values,
-                            nulls,
+                            comb_nulls,
                             'stim_bars', 
                             YMIN=np.min([np.min(v) for v in values]),
-                            ylab='Bal. Acc.', #ticks=([0.5,0.6,0.7,0.8],[0.5,0.6,0.7,0.8]),
-                            TOP_N=15)
+                            ylab='$R^2$',
+                            TOP_N=15,
+                            sort_args=None)
+
 # check criteria.
 for reg in acr_plotted:
     print(reg)
-    assert np.any(res_table.loc[res_table['region']==reg,
-                                'p-value']<=(0.05/len(res_table.loc[res_table['region']==reg,
-                                                       'p-value'])))
+    # assert np.any(res_table.loc[res_table['region']==reg,
+    #                             'p-value']<=(0.05/len(res_table.loc[res_table['region']==reg,
+    #                                                    'p-value'])))
     assert np.median(get_vals(reg)) > np.median(get_nulls(reg))
 
 #%% plot single session traces
