@@ -7,8 +7,11 @@ Created on Tue Sep 20 14:29:32 2022
 """
 import numpy as np
 import pandas as pd
+import scipy.stats
 from plot_utils import brain_SwansonFlat_results, bar_results, sess2preds
 import matplotlib.pyplot as plt
+# matplotlib.rcParams['font.sans-serif'] = 'Arial'
+# matplotlib.rcParams['font.family'] = 'sans-serif'
 
 #%% swanson
 res_table = pd.read_csv('decoding_processing/20-09-2022_reward.csv')
@@ -59,6 +62,7 @@ brain_SwansonFlat_results(uni_regs,
                   value_title='N Sessions')
 
 get_vals = lambda reg: np.array(res_table.loc[res_table['region']==reg,'score'])
+get_pvals = lambda reg: np.array(res_table.loc[res_table['region']==reg,'p-value'])
 get_nulls = lambda reg: np.array(res_table.loc[res_table['region']==reg,'median-null'])
 
 # assert regions have at least 1 sig session TODO bon. corr, 
@@ -66,34 +70,43 @@ get_nulls = lambda reg: np.array(res_table.loc[res_table['region']==reg,'median-
 #        and greater median performance than the median of the null
 
 regions = np.unique(res_table['region'])
-reg_1sigsession = lambda reg: np.any(res_table.loc[res_table['region']==reg,
-                                                   'p-value']<=(0.05/len(res_table.loc[res_table['region']==reg,
-                                                                                                      'p-value'])))
-regions = np.array([reg for reg in regions if reg_1sigsession(reg)])
+regions = np.array([reg for reg in regions if not ((reg=='root') or (reg=='void'))])
+reg_comb_pval = lambda reg: scipy.stats.combine_pvalues(get_pvals(reg)
+                                                        , method='fisher')[1]
+# reg_1sigsession = lambda reg: np.any(res_table.loc[res_table['region']==reg,
+#                                                    'p-value']<=(0.05/len(res_table.loc[res_table['region']==reg,
+#                                                                                                       'p-value'])))
+# regions = np.array([reg for reg in regions if reg_1sigsession(reg)])                                  'p-value'])))
+regions = np.array([reg for reg in regions if reg_comb_pval(reg)<0.05])
+print('regions 1sig', regions, np.unique(res_table['region']))
+print('frac regions', (len(regions)-1)/(len(np.unique(res_table['region']))-2))
 values = np.array([get_vals(reg) for reg in regions])
-nulls = np.array([np.median(get_nulls(reg)) for reg in regions])
+comb_pvalues = np.array([reg_comb_pval(reg) for reg in regions])
+comb_nulls = np.array([np.median(get_nulls(reg)) for reg in regions])
 acr_plotted = bar_results(regions, 
                             values,
-                            nulls,
+                            comb_nulls,
                             'reward_bars', 
                             YMIN=np.min([np.min(v) for v in values]),
                             ylab='Bal. Acc.',
                             ticks=([0.5,0.6,0.7,0.8,0.9,1.0],[0.5,0.6,0.7,0.8,0.9,1.0]),
-                            TOP_N=15)
+                            TOP_N=15,
+                            sort_args=None)
+
 # check criteria.
 for reg in acr_plotted:
     print(reg)
-    assert np.any(res_table.loc[res_table['region']==reg,
-                                'p-value']<=(0.05/len(res_table.loc[res_table['region']==reg,
-                                                       'p-value'])))
+    # assert np.any(res_table.loc[res_table['region']==reg,
+    #                             'p-value']<=(0.05/len(res_table.loc[res_table['region']==reg,
+    #                                                    'p-value'])))
     assert np.median(get_vals(reg)) > np.median(get_nulls(reg))
 
 
 #%% plot single session traces
 
-folder = 'decoding_results/20-09-2022_singlesessions/CSHL059_dda5fc59-f09a-4256-9fb5-66c67667a466/'
-cur_plot_region = 'VISpm'
-file = f'20-09-2022_{cur_plot_region}_target_strengthcont_timeWindow_0_0_1_pseudo_id_-1_imposterSess_0_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_simulated_0_constrainNullSess_0.pkl'
+folder = 'decoding_results/20-09-2022_singlesessions/DY_014_b658bc7d-07cd-4203-8a25-7b16b549851b/'
+cur_plot_region = 'SSp-ul'
+file = f'20-09-2022_{cur_plot_region}_target_choice_timeWindow_-0_1_0_pseudo_id_-1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_simulated_0_constrainNullSess_0.pkl'
 ss_res = pd.read_pickle(folder+file)
 preds, targs, mask = sess2preds(ss_res, 
                                 inverse_transf=None)
@@ -105,16 +118,16 @@ sessreg_score = np.array(res_table.loc[(res_table['eid']==ss_res['eid'])&
                                        'score'])
 assert len(sessreg_score) == 1
 sessreg_score = sessreg_score[0]
-plt.title(f'session: {ss_res["eid"]} \n region: {cur_plot_region} \n $R^2$ = {sessreg_score:.3f} (average across 10 models)')
+plt.title(f'session: {ss_res["eid"]} \n region: {cur_plot_region} \n balanced accuracy = {sessreg_score:.3f} (average across 10 models)')
 
 plt.plot(trials[targs==1], preds[targs==1],'C0o',lw=2,ms=4)
 plt.plot(trials[targs==0],preds[targs==0],'C1o',lw=2,ms=4)
 # plt.yticks([-1,0,1])
 # plt.ylim(-1,1)
-plt.legend(['Prediction given reward $= 1$', 
-            'Prediction given reward $= 0$'],frameon=True,loc=(-0.15,1.1))
+plt.legend(['Prediction given choice $= 1$', 
+            'Prediction given choice $= 0$'],frameon=True,loc=(-0.15,1.1))
 plt.xlabel('Trials')
 plt.ylabel('Choice')
 plt.tight_layout()
-plt.savefig('decoding_figures/reward_trace', dpi=600)
+plt.savefig('decoding_figures/choice_trace', dpi=600)
 plt.show()

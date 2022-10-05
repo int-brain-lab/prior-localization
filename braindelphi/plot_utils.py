@@ -128,7 +128,10 @@ def discretize_target(target_continuous,
                                (target_continuous < edge[i+1])] = .5*(edge[i]+edge[i+1])
     return target_discrete
 
-def bar_results(acronyms_unordered, values_eids_unordered, nulls_unordered, 
+def bar_results(acronyms_unordered, 
+                values_eids_unordered, 
+                nulls_unordered, 
+                alphas_eids_unordered=None,
                 filename='test.png', 
                 ylab='',
                 ticks=None,
@@ -199,6 +202,7 @@ def bar_results(acronyms_unordered, values_eids_unordered, nulls_unordered,
                                          nulls_unordered[1,:][sinds],
                                          nulls_unordered[2,:][sinds]))
         values_eids_unordered = values_eids_unordered[sinds]
+        alphas_eids_unordered = alphas_eids_unordered[sinds]
         values_unordered = values_unordered[sinds]
     
     acronyms, values = reorder_data(acronyms_unordered, values_unordered)

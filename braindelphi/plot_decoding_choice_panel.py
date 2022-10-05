@@ -10,8 +10,8 @@ import pandas as pd
 import scipy.stats
 from plot_utils import brain_SwansonFlat_results, bar_results, sess2preds
 import matplotlib.pyplot as plt
-# matplotlib.rcParams['font.sans-serif'] = 'Arial'
-# matplotlib.rcParams['font.family'] = 'sans-serif'
+matplotlib.rcParams['font.sans-serif'] = 'Arial'
+matplotlib.rcParams['font.family'] = 'sans-serif'
 
 #%% swanson
 res_table = pd.read_csv('decoding_processing/20-09-2022_choice.csv')
