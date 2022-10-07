@@ -28,7 +28,6 @@ from braindelphi.decoding.functions.nulldistributions import generate_null_distr
 from braindelphi.decoding.functions.process_targets import check_bhv_fit_exists
 from braindelphi.decoding.functions.process_targets import optimal_Bayesian
 from braindelphi.decoding.functions.neurometric import get_neurometric_parameters
-
 from braindelphi.decoding.functions.utils import derivative
 
 def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **kwargs):
@@ -92,11 +91,15 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
             absolute path where decoding fits are saved
         add_to_saving_path : str
             additional string to append to filenames
-
+        decode_prev_contrast : bool
+            set to True for sanity check on being able to predict the next contrast (default False)
     """
 
     print(f'Working on eid : %s' % metadata['eid'])
     filenames = []  # this will contain paths to saved decoding results for this eid
+
+    if kwargs['decode_prev_contrast']:
+        trials_df = trials_df.shift(1)
 
     if kwargs['use_imposter_session'] and not kwargs['stitching_for_imposter_session']:
         trials_df = trials_df[:int(kwargs['max_number_trials_when_no_stitching_for_imposter_session'])]

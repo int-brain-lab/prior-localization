@@ -34,9 +34,6 @@ else:
     trials_df, neural_dict = regressors['trials_df'], regressors
 
 
-if kwargs['decode_prev_contrast']:
-    trials_df = trials_df.shift(1)
-
 # metadata['probe_name'] = 'probe00'
 if (job_id + 1) * N_PSEUDO_PER_JOB <= N_PSEUDO:
     print(f"pid_id: {pid_id}")

@@ -56,9 +56,6 @@ if kwargs['use_imposter_session']:
 else:
     kwargs['imposterdf'] = None
 
-if kwargs['decode_prev_contrast']:
-    sess_loader.trials = sess_loader.trials.shift(1)
-
 # metadata['probe_name'] = 'probe00'
 if (job_id + 1) * N_PSEUDO_PER_JOB <= N_PSEUDO:
     print(f"pid_id: {pid_idx}")
