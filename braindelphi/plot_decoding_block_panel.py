@@ -11,6 +11,7 @@ import scipy.stats
 from plot_utils import brain_SwansonFlat_results, bar_results, sess2preds
 import matplotlib.pyplot as plt
 import seaborn as sns
+sns.set_style('whitegrid')
 
 #%% Block
 res_table = pd.read_csv('decoding_processing/20-09-2022_block.csv')
@@ -80,12 +81,14 @@ regions = np.array([reg for reg in regions if reg_comb_pval(reg)<0.05])
 print('regions 1sig', regions, np.unique(res_table['region']))
 print('frac regions', (len(regions)-1)/(len(np.unique(res_table['region']))-2))
 values = np.array([get_vals(reg) for reg in regions])
+values_sig = np.array([(get_pvals(reg)<0.05)+0 for reg in regions])
 comb_pvalues = np.array([reg_comb_pval(reg) for reg in regions])
 comb_nulls = np.array([np.median(get_nulls(reg)) for reg in regions])
 acr_plotted = bar_results(regions, 
                             values,
                             comb_nulls,
-                            'block_bars', 
+                            fillcircle_eids_unordered=values_sig,
+                            filename='block_bars', 
                             YMIN=np.min([np.min(v) for v in values]),
                             ylab='Bal. Acc.',
                             ticks=([0.5,0.6,0.7,0.8],[0.5,0.6,0.7,0.8]),

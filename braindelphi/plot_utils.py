@@ -131,7 +131,7 @@ def discretize_target(target_continuous,
 def bar_results(acronyms_unordered, 
                 values_eids_unordered, 
                 nulls_unordered, 
-                alphas_eids_unordered=None,
+                fillcircle_eids_unordered=None,
                 filename='test.png', 
                 ylab='',
                 ticks=None,
@@ -187,6 +187,9 @@ def bar_results(acronyms_unordered,
     else:
         raise ValueError('This value of POOL_PROTOCOL is not implemented.')
         
+    if fillcircle_eids_unordered is None:
+        fillcircle_eids_unordered = np.array([np.ones(len(vs)) for vs in values_eids_unordered])
+    
     if not np.isnan(TOP_N):
         if sort_args is None:
             v_to_sort_on = values_unordered*np.maximum(values_unordered-nulls_unordered,0)
@@ -202,7 +205,7 @@ def bar_results(acronyms_unordered,
                                          nulls_unordered[1,:][sinds],
                                          nulls_unordered[2,:][sinds]))
         values_eids_unordered = values_eids_unordered[sinds]
-        alphas_eids_unordered = alphas_eids_unordered[sinds]
+        fillcircle_eids_unordered = fillcircle_eids_unordered[sinds]
         values_unordered = values_unordered[sinds]
     
     acronyms, values = reorder_data(acronyms_unordered, values_unordered)
@@ -241,12 +244,18 @@ def bar_results(acronyms_unordered,
     
     for i in range(len(values_eids_unordered)):
         vs = values_eids_unordered[i]
+        fillcircle_eid = fillcircle_eids_unordered[i]
         acr_inds = np.nonzero(acronyms==acronyms_unordered[i])[0]
         assert len(acr_inds) == 1
         ind = acr_inds[0]
-        plt.plot( ind*np.ones(len(vs)) + 0.4 * (np.random.rand(len(vs))-0.5), 
-                     vs, 
-                     'ko', markersize=4 )
+        # plt.plot( ind*np.ones(len(vs)) + 0.4 * (np.random.rand(len(vs))-0.5), 
+        #          vs, 
+        #         'ko', markersize=4 )
+        for j in range(len(vs)):
+            mfc = 'k' if fillcircle_eid[j] else 'none'
+            plt.plot( ind + 0.4 * (np.random.rand()-0.5), 
+                         vs[j], 
+                         'ko', markersize=4 , mfc=mfc)
     plt.xticks(inds, labels=acronyms, rotation=90)
     if not (ticks is None):
         plt.yticks(ticks[0], labels=ticks[1])
