@@ -14,9 +14,10 @@ import seaborn as sns
 sns.set_style('whitegrid')
 
 #%% Block
-res_table = pd.read_csv('decoding_processing/20-09-2022_stim.csv')
+file_all_results = 'decoding_processing/20-09-2022_stim.csv'
+res_table = pd.read_csv(file_all_results)
 
-frac_sig_region = lambda reg: np.mean(np.array(res_table.loc[res_table['region']==reg,'p-value']<=0.05))
+frac_sig_region = lambda reg: np.mean(np.array(res_table.loc[res_table['region']==reg,'p-value']<0.05))
 uni_regs = np.unique(res_table['region'])
 uni_regs = uni_regs[(uni_regs!='root')&(uni_regs!='void')]
 fs_regs = np.array([frac_sig_region(reg) for reg in uni_regs])
@@ -33,7 +34,7 @@ brain_SwansonFlat_results(uni_regs,
 
 def get_ms_reg(reg):
     c1 = (res_table['region']==reg)
-    c2 = (res_table['p-value']<=0.05)
+    c2 = (res_table['p-value']<0.05)
     return np.median(res_table.loc[c1 & c2, 'score'])
 # frac_sig_region = lambda reg: np.median(np.array(res_table.loc[res_table['region']==reg,'balanced_acc_test']))
 ms_regs = np.array([get_ms_reg(reg) for reg in uni_regs])
@@ -73,6 +74,15 @@ regions = np.unique(res_table['region'])
 regions = np.array([reg for reg in regions if not ((reg=='root') or (reg=='void'))])
 reg_comb_pval = lambda reg: scipy.stats.combine_pvalues(get_pvals(reg)
                                                         , method='fisher')[1]
+save_comb_regs_data = pd.DataFrame({'regions': regions, 
+              'combined_p-values': [reg_comb_pval(reg) for reg in regions],
+              'combined_sig': [reg_comb_pval(reg)<0.05 for reg in regions],
+              'n_sessions': [len(get_vals(reg)) for reg in regions],
+              'frac_sig': [frac_sig_region(reg) for reg in regions],
+              'median_sig': [get_ms_reg(reg) for reg in regions]})
+n_sig = np.sum([reg_comb_pval(reg)<0.05 for reg in regions])
+f_sig = np.mean([reg_comb_pval(reg)<0.05 for reg in regions])
+save_comb_regs_data.to_csv(file_all_results.split('.')[0]+'_regs_nsig%s_fsig%.3f.csv'%(n_sig,f_sig))
 # reg_1sigsession = lambda reg: np.any(res_table.loc[res_table['region']==reg,
 #                                                    'p-value']<=(0.05/len(res_table.loc[res_table['region']==reg,
 #                                                                                                       'p-value'])))

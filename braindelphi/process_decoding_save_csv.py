@@ -37,8 +37,11 @@ def create_pdtable_from_raw(res,
                 p_scores = [np.mean(reseidreg.loc[reseidreg['pseudo_id']==pid,score_name]) for pid in pids]#[1:]
                 median_null = np.median(p_scores)
                 pval = np.mean(np.array(p_scores)>=score)
+                n_units = np.array(reseidreg.loc[reseidreg['pseudo_id']==-1,'N_units'])
+                assert np.all(n_units == n_units[0])
+                n_units = n_units[0]
                 
-                res_table.append([subject,eid,reg,score,pval,median_null])
+                res_table.append([subject,eid,reg,score,pval,median_null,n_units])
             # elif len(pids)>100 and pids[0] == -1:
             #     real_scores = reseidreg.loc[reseidreg['pseudo_id']==-1,score_name]
             #     assert len(real_scores) >= 9 # 10 repeats of decoding to reduce variance
@@ -59,7 +62,8 @@ def create_pdtable_from_raw(res,
                                                  'region',
                                                  'score',
                                                  'p-value',
-                                                 'median-null'])
+                                                 'median-null',
+                                                 'n_units'])
     return res_table
 
 DATE = '20-09-2022'
@@ -99,15 +103,15 @@ valid_reg = np.array([len(res_table.loc[res_table['region']==reg])>=2 for reg in
 res_table = res_table.loc[valid_reg]
 res_table.to_csv(f'decoding_processing/{DATE}_choice.csv')
 
-# print('Working on Feedback')
-# file_pre = 'decoding_results/20-09-2022_decode_feedback_task_Logistic_align_feedback_times_200_pseudosessions_regionWise_timeWindow_0_0_2_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_simulated_0_constrainNullSess_0_paraindex'
-# res = pd.DataFrame()
-# for i in range(50):
-#     res_new = pd.read_parquet(file_pre+str(i)+'.parquet')
-#     res = pd.concat([res, res_new], axis=0)
-# res_table = create_pdtable_from_raw(res, 
-#                                     score_name='balanced_acc_test',
-#                                     N_PSEUDO=200)
-# valid_reg = np.array([len(res_table.loc[res_table['region']==reg])>=2 for reg in res_table['region']])
-# res_table = res_table.loc[valid_reg]
-# res_table.to_csv(f'decoding_processing/{DATE}_reward.csv')
+print('Working on Feedback')
+file_pre = 'decoding_results/20-09-2022_decode_feedback_task_Logistic_align_feedback_times_200_pseudosessions_regionWise_timeWindow_0_0_2_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_simulated_0_constrainNullSess_0_paraindex'
+res = pd.DataFrame()
+for i in range(50):
+    res_new = pd.read_parquet(file_pre+str(i)+'.parquet')
+    res = pd.concat([res, res_new], axis=0)
+res_table = create_pdtable_from_raw(res, 
+                                    score_name='balanced_acc_test',
+                                    N_PSEUDO=200)
+valid_reg = np.array([len(res_table.loc[res_table['region']==reg])>=2 for reg in res_table['region']])
+res_table = res_table.loc[valid_reg]
+res_table.to_csv(f'decoding_processing/{DATE}_reward.csv')
