@@ -80,12 +80,17 @@ save_comb_regs_data = pd.DataFrame({'regions': regions,
               'combined_p-values': [reg_comb_pval(reg) for reg in regions],
               'combined_sig': [reg_comb_pval(reg)<0.05 for reg in regions],
               'n_sessions': [len(get_vals(reg)) for reg in regions],
+              'std_vals': [np.std(get_vals(reg)) for reg in regions],
+              'median_vals': [np.median(get_vals(reg)) for reg in regions],
+              'mean_vals': [np.mean(get_vals(reg)) for reg in regions],
               'frac_sig': [frac_sig_region(reg) for reg in regions],
               'median_sig': [get_ms_reg(reg) for reg in regions]})
 n_sig = np.sum([reg_comb_pval(reg)<0.05 for reg in regions])
 f_sig = np.mean([reg_comb_pval(reg)<0.05 for reg in regions])
-save_comb_regs_data.to_csv(file_all_results.split('.')[0]+'_regs_nsig%s_fsig%.3f.csv'%(n_sig,f_sig))
-# reg_1sigsession = lambda reg: np.any(res_table.loc[res_table['region']==reg,
+wi_var = np.mean([np.var(get_vals(reg)) for reg in regions])
+wo_var = np.var([np.mean(get_vals(reg)) for reg in regions])
+wi2wo_var = wi_var/wo_var
+save_comb_regs_data.to_csv(file_all_results.split('.')[0]+'_regs_nsig%s_fsig%.3f_wi2ovar%.3f.csv'%(n_sig,f_sig,wi2wo_var))# reg_1sigsession = lambda reg: np.any(res_table.loc[res_table['region']==reg,
 #                                                    'p-value']<=(0.05/len(res_table.loc[res_table['region']==reg,
 #                                                                                                       'p-value'])))
 # regions = np.array([reg for reg in regions if reg_1sigsession(reg)])                                  'p-value'])))
