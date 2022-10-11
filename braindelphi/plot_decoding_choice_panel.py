@@ -13,7 +13,11 @@ import matplotlib.pyplot as plt
 # matplotlib.rcParams['font.sans-serif'] = 'Arial'
 # matplotlib.rcParams['font.family'] = 'sans-serif'
 import seaborn as sns
+from ibllib.atlas import AllenAtlas
 sns.set_style('whitegrid')
+
+br = AllenAtlas()
+all_regs = br.regions.id2acronym(np.load('../../beryl.npy'))
 
 #%% swanson
 file_all_results = 'decoding_processing/20-09-2022_choice.csv'
@@ -67,6 +71,7 @@ brain_SwansonFlat_results(uni_regs,
 get_vals = lambda reg: np.array(res_table.loc[res_table['region']==reg,'score'])
 get_pvals = lambda reg: np.array(res_table.loc[res_table['region']==reg,'p-value'])
 get_nulls = lambda reg: np.array(res_table.loc[res_table['region']==reg,'median-null'])
+get_nunits = lambda reg: np.array(res_table.loc[res_table['region']==reg,'n_units'])
 
 # assert regions have at least 1 sig session TODO bon. corr, 
 #        sorted by best median performance (TOPN values plotted), 
@@ -76,15 +81,15 @@ regions = np.unique(res_table['region'])
 regions = np.array([reg for reg in regions if not ((reg=='root') or (reg=='void'))])
 reg_comb_pval = lambda reg: scipy.stats.combine_pvalues(get_pvals(reg)
                                                         , method='fisher')[1]
-save_comb_regs_data = pd.DataFrame({'regions': regions, 
-              'combined_p-values': [reg_comb_pval(reg) for reg in regions],
-              'combined_sig': [reg_comb_pval(reg)<0.05 for reg in regions],
-              'n_sessions': [len(get_vals(reg)) for reg in regions],
-              'std_vals': [np.std(get_vals(reg)) for reg in regions],
-              'median_vals': [np.median(get_vals(reg)) for reg in regions],
-              'mean_vals': [np.mean(get_vals(reg)) for reg in regions],
-              'frac_sig': [frac_sig_region(reg) for reg in regions],
-              'median_sig': [get_ms_reg(reg) for reg in regions]})
+save_comb_regs_data = pd.DataFrame({'regions': all_regs, 
+              'combined_p-values': [reg_comb_pval(r) if r in regions else np.nan for r in all_regs],
+              'combined_sig': [reg_comb_pval(r)<0.05 if r in regions else np.nan for r in all_regs],
+              'n_sessions': [len(get_vals(r)) if r in regions else np.nan for r in all_regs],
+              'n_units_average': [np.mean(get_nunits(r)) if r in regions else np.nan for r in all_regs],
+              'std_vals': [np.std(get_vals(r)) if r in regions else np.nan for r in all_regs],
+              'median_vals': [np.median(get_vals(r)) if r in regions else np.nan for r in all_regs],
+              'frac_sig': [frac_sig_region(r) if r in regions else np.nan for r in all_regs],
+              'median_sig': [get_ms_reg(r) if r in regions else np.nan for r in all_regs]})
 n_sig = np.sum([reg_comb_pval(reg)<0.05 for reg in regions])
 f_sig = np.mean([reg_comb_pval(reg)<0.05 for reg in regions])
 wi_var = np.mean([np.var(get_vals(reg)) for reg in regions])

@@ -9,8 +9,6 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
-#from ibllib.atlas import AllenAtlas, FlatMap
-#from ibllib.atlas.plots import plot_scalar_on_flatmap
 from ibllib.atlas.flatmaps import plot_swanson
 from ibllib.atlas import BrainRegions
 from ibllib.atlas.plots import reorder_data
@@ -26,13 +24,13 @@ def brain_SwansonFlat_results(acronyms, values,
                   value_title='',
                   FILE_PATH='/home/bensonb/IntBrainLab/prior-localization/braindelphi/decoding_figures/'):
     '''
-
+    
+    
     Parameters
     ----------
-    acronyms : array of strings
-        
+    acronyms : array of strings,
+                acronyms which are in swanson, but not listed here are greyed out
     values : array of values
-        
     filename : string, optional
         The default is None.
     cmap : string, optional
@@ -115,19 +113,6 @@ def hex2rgba(hex):
 reg2rgba_dict = {allen_color_data[i,3]:
                  hex2rgba(allen_color_data[i,13]) for i in range(1,allen_color_data.shape[0])}
 
-def discretize_target(target_continuous,
-                      edge = np.linspace(0,1,11)):
-    
-    target_discrete = np.copy(target_continuous)
-    for i in range(len(edge)-1):
-        if i == len(edge)-2: # last edge includes boundary
-            target_discrete[(target_continuous >= edge[i])&
-                               (target_continuous <= edge[i+1])] = .5*(edge[i]+edge[i+1])
-        else:
-            target_discrete[(target_continuous >= edge[i])&
-                               (target_continuous < edge[i+1])] = .5*(edge[i]+edge[i+1])
-    return target_discrete
-
 def bar_results(acronyms_unordered, 
                 values_eids_unordered, 
                 nulls_unordered, 
@@ -151,7 +136,7 @@ def bar_results(acronyms_unordered,
         each element in array is an array of all sessions' values
         first dimension corresponds to regions in acronyms_unordered
     nulls_unordered : array
-        the null value to plot as white circle on each region's bar.
+        the null value to plot as large white circle on each region's bar.
         each element corresponds to regions in acronyms_unordered
     filename : str, optional
         The default is 'test.png'.
@@ -269,54 +254,3 @@ def bar_results(acronyms_unordered,
     plt.savefig(SAVE_PATH, dpi=600)
     plt.show()
     return acronyms
-
-def sess2preds(ss_res, inverse_transf = None):
-    '''
-    
-
-    Parameters
-    ----------
-    ss_res : TYPE
-        DESCRIPTION.
-    inverse_transf : TYPE, optional
-        DESCRIPTION. The default is None.
-
-    Returns
-    -------
-    preds : TYPE
-        DESCRIPTION.
-    targs : TYPE
-        DESCRIPTION.
-    mask : TYPE
-        DESCRIPTION.
-
-    '''
-    if inverse_transf is None:
-        inverse_transf = lambda x: x
-        
-    all_test_predictions = []
-    all_targets = []
-    all_masks = []
-    all_scores = []
-    for i_run in range(len(ss_res['fit'])):
-        # side, stim, act, _ = format_data_mut(result["fit"][i_run]["df"])
-        mask = ss_res["fit"][i_run]["mask"]  # np.all(result["fit"][i_run]["target"] == stim[mask])
-        # full_test_prediction = np.zeros(np.array(ss_res["fit"][i_run]["target"]).size)
-        # for k in range(len(ss_res["fit"][i_run]["idxes_test"])):
-        #     full_test_prediction[ss_res["fit"][i_run]['idxes_test'][k]] = ss_res["fit"][i_run]['predictions_test'][k]
-        pt = ss_res["fit"][i_run]["predictions_test"]
-        full_test_prediction = np.array([p[0] for p in pt])
-        all_test_predictions.append(inverse_transf(full_test_prediction))
-        all_targets.append(inverse_transf(ss_res["fit"][i_run]["target"]))
-        all_masks.append(ss_res["fit"][i_run]["mask"])
-        all_scores.append(ss_res["fit"][i_run]["scores_test_full"])
-    
-    preds = all_test_predictions[0]
-    preds = np.mean(np.vstack(all_test_predictions),axis=0)
-    fltg = lambda j: [all_targets[j][i][0] for i in range(len(all_targets[j]))]
-    targs = np.array([np.array(fltg(j)) for j in range(len(all_targets))])
-    assert np.all(np.abs(np.std(np.vstack(targs),axis=0))<1e-12)
-    assert np.all(np.std(np.vstack(all_masks),axis=0)==0)
-    targs = targs[0]
-    mask = np.array(all_masks[0])+0
-    return preds, targs, mask
