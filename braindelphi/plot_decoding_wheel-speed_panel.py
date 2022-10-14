@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Tue Sep 20 14:29:32 2022
+Created on Thur Oct 13 2022
 
 @author: bensonb
 """
@@ -10,6 +10,8 @@ import pandas as pd
 import scipy.stats
 from plot_utils import brain_SwansonFlat_results, bar_results, sess2preds
 import matplotlib.pyplot as plt
+# matplotlib.rcParams['font.sans-serif'] = 'Arial'
+# matplotlib.rcParams['font.family'] = 'sans-serif'
 import seaborn as sns
 from ibllib.atlas import AllenAtlas
 sns.set_style('whitegrid')
@@ -17,8 +19,8 @@ sns.set_style('whitegrid')
 br = AllenAtlas()
 all_regs = br.regions.id2acronym(np.load('../../beryl.npy'))
 
-#%% Block
-file_all_results = 'decoding_processing/20-09-2022_block.csv'
+#%% swanson
+file_all_results = 'decoding_processing/10-10-2022_wheel-speed.csv'
 res_table = pd.read_csv(file_all_results)
 
 frac_sig_region = lambda reg: np.mean(np.array(res_table.loc[res_table['region']==reg,'p-value']<0.05))
@@ -29,11 +31,11 @@ assert not np.any(np.isnan(fs_regs))
 
 brain_SwansonFlat_results(uni_regs, 
                           fs_regs, 
-                  filename='block_swanson_fs', 
-                  cmap='Purples',
+                  filename='wheel-speed_swanson_fs', 
+                  cmap='Reds',
                   clevels=[0, 0.55],
                   ticks=None,
-                  extend=None,
+                  extend='max',
                   value_title='Frac. Sig.')
 
 def get_ms_reg(reg):
@@ -45,8 +47,8 @@ ms_regs = np.array([get_ms_reg(reg) for reg in uni_regs])
 r2olivier, v2olivier = uni_regs, ms_regs
 brain_SwansonFlat_results(uni_regs[~np.isnan(ms_regs)], 
                           ms_regs[~np.isnan(ms_regs)], 
-                  filename='block_swanson_ms', 
-                  cmap='Purples',
+                  filename='wheel-speed_swanson_ms', 
+                  cmap='Reds',
                   clevels=[None, None],
                   ticks=None,
                   extend=None,
@@ -59,9 +61,9 @@ n_regs = np.log(n_regs)/np.log(2)
 
 brain_SwansonFlat_results(uni_regs, 
                           n_regs, 
-                  filename='block_swanson_n', 
-                  cmap='Purples',
-                  clevels=[None, None],
+                  filename='wheel-speed_swanson_n', 
+                  cmap='Reds',
+                  clevels=[0, None],
                   ticks=([1,2,3,4,5],[2,4,8,16,32]),
                   extend=None,
                   value_title='N Sessions')
@@ -79,7 +81,6 @@ regions = np.unique(res_table['region'])
 regions = np.array([reg for reg in regions if not ((reg=='root') or (reg=='void'))])
 reg_comb_pval = lambda reg: scipy.stats.combine_pvalues(get_pvals(reg)
                                                         , method='fisher')[1]
-
 save_comb_regs_data = pd.DataFrame({'regions': all_regs, 
               'combined_p-values': [reg_comb_pval(r) if r in regions else np.nan for r in all_regs],
               'combined_sig': [reg_comb_pval(r)<0.05 if r in regions else np.nan for r in all_regs],
@@ -94,11 +95,10 @@ f_sig = np.mean([reg_comb_pval(reg)<0.05 for reg in regions])
 wi_var = np.mean([np.var(get_vals(reg)) for reg in regions])
 wo_var = np.var([np.mean(get_vals(reg)) for reg in regions])
 wi2wo_var = wi_var/wo_var
-save_comb_regs_data.to_csv(file_all_results.split('.')[0]+'_regs_nsig%s_fsig%.3f_wi2ovar%.3f.csv'%(n_sig,f_sig,wi2wo_var))
-# reg_1sigsession = lambda reg: np.any(res_table.loc[res_table['region']==reg,
+save_comb_regs_data.to_csv(file_all_results.split('.')[0]+'_regs_nsig%s_fsig%.3f_wi2ovar%.3f.csv'%(n_sig,f_sig,wi2wo_var))# reg_1sigsession = lambda reg: np.any(res_table.loc[res_table['region']==reg,
 #                                                    'p-value']<=(0.05/len(res_table.loc[res_table['region']==reg,
 #                                                                                                       'p-value'])))
-# regions = np.array([reg for reg in regions if reg_1sigsession(reg)])
+# regions = np.array([reg for reg in regions if reg_1sigsession(reg)])                                  'p-value'])))
 regions = np.array([reg for reg in regions if reg_comb_pval(reg)<0.05])
 print('regions 1sig', regions, np.unique(res_table['region']))
 print('frac regions', (len(regions)-1)/(len(np.unique(res_table['region']))-2))
@@ -110,12 +110,12 @@ acr_plotted = bar_results(regions,
                             values,
                             comb_nulls,
                             fillcircle_eids_unordered=values_sig,
-                            filename='block_bars', 
+                            filename='wheel-speed_bars', 
                             YMIN=np.min([np.min(v) for v in values]),
-                            ylab='Bal. Acc.',
-                            ticks=([0.5,0.6,0.7,0.8],[0.5,0.6,0.7,0.8]),
+                            ylab='$R^2$',
                             TOP_N=15,
                             sort_args=None)
+
 # check criteria.
 for reg in acr_plotted:
     print(reg)
@@ -127,33 +127,73 @@ for reg in acr_plotted:
 
 #%% plot single session traces
 
-
-folder = 'decoding_results/20-09-2022_singlesessions/CSHL060_1191f865-b10a-45c8-9c48-24a980fd9402/'
-cur_plot_region = 'ORBvl'
-file = f'20-09-2022_{cur_plot_region}_target_pLeft_timeWindow_-0_4_-0_1_pseudo_id_-1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_simulated_0_constrainNullSess_0.pkl'
+folder = 'decoding_results/10-10-2022_singlesessions/SWC_054_671c7ea7-6726-4fbe-adeb-f89c2c8e489b_probe00/'
+cur_plot_region = 'GRN'
+file = f'10-10-2022_{cur_plot_region}_target_wheel-speed_timeWindow_-0_2_1_0_pseudo_id_-1__binsize=20.0_lags=10_mergedProbes_False.pkl'
 ss_res = pd.read_pickle(folder+file)
+# preds, targs, mask = sess2preds(ss_res, 
+#                                 inverse_transf=None)
 
-preds, targs, mask = sess2preds(ss_res, 
-                                inverse_transf=None)
+TIND = 0
+def get_targs_preds_times(ss_res, TIND):
+    mask = np.array(ss_res['fit'][0]['mask'])
+    trials = np.arange(len(mask))[mask]
+    trial = trials[TIND]
+    targs = ss_res['fit'][0]['target'][TIND]
+    preds = [ss_res['fit'][i]['predictions_test'][TIND] for i in range(len(ss_res['fit']))]
+    preds = np.mean(np.array(preds), axis=0)
+    movetime = np.array(ss_res['fit'][0]['df']['firstMovement_times'])[trial]
+    return targs, preds, movetime, trial
 
-trials = np.arange(len(mask))[[m==1 for m in mask]]
-plt.figure(figsize=(10,2.5))
-sessreg_score = np.array(res_table.loc[(res_table['eid']==ss_res['eid'])&
-                                       (res_table['region']==cur_plot_region),
-                                       'score'])
-assert len(sessreg_score) == 1
-sessreg_score = sessreg_score[0]
-plt.title(f'session: {ss_res["eid"]} \n region: {cur_plot_region} \n balanced accuracy = {sessreg_score:.3f} (average across 10 models)')
-plt.plot(trials, targs, '-', c='k',lw=4)
-plt.plot(trials, preds, '-', c='mediumpurple')
-cs = (np.array(ss_res["fit"][0]["df"]["choice"])+1)*.5
-# plt.plot(np.arange(len(cs)), cs,alpha=.3)
-plt.yticks([0,.5,1])
-plt.ylim(-0.1,1.1)
-plt.xlim(0,len(mask))
-plt.legend(['Left Biased Block','Probability of left prediction \n(across 10 models)'],frameon=True,loc=(-0.15,1.1))
-plt.xlabel('Trials')
-plt.ylabel('Block')
+fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4, figsize=(9,4))
+fig.suptitle(f'session: {ss_res["eid"]} \n region: {cur_plot_region} \n $R^2$ = 0.676 (average across 2 models)')
+LW = 3
+YMIN, YMAX = -0.9, 8.5
+targs, preds, movetime, trial = get_targs_preds_times(ss_res, 0)
+ax1.set_title(f'Trial {trial}')
+ax1.plot((np.arange(len(targs))-10)*0.02 + movetime, targs, 'k', lw=LW)
+ax1.plot((np.arange(len(targs))-10)*0.02 + movetime, preds, 'r', lw=LW)
+ax1.plot(np.zeros(50)+movetime, np.linspace(YMIN, YMAX), 'k--', lw=LW*0.5)
+# ymin, ymax = ax1.get_ylim()
+ax1.set_ylim(YMIN,YMAX)
+ax1.set_ylabel('Wheel speed (rad./s)')
+ax1.set_xticks([movetime, movetime+0.7],
+               [f'{movetime:.2f}', f'{movetime+0.7:.2f}'])
+ax1.set_xlabel(' ')
+
+targs, preds, movetime, trial = get_targs_preds_times(ss_res, 173)
+ax2.set_title(f'Trial {trial}')
+ax2.plot((np.arange(len(targs))-10)*0.02 + movetime, targs, 'k', lw=LW)
+ax2.plot((np.arange(len(targs))-10)*0.02 + movetime, preds, 'r', lw=LW)
+ax2.plot(np.zeros(50)+movetime, np.linspace(YMIN, YMAX), 'k--',lw=LW*0.5)
+ax2.set_ylim(YMIN,YMAX)
+ax2.set_yticklabels([])
+ax2.set_xticks([movetime, movetime+0.7],
+               [f'{movetime:.2f}', f'{movetime+0.7:.2f}'])
+
+targs, preds, movetime, trial = get_targs_preds_times(ss_res, 342)# 207 is 300
+ax3.set_title(f'Trial {trial}')
+ax3.plot((np.arange(len(targs))-10)*0.02 + movetime, targs, 'k', lw=LW)
+ax3.plot((np.arange(len(targs))-10)*0.02 + movetime, preds, 'r', lw=LW)
+ax3.plot(np.zeros(50)+movetime, np.linspace(YMIN, YMAX), 'k--', lw=LW*0.5)
+ax3.set_ylim(YMIN,YMAX)
+ax3.set_yticklabels([])
+ax3.set_xticks([movetime, movetime+0.7],
+               [f'{movetime:.2f}', f'{movetime+0.7:.2f}'])
+
+targs, preds, movetime, trial = get_targs_preds_times(ss_res, 506)
+ax4.set_title(f'Trial {trial}')
+ax4.plot((np.arange(len(targs))-10)*0.02 + movetime, targs, 'k', lw=LW)
+ax4.plot((np.arange(len(targs))-10)*0.02 + movetime, preds, 'r', lw=LW)
+ax4.plot(np.zeros(50)+movetime, np.linspace(YMIN, YMAX), 'k--', lw=LW*0.5)
+ax4.set_ylim(YMIN,YMAX)
+ax4.set_yticklabels([])
+ax4.set_xticks([movetime, movetime+0.7],
+               [f'{movetime:.2f}', f'{movetime+0.7:.2f}'])
+
+fig.text(.5, 0.04, 'Time (s)', ha='center')
+fig.legend(['Wheel-speed', 'Prediction average \n (across 2 models)', 'Movement Onset'], loc='upper left')
+
 plt.tight_layout()
-plt.savefig('decoding_figures/block_trace', dpi=600)
+plt.savefig('decoding_figures/wheel-speed_trace', dpi=600)
 plt.show()

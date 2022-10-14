@@ -64,7 +64,7 @@ brain_SwansonFlat_results(uni_regs,
                   filename='reward_swanson_n', 
                   cmap='Greens',
                   clevels=[None, None],
-                  ticks=([0,1,2,3,4,5],[1,2,4,8,16,32]),
+                  ticks=([1,2,3,4,5],[2,4,8,16,32]),
                   extend=None,
                   value_title='N Sessions')
 
