@@ -322,6 +322,8 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
             elif kwargs['neural_dtype'] == 'widefield':
                 probe = metadata['hemispheres']
 
+            assert False
+
             save_path = get_save_path(
                 pseudo_id, metadata['subject'], metadata['eid'], kwargs['neural_dtype'],
                 probe=probe,
