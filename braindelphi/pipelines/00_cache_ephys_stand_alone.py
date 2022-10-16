@@ -3,19 +3,21 @@ import logging
 import pickle
 from datetime import datetime as dt
 from pathlib import Path
+from urllib.error import HTTPError
 import yaml
 
 # Third party libraries
 import pandas as pd
 
 # IBL libraries
+from brainwidemap import bwm_query
+from one.api import ONE
+
+# braindelphi repo imports
 from braindelphi.params import CACHE_PATH, SETTINGS_PATH
 from braindelphi.pipelines.utils_common_pipelines import load_ephys
 from braindelphi.pipelines.utils_common_pipelines import cache_regressors
 from braindelphi.decoding.functions.utils import check_settings
-
-# braindelphi repo imports
-from braindelphi.utils_root import query_sessions
 
 _logger = logging.getLogger('braindelphi')
 
@@ -62,23 +64,50 @@ params = {
 
 dataset_futures = []
 
-sessdf = query_sessions(SESS_CRITERION).set_index(['subject', 'eid'])
+one = ONE()
+alignment_resolved = True if SESS_CRITERION.find('algined') > -1 else False
+bwm_df = bwm_query(one, alignment_resolved=alignment_resolved).set_index(['subject', 'eid'])
 
-for i, eid in enumerate(sessdf.index.unique(level='eid')):
-    if i >= 10:
+for i, eid in enumerate(bwm_df.index.unique(level='eid')):
+    if i <= 142:
         continue
-    xsdf = sessdf.xs(eid, level='eid')
-    subject = xsdf.index[0]
-    pids_lst = [[pid] for pid in xsdf.pid.to_list()] if not MERGE_PROBES else [xsdf.pid.to_list()]
-    probe_lst = [[n] for n in xsdf.probe.to_list()] if not MERGE_PROBES else [xsdf.probe.to_list()]
-    for (probes, pids) in zip(probe_lst, pids_lst):
-        load_outputs = delayed_load(eid, pids, params)
-        if load_outputs is not None:
+    session_df = bwm_df.xs(eid, level='eid')
+    subject = session_df.index[0]
+    print(eid)
+    print(subject)
+    pids = session_df.pid.to_list()
+    probe_names = session_df.probe_name.to_list()
+    if MERGE_PROBES:
+        try:
+            load_outputs = delayed_load(eid, pids, params)
             save_future = delayed_save(
-                subject, eid, probes,
-                {**params, 'type': TYPE, 'merge_probes': MERGE_PROBES},
-                load_outputs)
-            dataset_futures.append([subject, eid, probes, save_future])
+                subject, eid, 'merged_probes', {**params, 'type': TYPE}, load_outputs)
+            dataset_futures.append([subject, eid, 'merged_probes', save_future])
+        except HTTPError as e:
+            print('Caught HTTPError for eid: %s' % eid)
+            print(e)
+        except AttributeError as e:
+            print('Caught AttributeError for eid: %s' % eid)
+            print(e)
+        except IndexError as e:
+            print('Caught IndexError for eid: %s' % eid)
+            print(e)
+    else:
+        for (pid, probe_name) in zip(pids, probe_names):
+            try:
+                load_outputs = delayed_load(eid, [pid], params)
+                save_future = delayed_save(
+                    subject, eid, probe_name, {**params, 'type': TYPE}, load_outputs)
+                dataset_futures.append([subject, eid, probe_name, save_future])
+            except HTTPError as e:
+                print('Caught HTTPError for eid: %s' % eid)
+                print(e)
+            except AttributeError as e:
+                print('Caught AttributeError for eid: %s' % eid)
+                print(e)
+            except IndexError as e:
+                print('Caught IndexError for eid: %s' % eid)
+                print(e)
 
 
 # Run below code AFTER futures have finished!

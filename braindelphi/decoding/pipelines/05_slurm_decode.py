@@ -10,7 +10,7 @@ import pickle
 try:
     index = int(sys.argv[1]) - 1
 except:
-    index = 32
+    index = 50
     pass
 
 # import most recent cached data
@@ -33,9 +33,6 @@ if kwargs['neural_dtype'] == 'widefield':
 else:
     trials_df, neural_dict = regressors['trials_df'], regressors
 
-
-if kwargs['decode_prev_contrast']:
-    trials_df = trials_df.shift(1)
 
 # metadata['probe_name'] = 'probe00'
 if (job_id + 1) * N_PSEUDO_PER_JOB <= N_PSEUDO:

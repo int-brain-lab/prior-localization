@@ -257,3 +257,10 @@ def check_settings(settings):
     params['align_event'] = params['align_time']
 
     return params
+
+
+def derivative(y):
+    dy = np.zeros(y.shape,np.float)
+    dy[0:-1] = np.diff(y)
+    dy[-1] = (y[-1] - y[-2])
+    return dy

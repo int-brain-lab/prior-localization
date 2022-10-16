@@ -15,13 +15,13 @@ logger = logging.getLogger('ibllib')
 logger.disabled = True
 
 NEURAL_DTYPE = 'widefield'  # 'ephys' or 'widefield'
-DATE = '14-09-2022'  # date 12 prev, 13 next, 14 prev
+DATE = '27-09-2022'  # date 12 prev, 13 next, 14 prev
 
 # aligned -> histology was performed by one experimenter 
 # resolved -> histology was performed by 2-3 experiments
 SESS_CRITERION = 'resolved-behavior'  # aligned and behavior
 ALIGN_TIME = 'stimOn_times'
-TARGET = 'feedback'  # 'signcont' or 'pLeft'
+TARGET = 'pLeft'  # 'signcont' or 'pLeft'
 if TARGET not in ['pLeft', 'signcont', 'strengthcont', 'choice', 'feedback']:
     raise ValueError('TARGET can only be pLeft, signcont, strengthcont, choice or feedback')
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
@@ -29,11 +29,11 @@ if TARGET not in ['pLeft', 'signcont', 'strengthcont', 'choice', 'feedback']:
 MODEL = expSmoothing_prevAction  # 'population_level_Nmice101_NmodelsClasses7_processed.pkl' #expSmoothing_stimside, expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
 BEH_MOUSELEVEL_TRAINING = False  # if True, trains the behavioral model session-wise else mouse-wise
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
-ESTIMATOR = sklm.Ridge  # Must be in keys of strlut above
+ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 BINARIZATION_VALUE = None  # to binarize the target -> could be useful with logistic regression estimator
 ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 20000, 'fit_intercept': True}
 N_PSEUDO = 200
-N_PSEUDO_PER_JOB = 8
+N_PSEUDO_PER_JOB = 10
 N_JOBS_PER_SESSION = N_PSEUDO // N_PSEUDO_PER_JOB
 N_RUNS = 10
 MIN_UNITS = 10
@@ -41,7 +41,7 @@ NB_TRIALS_TAKEOUT_END = 0
 MIN_BEHAV_TRIAS = 150 if NEURAL_DTYPE == 'ephys' else 150  # default BWM setting is 400. 200 must remain after filtering
 MIN_RT = 0.08  # 0.08  # Float (s) or None
 MAX_RT = None
-SINGLE_REGION = False  # perform decoding on region-wise or whole brain analysis
+SINGLE_REGION = True  # perform decoding on region-wise or whole brain analysis
 MERGED_PROBES = True  # merge probes before performing analysis
 NO_UNBIAS = False  # take out unbiased trials
 SHUFFLE = True  # interleaved cross validation
@@ -72,7 +72,8 @@ BALANCED_CONTINUOUS_TARGET = True  # is target continuous or discrete FOR BALANC
 USE_OPENTURNS = False  # uses openturns to perform kernel density estimation
 BIN_SIZE_KDE = 0.05  # size of the kde bin
 HPARAM_GRID = ({
-    'alpha': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])
+    #'alpha': np.array([0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000, 100000])
+     'alpha': np.array([0.001, 0.01, 0.1]) #lasso
 } if not (sklm.LogisticRegression == ESTIMATOR) else {
     'C': np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])
 })
@@ -85,9 +86,9 @@ ADD_TO_SAVING_PATH = (
 
 # WIDE FIELD IMAGING
 WFI_HEMISPHERES = ['left', 'right']  # 'left' and/or 'right'
-WFI_NB_FRAMES_START = -5  # left signed number of frames from ALIGN_TIME (frame included)
+WFI_NB_FRAMES_START = -2  # left signed number of frames from ALIGN_TIME (frame included)
 WFI_NB_FRAMES_END = -2  # right signed number of frames from ALIGN_TIME (frame included). If 0, the align time frame is included
-WFI_AVERAGE_OVER_FRAMES = True
+WFI_AVERAGE_OVER_FRAMES = False
 
 if NEURAL_DTYPE == 'widefield' and WFI_NB_FRAMES_START > WFI_NB_FRAMES_END:
     raise ValueError('there is a problem in the specification of the timing of the widefield')
@@ -100,8 +101,12 @@ MAX_LEN = None  # max length of trial
 MOTOR_REGRESSORS = False
 MOTOR_REGRESSORS_ONLY = False # only _use motor regressors
 
-# DO WE WANT TO DECODE THE PREVIOUS CONTRAST ? (FOR DEBUGGING THE FACT THAT WE CAN PREDICT THE NEXT ABS CONTRAST)
+# DO WE WANT TO DECODE THE PREVIOUS CONTRAST ? (FOR DEBUGGING)
 DECODE_PREV_CONTRAST = False
+
+# DO WE WANT TO DECODE THE DERIVATIVE OF THE TARGET SIGNAL ?
+DECODE_DERIVATIVE = False
+
 
 # session to be excluded (by Olivier Winter)
 excludes = [
@@ -204,7 +209,8 @@ fit_metadata = {
     'quasi_random': QUASI_RANDOM,
     'motor_regressors':MOTOR_REGRESSORS,
     'motor_regressors_only':MOTOR_REGRESSORS_ONLY,
-    'decode_prev_contrast':DECODE_PREV_CONTRAST
+    'decode_prev_contrast':DECODE_PREV_CONTRAST,
+    'decode_derivative':DECODE_DERIVATIVE
 }
 
 if NEURAL_DTYPE == 'widefield':
@@ -265,6 +271,7 @@ kwargs = {
     'filter_pseudosessions_on_mutualInformation': FILTER_PSEUDOSESSIONS_ON_MUTUALINFORMATION,
     'motor_regressors':MOTOR_REGRESSORS,
     'motor_regressors_only':MOTOR_REGRESSORS_ONLY,
-    'decode_prev_contrast': DECODE_PREV_CONTRAST,
+    'decode_prev_contrast':DECODE_PREV_CONTRAST,
+    'decode_derivative':DECODE_DERIVATIVE,
     'wfi_average_over_frames': WFI_AVERAGE_OVER_FRAMES,
 }

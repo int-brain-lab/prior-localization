@@ -17,9 +17,11 @@ from dask.distributed import LocalCluster
 from one.api import ONE
 from brainwidemap import bwm_query
 from braindelphi.params import CACHE_PATH
+
 CACHE_PATH.mkdir(parents=True, exist_ok=True)
 
-_logger = logging.getLogger('braindelphi')
+_logger = logging.getLogger("braindelphi")
+
 
 @dask.delayed
 def delayed_load(eid, pids, params):
@@ -37,36 +39,24 @@ def delayed_save(subject, eid, probe_name, params, outputs):
 # Parameters
 ALGN_RESOLVED = True
 DATE = str(dt.today())
-MAX_LEN = None
-T_BEF = 0.6
-T_AFT = 0.6
-BINWIDTH = 0.02
-ABSWHEEL = False
-WHEEL = False
 QC = True
-TYPE = 'primaries'
+TYPE = "primaries"
 MERGE_PROBES = False
 # End parameters
 
 # Construct params dict from above
 params = {
-    'max_len': MAX_LEN,
-    't_before': T_BEF,
-    't_after': T_AFT,
-    'binwidth': BINWIDTH,
-    'abswheel': ABSWHEEL,
-    'ret_qc': QC,
-    'wheel': WHEEL,
+    "ret_qc": QC,
 }
 
 dataset_futures = []
 
 one = ONE()
 one.alyx.clear_rest_cache()
-bwm_df = bwm_query(one, alignment_resolved=ALGN_RESOLVED).set_index(['subject', 'eid'])
+bwm_df = bwm_query(freeze="2022_10_initial").set_index(["subject", "eid"])
 
-for eid in bwm_df.index.unique(level='eid'):
-    session_df = bwm_df.xs(eid, level='eid')
+for eid in bwm_df.index.unique(level="eid"):
+    session_df = bwm_df.xs(eid, level="eid")
     subject = session_df.index[0]
     # If there are two probes, there are two options:
     # load and save data from each probe independently, or merge the data from both probes
@@ -74,50 +64,60 @@ for eid in bwm_df.index.unique(level='eid'):
     probe_names = session_df.probe_name.to_list()
     if MERGE_PROBES:
         load_outputs = delayed_load(eid, pids, params)
-        save_future = delayed_save(subject, eid, 'merged_probes', {**params, 'type': TYPE}, load_outputs)
-        dataset_futures.append([subject, eid, 'merged_probes', save_future])
+        save_future = delayed_save(
+            subject, eid, "merged_probes", {**params, "type": TYPE}, load_outputs
+        )
+        dataset_futures.append([subject, eid, "merged_probes", save_future])
     else:
         for (pid, probe_name) in zip(pids, probe_names):
             load_outputs = delayed_load(eid, [pid], params)
-            save_future = delayed_save(subject, eid, probe_name, {**params, 'type': TYPE}, load_outputs)
+            save_future = delayed_save(
+                subject, eid, probe_name, {**params, "type": TYPE}, load_outputs
+            )
             dataset_futures.append([subject, eid, probe_name, save_future])
 
-N_CORES = 4
+N_CORES = 3
 
-cluster = SLURMCluster(cores=N_CORES,
-                       memory='32GB',
-                       processes=1,
-                       queue="shared-cpu",
-                       walltime="01:15:00",
-                       log_directory='/srv/beegfs/scratch/users/f/findling/dask-worker-logs',
-                       interface='ib0',
-                       extra=["--lifetime", "60m", "--lifetime-stagger", "10m"],
-                       job_cpu=N_CORES,
-                       env_extra=[
-                           f'export OMP_NUM_THREADS={N_CORES}',
-                           f'export MKL_NUM_THREADS={N_CORES}',
-                           f'export OPENBLAS_NUM_THREADS={N_CORES}'
-                       ])
+cluster = SLURMCluster(
+    cores=N_CORES,
+    memory="32GB",
+    processes=1,
+    queue="shared-cpu",
+    walltime="01:15:00",
+    log_directory="/srv/beegfs/scratch/users/f/findling/dask-worker-logs",
+    interface="ib0",
+    extra=["--lifetime", "60m", "--lifetime-stagger", "10m"],
+    job_cpu=N_CORES,
+    env_extra=[
+        f"export OMP_NUM_THREADS={N_CORES}",
+        f"export MKL_NUM_THREADS={N_CORES}",
+        f"export OPENBLAS_NUM_THREADS={N_CORES}",
+    ],
+)
 
 # cluster = LocalCluster()
-cluster.scale(10)
+cluster.scale(2)
 
 client = Client(cluster)
 
 tmp_futures = [client.compute(future[3]) for future in dataset_futures]
 
 # Run below code AFTER futures have finished!
-dataset = [{
-    'subject': x[0],
-    'eid': x[1],
-    'probe_name': x[2],
-    'meta_file': tmp_futures[i].result()[0],
-    'reg_file': tmp_futures[i].result()[1]
-} for i, x in enumerate(dataset_futures) if tmp_futures[i].status == 'finished']
+dataset = [
+    {
+        "subject": x[0],
+        "eid": x[1],
+        "probe_name": x[2],
+        "meta_file": tmp_futures[i].result()[0],
+        "reg_file": tmp_futures[i].result()[1],
+    }
+    for i, x in enumerate(dataset_futures)
+    if tmp_futures[i].status == "finished"
+]
 dataset = pd.DataFrame(dataset)
 
-outdict = {'params': params, 'dataset_filenames': dataset}
-with open(Path(CACHE_PATH).joinpath(DATE + '_ephys_metadata.pkl'), 'wb') as fw:
+outdict = {"params": params, "dataset_filenames": dataset}
+with open(Path(CACHE_PATH).joinpath(DATE + "_ephys_metadata.pkl"), "wb") as fw:
     pickle.dump(outdict, fw)
 
 """
