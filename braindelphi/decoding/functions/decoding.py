@@ -18,6 +18,7 @@ from braindelphi.decoding.functions.process_inputs import get_bery_reg_wfi
 from braindelphi.decoding.functions.process_inputs import (
     select_widefield_imaging_regions,
 )
+from braindelphi.decoding.functions.neurometric import compute_neurometric_prior
 from braindelphi.decoding.functions.process_inputs import preprocess_ephys
 from braindelphi.decoding.functions.process_inputs import preprocess_widefield_imaging
 from braindelphi.decoding.functions.process_targets import compute_beh_target
@@ -335,7 +336,18 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                 save_predictions = kwargs["save_predictions"]
 
             if kwargs["compute_neurometric"]:  # compute prior for neurometric curve
-                raise NotImplementedError
+                if kwargs["use_imposter_session"]:
+                    raise NotImplementedError(
+                        "neurometric and imposter sessions are incompatible in current codebase"
+                    )
+                trialsdf_neurometric = (
+                    trials_df.reset_index()
+                    if (pseudo_id == -1)
+                    else controlsess_df.reset_index()
+                )
+                trialsdf_neurometric = compute_neurometric_prior(
+                    trialsdf_neurometric, metadata, **kwargs
+                )
 
             ### derivative of target signal before mask application ###
             if kwargs["decode_derivative"]:
@@ -398,9 +410,9 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                         fit_result["fold_neurometric"],
                     ) = get_neurometric_parameters(
                         fit_result,
-                        trials_df=(
-                            trials_df[mask] if pseudo_id == -1 else controlsess_df[mask]
-                        ),
+                        trialsdf=trialsdf_neurometric[mask.values]
+                        .reset_index()
+                        .drop("index", axis=1),
                         compute_on_each_fold=kwargs["compute_on_each_fold"],
                         force_positive_neuro_slopes=kwargs["compute_on_each_fold"],
                     )
@@ -615,6 +627,10 @@ def decode_cv(
 
             key = list(hyperparam_grid.keys())[0]  # TODO: make this more robust
             r2s = np.zeros([n_folds, len(hyperparam_grid[key])])
+            inner_predictions = (
+                np.zeros([len(y_train), len(hyperparam_grid[key])]) + np.nan
+            )
+            inner_targets = np.zeros([len(y_train), len(hyperparam_grid[key])]) + np.nan
             for ifold, (train_idxs_inner, test_idxs_inner) in enumerate(inner_kfold):
 
                 # inner fold data split
@@ -663,8 +679,18 @@ def decode_cv(
                     pred_test_inner = (
                         model_inner.predict(X_test_inner) + mean_y_train_inner
                     )
+                    inner_predictions[test_idxs_inner, i_alpha] = pred_test_inner
+                    inner_targets[test_idxs_inner, i_alpha] = y_test_inner
                     r2s[ifold, i_alpha] = scoring_f(y_test_inner, pred_test_inner)
 
+            assert np.all(~np.isnan(inner_predictions))
+            assert np.all(~np.isnan(inner_targets))
+            r2s_avg = np.array(
+                [
+                    scoring_f(inner_targets[:, _k], inner_predictions[:, _k])
+                    for _k in range(len(hyperparam_grid[key]))
+                ]
+            )
             # select model with best hyperparameter value evaluated on inner-fold test data;
             # refit/evaluate on all inner-fold data
             r2s_avg = r2s.mean(axis=0)
