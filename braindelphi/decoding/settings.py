@@ -21,7 +21,7 @@ DATE = "27-09-2022"  # date 12 prev, 13 next, 14 prev
 # resolved -> histology was performed by 2-3 experiments
 SESS_CRITERION = "resolved-behavior"  # aligned and behavior
 ALIGN_TIME = "stimOn_times"
-TARGET = "signcont"  # 'signcont' or 'pLeft'
+TARGET = "pLeft"  # 'signcont' or 'pLeft'
 if TARGET not in ["pLeft", "signcont", "strengthcont", "choice", "feedback"]:
     raise ValueError(
         "TARGET can only be pLeft, signcont, strengthcont, choice or feedback"
@@ -54,7 +54,7 @@ MERGED_PROBES = True  # merge probes before performing analysis
 NO_UNBIAS = False  # take out unbiased trials
 SHUFFLE = True  # interleaved cross validation
 BORDER_QUANTILES_NEUROMETRIC = [0.3, 0.7]  # [.3, .4, .5, .6, .7]
-COMPUTE_NEUROMETRIC = True
+COMPUTE_NEUROMETRIC = False
 FORCE_POSITIVE_NEURO_SLOPES = False
 SAVE_PREDICTIONS = True
 
