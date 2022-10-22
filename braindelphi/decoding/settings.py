@@ -14,8 +14,8 @@ BEHAVIOR_MOD_PATH.mkdir(parents=True, exist_ok=True)
 logger = logging.getLogger("ibllib")
 logger.disabled = True
 
-NEURAL_DTYPE = "widefield"  # 'ephys' or 'widefield'
-DATE = "27-09-2022"  # date 12 prev, 13 next, 14 prev
+NEURAL_DTYPE = 'ephys'  # 'ephys' or 'widefield'
+DATE = '04-11-2022'  # date 12 prev, 13 next, 14 prev
 
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
@@ -39,7 +39,7 @@ BINARIZATION_VALUE = (
 )
 ESTIMATOR_KWARGS = {"tol": 0.0001, "max_iter": 20000, "fit_intercept": True}
 N_PSEUDO = 200
-N_PSEUDO_PER_JOB = 10
+N_PSEUDO_PER_JOB = 20
 N_JOBS_PER_SESSION = N_PSEUDO // N_PSEUDO_PER_JOB
 N_RUNS = 10
 MIN_UNITS = 10
@@ -50,7 +50,7 @@ MIN_BEHAV_TRIAS = (
 MIN_RT = 0.08  # 0.08  # Float (s) or None
 MAX_RT = None
 SINGLE_REGION = True  # perform decoding on region-wise or whole brain analysis
-MERGED_PROBES = True  # merge probes before performing analysis
+MERGED_PROBES = False  # merge probes before performing analysis
 NO_UNBIAS = False  # take out unbiased trials
 SHUFFLE = True  # interleaved cross validation
 BORDER_QUANTILES_NEUROMETRIC = [0.3, 0.7]  # [.3, .4, .5, .6, .7]
@@ -131,6 +131,9 @@ MAX_LEN = None  # max length of trial
 # DEEPLABCUT MOVEMENT REGRESSORS
 MOTOR_REGRESSORS = False
 MOTOR_REGRESSORS_ONLY = False  # only _use motor regressors
+
+# DO WE WANT TO DECODE MOTOR RESIDUAL OF THE PRIOR TARGET (WORK ONLY FOR OPTI BAYES)
+MOTOR_RESIDUAL = True
 
 # DO WE WANT TO DECODE THE PREVIOUS CONTRAST ? (FOR DEBUGGING)
 DECODE_PREV_CONTRAST = False
@@ -256,6 +259,7 @@ fit_metadata = {
     "motor_regressors_only": MOTOR_REGRESSORS_ONLY,
     "decode_prev_contrast": DECODE_PREV_CONTRAST,
     "decode_derivative": DECODE_DERIVATIVE,
+    'motor_residual':MOTOR_RESIDUAL
 }
 
 if NEURAL_DTYPE == "widefield":
@@ -318,6 +322,7 @@ kwargs = {
     "motor_regressors_only": MOTOR_REGRESSORS_ONLY,
     "decode_prev_contrast": DECODE_PREV_CONTRAST,
     "decode_derivative": DECODE_DERIVATIVE,
+    'motor_residual':MOTOR_RESIDUAL,
     "wfi_average_over_frames": WFI_AVERAGE_OVER_FRAMES,
     "debug": DEBUG,
 }

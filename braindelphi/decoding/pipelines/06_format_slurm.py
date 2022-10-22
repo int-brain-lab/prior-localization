@@ -8,9 +8,9 @@ from braindelphi.params import FIT_PATH
 from braindelphi.decoding.settings import modeldispatcher
 from tqdm import tqdm
 
-SAVE_KFOLDS = True
+SAVE_KFOLDS = False
 
-date = '16-09-2022'
+date = '04-11-2022'
 finished = glob.glob(str(FIT_PATH.joinpath(kwargs['neural_dtype'], "*", "*", "*", "*%s*" % date)))
 print('nb files:',len(finished))
 
@@ -44,8 +44,8 @@ for fn in tqdm(finished):
                        'run_id': i_run + 1,
                        'mask': ''.join([str(item) for item in list(result['fit'][i_run]['mask'].values * 1)]),
                        'R2_test': result['fit'][i_run]['Rsquared_test_full'],
-                       'prediction': list(result["fit"][i_run]['predictions_test']),
-                       'target': list(result["fit"][i_run]["target"]),
+                       # 'prediction': list(result["fit"][i_run]['predictions_test']),
+                       # 'target': list(result["fit"][i_run]["target"]),
                        # 'perf_allcontrast': perf_allcontrasts,
                        # 'perf_allcontrasts_prevtrial': perf_allcontrasts_prevtrial,
                        # 'perf_0contrast': perf_0contrasts,

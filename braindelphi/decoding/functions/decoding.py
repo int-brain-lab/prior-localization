@@ -38,6 +38,8 @@ from braindelphi.decoding.functions.process_targets import optimal_Bayesian
 from braindelphi.decoding.functions.neurometric import get_neurometric_parameters
 from braindelphi.decoding.functions.utils import derivative
 
+from braindelphi.decoding.functions.process_motors import preprocess_motors,compute_motor_prediction
+
 
 def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **kwargs):
     """High-level function to decode a given target variable from brain regions for a single eid.
@@ -251,6 +253,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
             raise NotImplementedError
 
         if kwargs["neural_dtype"] == "ephys" and len(reg_clu_ids) < kwargs["min_units"]:
+            print(region,'below min units threshold :',len(reg_clu_ids))
             continue
 
         if kwargs["neural_dtype"] == "ephys":
@@ -271,8 +274,6 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
 
         if kwargs.get("motor_regressors", None):
             print("motor regressors")
-            from braindelphi.decoding.functions.process_motors import preprocess_motors
-
             motor_binned = preprocess_motors(
                 metadata["eid"], kwargs
             )  # size (nb_trials,nb_motor_regressors) => one bin per trial
@@ -356,6 +357,19 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                 else:
                     controltarget_vals_list = derivative(controltarget_vals_list)
 
+            ### replace target signal by residual of motor prediction ###
+            if kwargs["motor_residual"]:
+                if pseudo_id == -1 :
+                    motor_prediction = compute_motor_prediction(metadata["eid"],target_vals_list,kwargs)
+                    target_vals_list = target_vals_list - motor_prediction
+                else :
+                    motor_prediction = compute_motor_prediction(metadata["eid"],controltarget_vals_list,kwargs)
+                    controltarget_vals_list = controltarget_vals_list - motor_prediction
+
+            y_decoding = ( [target_vals_list[m] for m in np.squeeze(np.where(mask))]
+                            if pseudo_id == -1
+                            else [ controltarget_vals_list[m] for m in np.squeeze(np.where(mask))] )    
+
             # run decoders
             for i_run in range(kwargs["nb_runs"]):
 
@@ -368,14 +382,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                     rng_seed = None
 
                 fit_result = decode_cv(
-                    ys=(
-                        [target_vals_list[m] for m in np.squeeze(np.where(mask))]
-                        if pseudo_id == -1
-                        else [
-                            controltarget_vals_list[m]
-                            for m in np.squeeze(np.where(mask))
-                        ]
-                    ),
+                    ys=y_decoding,
                     Xs=[Xs[m] for m in np.squeeze(np.where(mask))],
                     estimator=kwargs["estimator"],
                     use_openturns=kwargs["use_openturns"],

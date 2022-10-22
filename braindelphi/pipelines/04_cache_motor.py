@@ -73,7 +73,6 @@ def enablePrint():
     sys.stdout = sys.__stdout__
 
 def get_all_sess_with_ME():
-    one = ONE()
     # get all bwm sessions with dlc
     all_sess = one.alyx.rest('sessions', 'list', 
                               project='ibl_neuropixel_brainwide_01',
@@ -291,7 +290,7 @@ def cut_behavior(eid, duration =0.4, lag = -0.6,
 def load_motor(eid):
 
     assert eid in motor_eids, "no motor signals for this session"
-    motor_regressors = cut_behavior(eid,duration =2, lag = -1) # very large interval
+    motor_regressors = cut_behavior(eid,duration =2, lag = -1,query_type='auto') # very large interval
     motor_signals_of_interest = ['licking', 'whisking_l', 'whisking_r', 'wheeling', 'nose_pos', 'paw_pos_r', 'paw_pos_l']
     regressors = dict(filter(lambda i:i[0] in motor_signals_of_interest, motor_regressors.items()))
     return regressors
@@ -320,6 +319,8 @@ def cache_motor(subject, eid, regressors):
         pickle.dump(metadata, fw)
     with open(data_fn, 'wb') as fw:
         pickle.dump(regressors, fw)
+
+    del regressors 
     return metadata_fn, data_fn
 
 
@@ -361,8 +362,7 @@ params = {
 }
 
 
-one = ONE()
-bwm_df = bwm_query(one, alignment_resolved=ALGN_RESOLVED).set_index(['subject', 'eid'])
+bwm_df = bwm_query(freeze="2022_10_initial").set_index(["subject", "eid"]) # frozen dataset
 
 dataset_futures = []
 
@@ -428,6 +428,7 @@ print(len([(i, x) for i, x in enumerate(tmp_futures) if x.status == 'cancelled']
 print(len([(i, x) for i, x in enumerate(tmp_futures) if x.status == 'error']))
 print(len([(i, x) for i, x in enumerate(tmp_futures) if x.status == 'lost']))
 print(len([(i, x) for i, x in enumerate(tmp_futures) if x.status == 'pending']))
+print(len([(i, x) for i, x in enumerate(tmp_futures) if x.status == 'finished']))
 
 import numpy as np
 nb_trials_per_df = np.zeros(dataset.index.size)
