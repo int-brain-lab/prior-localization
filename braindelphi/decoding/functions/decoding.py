@@ -8,6 +8,7 @@ from sklearn.model_selection import GridSearchCV, KFold, train_test_split
 from tqdm import tqdm
 from behavior_models.models.utils import format_data as format_data_mut
 from behavior_models.models.utils import format_input as format_input_mut
+from sklearn.linear_model import RidgeCV, Ridge
 
 from ibllib.atlas import BrainRegions
 
@@ -18,6 +19,7 @@ from braindelphi.decoding.functions.process_inputs import get_bery_reg_wfi
 from braindelphi.decoding.functions.process_inputs import (
     select_widefield_imaging_regions,
 )
+from braindelphi.decoding.functions.neurometric import compute_neurometric_prior
 from braindelphi.decoding.functions.process_inputs import preprocess_ephys
 from braindelphi.decoding.functions.process_inputs import preprocess_widefield_imaging
 from braindelphi.decoding.functions.process_targets import compute_beh_target
@@ -35,6 +37,11 @@ from braindelphi.decoding.functions.process_targets import check_bhv_fit_exists
 from braindelphi.decoding.functions.process_targets import optimal_Bayesian
 from braindelphi.decoding.functions.neurometric import get_neurometric_parameters
 from braindelphi.decoding.functions.utils import derivative
+
+from braindelphi.decoding.functions.process_motors import (
+    preprocess_motors,
+    compute_motor_prediction,
+)
 
 
 def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **kwargs):
@@ -249,6 +256,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
             raise NotImplementedError
 
         if kwargs["neural_dtype"] == "ephys" and len(reg_clu_ids) < kwargs["min_units"]:
+            print(region, "below min units threshold :", len(reg_clu_ids))
             continue
 
         if kwargs["neural_dtype"] == "ephys":
@@ -269,8 +277,6 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
 
         if kwargs.get("motor_regressors", None):
             print("motor regressors")
-            from braindelphi.decoding.functions.process_motors import preprocess_motors
-
             motor_binned = preprocess_motors(
                 metadata["eid"], kwargs
             )  # size (nb_trials,nb_motor_regressors) => one bin per trial
@@ -334,7 +340,18 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                 save_predictions = kwargs["save_predictions"]
 
             if kwargs["compute_neurometric"]:  # compute prior for neurometric curve
-                raise NotImplementedError
+                if kwargs["use_imposter_session"]:
+                    raise NotImplementedError(
+                        "neurometric and imposter sessions are incompatible in current codebase"
+                    )
+                trialsdf_neurometric = (
+                    trials_df.reset_index()
+                    if (pseudo_id == -1)
+                    else controlsess_df.reset_index()
+                )
+                trialsdf_neurometric = compute_neurometric_prior(
+                    trialsdf_neurometric, metadata, **kwargs
+                )
 
             ### derivative of target signal before mask application ###
             if kwargs["decode_derivative"]:
@@ -342,6 +359,25 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                     target_vals_list = derivative(target_vals_list)
                 else:
                     controltarget_vals_list = derivative(controltarget_vals_list)
+
+            ### replace target signal by residual of motor prediction ###
+            if kwargs["motor_residual"]:
+                if pseudo_id == -1:
+                    motor_prediction = compute_motor_prediction(
+                        metadata["eid"], target_vals_list, kwargs
+                    )
+                    target_vals_list = target_vals_list - motor_prediction
+                else:
+                    motor_prediction = compute_motor_prediction(
+                        metadata["eid"], controltarget_vals_list, kwargs
+                    )
+                    controltarget_vals_list = controltarget_vals_list - motor_prediction
+
+            y_decoding = (
+                [target_vals_list[m] for m in np.squeeze(np.where(mask))]
+                if pseudo_id == -1
+                else [controltarget_vals_list[m] for m in np.squeeze(np.where(mask))]
+            )
 
             # run decoders
             for i_run in range(kwargs["nb_runs"]):
@@ -355,14 +391,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                     rng_seed = None
 
                 fit_result = decode_cv(
-                    ys=(
-                        [target_vals_list[m] for m in np.squeeze(np.where(mask))]
-                        if pseudo_id == -1
-                        else [
-                            controltarget_vals_list[m]
-                            for m in np.squeeze(np.where(mask))
-                        ]
-                    ),
+                    ys=y_decoding,
                     Xs=[Xs[m] for m in np.squeeze(np.where(mask))],
                     estimator=kwargs["estimator"],
                     use_openturns=kwargs["use_openturns"],
@@ -378,6 +407,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                     normalize_input=kwargs["normalize_input"],
                     normalize_output=kwargs["normalize_output"],
                     rng_seed=rng_seed,
+                    use_cv_sklearn_method=kwargs["neural_dtype"] == "widefield",
                 )
                 fit_result["mask"] = mask
                 fit_result["df"] = trials_df if pseudo_id == -1 else controlsess_df
@@ -391,9 +421,9 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                         fit_result["fold_neurometric"],
                     ) = get_neurometric_parameters(
                         fit_result,
-                        trials_df=(
-                            trials_df[mask] if pseudo_id == -1 else controlsess_df[mask]
-                        ),
+                        trialsdf=trialsdf_neurometric[mask.values]
+                        .reset_index()
+                        .drop("index", axis=1),
                         compute_on_each_fold=kwargs["compute_on_each_fold"],
                         force_positive_neuro_slopes=kwargs["compute_on_each_fold"],
                     )
@@ -461,6 +491,7 @@ def decode_cv(
     rng_seed=None,
     normalize_input=False,
     normalize_output=False,
+    use_cv_sklearn_method=False,
 ):
     """Regresses binned neural activity against a target, using a provided sklearn estimator.
 
@@ -568,7 +599,9 @@ def decode_cv(
         np.random.seed(rng_seed)
     indices = np.arange(n_trials)
     if outer_cv:
-        outer_kfold = KFold(n_splits=n_folds, shuffle=shuffle).split(indices)
+        outer_kfold = KFold(
+            n_splits=n_folds if not use_cv_sklearn_method else 50, shuffle=shuffle
+        ).split(indices)
     else:
         outer_kfold = iter(
             [train_test_split(indices, test_size=test_prop, shuffle=shuffle)]
@@ -602,92 +635,125 @@ def decode_cv(
             X_test = [Xs[i] for i in test_idxs_outer]
             y_test = [ys[i] for i in test_idxs_outer]
 
-            # now loop over inner folds
-            idx_inner = np.arange(len(X_train))
-            inner_kfold = KFold(n_splits=n_folds, shuffle=shuffle).split(idx_inner)
-
             key = list(hyperparam_grid.keys())[0]  # TODO: make this more robust
-            r2s = np.zeros([n_folds, len(hyperparam_grid[key])])
-            for ifold, (train_idxs_inner, test_idxs_inner) in enumerate(inner_kfold):
 
-                # inner fold data split
-                X_train_inner = np.vstack([X_train[i] for i in train_idxs_inner])
-                y_train_inner = np.concatenate(
-                    [y_train[i] for i in train_idxs_inner], axis=0
+            if not use_cv_sklearn_method:
+                # now loop over inner folds
+                idx_inner = np.arange(len(X_train))
+                inner_kfold = KFold(n_splits=n_folds, shuffle=shuffle).split(idx_inner)
+
+                r2s = np.zeros([n_folds, len(hyperparam_grid[key])])
+                inner_predictions = (
+                    np.zeros([len(y_train), len(hyperparam_grid[key])]) + np.nan
                 )
-                X_test_inner = np.vstack([X_train[i] for i in test_idxs_inner])
-                y_test_inner = np.concatenate(
-                    [y_train[i] for i in test_idxs_inner], axis=0
+                inner_targets = (
+                    np.zeros([len(y_train), len(hyperparam_grid[key])]) + np.nan
                 )
+                for ifold, (train_idxs_inner, test_idxs_inner) in enumerate(
+                    inner_kfold
+                ):
+
+                    # inner fold data split
+                    X_train_inner = np.vstack([X_train[i] for i in train_idxs_inner])
+                    y_train_inner = np.concatenate(
+                        [y_train[i] for i in train_idxs_inner], axis=0
+                    )
+                    X_test_inner = np.vstack([X_train[i] for i in test_idxs_inner])
+                    y_test_inner = np.concatenate(
+                        [y_train[i] for i in test_idxs_inner], axis=0
+                    )
+
+                    # normalize inputs/outputs if requested
+                    mean_X_train_inner = (
+                        X_train_inner.mean(axis=0) if normalize_input else 0
+                    )
+                    X_train_inner = X_train_inner - mean_X_train_inner
+                    X_test_inner = X_test_inner - mean_X_train_inner
+                    mean_y_train_inner = (
+                        y_train_inner.mean(axis=0) if normalize_output else 0
+                    )
+                    y_train_inner = y_train_inner - mean_y_train_inner
+
+                    for i_alpha, alpha in enumerate(hyperparam_grid[key]):
+
+                        # compute weight for each training sample if requested
+                        # (esp necessary for classification problems with imbalanced classes)
+                        if balanced_weight:
+                            sample_weight = balanced_weighting(
+                                vec=y_train_inner,
+                                continuous=balanced_continuous_target,
+                                use_openturns=use_openturns,
+                                bin_size_kde=bin_size_kde,
+                                target_distribution=target_distribution,
+                            )
+                        else:
+                            sample_weight = None
+
+                        # initialize model
+                        model_inner = estimator(**{**estimator_kwargs, key: alpha})
+                        # fit model
+                        model_inner.fit(
+                            X_train_inner, y_train_inner, sample_weight=sample_weight
+                        )
+                        # evaluate model
+                        pred_test_inner = (
+                            model_inner.predict(X_test_inner) + mean_y_train_inner
+                        )
+                        inner_predictions[test_idxs_inner, i_alpha] = pred_test_inner
+                        inner_targets[test_idxs_inner, i_alpha] = y_test_inner
+                        r2s[ifold, i_alpha] = scoring_f(y_test_inner, pred_test_inner)
+
+                assert np.all(~np.isnan(inner_predictions))
+                assert np.all(~np.isnan(inner_targets))
+                r2s_avg = np.array(
+                    [
+                        scoring_f(inner_targets[:, _k], inner_predictions[:, _k])
+                        for _k in range(len(hyperparam_grid[key]))
+                    ]
+                )
+                # select model with best hyperparameter value evaluated on inner-fold test data;
+                # refit/evaluate on all inner-fold data
+                r2s_avg = r2s.mean(axis=0)
 
                 # normalize inputs/outputs if requested
-                mean_X_train_inner = (
-                    X_train_inner.mean(axis=0) if normalize_input else 0
-                )
-                X_train_inner = X_train_inner - mean_X_train_inner
-                X_test_inner = X_test_inner - mean_X_train_inner
-                mean_y_train_inner = (
-                    y_train_inner.mean(axis=0) if normalize_output else 0
-                )
-                y_train_inner = y_train_inner - mean_y_train_inner
+                X_train_array = np.vstack(X_train)
+                mean_X_train = X_train_array.mean(axis=0) if normalize_input else 0
+                X_train_array = X_train_array - mean_X_train
 
-                for i_alpha, alpha in enumerate(hyperparam_grid[key]):
+                y_train_array = np.concatenate(y_train, axis=0)
+                mean_y_train = y_train_array.mean(axis=0) if normalize_output else 0
+                y_train_array = y_train_array - mean_y_train
 
-                    # compute weight for each training sample if requested
-                    # (esp necessary for classification problems with imbalanced classes)
-                    if balanced_weight:
-                        sample_weight = balanced_weighting(
-                            vec=y_train_inner,
-                            continuous=balanced_continuous_target,
-                            use_openturns=use_openturns,
-                            bin_size_kde=bin_size_kde,
-                            target_distribution=target_distribution,
-                        )
-                    else:
-                        sample_weight = None
-
-                    # initialize model
-                    model_inner = estimator(**{**estimator_kwargs, key: alpha})
-                    # fit model
-                    model_inner.fit(
-                        X_train_inner, y_train_inner, sample_weight=sample_weight
+                # compute weight for each training sample if requested
+                if balanced_weight:
+                    sample_weight = balanced_weighting(
+                        vec=y_train_array,
+                        continuous=balanced_continuous_target,
+                        use_openturns=use_openturns,
+                        bin_size_kde=bin_size_kde,
+                        target_distribution=target_distribution,
                     )
-                    # evaluate model
-                    pred_test_inner = (
-                        model_inner.predict(X_test_inner) + mean_y_train_inner
-                    )
-                    r2s[ifold, i_alpha] = scoring_f(y_test_inner, pred_test_inner)
+                else:
+                    sample_weight = None
 
-            # select model with best hyperparameter value evaluated on inner-fold test data;
-            # refit/evaluate on all inner-fold data
-            r2s_avg = r2s.mean(axis=0)
-
-            # normalize inputs/outputs if requested
-            X_train_array = np.vstack(X_train)
-            mean_X_train = X_train_array.mean(axis=0) if normalize_input else 0
-            X_train_array = X_train_array - mean_X_train
-
-            y_train_array = np.concatenate(y_train, axis=0)
-            mean_y_train = y_train_array.mean(axis=0) if normalize_output else 0
-            y_train_array = y_train_array - mean_y_train
-
-            # compute weight for each training sample if requested
-            if balanced_weight:
-                sample_weight = balanced_weighting(
-                    vec=y_train_array,
-                    continuous=balanced_continuous_target,
-                    use_openturns=use_openturns,
-                    bin_size_kde=bin_size_kde,
-                    target_distribution=target_distribution,
-                )
+                # initialize model
+                best_alpha = hyperparam_grid[key][np.argmax(r2s_avg)]
+                model = estimator(**{**estimator_kwargs, key: best_alpha})
+                # fit model
+                model.fit(X_train_array, y_train_array, sample_weight=sample_weight)
             else:
-                sample_weight = None
-
-            # initialize model
-            best_alpha = hyperparam_grid[key][np.argmax(r2s_avg)]
-            model = estimator(**{**estimator_kwargs, key: best_alpha})
-            # fit model
-            model.fit(X_train_array, y_train_array, sample_weight=sample_weight)
+                if normalize_input or normalize_output or estimator != Ridge:
+                    raise NotImplementedError("This case is not implemented")
+                model = RidgeCV(alphas=hyperparam_grid[key])
+                X_train_array = np.vstack(X_train)
+                mean_X_train = X_train_array.mean(axis=0) if normalize_input else 0
+                X_train_array = X_train_array - mean_X_train
+                y_train_array = np.concatenate(y_train, axis=0)
+                mean_y_train = y_train_array.mean(axis=0) if normalize_output else 0
+                y_train_array = y_train_array - mean_y_train
+                model.fit(X_train_array, y_train_array)
+                best_alpha = model.alpha_
+                # model.fit(np.array(Xs).squeeze(), np.array(ys).squeeze())
 
             # evalute model on train data
             y_pred_train = model.predict(X_train_array) + mean_y_train
