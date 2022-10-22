@@ -583,7 +583,9 @@ def decode_cv(
         np.random.seed(rng_seed)
     indices = np.arange(n_trials)
     if outer_cv:
-        outer_kfold = KFold(n_splits=n_folds, shuffle=shuffle).split(indices)
+        outer_kfold = KFold(
+            n_splits=n_folds if not use_cv_sklearn_method else 50, shuffle=shuffle
+        ).split(indices)
     else:
         outer_kfold = iter(
             [train_test_split(indices, test_size=test_prop, shuffle=shuffle)]
@@ -735,7 +737,7 @@ def decode_cv(
                 y_train_array = y_train_array - mean_y_train
                 model.fit(X_train_array, y_train_array)
                 best_alpha = model.alpha_
-                # assert False
+                assert False
                 # model.fit(np.array(Xs).squeeze(), np.array(ys).squeeze())
 
             # evalute model on train data
