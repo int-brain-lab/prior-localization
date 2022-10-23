@@ -409,7 +409,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                     rng_seed=rng_seed,
                     use_cv_sklearn_method=kwargs["neural_dtype"] == "widefield",
                 )
-                fit_result["mask"] = mask
+                fit_result["mask"] = mask if save_predictions else None
                 fit_result["df"] = trials_df if pseudo_id == -1 else controlsess_df
                 fit_result["pseudo_id"] = pseudo_id
                 fit_result["run_id"] = i_run
