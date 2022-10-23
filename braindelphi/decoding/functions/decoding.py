@@ -819,14 +819,14 @@ def decode_cv(
         outdict["balanced_acc_test_full"] = balanced_accuracy_score(
             ys_true_full, ys_pred_full
         )
-    outdict["weights"] = weights
-    outdict["intercepts"] = intercepts
-    outdict["target"] = ys
+    outdict["weights"] = weights if save_predictions else None
+    outdict["intercepts"] = intercepts if save_predictions else None
+    outdict["target"] = ys if save_predictions else None
     outdict["predictions_test"] = predictions_to_save if save_predictions else None
     outdict["regressors"] = Xs if save_binned else None
-    outdict["idxes_test"] = idxes_test
-    outdict["idxes_train"] = idxes_train
-    outdict["best_params"] = best_params
+    outdict["idxes_test"] = idxes_test if save_predictions else None
+    outdict["idxes_train"] = idxes_train if save_predictions else None
+    outdict["best_params"] = best_params if save_predictions else None
     outdict["n_folds"] = n_folds
     if hasattr(model, "classes_"):
         outdict["classes_"] = model.classes_
