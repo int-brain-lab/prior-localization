@@ -14,8 +14,8 @@ BEHAVIOR_MOD_PATH.mkdir(parents=True, exist_ok=True)
 logger = logging.getLogger("ibllib")
 logger.disabled = True
 
-NEURAL_DTYPE = 'ephys'  # 'ephys' or 'widefield'
-DATE = '04-11-2022'  # date 12 prev, 13 next, 14 prev
+NEURAL_DTYPE = 'widefield'  # 'ephys' or 'widefield'
+DATE = '50-10-2022'  # date 12 prev, 13 next, 14 prev
 
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
@@ -29,17 +29,13 @@ if TARGET not in ["pLeft", "signcont", "strengthcont", "choice", "feedback"]:
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
 # if MODEL is a path, this will be the interindividual results
 MODEL = optimal_Bayesian  # 'population_level_Nmice101_NmodelsClasses7_processed.pkl' #expSmoothing_stimside, expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
-BEH_MOUSELEVEL_TRAINING = (
-    False  # if True, trains the behavioral model session-wise else mouse-wise
-)
+BEH_MOUSELEVEL_TRAINING = False  # if True, trains the behavioral model session-wise else mouse-wise
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
 ESTIMATOR = sklm.Ridge  # Must be in keys of strlut above
-BINARIZATION_VALUE = (
-    None  # to binarize the target -> could be useful with logistic regression estimator
-)
-ESTIMATOR_KWARGS = {"tol": 0.0001, "max_iter": 20000, "fit_intercept": True}
+BINARIZATION_VALUE = None  # to binarize the target -> could be useful with logistic regression estimator
+ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 20000, 'fit_intercept': True}
 N_PSEUDO = 200
-N_PSEUDO_PER_JOB = 20
+N_PSEUDO_PER_JOB = 100
 N_JOBS_PER_SESSION = N_PSEUDO // N_PSEUDO_PER_JOB
 N_RUNS = 10
 MIN_UNITS = 10
@@ -56,7 +52,7 @@ SHUFFLE = True  # interleaved cross validation
 BORDER_QUANTILES_NEUROMETRIC = [0.3, 0.7]  # [.3, .4, .5, .6, .7]
 COMPUTE_NEUROMETRIC = False
 FORCE_POSITIVE_NEURO_SLOPES = False
-SAVE_PREDICTIONS = True
+SAVE_PREDICTIONS = False
 
 # Basically, quality metric on the stability of a single unit. Should have 1 metric per neuron
 QC_CRITERIA = 3 / 3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
@@ -88,7 +84,7 @@ BIN_SIZE_KDE = 0.05  # size of the kde bin
 HPARAM_GRID = (
     {
         #'alpha': np.array([0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000, 100000])
-        "alpha": np.array([0.0001, 0.001, 0.01, 0.1, 1])  # lasso , 0.01, 0.1
+        "alpha": np.array([0.0001, 0.001, 0.01])  # lasso , 0.01, 0.1
     }
     if not (sklm.LogisticRegression == ESTIMATOR)
     else {"C": np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])}
@@ -110,7 +106,7 @@ ADD_TO_SAVING_PATH = (
 )
 
 # WIDE FIELD IMAGING
-WFI_HEMISPHERES = ["left", "right"]  # 'left' and/or 'right'
+WFI_HEMISPHERES = ["left"]  # 'left' and/or 'right'
 WFI_NB_FRAMES_START = (
     -2
 )  # left signed number of frames from ALIGN_TIME (frame included)
