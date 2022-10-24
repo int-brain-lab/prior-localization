@@ -296,8 +296,8 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
             else [build_predictor_matrix(s, kwargs["n_bins_lag"]) for s in msub_binned]
         )
 
+        fit_results = []
         for pseudo_id in pseudo_ids:
-            fit_results = []
 
             # create pseudo/imposter session when necessary
             # TODO: integrate single-/multi-bin code
@@ -432,40 +432,38 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                     fit_result["fold_neurometric"] = None
                 fit_results.append(fit_result)
 
-            # save out decoding results
-            if kwargs["neural_dtype"] == "ephys":
-                probe = metadata["probe_name"]
-            elif kwargs["neural_dtype"] == "widefield":
-                probe = metadata["hemispheres"]
+        # save out decoding results
+        if kwargs["neural_dtype"] == "ephys":
+            probe = metadata["probe_name"]
+        elif kwargs["neural_dtype"] == "widefield":
+            probe = metadata["hemispheres"]
 
-            save_path = get_save_path(
-                pseudo_id,
-                metadata["subject"],
-                metadata["eid"],
-                kwargs["neural_dtype"],
-                probe=probe,
-                region=str(np.squeeze(region))
-                if kwargs["single_region"]
-                else "allRegions",
-                output_path=kwargs["neuralfit_path"],
-                time_window=kwargs["time_window"],
-                today=kwargs["date"],
-                target=kwargs["target"],
-                add_to_saving_path=kwargs["add_to_saving_path"],
-            )
+        save_path = get_save_path(
+            pseudo_ids,
+            metadata["subject"],
+            metadata["eid"],
+            kwargs["neural_dtype"],
+            probe=probe,
+            region=str(np.squeeze(region)) if kwargs["single_region"] else "allRegions",
+            output_path=kwargs["neuralfit_path"],
+            time_window=kwargs["time_window"],
+            today=kwargs["date"],
+            target=kwargs["target"],
+            add_to_saving_path=kwargs["add_to_saving_path"],
+        )
 
-            filename = save_region_results(
-                fit_result=fit_results,
-                pseudo_id=pseudo_id,
-                subject=metadata["subject"],
-                eid=metadata["eid"],
-                probe=probe,
-                region=region,
-                n_units=n_units,
-                save_path=save_path,
-            )
+        filename = save_region_results(
+            fit_result=fit_results,
+            pseudo_id=pseudo_ids,
+            subject=metadata["subject"],
+            eid=metadata["eid"],
+            probe=probe,
+            region=region,
+            n_units=n_units,
+            save_path=save_path,
+        )
 
-            filenames.append(filename)
+        filenames.append(filename)
 
     return filenames
 
