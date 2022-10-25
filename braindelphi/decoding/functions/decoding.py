@@ -240,11 +240,22 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
         else get_bery_reg_wfi(neural_dict, **kwargs)
     )
 
-    regions = (
-        [[k] for k in np.unique(beryl_reg)]
-        if kwargs["single_region"]
-        else [np.unique(beryl_reg)]
-    )
+    if isinstance(kwargs["single_region"], bool):
+        regions = (
+            [[k] for k in np.unique(beryl_reg)]
+            if kwargs["single_region"]
+            else [np.unique(beryl_reg)]
+        )
+    else:
+        if kwargs["single_region"] == "Visual":
+            regions = [['VISa'], ['VISal'], ['VISam'], ['VISl'], ['VISli'], ['VISp'],
+            ['VISpl'], ['VISpm'], ['VISpor'], ['VISrl']]
+        else:
+            regions = ([[kwargs["single_region"]]] if isinstance(kwargs["single_region"], str) else [kwargs["single_region"]])
+
+        if np.all([reg not in np.unique(beryl_reg) for reg in regions]):
+            return filenames
+
 
     for region in tqdm(regions, desc="Region: ", leave=False):
 
@@ -819,10 +830,10 @@ def decode_cv(
         )
     outdict["weights"] = weights if save_predictions else None
     outdict["intercepts"] = intercepts if save_predictions else None
-    outdict["target"] = ys if save_predictions else None
-    outdict["predictions_test"] = predictions_to_save if save_predictions else None
+    outdict["target"] = ys
+    outdict["predictions_test"] = predictions_to_save
     outdict["regressors"] = Xs if save_binned else None
-    outdict["idxes_test"] = idxes_test if save_predictions else None
+    outdict["idxes_test"] = idxes_test
     outdict["idxes_train"] = idxes_train if save_predictions else None
     outdict["best_params"] = best_params if save_predictions else None
     outdict["n_folds"] = n_folds

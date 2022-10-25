@@ -14,8 +14,8 @@ BEHAVIOR_MOD_PATH.mkdir(parents=True, exist_ok=True)
 logger = logging.getLogger("ibllib")
 logger.disabled = True
 
-NEURAL_DTYPE = 'widefield'  # 'ephys' or 'widefield'
-DATE = '50-10-2022'  # date 12 prev, 13 next, 14 prev
+NEURAL_DTYPE = "ephys"  # 'ephys' or 'widefield'
+DATE = "04-11-2022"  # date 12 prev, 13 next, 14 prev
 
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
@@ -29,11 +29,15 @@ if TARGET not in ["pLeft", "signcont", "strengthcont", "choice", "feedback"]:
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
 # if MODEL is a path, this will be the interindividual results
 MODEL = optimal_Bayesian  # 'population_level_Nmice101_NmodelsClasses7_processed.pkl' #expSmoothing_stimside, expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
-BEH_MOUSELEVEL_TRAINING = False  # if True, trains the behavioral model session-wise else mouse-wise
+BEH_MOUSELEVEL_TRAINING = (
+    False  # if True, trains the behavioral model session-wise else mouse-wise
+)
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
 ESTIMATOR = sklm.Ridge  # Must be in keys of strlut above
-BINARIZATION_VALUE = None  # to binarize the target -> could be useful with logistic regression estimator
-ESTIMATOR_KWARGS = {'tol': 0.0001, 'max_iter': 20000, 'fit_intercept': True}
+BINARIZATION_VALUE = (
+    None  # to binarize the target -> could be useful with logistic regression estimator
+)
+ESTIMATOR_KWARGS = {"tol": 0.0001, "max_iter": 20000, "fit_intercept": True}
 N_PSEUDO = 200
 N_PSEUDO_PER_JOB = 100
 N_JOBS_PER_SESSION = N_PSEUDO // N_PSEUDO_PER_JOB
@@ -45,14 +49,14 @@ MIN_BEHAV_TRIAS = (
 )  # default BWM setting is 400. 200 must remain after filtering
 MIN_RT = 0.08  # 0.08  # Float (s) or None
 MAX_RT = None
-SINGLE_REGION = True  # perform decoding on region-wise or whole brain analysis
+SINGLE_REGION = "Visual"  # True  # perform decoding on region-wise or whole brain analysis
 MERGED_PROBES = False  # merge probes before performing analysis
 NO_UNBIAS = False  # take out unbiased trials
 SHUFFLE = True  # interleaved cross validation
 BORDER_QUANTILES_NEUROMETRIC = [0.3, 0.7]  # [.3, .4, .5, .6, .7]
 COMPUTE_NEUROMETRIC = False
 FORCE_POSITIVE_NEURO_SLOPES = False
-SAVE_PREDICTIONS = False
+SAVE_PREDICTIONS = True
 
 # Basically, quality metric on the stability of a single unit. Should have 1 metric per neuron
 QC_CRITERIA = 3 / 3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
@@ -93,11 +97,11 @@ DEBUG = False  # in debugging/unit testing mode
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
 ADD_TO_SAVING_PATH = (
-    "imposterSess_%i_balancedWeight_%i_RegionLevel_%i_mergedProbes_%i_behMouseLevelTraining_%i_simulated_%i_constrainNullSess_%i"
+    "imposterSess_%i_balancedWeight_%i_RegionLevel_%s_mergedProbes_%i_behMouseLevelTraining_%i_simulated_%i_constrainNullSess_%i"
     % (
         USE_IMPOSTER_SESSION,
         BALANCED_WEIGHT,
-        SINGLE_REGION,
+        str(SINGLE_REGION),
         MERGED_PROBES,
         BEH_MOUSELEVEL_TRAINING,
         SIMULATE_NEURAL_DATA,
@@ -129,7 +133,7 @@ MOTOR_REGRESSORS = False
 MOTOR_REGRESSORS_ONLY = False  # only _use motor regressors
 
 # DO WE WANT TO DECODE MOTOR RESIDUAL OF THE PRIOR TARGET (WORK ONLY FOR OPTI BAYES)
-MOTOR_RESIDUAL = True
+MOTOR_RESIDUAL = False
 
 # DO WE WANT TO DECODE THE PREVIOUS CONTRAST ? (FOR DEBUGGING)
 DECODE_PREV_CONTRAST = False
@@ -255,7 +259,7 @@ fit_metadata = {
     "motor_regressors_only": MOTOR_REGRESSORS_ONLY,
     "decode_prev_contrast": DECODE_PREV_CONTRAST,
     "decode_derivative": DECODE_DERIVATIVE,
-    'motor_residual':MOTOR_RESIDUAL
+    "motor_residual": MOTOR_RESIDUAL,
 }
 
 if NEURAL_DTYPE == "widefield":
@@ -318,7 +322,7 @@ kwargs = {
     "motor_regressors_only": MOTOR_REGRESSORS_ONLY,
     "decode_prev_contrast": DECODE_PREV_CONTRAST,
     "decode_derivative": DECODE_DERIVATIVE,
-    'motor_residual':MOTOR_RESIDUAL,
+    "motor_residual": MOTOR_RESIDUAL,
     "wfi_average_over_frames": WFI_AVERAGE_OVER_FRAMES,
     "debug": DEBUG,
 }
