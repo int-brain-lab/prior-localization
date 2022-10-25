@@ -8,7 +8,7 @@ from braindelphi.params import FIT_PATH
 from braindelphi.decoding.settings import modeldispatcher
 from tqdm import tqdm
 
-SAVE_KFOLDS = True
+SAVE_KFOLDS = False
 
 date = '04-11-2022'
 finished = glob.glob(str(FIT_PATH.joinpath(kwargs['neural_dtype'], "*", "*", "*", "*%s*" % date)))
@@ -27,8 +27,8 @@ for fn in tqdm(finished):
         if result['fit'] is None:
             continue
         for i_decoding in range(len(result['fit'])):
-            side, stim, act, _ = format_data_mut(result["fit"][i_decoding]["df"])
-            mask = result["fit"][i_decoding]["mask"]  # np.all(result["fit"][i_decoding]["target"] == stim[mask])
+            #side, stim, act, _ = format_data_mut(result["fit"][i_decoding]["df"])
+            #mask = result["fit"][i_decoding]["mask"]  # np.all(result["fit"][i_decoding]["target"] == stim[mask])
             #full_test_prediction = np.zeros(np.array(result["fit"][i_decoding]["target"]).size)
             #for k in range(len(result["fit"][i_decoding]["idxes_test"])):
             #    full_test_prediction[result["fit"][i_decoding]['idxes_test'][k]] = result["fit"][i_decoding]['predictions_test'][k]
@@ -44,8 +44,10 @@ for fn in tqdm(finished):
                        'run_id': result['fit'][i_decoding]["run_id"] + 1,
                        'mask': ''.join([str(item) for item in list(result['fit'][i_decoding]['mask'].values * 1)]),
                        'R2_test': result['fit'][i_decoding]['Rsquared_test_full'],
-                       # 'prediction': list(result["fit"][i_decoding]['predictions_test']),
-                       # 'target': list(result["fit"][i_decoding]["target"]),
+                        'prediction': list(result["fit"][i_decoding]['predictions_test']),
+                        'target': list(result["fit"][i_decoding]["target"]),
+                        'weights': [arr.tolist() for arr in result['fit'][i_decoding]['weights']],
+                        'intercepts': result['fit'][i_decoding]['intercepts'],
                        # 'perf_allcontrast': perf_allcontrasts,
                        # 'perf_allcontrasts_prevtrial': perf_allcontrasts_prevtrial,
                        # 'perf_0contrast': perf_0contrasts,
