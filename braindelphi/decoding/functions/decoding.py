@@ -248,14 +248,29 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
         )
     else:
         if kwargs["single_region"] == "Visual":
-            regions = [['VISa'], ['VISal'], ['VISam'], ['VISl'], ['VISli'], ['VISp'],
-            ['VISpl'], ['VISpm'], ['VISpor'], ['VISrl']]
+            regions = [
+                ["VISa"],
+                ["VISal"],
+                ["VISam"],
+                ["VISl"],
+                ["VISli"],
+                ["VISp"],
+                ["VISpl"],
+                ["VISpm"],
+                ["VISpor"],
+                ["VISrl"],
+                ["MOp"],
+                ["MOs"],
+            ]
         else:
-            regions = ([[kwargs["single_region"]]] if isinstance(kwargs["single_region"], str) else [kwargs["single_region"]])
+            regions = (
+                [[kwargs["single_region"]]]
+                if isinstance(kwargs["single_region"], str)
+                else [kwargs["single_region"]]
+            )
 
         if np.all([reg not in np.unique(beryl_reg) for reg in regions]):
             return filenames
-
 
     for region in tqdm(regions, desc="Region: ", leave=False):
 
