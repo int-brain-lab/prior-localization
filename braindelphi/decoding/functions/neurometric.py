@@ -11,6 +11,7 @@ def compute_neurometric_prior(trialsdf_neurometric, metadata, **kwargs):
             metadata,
             **{**kwargs, "target": "pLeft"},
         )
+        trialsdf_neurometric["target_neurometric"] = blockprob_neurometric
         trialsdf_neurometric["blockprob_neurometric"] = np.stack(
             [
                 np.greater_equal(
@@ -266,11 +267,7 @@ def get_neurometric_parameters(
         fold_neurometric = None
 
     # full neurometric curve
-    full_test_prediction = np.zeros(len(fit_result["target"]))
-    for k in range(fit_result["n_folds"]):
-        full_test_prediction[fit_result["idxes_test"][k]] = fit_result[
-            "predictions_test"
-        ][k]
+    full_test_prediction = np.array(fit_result["predictions_test"]).squeeze()
 
     if len(fit_result["target"]) != trialsdf.index.size:
         raise AssertionError("There is a problem in the neurometric computing")
@@ -281,6 +278,8 @@ def get_neurometric_parameters(
         np.arange(len(fit_result["target"])),
         trialsdf,
     )
-    full_neurometric = fit_get_shift_range(prob_arrs, force_positive_neuro_slopes)
+    full_neurometric = fit_get_shift_range(
+        prob_arrs, force_positive_neuro_slopes, nfits=100
+    )
 
     return full_neurometric, fold_neurometric
