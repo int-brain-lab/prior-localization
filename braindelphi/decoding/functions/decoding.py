@@ -248,20 +248,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
         )
     else:
         if kwargs["single_region"] == "Visual":
-            regions = [
-                ["VISa"],
-                ["VISal"],
-                ["VISam"],
-                ["VISl"],
-                ["VISli"],
-                ["VISp"],
-                ["VISpl"],
-                ["VISpm"],
-                ["VISpor"],
-                ["VISrl"],
-                ["MOp"],
-                ["MOs"],
-            ]
+            regions = [["VISp"]]
         else:
             regions = (
                 [[kwargs["single_region"]]]
@@ -848,7 +835,7 @@ def decode_cv(
     outdict["target"] = ys
     outdict["predictions_test"] = predictions_to_save
     outdict["regressors"] = Xs if save_binned else None
-    outdict["idxes_test"] = idxes_test
+    outdict["idxes_test"] = idxes_test if save_predictions else None
     outdict["idxes_train"] = idxes_train if save_predictions else None
     outdict["best_params"] = best_params if save_predictions else None
     outdict["n_folds"] = n_folds
