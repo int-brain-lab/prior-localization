@@ -15,13 +15,13 @@ logger = logging.getLogger("ibllib")
 logger.disabled = True
 
 NEURAL_DTYPE = "ephys"  # 'ephys' or 'widefield'
-DATE = "04-11-2022"  # date 12 prev, 13 next, 14 prev
+DATE = "12-12-2022"  # date 12 prev, 13 next, 14 prev
 
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
 SESS_CRITERION = "resolved-behavior"  # aligned and behavior
 ALIGN_TIME = "stimOn_times"
-TARGET = "pLeft"  # 'signcont' or 'pLeft'
+TARGET = "signcont"  # 'signcont' or 'pLeft'
 if TARGET not in ["pLeft", "signcont", "strengthcont", "choice", "feedback"]:
     raise ValueError(
         "TARGET can only be pLeft, signcont, strengthcont, choice or feedback"
@@ -33,12 +33,12 @@ BEH_MOUSELEVEL_TRAINING = (
     False  # if True, trains the behavioral model session-wise else mouse-wise
 )
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
-ESTIMATOR = sklm.Ridge  # Must be in keys of strlut above
+ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 BINARIZATION_VALUE = (
     None  # to binarize the target -> could be useful with logistic regression estimator
 )
 ESTIMATOR_KWARGS = {"tol": 0.0001, "max_iter": 20000, "fit_intercept": True}
-N_PSEUDO = 200
+N_PSEUDO = 100
 N_PSEUDO_PER_JOB = 100
 N_JOBS_PER_SESSION = N_PSEUDO // N_PSEUDO_PER_JOB
 N_RUNS = 10
@@ -49,7 +49,9 @@ MIN_BEHAV_TRIAS = (
 )  # default BWM setting is 400. 200 must remain after filtering
 MIN_RT = 0.08  # 0.08  # Float (s) or None
 MAX_RT = None
-SINGLE_REGION = "Visual"  # True  # perform decoding on region-wise or whole brain analysis
+SINGLE_REGION = (
+    "Custom"  # True  # perform decoding on region-wise or whole brain analysis
+)
 MERGED_PROBES = False  # merge probes before performing analysis
 NO_UNBIAS = False  # take out unbiased trials
 SHUFFLE = True  # interleaved cross validation
@@ -81,14 +83,19 @@ QUASI_RANDOM = False  # if TRUE, decoding is launched in a quasi-random, reprodu
 
 BALANCED_WEIGHT = False  # seems to work better with BALANCED_WEIGHT=False, but putting True is important
 BALANCED_CONTINUOUS_TARGET = (
-    True  # is target continuous or discrete FOR BALANCED WEIGHTING
+    False  # is target continuous or discrete FOR BALANCED WEIGHTING
 )
 USE_OPENTURNS = False  # uses openturns to perform kernel density estimation
 BIN_SIZE_KDE = 0.05  # size of the kde bin
 HPARAM_GRID = (
     {
         #'alpha': np.array([0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000, 100000])
-        "alpha": np.array([0.0001, 0.001, 0.01])  # lasso , 0.01, 0.1
+        "alpha": np.array(
+            [
+                0.001,
+                0.01,
+            ]
+        )  # lasso , 0.01, 0.1
     }
     if not (sklm.LogisticRegression == ESTIMATOR)
     else {"C": np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])}
