@@ -248,7 +248,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
         )
     else:
         if kwargs["single_region"] == "Custom":
-            regions = [["VISp"]]
+            regions = [["VISp"], ["MOs"]]
         else:
             regions = (
                 [[kwargs["single_region"]]]
