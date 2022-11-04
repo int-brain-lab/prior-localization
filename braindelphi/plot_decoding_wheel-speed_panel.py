@@ -20,7 +20,7 @@ br = AllenAtlas()
 all_regs = br.regions.id2acronym(np.load('../../beryl.npy'))
 
 #%% swanson
-file_all_results = 'decoding_processing/10-10-2022_wheel-speed.csv'
+file_all_results = 'decoding_processing/27-10-2022_wheel-speed.csv'
 res_table = pd.read_csv(file_all_results)
 
 frac_sig_region = lambda reg: np.mean(np.array(res_table.loc[res_table['region']==reg,'p-value']<0.05))
@@ -127,9 +127,9 @@ for reg in acr_plotted:
 
 #%% plot single session traces
 
-folder = 'decoding_results/10-10-2022_singlesessions/SWC_054_671c7ea7-6726-4fbe-adeb-f89c2c8e489b_probe00/'
+folder = 'decoding_results/27-10-2022_singlesessions/SWC_054_671c7ea7-6726-4fbe-adeb-f89c2c8e489b/'
 cur_plot_region = 'GRN'
-file = f'10-10-2022_{cur_plot_region}_target_wheel-speed_timeWindow_-0_2_1_0_pseudo_id_-1__binsize=20.0_lags=10_mergedProbes_False.pkl'
+file = f'27-10-2022_{cur_plot_region}_target_wheel-speed_timeWindow_-0_2_1_0_pseudo_id_-1__binsize=20.0_lags=10_mergedProbes_True.pkl'
 ss_res = pd.read_pickle(folder+file)
 # preds, targs, mask = sess2preds(ss_res, 
 #                                 inverse_transf=None)
