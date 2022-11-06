@@ -90,18 +90,33 @@ def create_pdtable_from_raw(res,
 # res_table = res_table.loc[valid_reg]
 # res_table.to_csv(f'decoding_processing/{DATE}_block.csv')
 
-# print('Working on Stim')
-# file_pre = 'decoding_results/20-09-2022_decode_strengthcont_task_Lasso_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_0_0_1_imposterSess_0_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_simulated_0_constrainNullSess_0_paraindex'
+# DATE = '27-10-2022'
+# print('Working on Block')
+# file_pre = 'decoding_results/27-10-2022_decode_pLeft_oracle_LogisticsRegression_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_-0_4_-0_1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_paraindex'
 # res = pd.DataFrame()
 # for i in range(50):
-#     res_new = pd.read_parquet(file_pre+str(i)+'.parquet')
+#     res_new = pd.read_pickle(file_pre+str(i)+'.pkl')
 #     res = pd.concat([res, res_new], axis=0)
 # res_table = create_pdtable_from_raw(res, 
-#                                     score_name='R2_test',
+#                                     score_name='balanced_acc_test',
 #                                     N_PSEUDO=200)
 # valid_reg = np.array([len(res_table.loc[res_table['region']==reg])>=2 for reg in res_table['region']])
 # res_table = res_table.loc[valid_reg]
-# res_table.to_csv(f'decoding_processing/{DATE}_stim.csv')
+# res_table.to_csv(f'decoding_processing/{DATE}_block.csv')
+
+DATE = '28-10-2022'
+print('Working on Stim')
+file_pre = 'decoding_results/28-10-2022_decode_signcont_task_Lasso_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_0_0_0_1_imposterSess_0_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_paraindex'
+res = pd.DataFrame()
+for i in range(50):
+    res_new = pd.read_pickle(file_pre+str(i)+'.pkl')
+    res = pd.concat([res, res_new], axis=0)
+res_table = create_pdtable_from_raw(res, 
+                                    score_name='R2_test',
+                                    N_PSEUDO=200)
+valid_reg = np.array([len(res_table.loc[res_table['region']==reg])>=2 for reg in res_table['region']])
+res_table = res_table.loc[valid_reg]
+res_table.to_csv(f'decoding_processing/{DATE}_stim.csv')
 
 # print('Working on Choice')
 # file_pre = 'decoding_results/20-09-2022_decode_choice_task_Logistic_align_firstMovement_times_200_pseudosessions_regionWise_timeWindow_-0_1_0_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_simulated_0_constrainNullSess_0_paraindex'
@@ -129,18 +144,18 @@ def create_pdtable_from_raw(res,
 # res_table = res_table.loc[valid_reg]
 # res_table.to_csv(f'decoding_processing/{DATE}_reward.csv')
 
-DATE = '28-10-2022'
-print('Working on Wheel-Speed')
-file_pre = 'decoding_results/check_bcw_null/28-10-2022_decode_wheel-speed_task_Lasso_align_firstMovement_times_100_pseudosessions_regionWise_timeWindow_-0_2_1_0_imposterSess_1_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_paraindex'
-res = pd.DataFrame()
-for i in range(50):
-    res_new = pd.read_pickle(file_pre+str(i)+'.pkl')
-    res_new['eid'] = res_new['eid']+'_'+res_new['probe']
-    res = pd.concat([res, res_new], axis=0)
-res_table = create_pdtable_from_raw(res, 
-                                    score_name='R2_test',
-                                    N_PSEUDO=100, N_RUN=2)
-valid_reg = np.array([len(res_table.loc[res_table['region']==reg])>=2 for reg in res_table['region']])
-res_table = res_table.loc[valid_reg]
-res_table.to_csv(f'decoding_processing/{DATE}_wheel-speed_bcw_null.csv')
+# DATE = '27-10-2022'
+# print('Working on Wheel-Speed')
+# file_pre = 'decoding_results/check_bcw_null/27-10-2022_decode_wheel-speed_task_Lasso_align_firstMovement_times_100_pseudosessions_regionWise_timeWindow_-0_2_1_0_imposterSess_1_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_paraindex'
+# res = pd.DataFrame()
+# for i in range(50):
+#     res_new = pd.read_pickle(file_pre+str(i)+'.pkl')
+#     #res_new['eid'] = res_new['eid']+'_'+res_new['probe']
+#     res = pd.concat([res, res_new], axis=0)
+# res_table = create_pdtable_from_raw(res, 
+#                                     score_name='R2_test',
+#                                     N_PSEUDO=100, N_RUN=2)
+# valid_reg = np.array([len(res_table.loc[res_table['region']==reg])>=2 for reg in res_table['region']])
+# res_table = res_table.loc[valid_reg]
+# res_table.to_csv(f'decoding_processing/{DATE}_wheel-speed.csv')
 
