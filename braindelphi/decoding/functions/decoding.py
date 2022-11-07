@@ -249,6 +249,11 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
     else:
         if kwargs["single_region"] == "Custom":
             regions = [["VISp"], ["MOs"]]
+        elif kwargs["single_region"] == 'Widefield':
+            regions = [['ACAd'], ['AUDd'], ['AUDp'], ['AUDpo'], ['AUDv'], ['FRP'], ['MOB'], ['MOp'], ['MOs'],
+       ['PL'], ['RSPagl'], ['RSPd'], ['RSPv'], ['SSp-bfd'], ['SSp-ll'], ['SSp-m'], ['SSp-n'],
+       ['SSp-tr'], ['SSp-ul'], ['SSp-un'], ['SSs'], ['TEa'], ['VISa'], ['VISal'], ['VISam'],
+       ['VISl'], ['VISli'], ['VISp'], ['VISpl'], ['VISpm'], ['VISpor'], ['VISrl']]
         else:
             regions = (
                 [[kwargs["single_region"]]]
