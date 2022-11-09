@@ -18,8 +18,8 @@ br = AllenAtlas()
 all_regs = br.regions.id2acronym(np.load('../../beryl.npy'))
 
 #%% Block
-file_all_results = 'decoding_processing/20-09-2022_block.csv'
-FIG_SUF = '_initial'
+file_all_results = 'decoding_processing/07-11-2022_block.csv'
+FIG_SUF = ''
 res_table = pd.read_csv(file_all_results)
 
 frac_sig_region = lambda reg: np.mean(np.array(res_table.loc[res_table['region']==reg,'p-value']<0.05))
@@ -125,14 +125,44 @@ for reg in acr_plotted:
     #                                                    'p-value'])))
     assert np.median(get_vals(reg)) > np.median(get_nulls(reg))
 
+#%% plot p-value histogram of individual regions
+
+ir = 'CA1'
+pvs_ir = np.array(res_table.loc[res_table['region']==ir,'p-value'])
+
+plt.hist(pvs_ir, bins=20, histtype='step', lw=3)
+plt.xlabel(f'p-value ({ir})')
+plt.ylabel('Density')
+plt.show()
+
+ir = 'SNr'
+pvs_ir = np.array(res_table.loc[res_table['region']==ir,'p-value'])
+
+plt.hist(pvs_ir, bins=20, histtype='step', lw=3)
+plt.xlabel(f'p-value ({ir})')
+plt.ylabel('Density')
+plt.show()
 
 #%% plot single session traces
 
 
-folder = 'decoding_results/20-09-2022_singlesessions/CSHL060_1191f865-b10a-45c8-9c48-24a980fd9402/'
+folder = 'decoding_results/07-11-2022_singlesessions/CSHL060_1191f865-b10a-45c8-9c48-24a980fd9402/'
 cur_plot_region = 'ORBvl'
-file = f'20-09-2022_{cur_plot_region}_target_pLeft_timeWindow_-0_4_-0_1_pseudo_id_-1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_simulated_0_constrainNullSess_0.pkl'
+file = f'27-10-2022_{cur_plot_region}_target_pLeft_timeWindow_-0_4_-0_1_pseudo_id_-1__binsize=300.0_lags=None_mergedProbes_True.pkl'
 ss_res = pd.read_pickle(folder+file)
+
+l = len(ss_res['fit'][0]['regressors'])
+X = np.vstack([ss_res['fit'][0]['regressors'][i][0,:] for i in range(l)]).T
+W = []
+for i in range(len(ss_res['fit'])): 
+    w = np.vstack([ss_res['fit'][i]['weights'][k][0,:] for k in range(5)])
+    W.append(w)
+W = np.vstack(W)
+Wmean = np.abs(np.mean(W,axis=0))
+Walpha = Wmean/np.max(Wmean)
+for i in range(X.shape[0]):
+    plt.plot(X[i,:],alpha=Walpha[i]**2)
+plt.show()
 
 preds, targs, mask = sess2preds(ss_res, 
                                 inverse_transf=None)

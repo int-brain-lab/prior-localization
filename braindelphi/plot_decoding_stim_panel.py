@@ -18,8 +18,8 @@ br = AllenAtlas()
 all_regs = br.regions.id2acronym(np.load('../../beryl.npy'))
 
 #%% Block
-file_all_results = 'decoding_processing/28-10-2022_stim.csv'
-FIG_SUF = '_update2'
+file_all_results = 'decoding_processing/07-11-2022_stim.csv'
+FIG_SUF = ''
 res_table = pd.read_csv(file_all_results)
 
 frac_sig_region = lambda reg: np.mean(np.array(res_table.loc[res_table['region']==reg,'p-value']<0.05))
@@ -129,9 +129,9 @@ clp = lambda x: np.minimum(np.maximum(x,-1),1)
 inverse_stim_transf = lambda x : np.round(np.arctanh(clp(x)*np.tanh(5))/5,
                                           decimals=8)
 
-folder = 'decoding_results/20-09-2022_singlesessions/CSHL059_dda5fc59-f09a-4256-9fb5-66c67667a466/'
+folder = 'decoding_results/07-11-2022_singlesessions/CSHL059_dda5fc59-f09a-4256-9fb5-66c67667a466/'
 cur_plot_region = 'VISpm'
-file = f'20-09-2022_{cur_plot_region}_target_strengthcont_timeWindow_0_0_1_pseudo_id_-1_imposterSess_0_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_simulated_0_constrainNullSess_0.pkl'
+file = f'28-10-2022_{cur_plot_region}_target_signcont_timeWindow_0_0_0_1_pseudo_id_-1__binsize=100.0_lags=None_mergedProbes_True.pkl'
 ss_res = pd.read_pickle(folder+file)
 preds, targs, mask = sess2preds(ss_res, 
                                 inverse_transf=inverse_stim_transf)
@@ -175,9 +175,9 @@ plt.show()
 
 # folder = 'decoding_results/20-09-2022_singlesessions/KS014_b9c205c3-feac-485b-a89d-afc96d9cb280/'
 # cur_plot_region = 'MRN'
-folder = 'decoding_results/20-09-2022_singlesessions/KS016_16c3667b-e0ea-43fb-9ad4-8dcd1e6c40e1/'
+folder = 'decoding_results/07-11-2022_singlesessions/KS016_16c3667b-e0ea-43fb-9ad4-8dcd1e6c40e1/'
 cur_plot_region = 'PRNr'
-file = f'20-09-2022_{cur_plot_region}_target_strengthcont_timeWindow_0_0_1_pseudo_id_-1_imposterSess_0_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_simulated_0_constrainNullSess_0.pkl'
+file = f'28-10-2022_{cur_plot_region}_target_signcont_timeWindow_0_0_0_1_pseudo_id_-1__binsize=100.0_lags=None_mergedProbes_True.pkl'
 ss_res = pd.read_pickle(folder+file)
 preds, targs, mask = sess2preds(ss_res, 
                                 inverse_transf=inverse_stim_transf)

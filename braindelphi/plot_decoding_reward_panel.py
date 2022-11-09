@@ -20,7 +20,8 @@ br = AllenAtlas()
 all_regs = br.regions.id2acronym(np.load('../../beryl.npy'))
 
 #%% swanson
-file_all_results = 'decoding_processing/20-09-2022_reward.csv'
+file_all_results = 'decoding_processing/07-11-2022_reward.csv'
+FIG_SUF = ''
 res_table = pd.read_csv(file_all_results)
 
 frac_sig_region = lambda reg: np.mean(np.array(res_table.loc[res_table['region']==reg,'p-value']<0.05))
@@ -31,7 +32,7 @@ assert not np.any(np.isnan(fs_regs))
 
 brain_SwansonFlat_results(uni_regs, 
                           fs_regs, 
-                  filename='reward_swanson_fs', 
+                  filename='reward_swanson_fs'+FIG_SUF, 
                   cmap='Greens',
                   clevels=[0, 0.55],
                   ticks=None,
@@ -47,7 +48,7 @@ ms_regs = np.array([get_ms_reg(reg) for reg in uni_regs])
 r2olivier, v2olivier = uni_regs, ms_regs
 brain_SwansonFlat_results(uni_regs[~np.isnan(ms_regs)], 
                           ms_regs[~np.isnan(ms_regs)], 
-                  filename='reward_swanson_ms', 
+                  filename='reward_swanson_ms'+FIG_SUF, 
                   cmap='Greens',
                   clevels=[None, None],
                   ticks=None,
@@ -61,7 +62,7 @@ n_regs = np.log(n_regs)/np.log(2)
 
 brain_SwansonFlat_results(uni_regs, 
                           n_regs, 
-                  filename='reward_swanson_n', 
+                  filename='reward_swanson_n'+FIG_SUF, 
                   cmap='Greens',
                   clevels=[None, None],
                   ticks=([1,2,3,4,5],[2,4,8,16,32]),
@@ -100,8 +101,8 @@ save_comb_regs_data.to_csv(file_all_results.split('.')[0]+'_regs_nsig%s_fsig%.3f
 #                                                                                                       'p-value'])))
 # regions = np.array([reg for reg in regions if reg_1sigsession(reg)])                                  'p-value'])))
 regions = np.array([reg for reg in regions if reg_comb_pval(reg)<0.05])
-print('regions sig', regions, np.unique(res_table['region']))
-print('frac regions', len(regions)/len(np.unique(res_table['region'])))
+print('regions 1sig', regions, np.unique(res_table['region']))
+print('frac regions', (len(regions)-1)/(len(np.unique(res_table['region']))-2))
 values = np.array([get_vals(reg) for reg in regions])
 values_sig = np.array([(get_pvals(reg)<0.05)+0 for reg in regions])
 comb_pvalues = np.array([reg_comb_pval(reg) for reg in regions])
@@ -110,7 +111,7 @@ acr_plotted = bar_results(regions,
                             values,
                             comb_nulls,
                             fillcircle_eids_unordered=values_sig,
-                            filename='reward_bars', 
+                            filename='reward_bars'+FIG_SUF, 
                             YMIN=np.min([np.min(v) for v in values]),
                             ylab='Bal. Acc.',
                             ticks=([0.5,0.6,0.7,0.8,0.9,1.0],[0.5,0.6,0.7,0.8,0.9,1.0]),
@@ -128,9 +129,9 @@ for reg in acr_plotted:
 
 #%% plot single session traces
 
-folder = 'decoding_results/20-09-2022_singlesessions/CSH_ZAD_029_fece187f-b47f-4870-a1d6-619afe942a7d/'
+folder = 'decoding_results/07-11-2022_singlesessions/CSH_ZAD_029_fece187f-b47f-4870-a1d6-619afe942a7d/'
 cur_plot_region = 'PRNc'
-file = f'20-09-2022_{cur_plot_region}_target_feedback_timeWindow_0_0_2_pseudo_id_-1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_simulated_0_constrainNullSess_0.pkl'
+file = f'27-10-2022_{cur_plot_region}_target_feedback_timeWindow_0_0_0_2_pseudo_id_-1__binsize=200.0_lags=None_mergedProbes_True.pkl'
 ss_res = pd.read_pickle(folder+file)
 preds, targs, mask = sess2preds(ss_res, 
                                 inverse_transf=None)

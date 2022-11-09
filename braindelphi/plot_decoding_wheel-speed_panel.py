@@ -20,7 +20,8 @@ br = AllenAtlas()
 all_regs = br.regions.id2acronym(np.load('../../beryl.npy'))
 
 #%% swanson
-file_all_results = 'decoding_processing/27-10-2022_wheel-speed.csv'
+file_all_results = 'decoding_processing/07-11-2022_wheel-speed.csv'
+FIG_SUF = ''
 res_table = pd.read_csv(file_all_results)
 
 frac_sig_region = lambda reg: np.mean(np.array(res_table.loc[res_table['region']==reg,'p-value']<0.05))
@@ -31,7 +32,7 @@ assert not np.any(np.isnan(fs_regs))
 
 brain_SwansonFlat_results(uni_regs, 
                           fs_regs, 
-                  filename='wheel-speed_swanson_fs', 
+                  filename='wheel-speed_swanson_fs'+FIG_SUF, 
                   cmap='Reds',
                   clevels=[0, 0.55],
                   ticks=None,
@@ -47,7 +48,7 @@ ms_regs = np.array([get_ms_reg(reg) for reg in uni_regs])
 r2olivier, v2olivier = uni_regs, ms_regs
 brain_SwansonFlat_results(uni_regs[~np.isnan(ms_regs)], 
                           ms_regs[~np.isnan(ms_regs)], 
-                  filename='wheel-speed_swanson_ms', 
+                  filename='wheel-speed_swanson_ms'+FIG_SUF, 
                   cmap='Reds',
                   clevels=[None, None],
                   ticks=None,
@@ -61,7 +62,7 @@ n_regs = np.log(n_regs)/np.log(2)
 
 brain_SwansonFlat_results(uni_regs, 
                           n_regs, 
-                  filename='wheel-speed_swanson_n', 
+                  filename='wheel-speed_swanson_n'+FIG_SUF, 
                   cmap='Reds',
                   clevels=[0, None],
                   ticks=([1,2,3,4,5],[2,4,8,16,32]),
@@ -110,7 +111,7 @@ acr_plotted = bar_results(regions,
                             values,
                             comb_nulls,
                             fillcircle_eids_unordered=values_sig,
-                            filename='wheel-speed_bars', 
+                            filename='wheel-speed_bars'+FIG_SUF, 
                             YMIN=np.min([np.min(v) for v in values]),
                             ylab='$R^2$',
                             TOP_N=15,
@@ -127,7 +128,7 @@ for reg in acr_plotted:
 
 #%% plot single session traces
 
-folder = 'decoding_results/27-10-2022_singlesessions/SWC_054_671c7ea7-6726-4fbe-adeb-f89c2c8e489b/'
+folder = 'decoding_results/07-11-2022_singlesessions/SWC_054_671c7ea7-6726-4fbe-adeb-f89c2c8e489b/'
 cur_plot_region = 'GRN'
 file = f'27-10-2022_{cur_plot_region}_target_wheel-speed_timeWindow_-0_2_1_0_pseudo_id_-1__binsize=20.0_lags=10_mergedProbes_True.pkl'
 ss_res = pd.read_pickle(folder+file)

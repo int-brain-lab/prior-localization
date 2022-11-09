@@ -20,7 +20,8 @@ br = AllenAtlas()
 all_regs = br.regions.id2acronym(np.load('../../beryl.npy'))
 
 #%% swanson
-file_all_results = 'decoding_processing/20-09-2022_choice.csv'
+file_all_results = 'decoding_processing/07-11-2022_choice.csv'
+FIG_SUF = ''
 res_table = pd.read_csv(file_all_results)
 
 frac_sig_region = lambda reg: np.mean(np.array(res_table.loc[res_table['region']==reg,'p-value']<0.05))
@@ -31,7 +32,7 @@ assert not np.any(np.isnan(fs_regs))
 
 brain_SwansonFlat_results(uni_regs, 
                           fs_regs, 
-                  filename='choice_swanson_fs', 
+                  filename='choice_swanson_fs'+FIG_SUF, 
                   cmap='Oranges',
                   clevels=[0, 0.55],
                   ticks=None,
@@ -47,7 +48,7 @@ ms_regs = np.array([get_ms_reg(reg) for reg in uni_regs])
 r2olivier, v2olivier = uni_regs, ms_regs
 brain_SwansonFlat_results(uni_regs[~np.isnan(ms_regs)], 
                           ms_regs[~np.isnan(ms_regs)], 
-                  filename='choice_swanson_ms', 
+                  filename='choice_swanson_ms'+FIG_SUF, 
                   cmap='Oranges',
                   clevels=[None, None],
                   ticks=None,
@@ -61,7 +62,7 @@ n_regs = np.log(n_regs)/np.log(2)
 
 brain_SwansonFlat_results(uni_regs, 
                           n_regs, 
-                  filename='choice_swanson_n', 
+                  filename='choice_swanson_n'+FIG_SUF, 
                   cmap='Oranges',
                   clevels=[0, None],
                   ticks=([1,2,3,4,5],[2,4,8,16,32]),
@@ -110,7 +111,7 @@ acr_plotted = bar_results(regions,
                             values,
                             comb_nulls,
                             fillcircle_eids_unordered=values_sig,
-                            filename='choice_bars', 
+                            filename='choice_bars'+FIG_SUF, 
                             YMIN=np.min([np.min(v) for v in values]),
                             ylab='Bal. Acc.',
                             ticks=([0.5,0.6,0.7,0.8,0.9,1.0],[0.5,0.6,0.7,0.8,0.9,1.0]),
@@ -128,9 +129,9 @@ for reg in acr_plotted:
 
 #%% plot single session traces
 
-folder = 'decoding_results/20-09-2022_singlesessions/DY_014_b658bc7d-07cd-4203-8a25-7b16b549851b/'
+folder = 'decoding_results/07-11-2022_singlesessions/DY_014_b658bc7d-07cd-4203-8a25-7b16b549851b/'
 cur_plot_region = 'SSp-ul'
-file = f'20-09-2022_{cur_plot_region}_target_choice_timeWindow_-0_1_0_pseudo_id_-1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_simulated_0_constrainNullSess_0.pkl'
+file = f'28-10-2022_{cur_plot_region}_target_choice_timeWindow_-0_1_0_0_pseudo_id_-1__binsize=100.0_lags=None_mergedProbes_True.pkl'
 ss_res = pd.read_pickle(folder+file)
 preds, targs, mask = sess2preds(ss_res, 
                                 inverse_transf=None)

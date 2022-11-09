@@ -210,8 +210,10 @@ def bar_results(acronyms_unordered,
     
     acronyms, values = reorder_data(acronyms_unordered, values_unordered)
     if len(nulls_unordered.shape)==1:
+        print(acronyms_unordered,nulls_unordered)
         acronyms_tmp, nulls = reorder_data(acronyms_unordered, nulls_unordered)
         assert np.all(acronyms == acronyms_tmp)
+        print(values,nulls)
         assert len(values) == len(nulls)
         nulls_errbars = None
     elif len(nulls_unordered.shape)==2:
