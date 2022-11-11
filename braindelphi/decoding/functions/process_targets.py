@@ -136,6 +136,7 @@ def compute_beh_target(trials_df, metadata, remove_old=False, **kwargs):
             out = trials_df['signedContrast'].values
         else:
             out = np.nan_to_num(trials_df.contrastLeft) - np.nan_to_num(trials_df.contrastRight)
+        # out = np.tanh(5 * out) / np.tanh(5)
         if kwargs['target'] == 'signcont':
             return out
         else:

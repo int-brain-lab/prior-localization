@@ -28,6 +28,7 @@ def compute_neurometric_prior(trialsdf_neurometric, metadata, **kwargs):
     return trialsdf_neurometric
 
 
+
 """
 trialsdf_neurometric = nb_trialsdf.reset_index() if (pseudo_id == -1) else \
     pseudosess[pseudomask].reset_index()
@@ -104,6 +105,7 @@ def get_target_df(target, pred, test_idxs, trialsdf):
         grpbyagg.loc[k].reset_index().values.T
         for k in grpbyagg.index.get_level_values("blockprob").unique().sort_values()
     ]
+
 
 
 def get_neurometric_parameters_(
@@ -266,11 +268,7 @@ def get_neurometric_parameters(
         fold_neurometric = None
 
     # full neurometric curve
-    full_test_prediction = np.zeros(len(fit_result["target"]))
-    for k in range(fit_result["n_folds"]):
-        full_test_prediction[fit_result["idxes_test"][k]] = fit_result[
-            "predictions_test"
-        ][k]
+    full_test_prediction = np.array(fit_result["predictions_test"]).squeeze()
 
     if len(fit_result["target"]) != trialsdf.index.size:
         raise AssertionError("There is a problem in the neurometric computing")
