@@ -11,6 +11,7 @@ def compute_neurometric_prior(trialsdf_neurometric, metadata, **kwargs):
             metadata,
             **{**kwargs, "target": "pLeft"},
         )
+        trialsdf_neurometric["target_neurometric"] = blockprob_neurometric
         trialsdf_neurometric["blockprob_neurometric"] = np.stack(
             [
                 np.greater_equal(
@@ -279,6 +280,8 @@ def get_neurometric_parameters(
         np.arange(len(fit_result["target"])),
         trialsdf,
     )
-    full_neurometric = fit_get_shift_range(prob_arrs, force_positive_neuro_slopes)
+    full_neurometric = fit_get_shift_range(
+        prob_arrs, force_positive_neuro_slopes, nfits=100
+    )
 
     return full_neurometric, fold_neurometric
