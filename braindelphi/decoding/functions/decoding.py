@@ -8,7 +8,7 @@ from sklearn.model_selection import GridSearchCV, KFold, train_test_split
 from tqdm import tqdm
 from behavior_models.models.utils import format_data as format_data_mut
 from behavior_models.models.utils import format_input as format_input_mut
-from sklearn.linear_model import RidgeCV, Ridge
+from sklearn.linear_model import RidgeCV, Ridge, Lasso, LassoCV
 
 from ibllib.atlas import BrainRegions
 
@@ -425,7 +425,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                     normalize_input=kwargs["normalize_input"],
                     normalize_output=kwargs["normalize_output"],
                     rng_seed=rng_seed,
-                    use_cv_sklearn_method=kwargs["neural_dtype"] == "widefield",
+                    use_cv_sklearn_method=kwargs["use_native_sklearn_for_hyperparameter_estimation"],
                 )
                 fit_result["mask"] = mask if save_predictions else None
                 fit_result["df"] = trials_df if pseudo_id == -1 else controlsess_df
@@ -758,16 +758,27 @@ def decode_cv(
                 # fit model
                 model.fit(X_train_array, y_train_array, sample_weight=sample_weight)
             else:
-                if normalize_input or normalize_output or estimator != Ridge:
+                print('using sklearn native')
+                if normalize_input or normalize_output or estimator not in [Ridge, Lasso]:
                     raise NotImplementedError("This case is not implemented")
-                model = RidgeCV(alphas=hyperparam_grid[key])
+                model = RidgeCV(alphas=hyperparam_grid[key]) if estimator == Ridge else LassoCV(alphas=hyperparam_grid[key])
                 X_train_array = np.vstack(X_train)
                 mean_X_train = X_train_array.mean(axis=0) if normalize_input else 0
                 X_train_array = X_train_array - mean_X_train
                 y_train_array = np.concatenate(y_train, axis=0)
                 mean_y_train = y_train_array.mean(axis=0) if normalize_output else 0
                 y_train_array = y_train_array - mean_y_train
-                model.fit(X_train_array, y_train_array)
+                if balanced_weight:
+                    sample_weight = balanced_weighting(
+                        vec=y_train_array,
+                        continuous=balanced_continuous_target,
+                        use_openturns=use_openturns,
+                        bin_size_kde=bin_size_kde,
+                        target_distribution=target_distribution,
+                    )
+                else:
+                    sample_weight = None
+                model.fit(X_train_array, y_train_array, sample_weight=sample_weight)
                 best_alpha = model.alpha_
                 # model.fit(np.array(Xs).squeeze(), np.array(ys).squeeze())
 
