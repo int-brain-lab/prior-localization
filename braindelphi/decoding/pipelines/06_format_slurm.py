@@ -7,15 +7,16 @@ import models.utils as mut
 from braindelphi.params import FIT_PATH
 from braindelphi.decoding.settings import modeldispatcher
 from tqdm import tqdm
+import gc
 
 SAVE_KFOLDS = False
 
-date = '04-11-2022'
+date = '32-11-2022'
 finished = glob.glob(str(FIT_PATH.joinpath(kwargs['neural_dtype'], "*", "*", "*", "*%s*" % date)))
 print('nb files:',len(finished))
 
 indexers = ['subject', 'eid', 'probe', 'region']
-indexers_neurometric = ['low_slope', 'high_slope', 'low_range', 'high_range', 'shift', 'mean_range', 'mean_slope']
+indexers_neurometric = ['low_slope', 'high_slope', 'low_range', 'high_range', 'shift', 'mean_range', 'mean_slope','low_fit_trace','high_fit_trace']
 resultslist = []
 
 failed_load = 0
@@ -38,52 +39,53 @@ for fn in tqdm(finished):
             #perf_0contrasts = (side.values[mask] == neural_act)[(stim[mask] == 0) * (neural_act != 0)].mean()
             #nb_trials_act_is_0 = (neural_act == 0).mean()
             tmpdict = {**{x: result[x] for x in indexers},
-                       'fold': -1,
-                       'pseudo_id': result['fit'][i_decoding]['pseudo_id'],
-                       'N_units': result['N_units'],
-                       'run_id': result['fit'][i_decoding]["run_id"] + 1,
-                       'mask': ''.join([str(item) for item in list(result['fit'][i_decoding]['mask'].values * 1)]),
-                       'R2_test': result['fit'][i_decoding]['Rsquared_test_full'],
-                        'prediction': list(result["fit"][i_decoding]['predictions_test']),
-                        'target': list(result["fit"][i_decoding]["target"]),
-                        'weights': [arr.tolist() for arr in result['fit'][i_decoding]['weights']],
-                        'intercepts': result['fit'][i_decoding]['intercepts'],
-                       # 'perf_allcontrast': perf_allcontrasts,
-                       # 'perf_allcontrasts_prevtrial': perf_allcontrasts_prevtrial,
-                       # 'perf_0contrast': perf_0contrasts,
-                       # 'nb_trials_act_is_0': nb_trials_act_is_0,
-                       }
-#            if 'predictions_test' in result['fit'][i_decoding].keys():
-#                tmpdict = {**tmpdict,
-#                           'prediction': result['fit'][i_decoding]['predictions_test'],
-#                           'target': result['fit'][i_decoding]['target']}
-#            if 'acc_test_full' in result['fit'][i_decoding].keys():
-#                tmpdict = {**tmpdict, 'acc_test': result['fit'][i_decoding]['acc_test_full'],
-#                           'balanced_acc_test': result['fit'][i_decoding]['balanced_acc_test_full']}
+                        'fold': -1,
+                        'pseudo_id': result['fit'][i_decoding]['pseudo_id'],
+                        'N_units': result['N_units'],
+                        'run_id': result['fit'][i_decoding]["run_id"] + 1,
+                        # 'mask': ''.join([str(item) for item in list(result['fit'][i_decoding]['mask'].values * 1)]),
+                        'R2_test': result['fit'][i_decoding]['Rsquared_test_full'],
+                        # 'prediction': list(result["fit"][i_decoding]['predictions_test']),
+                        # 'target': list(result["fit"][i_decoding]["target"]),
+                        # 'weights': [arr.tolist() for arr in result['fit'][i_decoding]['weights']],
+                        # 'intercepts': result['fit'][i_decoding]['intercepts'],
+                        # 'perf_allcontrast': perf_allcontrasts,
+                        # 'perf_allcontrasts_prevtrial': perf_allcontrasts_prevtrial,
+                        # 'perf_0contrast': perf_0contrasts,
+                        # 'nb_trials_act_is_0': nb_trials_act_is_0,D
+                        }
+    #            if 'predictions_test' in result['fit'][i_decoding].keys():
+    #                tmpdict = {**tmpdict,
+    #                           'prediction': result['fit'][i_decoding]['predictions_test'],
+    #                           'target': result['fit'][i_decoding]['target']}
+    #            if 'acc_test_full' in result['fit'][i_decoding].keys():
+    #                tmpdict = {**tmpdict, 'acc_test': result['fit'][i_decoding]['acc_test_full'],
+    #                           'balanced_acc_test': result['fit'][i_decoding]['balanced_acc_test_full']}
             if result['fit'][i_decoding]['full_neurometric'] is not None:
                 tmpdict = {**tmpdict,
-                           **{idx_neuro: result['fit'][i_decoding]['full_neurometric'][idx_neuro]
-                              for idx_neuro in indexers_neurometric}}
+                            **{idx_neuro: result['fit'][i_decoding]['full_neurometric'][idx_neuro]
+                                for idx_neuro in indexers_neurometric}}
             resultslist.append(tmpdict)
 
             if SAVE_KFOLDS:
                 for kfold in range(result['fit'][i_decoding]['n_folds']):
                     tmpdict = {**{x: result[x] for x in indexers},
-                               'fold': kfold,
-                               'pseudo_id': result['fit'][i_decoding]['pseudo_id'],
-                               'N_units': result['N_units'],
-                               'run_id': result['fit'][i_decoding]["run_id"] + 1,
-                               'R2_test': result['fit'][i_decoding]['scores_test'][kfold],
-                               'Best_regulCoef': result['fit'][i_decoding]['best_params'][kfold],
-                               }
+                                'fold': kfold,
+                                'pseudo_id': result['fit'][i_decoding]['pseudo_id'],
+                                'N_units': result['N_units'],
+                                'run_id': result['fit'][i_decoding]["run_id"] + 1,
+                                'R2_test': result['fit'][i_decoding]['scores_test'][kfold],
+                                'Best_regulCoef': result['fit'][i_decoding]['best_params'][kfold],
+                                }
                     if result['fit'][i_decoding]['fold_neurometric'] is not None:
                         tmpdict = {**tmpdict,
-                                   **{idx_neuro: result['fit'][i_decoding]['fold_neurometric'][kfold][idx_neuro]
-                                      for idx_neuro in indexers_neurometric}}
+                                    **{idx_neuro: result['fit'][i_decoding]['fold_neurometric'][kfold][idx_neuro]
+                                        for idx_neuro in indexers_neurometric}}
                     resultslist.append(tmpdict)
     except:
         failed_load += 1
         pass
+    
 print('loading of %i files failed' % failed_load)
 resultsdf = pd.DataFrame(resultslist)
 
@@ -113,7 +115,7 @@ fn = str(FIT_PATH.joinpath(kwargs['neural_dtype'], '_'.join([date, 'decode', TAR
                                                                else 'task',
                                                                estimatorstr, 'align', ALIGN_TIME, str(N_PSEUDO),
                                                                'pseudosessions',
-                                                               'regionWise' if SINGLE_REGION else 'allProbes',
+                                                               # 'regionWise' if SINGLE_REGION else 'allProbes',
                                                                'timeWindow', str(start_tw).replace('.', '_'),
                                                                str(end_tw).replace('.', '_')])))
 if COMPUTE_NEUROMETRIC:
