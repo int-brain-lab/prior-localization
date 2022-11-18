@@ -29,6 +29,7 @@ def compute_neurometric_prior(trialsdf_neurometric, metadata, **kwargs):
     return trialsdf_neurometric
 
 
+
 """
 trialsdf_neurometric = nb_trialsdf.reset_index() if (pseudo_id == -1) else \
     pseudosess[pseudomask].reset_index()
@@ -105,6 +106,7 @@ def get_target_df(target, pred, test_idxs, trialsdf):
         grpbyagg.loc[k].reset_index().values.T
         for k in grpbyagg.index.get_level_values("blockprob").unique().sort_values()
     ]
+
 
 
 def get_neurometric_parameters_(
