@@ -1,31 +1,22 @@
 import pickle
-from behavior_models.models.utils import format_data as format_data_mut
 import pandas as pd
 import glob
 from braindelphi.decoding.settings import *
-import models.utils as mut
 from braindelphi.params import FIT_PATH
 from braindelphi.decoding.settings import modeldispatcher
 from tqdm import tqdm
 
-date = "22-11-2022"
+date = "30-01-2023"
 finished = glob.glob(
     str(FIT_PATH.joinpath(kwargs["neural_dtype"], "*", "*", "*", "*%s*" % date))
 )
 print("nb files:", len(finished))
 
 indexers = ["subject", "eid", "probe", "region"]
-indexers_neurometric = [
-    "low_slope",
-    "high_slope",
-    "low_range",
-    "high_range",
-    "shift",
-    "mean_range",
-    "mean_slope",
-]
-resultslist = []
 
+resultslist = []
+weights, predictions, R2_test, intercepts, targets, masks = [], [], [], [], [], []
+nb_runs = 0
 failed_load = 0
 for fn in tqdm(finished):
     try:
@@ -34,31 +25,46 @@ for fn in tqdm(finished):
         fo.close()
         if result["fit"] is None:
             continue
-        for i_nb_decodings in range(len(result["fit"])):
-            tmpdict = {
-                **{x: result[x] for x in indexers},
-                "fold": -1,
-                "pseudo_id": result["fit"][i_nb_decodings]["pseudo_id"],
-                "N_units": result["N_units"],
-                "run_id": result["fit"][i_nb_decodings]["run_id"] + 1,
-                "R2_test": result["fit"][i_nb_decodings]["Rsquared_test_full"],
-            }
-            if result["fit"][i_nb_decodings]["full_neurometric"] is not None:
+        for i_decoding in range(len(result["fit"])):
+            if i_decoding == 0:
+                pseudo_id = result["fit"][i_decoding]["pseudo_id"]
+
+            if result["fit"][i_decoding]["pseudo_id"] == pseudo_id:
+                weights.append(np.vstack(result["fit"][i_decoding]["weights"]).mean(axis=0))
+                predictions.append(result["fit"][i_decoding]["predictions_test"])
+                intercepts.append(np.mean(result["fit"][i_decoding]["intercepts"]))
+                targets.append(result["fit"][i_decoding]["target"])
+                R2_test.append(result["fit"][i_decoding]["Rsquared_test_full"])
+                masks.append(np.array([str(item)
+                                       for item in list(result["fit"][i_decoding]["mask"].values * 1)], dtype=float))
+                N_units = result["N_units"]
+                nb_runs += 1
+            else:
                 tmpdict = {
-                    **tmpdict,
-                    **{
-                        idx_neuro: result["fit"][i_nb_decodings]["full_neurometric"][
-                            idx_neuro
-                        ]
-                        for idx_neuro in indexers_neurometric
-                    },
+                    **{x: result[x] for x in indexers},
+                    "fold": -1,
+                    "pseudo_id": pseudo_id,
+                    "N_units": N_units,
+                    "nb_runs": nb_runs,
+                    "mask": np.array(masks).mean(axis=0).tolist(),
+                    "R2_test": np.array(R2_test).mean(),
+                    "prediction": np.array(predictions).squeeze().mean(axis=0).tolist(),
+                    "target": np.array(targets).squeeze().mean(axis=0).tolist(),
+                    "weights": np.array(weights).mean(axis=0).tolist(),
+                    "intercepts": np.array(intercepts).mean(),
                 }
-            resultslist.append(tmpdict)
+                resultslist.append(tmpdict)
+                weights, predictions, R2_test, intercepts, targets, masks = [], [], [], [], [], []
+                pseudo_id = result["fit"][i_decoding]["pseudo_id"]
+                nb_runs = 0
     except:
+        print(failed_load)
         failed_load += 1
         pass
 print("loading of %i files failed" % failed_load)
+
 resultsdf = pd.DataFrame(resultslist)
+
 
 estimatorstr = strlut[ESTIMATOR]
 
@@ -82,9 +88,6 @@ fn = str(
                 estimatorstr,
                 "align",
                 ALIGN_TIME,
-                str(N_PSEUDO),
-                "pseudosessions",
-                "regionWise" if SINGLE_REGION else "allProbes",
                 "timeWindow",
                 str(start_tw).replace(".", "_"),
                 str(end_tw).replace(".", "_"),
@@ -92,6 +95,7 @@ fn = str(
         ),
     )
 )
+
 if COMPUTE_NEUROMETRIC:
     fn = fn + "_".join(["", "neurometricPLeft", modeldispatcher[MODEL]])
 
