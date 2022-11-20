@@ -8,6 +8,33 @@ Created on Mon Sep 12 06:14:04 2022
 import numpy as np
 import pandas as pd
 
+def gini(x, weights=None):
+    '''
+    Implementation copied from 
+    https://stackoverflow.com/questions/48999542/more-efficient-weighted-gini-coefficient-in-python
+
+    Parameters
+    ----------
+    x : TYPE
+        DESCRIPTION.
+    weights : TYPE, optional
+        DESCRIPTION. The default is None.
+
+    Returns
+    -------
+    TYPE
+        DESCRIPTION.
+
+    '''
+    if weights is None:
+        weights = np.ones_like(x)
+    # Calculate mean absolute deviation in two steps, for weights.
+    count = np.multiply.outer(weights, weights)
+    mad = np.abs(np.subtract.outer(x, x) * count).sum() / count.sum()
+    rmad = mad / np.average(x, weights=weights)
+    # Gini equals half the relative mean absolute deviation.
+    return 0.5 * rmad
+
 def create_pdtable_from_raw(res, 
                             score_name='balanced_acc_test',
                             N_PSEUDO=200, N_RUN=10, 
@@ -48,6 +75,12 @@ def create_pdtable_from_raw(res,
                 assert pids[0] == -1
                 assert np.all(pids[1:] == np.arange(1,N_PSEUDO+1))
                 real_scores = reseidreg.loc[reseidreg['pseudo_id']==-1,score_name]
+                ws = list(reseidreg.loc[reseidreg['pseudo_id']==-1, 'weights'])
+                assert len(ws)==N_RUN
+                ws = np.abs(np.ndarray.flatten(np.array(ws)))
+                #print(ws)
+                frac_lg_w = np.mean(ws > 0.1)#1.0/len(ws))
+                gini_w = gini(ws)
                 assert len(real_scores) == N_RUN # 10 repeats of decoding to reduce variance
                 score = np.mean(real_scores)
                 
@@ -64,9 +97,16 @@ def create_pdtable_from_raw(res,
                 assert np.all(n_units == n_units[0])
                 n_units = n_units[0]
                 
-                res_table.append([subject,eid,reg,score,pval,median_null,n_units])
+                res_table.append([subject,eid,reg,score,pval,median_null,n_units,frac_lg_w,gini_w])
             elif len(pids) >= N_PSEUDO_LOWER_THRESH+1 and pids[0] == -1:
                 real_scores = reseidreg.loc[reseidreg['pseudo_id']==-1,score_name]
+                
+                ws = list(reseidreg.loc[reseidreg['pseudo_id']==-1, 'weights'])
+                assert len(ws)==N_RUN
+                ws = np.abs(np.ndarray.flatten(np.array(ws)))
+                frac_lg_w = np.mean(ws > 0.1)#1.0/len(ws))
+                gini_w = gini(ws)
+                
                 assert len(real_scores) >= N_RUN-1 # 10 repeats of decoding to reduce variance
                 score = np.mean(real_scores)
                 
@@ -83,7 +123,7 @@ def create_pdtable_from_raw(res,
                 assert np.all(n_units == n_units[0])
                 n_units = n_units[0]
                 
-                res_table.append([subject,eid,reg,score,pval,median_null,n_units])
+                res_table.append([subject,eid,reg,score,pval,median_null,n_units,frac_lg_w,gini_w])
                 print('not full pseudo_ids', len(pids))
             else:
                 print('not enough pseudo_ids', len(pids))
@@ -94,50 +134,52 @@ def create_pdtable_from_raw(res,
                                                  'score',
                                                  'p-value',
                                                  'median-null',
-                                                 'n_units'])
+                                                 'n_units',
+                                                 'frac_large_w',
+                                                 'gini_w'])
     return res_table
 
-DATE = '07-11-2022'
-print('Working on Block')
-file_pre = 'decoding_results/27-10-2022_decode_pLeft_oracle_LogisticsRegression_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_-0_4_-0_1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_paraindex'
-res = pd.DataFrame()
-for i in range(50):
-    res_new = pd.read_pickle(file_pre+str(i)+'.pkl')
-    res = pd.concat([res, res_new], axis=0)
-res_table = create_pdtable_from_raw(res, 
-                                    score_name='balanced_acc_test',
-                                    N_PSEUDO=200)
-valid_reg = np.array([len(res_table.loc[res_table['region']==reg])>=2 for reg in res_table['region']])
-res_table = res_table.loc[valid_reg]
-res_table.to_csv(f'decoding_processing/{DATE}_block.csv')
+# DATE = '07-11-2022'
+# print('Working on Block')
+# file_pre = 'decoding_results/27-10-2022_decode_pLeft_oracle_LogisticsRegression_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_-0_4_-0_1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_paraindex'
+# res = pd.DataFrame()
+# for i in range(50):
+#     res_new = pd.read_pickle(file_pre+str(i)+'.pkl')
+#     res = pd.concat([res, res_new], axis=0)
+# res_table = create_pdtable_from_raw(res, 
+#                                     score_name='balanced_acc_test',
+#                                     N_PSEUDO=200)
+# valid_reg = np.array([len(res_table.loc[res_table['region']==reg])>=2 for reg in res_table['region']])
+# res_table = res_table.loc[valid_reg]
+# res_table.to_csv(f'decoding_processing/{DATE}_block.csv')
 
-DATE = '07-11-2022'
-print('Working on Stim')
-file_pre = 'decoding_results/28-10-2022_decode_signcont_task_Lasso_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_0_0_0_1_imposterSess_0_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_paraindex'
-res = pd.DataFrame()
-for i in range(50):
-    res_new = pd.read_pickle(file_pre+str(i)+'.pkl')
-    res = pd.concat([res, res_new], axis=0)
-res_table = create_pdtable_from_raw(res, 
-                                    score_name='R2_test',
-                                    N_PSEUDO=200)
-valid_reg = np.array([len(res_table.loc[res_table['region']==reg])>=2 for reg in res_table['region']])
-res_table = res_table.loc[valid_reg]
-res_table.to_csv(f'decoding_processing/{DATE}_stim.csv')
+# DATE = '07-11-2022'
+# print('Working on Stim')
+# file_pre = 'decoding_results/28-10-2022_decode_signcont_task_Lasso_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_0_0_0_1_imposterSess_0_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_paraindex'
+# res = pd.DataFrame()
+# for i in range(50):
+#     res_new = pd.read_pickle(file_pre+str(i)+'.pkl')
+#     res = pd.concat([res, res_new], axis=0)
+# res_table = create_pdtable_from_raw(res, 
+#                                     score_name='R2_test',
+#                                     N_PSEUDO=200)
+# valid_reg = np.array([len(res_table.loc[res_table['region']==reg])>=2 for reg in res_table['region']])
+# res_table = res_table.loc[valid_reg]
+# res_table.to_csv(f'decoding_processing/{DATE}_stim.csv')
 
-DATE = '07-11-2022'
-print('Working on Choice')
-file_pre = 'decoding_results/28-10-2022_decode_choice_task_LogisticsRegression_align_firstMovement_times_200_pseudosessions_regionWise_timeWindow_-0_1_0_0_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_paraindex'
-res = pd.DataFrame()
-for i in range(50):
-    res_new = pd.read_pickle(file_pre+str(i)+'.pkl')
-    res = pd.concat([res, res_new], axis=0)
-res_table = create_pdtable_from_raw(res, 
-                                    score_name='balanced_acc_test',
-                                    N_PSEUDO=200)
-valid_reg = np.array([len(res_table.loc[res_table['region']==reg])>=2 for reg in res_table['region']])
-res_table = res_table.loc[valid_reg]
-res_table.to_csv(f'decoding_processing/{DATE}_choice.csv')
+# DATE = '07-11-2022'
+# print('Working on Choice')
+# file_pre = 'decoding_results/28-10-2022_decode_choice_task_LogisticsRegression_align_firstMovement_times_200_pseudosessions_regionWise_timeWindow_-0_1_0_0_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_paraindex'
+# res = pd.DataFrame()
+# for i in range(50):
+#     res_new = pd.read_pickle(file_pre+str(i)+'.pkl')
+#     res = pd.concat([res, res_new], axis=0)
+# res_table = create_pdtable_from_raw(res, 
+#                                     score_name='balanced_acc_test',
+#                                     N_PSEUDO=200)
+# valid_reg = np.array([len(res_table.loc[res_table['region']==reg])>=2 for reg in res_table['region']])
+# res_table = res_table.loc[valid_reg]
+# res_table.to_csv(f'decoding_processing/{DATE}_choice.csv')
 
 DATE = '07-11-2022'
 print('Working on Feedback')
@@ -153,18 +195,31 @@ valid_reg = np.array([len(res_table.loc[res_table['region']==reg])>=2 for reg in
 res_table = res_table.loc[valid_reg]
 res_table.to_csv(f'decoding_processing/{DATE}_reward.csv')
 
-DATE = '07-11-2022'
-print('Working on Wheel-Speed')
-file_pre = 'decoding_results/27-10-2022_decode_wheel-speed_task_Lasso_align_firstMovement_times_100_pseudosessions_regionWise_timeWindow_-0_2_1_0_imposterSess_1_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_paraindex'
-res = pd.DataFrame()
-for i in range(50):
-    res_new = pd.read_pickle(file_pre+str(i)+'.pkl')
-    #res_new['eid'] = res_new['eid']+'_'+res_new['probe']
-    res = pd.concat([res, res_new], axis=0)
-res_table = create_pdtable_from_raw(res, 
-                                    score_name='R2_test',
-                                    N_PSEUDO=100, N_RUN=2)
-valid_reg = np.array([len(res_table.loc[res_table['region']==reg])>=2 for reg in res_table['region']])
-res_table = res_table.loc[valid_reg]
-res_table.to_csv(f'decoding_processing/{DATE}_wheel-speed.csv')
+# DATE = '07-11-2022'
+# print('Working on Wheel-Speed')
+# file_pre = 'decoding_results/27-10-2022_decode_wheel-speed_task_Lasso_align_firstMovement_times_100_pseudosessions_regionWise_timeWindow_-0_2_1_0_imposterSess_1_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_paraindex'
+# res = pd.DataFrame()
+# for i in range(50):
+#     res_new = pd.read_pickle(file_pre+str(i)+'.pkl')
+#     #res_new['eid'] = res_new['eid']+'_'+res_new['probe']
+#     res = pd.concat([res, res_new], axis=0)
+# res_table = create_pdtable_from_raw(res, 
+#                                     score_name='R2_test',
+#                                     N_PSEUDO=100, N_RUN=2)
+# valid_reg = np.array([len(res_table.loc[res_table['region']==reg])>=2 for reg in res_table['region']])
+# res_table = res_table.loc[valid_reg]
+# res_table.to_csv(f'decoding_processing/{DATE}_wheel-speed.csv')
 
+# DATE = '02-11-2022'
+# print('Working on Stim Metaanalysis')
+# file_pre = 'decoding_results/02-11-2022_decode_signcont_task_LogisticsRegression_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_0_0_0_1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_paraindex'
+# res = pd.DataFrame()
+# for i in range(50):
+#     res_new = pd.read_pickle(file_pre+str(i)+'.pkl')
+#     res = pd.concat([res, res_new], axis=0)
+# res_table = create_pdtable_from_raw(res, 
+#                                     score_name='balanced_acc_test',
+#                                     N_PSEUDO=200)
+# valid_reg = np.array([len(res_table.loc[res_table['region']==reg])>=2 for reg in res_table['region']])
+# res_table = res_table.loc[valid_reg]
+# res_table.to_csv(f'decoding_processing/{DATE}_stim_metaanalysis_logistic.csv')
