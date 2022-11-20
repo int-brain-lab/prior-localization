@@ -34,6 +34,7 @@ BEH_MOUSELEVEL_TRAINING = (
 )
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
 ESTIMATOR = sklm.Ridge # Must be in keys of strlut above
+USE_NATIVE_SKLEARN_FOR_HYPERPARAMETER_ESTIMATION = True
 BINARIZATION_VALUE = (
     None  # to binarize the target -> could be useful with logistic regression estimator
 )
@@ -55,8 +56,8 @@ SINGLE_REGION = (
 MERGED_PROBES = True # merge probes before performing analysis
 NO_UNBIAS = False  # take out unbiased trials
 SHUFFLE = True  # interleaved cross validation
-BORDER_QUANTILES_NEUROMETRIC = [0.5, 0.5]  # [.3, .4, .5, .6, .7]
-COMPUTE_NEUROMETRIC = False
+BORDER_QUANTILES_NEUROMETRIC = [0.3, 0.7]  # [.3, .4, .5, .6, .7]
+COMPUTE_NEUROMETRIC = True
 FORCE_POSITIVE_NEURO_SLOPES = False
 SAVE_PREDICTIONS = True
 
@@ -81,7 +82,7 @@ USE_IMPOSTER_SESSION_FOR_BALANCING = (
 SIMULATE_NEURAL_DATA = False
 QUASI_RANDOM = False  # if TRUE, decoding is launched in a quasi-random, reproducible way => it sets the seed
 
-BALANCED_WEIGHT = False  # seems to work better with BALANCED_WEIGHT=False, but putting True is important
+BALANCED_WEIGHT = True  # seems to work better with BALANCED_WEIGHT=False, but putting True is important
 BALANCED_CONTINUOUS_TARGET = (
     False  # is target continuous or discrete FOR BALANCED WEIGHTING
 )
@@ -91,7 +92,6 @@ HPARAM_GRID = (
     {
         #'alpha': np.array([0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000, 100000])
         "alpha": np.array(
- 
            [
                 0.00001,
                 0.0001,
@@ -271,6 +271,7 @@ fit_metadata = {
     "decode_prev_contrast": DECODE_PREV_CONTRAST,
     "decode_derivative": DECODE_DERIVATIVE,
     "motor_residual": MOTOR_RESIDUAL,
+    "use_native_sklearn_for_hyperparameter_estimation": USE_NATIVE_SKLEARN_FOR_HYPERPARAMETER_ESTIMATION,
 }
 
 if NEURAL_DTYPE == "widefield":
@@ -336,4 +337,5 @@ kwargs = {
     "motor_residual": MOTOR_RESIDUAL,
     "wfi_average_over_frames": WFI_AVERAGE_OVER_FRAMES,
     "debug": DEBUG,
+    "use_native_sklearn_for_hyperparameter_estimation": USE_NATIVE_SKLEARN_FOR_HYPERPARAMETER_ESTIMATION,
 }
