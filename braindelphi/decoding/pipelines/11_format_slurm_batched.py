@@ -8,8 +8,7 @@ from braindelphi.params import FIT_PATH
 from braindelphi.decoding.settings import modeldispatcher
 from tqdm import tqdm
 
-
-date = "50-10-2022"
+date = "22-11-2022"
 finished = glob.glob(
     str(FIT_PATH.joinpath(kwargs["neural_dtype"], "*", "*", "*", "*%s*" % date))
 )

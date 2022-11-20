@@ -5,6 +5,7 @@ from braindelphi.decoding.settings import *
 from braindelphi.params import FIT_PATH
 from braindelphi.decoding.settings import modeldispatcher
 from tqdm import tqdm
+import gc
 
 SAVE_KFOLDS = False
 
@@ -24,6 +25,7 @@ indexers_neurometric = [
     "mean_range",
     "mean_slope",
 ]
+
 resultslist = []
 
 failed_load = 0
@@ -115,6 +117,7 @@ for fn in tqdm(finished):
         failed_load += 1
         pass
 print("loading of %i files failed" % failed_load)
+
 resultsdf = pd.DataFrame(resultslist)
 
 """
@@ -149,9 +152,6 @@ fn = str(
                 estimatorstr,
                 "align",
                 ALIGN_TIME,
-                str(N_PSEUDO),
-                "pseudosessions",
-                "regionWise" if SINGLE_REGION else "allProbes",
                 "timeWindow",
                 str(start_tw).replace(".", "_"),
                 str(end_tw).replace(".", "_"),
@@ -159,6 +159,7 @@ fn = str(
         ),
     )
 )
+
 if COMPUTE_NEUROMETRIC:
     fn = fn + "_".join(["", "neurometricPLeft", modeldispatcher[MODEL]])
 
