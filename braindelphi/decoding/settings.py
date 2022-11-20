@@ -14,14 +14,14 @@ BEHAVIOR_MOD_PATH.mkdir(parents=True, exist_ok=True)
 logger = logging.getLogger("ibllib")
 logger.disabled = True
 
-NEURAL_DTYPE = "ephys"  # 'ephys' or 'widefield'
-DATE = "12-12-2022"  # date 12 prev, 13 next, 14 prev
+NEURAL_DTYPE = "widefield" #"widefield"  # 'ephys' or 'widefield'
+DATE = "30-01-2023"  # date 12 prev, 13 next, 14 prev
 
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
 SESS_CRITERION = "resolved-behavior"  # aligned and behavior
 ALIGN_TIME = "stimOn_times"
-TARGET = "signcont"  # 'signcont' or 'pLeft'
+TARGET = "pLeft"  # 'signcont' or 'pLeft'
 if TARGET not in ["pLeft", "signcont", "strengthcont", "choice", "feedback"]:
     raise ValueError(
         "TARGET can only be pLeft, signcont, strengthcont, choice or feedback"
@@ -33,13 +33,13 @@ BEH_MOUSELEVEL_TRAINING = (
     False  # if True, trains the behavioral model session-wise else mouse-wise
 )
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
-ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
+ESTIMATOR = sklm.Ridge # Must be in keys of strlut above
 BINARIZATION_VALUE = (
     None  # to binarize the target -> could be useful with logistic regression estimator
 )
 ESTIMATOR_KWARGS = {"tol": 0.0001, "max_iter": 20000, "fit_intercept": True}
-N_PSEUDO = 100
-N_PSEUDO_PER_JOB = 100
+N_PSEUDO = 200
+N_PSEUDO_PER_JOB = 50
 N_JOBS_PER_SESSION = N_PSEUDO // N_PSEUDO_PER_JOB
 N_RUNS = 10
 MIN_UNITS = 10
@@ -50,12 +50,12 @@ MIN_BEHAV_TRIAS = (
 MIN_RT = 0.08  # 0.08  # Float (s) or None
 MAX_RT = None
 SINGLE_REGION = (
-    "Custom"  # True  # perform decoding on region-wise or whole brain analysis
+   True # "Widefield" # False  # True  # perform decoding on region-wise or whole brain analysis
 )
-MERGED_PROBES = False  # merge probes before performing analysis
+MERGED_PROBES = True # merge probes before performing analysis
 NO_UNBIAS = False  # take out unbiased trials
 SHUFFLE = True  # interleaved cross validation
-BORDER_QUANTILES_NEUROMETRIC = [0.3, 0.7]  # [.3, .4, .5, .6, .7]
+BORDER_QUANTILES_NEUROMETRIC = [0.5, 0.5]  # [.3, .4, .5, .6, .7]
 COMPUTE_NEUROMETRIC = False
 FORCE_POSITIVE_NEURO_SLOPES = False
 SAVE_PREDICTIONS = True
@@ -70,7 +70,7 @@ USE_IMPOSTER_SESSION = False  # if false, it uses pseudosessions and simulates t
 FILTER_PSEUDOSESSIONS_ON_MUTUALINFORMATION = False
 STITCHING_FOR_IMPORTER_SESSION = False  # if true, stitches sessions to create importers
 MAX_NUMBER_TRIALS_WHEN_NO_STITCHING_FOR_IMPORTER_SESSION = (
-    700  # this is a constraint on the number of trials of a session
+   700  # this is a constraint on the number of trials of a session
 )
 # to insure that there will be at least 1000 unstitched imposter sessions. IMPORTANT, with this number, you can not
 # generate more than 1000 control imposter sessions
@@ -91,9 +91,13 @@ HPARAM_GRID = (
     {
         #'alpha': np.array([0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000, 100000])
         "alpha": np.array(
-            [
+ 
+           [
+                0.00001,
+                0.0001,
                 0.001,
                 0.01,
+                0.1, 
             ]
         )  # lasso , 0.01, 0.1
     }
@@ -117,7 +121,7 @@ ADD_TO_SAVING_PATH = (
 )
 
 # WIDE FIELD IMAGING
-WFI_HEMISPHERES = ["left"]  # 'left' and/or 'right'
+WFI_HEMISPHERES = ["left", "right"]  # 'left' and/or 'right'
 WFI_NB_FRAMES_START = (
     -2
 )  # left signed number of frames from ALIGN_TIME (frame included)
