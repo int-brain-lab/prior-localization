@@ -27,16 +27,36 @@ for fn in tqdm(finished):
             continue
         for i_decoding in range(len(result["fit"])):
             if i_decoding == 0:
+                weights, predictions, R2_test, intercepts, targets, masks = (
+                    [],
+                    [],
+                    [],
+                    [],
+                    [],
+                    [],
+                )
                 pseudo_id = result["fit"][i_decoding]["pseudo_id"]
+                nb_runs = 0
 
             if result["fit"][i_decoding]["pseudo_id"] == pseudo_id:
-                weights.append(np.vstack(result["fit"][i_decoding]["weights"]).mean(axis=0))
+                weights.append(
+                    np.vstack(result["fit"][i_decoding]["weights"]).mean(axis=0)
+                )
                 predictions.append(result["fit"][i_decoding]["predictions_test"])
                 intercepts.append(np.mean(result["fit"][i_decoding]["intercepts"]))
                 targets.append(result["fit"][i_decoding]["target"])
                 R2_test.append(result["fit"][i_decoding]["Rsquared_test_full"])
-                masks.append(np.array([str(item)
-                                       for item in list(result["fit"][i_decoding]["mask"].values * 1)], dtype=float))
+                masks.append(
+                    np.array(
+                        [
+                            str(item)
+                            for item in list(
+                                result["fit"][i_decoding]["mask"].values * 1
+                            )
+                        ],
+                        dtype=float,
+                    )
+                )
                 N_units = result["N_units"]
                 nb_runs += 1
             else:
@@ -54,7 +74,14 @@ for fn in tqdm(finished):
                     "intercepts": np.array(intercepts).mean(),
                 }
                 resultslist.append(tmpdict)
-                weights, predictions, R2_test, intercepts, targets, masks = [], [], [], [], [], []
+                weights, predictions, R2_test, intercepts, targets, masks = (
+                    [],
+                    [],
+                    [],
+                    [],
+                    [],
+                    [],
+                )
                 pseudo_id = result["fit"][i_decoding]["pseudo_id"]
                 nb_runs = 0
     except:
