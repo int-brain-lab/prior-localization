@@ -7,7 +7,6 @@ Created on Mon Sep 12 06:14:04 2022
 """
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 
 def gini(x, weights=None):
     '''
@@ -44,6 +43,12 @@ def fix_pd_regions(res):
             assert len(r) == 1
             res.loc[i,'region'] = r[0]
     return res
+
+def get_val_from_realsession(reseidreg, value_name, RUN_ID=1):
+    my_vals = list(reseidreg.loc[(reseidreg['pseudo_id']==-1)&(reseidreg['run_id']==RUN_ID), value_name])
+    if (len(my_vals) != 1) or (my_vals[0] is None):
+        return None
+    return np.array(my_vals[0])
 
 def create_pdtable_from_raw(res, 
                             score_name='balanced_acc_test',
@@ -102,31 +107,32 @@ def create_pdtable_from_raw(res,
                 reseidreg = reseidreg.loc[reseidreg['probe']==cur_p]
                 
             if RETURN_X_Y:
-                my_regressors = list(reseidreg.loc[(reseidreg['pseudo_id']==-1)&(reseidreg['run_id']==1),'regressors'])
-                my_targets = list(reseidreg.loc[(reseidreg['pseudo_id']==-1)&(reseidreg['run_id']==1),'target'])
-                my_preds = list(reseidreg.loc[(reseidreg['pseudo_id']==-1)&(reseidreg['run_id']==1),'full_prediction'])
+                my_regressors = get_val_from_realsession(reseidreg, 'regressors')
+                if my_regressors is None:
+                    print(f'did not find regressors for {eid} {reg}')
+                    continue
                 
-                #assert len(my_regressors) == 1 and len(my_targets) == 1 and len(my_preds) == 1
-                #print(my_regressors)
-                if (len(my_regressors) != 1) or (my_regressors[0] is None):
-                    print(f'did not find regressors, targets, or predictions for {eid} {reg}')
+                my_targets = get_val_from_realsession(reseidreg, 'target')
+                if my_targets is None:
+                    print(f'did not find targets for {eid} {reg}')
                     continue
-                if (len(my_targets) != 1) or (my_targets[0] is None):
-                    print(f'did not find targets or predictions for {eid} {reg}')
-                    continue
-                if (len(my_preds) != 1) or (my_preds[0] is None):
+                
+                my_preds = [get_val_from_realsession(reseidreg, 
+                                                     'full_prediction', 
+                                                     RUN_ID=runid) for runid in range(1,N_RUN+1)] 
+                if np.any(np.array([mps is None for mps in my_preds])):
                     print(f'did not find predictions for {eid} {reg}')
                     continue
-                my_regressors = np.array(my_regressors[0])
-                my_targets = np.array(my_targets[0])
-                my_preds = my_preds[0]
-                #print(my_regressors.shape)
-                assert my_targets.shape == my_preds.shape
-                assert (my_regressors.shape[1] == 1) and (my_targets.shape[1] == 1) and my_preds.shape[1] == 1
+                
+                # check and reshape arrays
+                assert my_targets.shape == my_preds[0].shape
+                assert (my_regressors.shape[1] == 1) and (my_targets.shape[1] == 1) and (my_preds[0].shape[1] == 1)
+                assert my_regressors.shape[0] == my_targets.shape[0]
                 my_regressors = my_regressors[:,0,:]
                 my_targets = my_targets[:,0]
-                my_preds = my_preds[:,0]
-                assert my_regressors.shape[0] == my_targets.shape[0]
+                my_preds = np.vstack([mps[:,0] for mps in my_preds])
+                assert my_preds.shape[0] == N_RUN
+                my_preds = np.mean(my_preds,axis=0)
                 #assert np.all(np.unique(my_targets) == np.array([0,1]))
                 
             
@@ -256,24 +262,24 @@ def create_pdtable_from_raw(res,
 # res_table.to_csv(f'decoding_processing/{DATE}_choice.csv')
 # xy_table.to_pickle(f'decoding_processing/{DATE}_choice_xy.pkl')
 
-DATE = '07-11-2022'
-print('Working on Feedback')
-file_pre = 'decoding_results/27-10-2022_decode_feedback_task_LogisticsRegression_align_feedback_times_200_pseudosessions_regionWise_timeWindow_0_0_0_2_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_paraindex'
-res = pd.DataFrame()
-for i in range(50):
-    res_new = pd.read_pickle(file_pre+str(i)+'.pkl')
-    res = pd.concat([res, res_new], axis=0)
-res = fix_pd_regions(res)
-res = fix_pd_regions(res)
-res_table, xy_table = create_pdtable_from_raw(res, 
-                                    score_name='balanced_acc_test',
-                                    N_PSEUDO=200,
-                                    RETURN_X_Y=True)
-valid_reg = np.array([len(res_table.loc[res_table['region']==reg])>=2 for reg in res_table['region']])
-res_table = res_table.loc[valid_reg]
-xy_table = xy_table.loc[valid_reg]
-res_table.to_csv(f'decoding_processing/{DATE}_reward.csv')
-xy_table.to_pickle(f'decoding_processing/{DATE}_reward_xy.pkl')
+# DATE = '07-11-2022'
+# print('Working on Feedback')
+# file_pre = 'decoding_results/27-10-2022_decode_feedback_task_LogisticsRegression_align_feedback_times_200_pseudosessions_regionWise_timeWindow_0_0_0_2_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_paraindex'
+# res = pd.DataFrame()
+# for i in range(50):
+#     res_new = pd.read_pickle(file_pre+str(i)+'.pkl')
+#     res = pd.concat([res, res_new], axis=0)
+# res = fix_pd_regions(res)
+# res = fix_pd_regions(res)
+# res_table, xy_table = create_pdtable_from_raw(res, 
+#                                     score_name='balanced_acc_test',
+#                                     N_PSEUDO=200,
+#                                     RETURN_X_Y=True)
+# valid_reg = np.array([len(res_table.loc[res_table['region']==reg])>=2 for reg in res_table['region']])
+# res_table = res_table.loc[valid_reg]
+# xy_table = xy_table.loc[valid_reg]
+# res_table.to_csv(f'decoding_processing/{DATE}_reward.csv')
+# xy_table.to_pickle(f'decoding_processing/{DATE}_reward_xy.pkl')
 
 # DATE = '07-11-2022'
 # print('Working on Wheel-Speed')
@@ -309,66 +315,3 @@ xy_table = xy_table.loc[valid_reg]
 res_table.to_csv(f'decoding_processing/{DATE}_stimside.csv')
 xy_table.to_pickle(f'decoding_processing/{DATE}_stimside_xy.pkl')
 
-#%%
-# DEC_VAR = 'choice'
-# for eid in np.unique(res['eid']):
-#     print(eid)
-#     reseid = res.loc[res['eid']==eid]
-#     subject = np.unique(reseid['subject'])
-#     assert len(subject) == 1
-#     subject = subject[0]
-    
-#     #print(reseid['region'])
-#     for reg in np.unique(reseid['region']):
-#         # assert len(reg) == 1
-#         # reg = reg[0]
-        
-#         reseidreg = reseid.loc[reseid['region']==reg]
-#         eidreg_probes = np.unique(reseidreg['probe'])
-#         if not (len(eidreg_probes)==1):
-#             print(eidreg_probes)
-#             assert (eidreg_probes[0]=='probe00') and (eidreg_probes[1]=='probe01')
-#             assert len(eidreg_probes)==2
-#             cur_p = np.random.choice(['probe00','probe01'])
-#             reseidreg = reseidreg.loc[reseidreg['probe']==cur_p]
-        
-#         my_regressors = reseidreg.loc[(reseidreg['pseudo_id']==-1)&(reseidreg['run_id']==1),'regressors']
-#         my_targets = reseidreg.loc[(reseidreg['pseudo_id']==-1)&(reseidreg['run_id']==1),'target']
-#         my_preds = reseidreg.loc[(reseidreg['pseudo_id']==-1)&(reseidreg['run_id']==1),'full_prediction']
-        
-#         my_regressors = list(my_regressors)
-#         my_targets = list(my_targets)
-#         my_preds = list(my_preds)
-#         assert len(my_regressors) == 1 and len(my_targets) == 1 and len(my_preds) == 1
-#         #print(my_regressors)
-#         if (my_regressors[0] is None) or (my_targets[0] is None) or (my_preds[0] is None):
-#             continue
-#         my_regressors = np.array(my_regressors[0])
-#         my_targets = np.array(my_targets[0])
-#         my_preds = my_preds[0]
-#         #print(my_regressors.shape)
-#         assert my_targets.shape == my_preds.shape
-#         assert (my_regressors.shape[1] == 1) and (my_targets.shape[1] == 1) and my_preds.shape[1] == 1
-#         my_regressors = my_regressors[:,0,:]
-#         my_targets = my_targets[:,0]
-#         my_preds = my_preds[:,0]
-#         assert my_regressors.shape[0] == my_targets.shape[0]
-#         assert np.all(np.unique(my_targets) == np.array([0,1]))
-        
-#         mu0s = np.array([np.mean(my_regressors[my_targets==0,i]) for i in range(my_regressors.shape[1])])
-#         mu1s = np.array([np.mean(my_regressors[my_targets==1,i]) for i in range(my_regressors.shape[1])])
-#         std0s = np.array([np.std(my_regressors[my_targets==0,i]) for i in range(my_regressors.shape[1])])
-#         std1s = np.array([np.std(my_regressors[my_targets==1,i]) for i in range(my_regressors.shape[1])])
-        
-#         pmu0 = np.mean(my_preds[my_targets==0])
-#         pmu1 = np.mean(my_preds[my_targets==1])
-#         pstd0 = np.std(my_preds[my_targets==0])
-#         pstd1 = np.std(my_preds[my_targets==1])
-        
-#         plt.figure(figsize=(4,5))
-#         plt.errorbar(np.arange(my_regressors.shape[1])+1,mu1s-mu0s,yerr=np.sqrt(std0s**2 + std1s**2), color='C0')
-#         plt.errorbar([0],[pmu1-pmu0],yerr=[np.sqrt(pstd0**2 + pstd1**2)], color='C1')
-#         plt.tight_layout()
-#         plt.savefig(f'decoding_figures/metaanalysis_reg_bin_dist/{reg}_{eid}_{DEC_VAR}.png')
-        
-        
