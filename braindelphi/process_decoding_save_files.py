@@ -7,6 +7,7 @@ Created on Mon Sep 12 06:14:04 2022
 """
 import numpy as np
 import pandas as pd
+from sklearn.metrics import r2_score, balanced_accuracy_score
 
 def gini(x, weights=None):
     '''
@@ -106,47 +107,21 @@ def create_pdtable_from_raw(res,
                 cur_p = np.random.choice(['probe00','probe01'])
                 reseidreg = reseidreg.loc[reseidreg['probe']==cur_p]
                 
-            if RETURN_X_Y:
-                my_regressors = get_val_from_realsession(reseidreg, 'regressors')
-                if my_regressors is None:
-                    print(f'did not find regressors for {eid} {reg}')
-                    continue
-                
-                my_targets = get_val_from_realsession(reseidreg, 'target')
-                if my_targets is None:
-                    print(f'did not find targets for {eid} {reg}')
-                    continue
-                
-                my_preds = [get_val_from_realsession(reseidreg, 
-                                                     'full_prediction', 
-                                                     RUN_ID=runid) for runid in range(1,N_RUN+1)] 
-                if np.any(np.array([mps is None for mps in my_preds])):
-                    print(f'did not find predictions for {eid} {reg}')
-                    continue
-                
-                # check and reshape arrays
-                assert my_targets.shape == my_preds[0].shape
-                assert (my_regressors.shape[1] == 1) and (my_targets.shape[1] == 1) and (my_preds[0].shape[1] == 1)
-                assert my_regressors.shape[0] == my_targets.shape[0]
-                my_regressors = my_regressors[:,0,:]
-                my_targets = my_targets[:,0]
-                my_preds = np.vstack([mps[:,0] for mps in my_preds])
-                assert my_preds.shape[0] == N_RUN
-                my_preds = np.mean(my_preds,axis=0)
-                #assert np.all(np.unique(my_targets) == np.array([0,1]))
-                
             
             pids = np.sort(np.unique(reseidreg['pseudo_id']))
             #print(reseidreg.head())
             if len(pids) == N_PSEUDO+1:
                 assert pids[0] == -1
                 assert np.all(pids[1:] == np.arange(1,N_PSEUDO+1))
-                real_scores = reseidreg.loc[reseidreg['pseudo_id']==-1,score_name]
-                assert len(real_scores) == N_RUN
-            elif len(pids) >= N_PSEUDO_LOWER_THRESH+1 and pids[0] == -1:
-                print('not full pseudo_ids', len(pids))
-                real_scores = reseidreg.loc[reseidreg['pseudo_id']==-1,score_name]
-                assert len(real_scores) >= N_RUN - 1
+                real_scores = [get_val_from_realsession(reseidreg, 
+                                                        score_name, 
+                                                        RUN_ID=runid) for runid in range(1,N_RUN+1)]
+                #real_scores = reseidreg.loc[reseidreg['pseudo_id']==-1,score_name]
+                #assert len(real_scores) == N_RUN
+            # elif len(pids) >= N_PSEUDO_LOWER_THRESH+1 and pids[0] == -1:
+            #     print('not full pseudo_ids', len(pids))
+            #     real_scores = reseidreg.loc[reseidreg['pseudo_id']==-1,score_name]
+            #     assert len(real_scores) >= N_RUN - 1
                 
             else:
                 print('not enough pseudo_ids', len(pids))
@@ -173,6 +148,54 @@ def create_pdtable_from_raw(res,
             n_units = np.array(reseidreg.loc[reseidreg['pseudo_id']==-1,'N_units'])
             assert np.all(n_units == n_units[0])
             n_units = n_units[0]
+            
+            if RETURN_X_Y:
+                my_regressors = get_val_from_realsession(reseidreg, 'regressors')
+                if my_regressors is None:
+                    print(f'did not find regressors for {eid} {reg}')
+                    continue
+                
+                my_targets = get_val_from_realsession(reseidreg, 'target')
+                if my_targets is None:
+                    print(f'did not find targets for {eid} {reg}')
+                    continue
+                
+                my_preds = [get_val_from_realsession(reseidreg, 
+                                                     'prediction', 
+                                                     RUN_ID=runid) for runid in range(1,N_RUN+1)] 
+                
+                if np.any(np.array([mps is None for mps in my_preds])):
+                    print(f'did not find predictions for {eid} {reg}')
+                    continue
+                
+                # check and reshape arrays
+                assert my_targets.shape == my_preds[0].shape
+                assert (my_regressors.shape[1] == 1) and (my_targets.shape[1] == 1) and (my_preds[0].shape[1] == 1)
+                assert my_regressors.shape[0] == my_targets.shape[0]
+                my_regressors = my_regressors[:,0,:]
+                my_targets = my_targets[:,0]
+                my_preds = [mps[:,0] for mps in my_preds]
+                if np.any(np.array([len(np.unique(p))==1 for p in my_preds])):
+                    print(f'at least one pred is constant {eid} {reg}')
+                    continue
+                if score_name == 'balanced_acc_test':
+                    calc_score = lambda x: balanced_accuracy_score(my_targets, x)
+                elif score_name == 'R2_test':
+                    calc_score = lambda x: r2_score(my_targets, x)
+                else:
+                    raise NotImplementedError('this score is not implemented')
+                my_calc_real_scores = [calc_score(p) for p in my_preds]
+                if not np.all(np.array([my_calc_real_scores[i]==real_scores[i] for i in range(len(real_scores))])):
+                    print(my_preds[0], my_calc_real_scores, real_scores)
+                    assert False
+                    continue
+                #else:
+                    #print('passed calc score test')
+                
+                my_preds = np.vstack(my_preds)
+                assert my_preds.shape[0] == N_RUN
+                my_preds = np.mean(my_preds,axis=0)
+                #assert np.all(np.unique(my_targets) == np.array([0,1]))
             
             res_table.append([subject,
                               eid,
@@ -219,6 +242,7 @@ def create_pdtable_from_raw(res,
 # res_table, xy_table = create_pdtable_from_raw(res, 
 #                                     score_name='balanced_acc_test',
 #                                     N_PSEUDO=200,
+#                                     N_RUN=10,
 #                                     RETURN_X_Y=True)
 # valid_reg = np.array([len(res_table.loc[res_table['region']==reg])>=2 for reg in res_table['region']])
 # res_table = res_table.loc[valid_reg]
@@ -308,6 +332,7 @@ res = fix_pd_regions(res)
 res_table, xy_table = create_pdtable_from_raw(res, 
                                     score_name='balanced_acc_test',
                                     N_PSEUDO=200,
+                                    N_RUN=10,
                                     RETURN_X_Y=True)
 valid_reg = np.array([len(res_table.loc[res_table['region']==reg])>=2 for reg in res_table['region']])
 res_table = res_table.loc[valid_reg]

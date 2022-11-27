@@ -17,9 +17,12 @@ sns.set_style('whitegrid')
 br = AllenAtlas()
 all_regs = br.regions.id2acronym(np.load('../../beryl.npy'))
 
-#%% Block
 file_all_results = 'decoding_processing/07-11-2022_block.csv'
+file_xy_results = 'decoding_processing/07-11-2022_block_xy.pkl'
 FIG_SUF = ''
+
+#%% Block
+
 res_table = pd.read_csv(file_all_results)
 
 frac_sig_region = lambda reg: np.mean(np.array(res_table.loc[res_table['region']==reg,'p-value']<0.05))
@@ -191,14 +194,12 @@ plt.show()
 
 #%%
 
-
-file_xy_results = 'decoding_processing/07-11-2022_block_xy.pkl'
+res_table = pd.read_csv(file_all_results)
 xy_table = pd.read_pickle(file_xy_results)
-ers = list(xy_table['eid_region'])
 
 regions = np.unique(res_table['region'])
 regions = np.array([reg for reg in regions if not ((reg=='root') or (reg=='void'))])
-
+# regions = np.array(['CP'])
 for my_reg in regions:
     xy_eids = [er.split('_')[0] for er in xy_table['eid_region'] if er.split('_')[1] == my_reg]
     xy_bool = np.array([er.split('_')[1] == my_reg for er in xy_table['eid_region']])
@@ -211,7 +212,7 @@ for my_reg in regions:
     
     N = np.max([xyr.shape[1] for xyr in xy_rgrs])
     fig, axs = plt.subplots(len(xy_rgrs), 
-                            figsize=(int(N/3)+1, int(2.5*len(xy_eids))))
+                            figsize=(int(N/2)+1, int(3*len(xy_eids))))
     # plt.figure(figsize=(int(N/3)+1,32))
     
     for xyi in range(len(xy_eids)):
@@ -239,12 +240,16 @@ for my_reg in regions:
         nt0 = len(xy_trg[xy_trg==0])
         nt1 = len(xy_trg[xy_trg==1])
         assert nt == (nt0 + nt1)
-        axs[xyi].set_title(f'eid:{my_eid}, score:{mr["score"]:.3f}, p:{mr["p-value"]:.3f}, frac_w:{mr["frac_large_w"]:.3f}, gini_w:{mr["gini_w"]:.3f}, n_trials:{nt}, n_trials0:{nt0}, n_trials1:{nt1}')
+        axs[xyi].set_title(f'eid:{my_eid}, score:{mr["score"]:.3f}, p:{mr["p-value"]:.3f}, frac_w:{mr["frac_large_w"]:.3f}, gini_w:{mr["gini_w"]:.3f}, n_trials:{nt}, n_trials0:{nt0}, n_trials1:{nt1}',
+                           fontsize=10)
         sns.violinplot(ax=axs[xyi], data=df, x="neuron", y="spikes", hue="target", split=True)
         tlabels = np.arange(xy_rgr.shape[1]+1)-1
         newlabels = ['Y*' if l==-1 else str(l) for l in tlabels]
         # ax.set_xticks(tlabels)
         axs[xyi].set_xticklabels(newlabels)
+        
+        # if my_eid == 'b658bc7d-07cd-4203-8a25-7b16b549851b':
+        #     break
     
     plt.tight_layout()
     plt.savefig(f'decoding_figures/block_bin_dist/{my_reg}.png',dpi=200)
