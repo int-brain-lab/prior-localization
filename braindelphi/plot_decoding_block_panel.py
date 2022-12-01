@@ -17,8 +17,8 @@ sns.set_style('whitegrid')
 br = AllenAtlas()
 all_regs = br.regions.id2acronym(np.load('../../beryl.npy'))
 
-file_all_results = 'decoding_processing/07-11-2022_block.csv'
-file_xy_results = 'decoding_processing/07-11-2022_block_xy.pkl'
+file_all_results = 'decoding_processing/28-11-2022_block.csv'
+file_xy_results = 'decoding_processing/28-11-2022_block_xy.pkl'
 FIG_SUF = ''
 
 #%% Block
