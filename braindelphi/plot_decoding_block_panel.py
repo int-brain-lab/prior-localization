@@ -8,7 +8,8 @@ Created on Tue Sep 20 14:29:32 2022
 import numpy as np
 import pandas as pd
 import scipy.stats
-from plot_utils import brain_SwansonFlat_results, bar_results, sess2preds
+from plot_utils import get_xy_vals, get_res_vals, brain_SwansonFlat_results, bar_results, sess2preds
+from plot_utils import heatmap, annotate_heatmap
 import matplotlib.pyplot as plt
 import seaborn as sns
 from ibllib.atlas import AllenAtlas
@@ -148,44 +149,44 @@ plt.show()
 
 #%% plot single session traces
 
+res_table = pd.read_csv(file_all_results)
+xy_table = pd.read_pickle(file_xy_results)
 
-folder = 'decoding_results/07-11-2022_singlesessions/CSHL060_1191f865-b10a-45c8-9c48-24a980fd9402/'
-cur_plot_region = 'ORBvl'
-file = f'27-10-2022_{cur_plot_region}_target_pLeft_timeWindow_-0_4_-0_1_pseudo_id_-1__binsize=300.0_lags=None_mergedProbes_True.pkl'
-ss_res = pd.read_pickle(folder+file)
+# load single trial data
+eid = '1191f865-b10a-45c8-9c48-24a980fd9402'
+region = 'ORBvl'
+xy_vals = get_xy_vals(xy_table, eid, region)
+er_vals = get_res_vals(res_table, eid, region)
 
-l = len(ss_res['fit'][0]['regressors'])
-X = np.vstack([ss_res['fit'][0]['regressors'][i][0,:] for i in range(l)]).T
-W = []
-for i in range(len(ss_res['fit'])): 
-    w = np.vstack([ss_res['fit'][i]['weights'][k][0,:] for k in range(5)])
-    W.append(w)
-W = np.vstack(W)
-Wmean = np.abs(np.mean(W,axis=0))
-Walpha = Wmean/np.max(Wmean)
-for i in range(X.shape[0]):
-    plt.plot(X[i,:],alpha=Walpha[i]**2)
-plt.show()
-
-preds, targs, mask = sess2preds(ss_res, 
-                                inverse_transf=None)
-
+l = xy_vals['regressors'].shape[0]
+X = np.squeeze(xy_vals['regressors']).T
+ws = np.squeeze(xy_vals['weights'])
+assert len(ws.shape) == 3
+W = np.stack([np.ndarray.flatten(ws[:,:,i]) for i in range(ws.shape[2])]).T
+assert W.shape[0] == 50
+mask = xy_vals['mask']
+preds = np.mean(np.squeeze(xy_vals['predictions']), axis=0)
+targs = np.squeeze(xy_vals['targets'])
 trials = np.arange(len(mask))[[m==1 for m in mask]]
+
+# Wmean = np.abs(np.mean(W,axis=0))
+# Walpha = Wmean/np.max(Wmean)
+# for i in range(X.shape[0]):
+#     plt.plot(X[i,:],alpha=Walpha[i]**2)
+# plt.show()
+
 plt.figure(figsize=(10,2.5))
-sessreg_score = np.array(res_table.loc[(res_table['eid']==ss_res['eid'])&
-                                       (res_table['region']==cur_plot_region),
-                                       'score'])
-assert len(sessreg_score) == 1
-sessreg_score = sessreg_score[0]
-plt.title(f'session: {ss_res["eid"]} \n region: {cur_plot_region} \n balanced accuracy = {sessreg_score:.3f} (average across 10 models)')
+
+plt.title(f"session: {eid} \n region: {region} \n balanced accuracy = {er_vals['score']:.3f} (average across 10 models)")
 plt.plot(trials, targs, '-', c='k',lw=4)
 plt.plot(trials, preds, '-', c='mediumpurple')
-cs = (np.array(ss_res["fit"][0]["df"]["choice"])+1)*.5
-# plt.plot(np.arange(len(cs)), cs,alpha=.3)
 plt.yticks([0,.5,1])
 plt.ylim(-0.1,1.1)
 plt.xlim(0,len(mask))
-plt.legend(['Left Biased Block','Probability of left prediction \n(across 10 models)'],frameon=True,loc=(-0.15,1.1))
+plt.legend(['Left Biased Block',
+            'Probability of left prediction \n(across 10 models)'],
+           frameon=True,
+           loc=(-0.15,1.1))
 plt.xlabel('Trials')
 plt.ylabel('Block')
 plt.tight_layout()
@@ -199,35 +200,52 @@ xy_table = pd.read_pickle(file_xy_results)
 
 regions = np.unique(res_table['region'])
 regions = np.array([reg for reg in regions if not ((reg=='root') or (reg=='void'))])
-# regions = np.array(['CP'])
+regions = np.array(['ORBvl'])
 for my_reg in regions:
     xy_eids = [er.split('_')[0] for er in xy_table['eid_region'] if er.split('_')[1] == my_reg]
+
+
     xy_bool = np.array([er.split('_')[1] == my_reg for er in xy_table['eid_region']])
     xy_rgrs = list(xy_table.loc[xy_bool,'regressors'])
     xy_trgs = list(xy_table.loc[xy_bool,'targets'])
     xy_prds = list(xy_table.loc[xy_bool,'predictions'])
+    # assert (len(xy_rgrs) == len(xy_trgs)) and (len(xy_rgrs)==len(xy_prds))
+    # assert len(xy_rgrs) == len(xy_eids)
+    N = np.max([xyr.shape[-1] for xyr in xy_rgrs])
     
-    assert (len(xy_rgrs) == len(xy_trgs)) and (len(xy_rgrs)==len(xy_prds))
-    assert len(xy_rgrs) == len(xy_eids)
-    
-    N = np.max([xyr.shape[1] for xyr in xy_rgrs])
-    fig, axs = plt.subplots(len(xy_rgrs), 
-                            figsize=(int(N/2)+1, int(3*len(xy_eids))))
+    fig, axs = plt.subplots(2*len(xy_rgrs), 
+                            figsize=(int(N)+1, int(3*len(xy_eids))))
     # plt.figure(figsize=(int(N/3)+1,32))
     
-    for xyi in range(len(xy_eids)):
-        my_eid = xy_eids[xyi]
-        xy_rgr, xy_trg, xy_prd = xy_rgrs[xyi], xy_trgs[xyi], xy_prds[xyi] 
+    for ei in range(len(xy_eids)):
+        xyi = ei*2
+        my_eid = xy_eids[ei]
+        xy_rgr_old, xy_trg_old, xy_prd_old = xy_rgrs[ei], xy_trgs[ei], xy_prds[ei] 
         
+        xy_vals = get_xy_vals(xy_table, my_eid, my_reg)
+        
+        xy_rgr = np.squeeze(xy_vals['regressors']).T
+        ws = np.squeeze(xy_vals['weights'])
+        assert len(ws.shape) == 3
+        xy_w = np.stack([np.ndarray.flatten(ws[:,:,i]) for i in range(ws.shape[2])]).T
+        assert xy_w.shape[0] == 50
+        xy_prd = np.mean(np.squeeze(xy_vals['predictions']), axis=0)
+        xy_trg = np.squeeze(xy_vals['targets'])
+        
+        '''
+        --------------------------------------------------
+        first plot: violin plots of activity and predictions
+        --------------------------------------------------
+        '''
         MAX_SPIKES = np.max(xy_rgr)
         
         x = []
-        for i in range(xy_rgr.shape[1]):
+        for i in range(xy_rgr.shape[-1]):
             for t in range(xy_rgr.shape[0]):
-                x.append([i, t, xy_rgr[t,i], xy_trg[t]])
+                x.append([i, t, xy_rgr[t,0,i], xy_trg[t,0]])
         
         for t in range(xy_rgr.shape[0]):
-            x.append([-1, t, MAX_SPIKES*xy_prd[t], xy_trg[t]])
+            x.append([-1, t, MAX_SPIKES*np.mean(xy_prd[:,t]), xy_trg[t,0]])
         
         df = pd.DataFrame(x, columns=['neuron',
                                       'trial',
@@ -242,17 +260,32 @@ for my_reg in regions:
         assert nt == (nt0 + nt1)
         axs[xyi].set_title(f'eid:{my_eid}, score:{mr["score"]:.3f}, p:{mr["p-value"]:.3f}, frac_w:{mr["frac_large_w"]:.3f}, gini_w:{mr["gini_w"]:.3f}, n_trials:{nt}, n_trials0:{nt0}, n_trials1:{nt1}',
                            fontsize=10)
-        sns.violinplot(ax=axs[xyi], data=df, x="neuron", y="spikes", hue="target", split=True)
-        tlabels = np.arange(xy_rgr.shape[1]+1)-1
+        sns.violinplot(ax=axs[xyi], data=df, 
+                       x="neuron", y="spikes", 
+                       hue="target", split=True,
+                       cut=0, linewidth=0)
+        lxs = np.linspace(-0.4,0.4)
+        lys = MAX_SPIKES*np.ones_like(lxs)
+        axs[xyi].plot(lxs,lys,'r',lw=4)
+        axs[xyi].plot(lxs,np.zeros_like(lxs),'r',lw=4)
+        axs[xyi].text(-0.5,MAX_SPIKES*(1+0.02),'Y*=1')
+        axs[xyi].text(-0.5,MAX_SPIKES*(-0.08),'Y*=0')
+        tlabels = np.arange(xy_rgr.shape[-1]+1)-1
         newlabels = ['Y*' if l==-1 else str(l) for l in tlabels]
         # ax.set_xticks(tlabels)
         axs[xyi].set_xticklabels(newlabels)
         
-        # if my_eid == 'b658bc7d-07cd-4203-8a25-7b16b549851b':
-        #     break
+        '''
+        --------------------------------------------
+        second plot: distribution of decoder weights
+        --------------------------------------------
+        '''
+        im, cbar = heatmap(harvest, vegetables, farmers, ax=ax,
+                   cmap="YlGn", cbarlabel="harvest [t/year]")
+        texts = annotate_heatmap(im, valfmt="{x:.1f} t")
     
     plt.tight_layout()
-    plt.savefig(f'decoding_figures/block_bin_dist/{my_reg}.png',dpi=200)
-    
+    plt.savefig(f'decoding_figures/block_bin_dist/{my_reg}.png',dpi=100)
+    print('hi')
     
 
