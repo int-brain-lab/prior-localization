@@ -5,6 +5,7 @@ Created on Tue Sep 20 14:29:32 2022
 
 @author: bensonb
 """
+import os
 import numpy as np
 import pandas as pd
 import scipy.stats
@@ -18,8 +19,9 @@ sns.set_style('whitegrid')
 br = AllenAtlas()
 all_regs = br.regions.id2acronym(np.load('../../beryl.npy'))
 
-file_all_results = 'decoding_processing/28-11-2022_block.csv'
-file_xy_results = 'decoding_processing/28-11-2022_block_xy.pkl'
+DATE = '28-11-2022'
+file_all_results = 'decoding_results/summary/28-11-2022_decode_pLeft_oracle_LogisticsRegression_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_-0_4_-0_1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
+file_xy_results = 'decoding_results/summary/28-11-2022_decode_pLeft_oracle_LogisticsRegression_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_-0_4_-0_1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_xy.pkl'
 FIG_SUF = ''
 
 #%% Block
@@ -99,7 +101,7 @@ f_sig = np.mean([reg_comb_pval(reg)<0.05 for reg in regions])
 wi_var = np.mean([np.var(get_vals(reg)) for reg in regions])
 wo_var = np.var([np.mean(get_vals(reg)) for reg in regions])
 wi2wo_var = wi_var/wo_var
-save_comb_regs_data.to_csv(file_all_results.split('.')[0]+'_regs_nsig%s_fsig%.3f_wi2ovar%.3f.csv'%(n_sig,f_sig,wi2wo_var))
+save_comb_regs_data.to_csv(f'decoding_processing/{DATE}_block_regs_nsig{n_sig}_fsig{f_sig:.3f}_wi2ovar{wi2wo_var:.3f}.csv')
 # reg_1sigsession = lambda reg: np.any(res_table.loc[res_table['region']==reg,
 #                                                    'p-value']<=(0.05/len(res_table.loc[res_table['region']==reg,
 #                                                                                                       'p-value'])))
@@ -119,7 +121,7 @@ acr_plotted = bar_results(regions,
                             YMIN=np.min([np.min(v) for v in values]),
                             ylab='Bal. Acc.',
                             ticks=([0.5,0.6,0.7,0.8],[0.5,0.6,0.7,0.8]),
-                            TOP_N=15,
+                            TOP_N=14,
                             sort_args=None)
 # check criteria.
 for reg in acr_plotted:
