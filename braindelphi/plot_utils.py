@@ -7,15 +7,40 @@ Created on Tue Sep 20 15:10:00 2022
 """
 import os
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib
+import seaborn as sns
 #from ibllib.atlas import AllenAtlas, FlatMap
 #from ibllib.atlas.plots import plot_scalar_on_flatmap
 from ibllib.atlas.flatmaps import plot_swanson
 from ibllib.atlas import BrainRegions
 from ibllib.atlas.plots import reorder_data
+br = BrainRegions()
 
+#%%
 PATH_TO_ALLEN_COLOR_CSV = '../../allen_structure_tree.csv'
+
+def acronym2name(acronym):
+    return br.name[np.argwhere(br.acronym==acronym)[0]][0]
+
+def get_full_region_name(acronyms):
+    '''
+    From Guido
+
+    '''
+    brainregions = BrainRegions()
+    full_region_names = []
+    for i, acronym in enumerate(acronyms):
+        try:
+            regname = brainregions.name[np.argwhere(brainregions.acronym == acronym).flatten()][0]
+            full_region_names.append(regname)
+        except IndexError:
+            full_region_names.append(acronym)
+    if len(full_region_names) == 1:
+        return full_region_names[0]
+    else:
+        return full_region_names
 
 def get_xy_vals(xy_table, eid, region):
     xy_vals = xy_table.loc[xy_table['eid_region']==f'{eid}_{region}']
@@ -149,7 +174,8 @@ def bar_results(acronyms_unordered,
                 YMIN=None,
                 TOP_N=np.nan,
                 POOL_PROTOCOL='median',
-                sort_args=None):
+                sort_args=None,
+                bolded_regions=None):
     '''
     
 
@@ -242,7 +268,7 @@ def bar_results(acronyms_unordered,
         
     PLOT_TITLE = ''
     SAVE_PATH = os.path.join(FILE_PATH, filename)
-    plt.figure(figsize=(8,2))
+    fig = plt.figure(figsize=(8,2))
     plt.title(PLOT_TITLE)
     inds = np.arange(len(acronyms))
     plt.bar(inds, values, 
@@ -269,6 +295,8 @@ def bar_results(acronyms_unordered,
                          vs[j], 
                          'ko', markersize=4 , mfc=mfc)
     plt.xticks(inds, labels=acronyms, rotation=90)
+    # xtls = fig.axes[0].get_xticklabels()
+    # [xtl.get_text() in bolded_regions for xtl in xtls]
     if not (ticks is None):
         plt.yticks(ticks[0], labels=ticks[1])
     #print(acronyms)
@@ -373,23 +401,23 @@ def heatmap(data, row_labels, col_labels, ax=None,
 
     # Show all ticks and label them with the respective list entries.
     ax.set_xticks(np.arange(data.shape[1]), labels=col_labels)
-    ax.set_yticks(np.arange(data.shape[0]), labels=row_labels)
+    ax.set_yticks([])#, labels=row_labels)
 
-    # Let the horizontal axes labeling appear on top.
-    ax.tick_params(top=True, bottom=False,
-                   labeltop=True, labelbottom=False)
+    # Let the horizontal axes labeling appear on top/bottom.
+    ax.tick_params(top=False, bottom=True,
+                   labeltop=False, labelbottom=True)
 
     # Rotate the tick labels and set their alignment.
-    plt.setp(ax.get_xticklabels(), rotation=-30, ha="right",
+    plt.setp(ax.get_xticklabels(), rotation=0, ha="center",
              rotation_mode="anchor")
 
     # Turn spines off and create white grid.
-    ax.spines[:].set_visible(False)
+    #ax.spines[:].set_visible(False)
 
-    ax.set_xticks(np.arange(data.shape[1]+1)-.5, minor=True)
-    ax.set_yticks(np.arange(data.shape[0]+1)-.5, minor=True)
-    ax.grid(which="minor", color="w", linestyle='-', linewidth=3)
-    ax.tick_params(which="minor", bottom=False, left=False)
+    # ax.set_xticks(np.arange(data.shape[1]+1)-.5, minor=True)
+    # ax.set_yticks(np.arange(data.shape[0]+1)-.5, minor=True)
+    # #ax.grid(which="minor", color="w", linestyle='-', linewidth=3)
+    # ax.tick_params(which="minor", bottom=False, left=False)
 
     return im, cbar
 
@@ -452,3 +480,143 @@ def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
             texts.append(text)
 
     return texts
+
+def activity_and_decoding_weights(res_table, xy_table, 
+                                  my_reg, save_path):
+    
+    xy_eids = [er.split('_')[0] for er in xy_table['eid_region'] if er.split('_')[1] == my_reg]
+    # assert (len(xy_rgrs) == len(xy_trgs)) and (len(xy_rgrs)==len(xy_prds))
+    # assert len(xy_rgrs) == len(xy_eids)
+    Ns = [get_res_vals(res_table, xy_eids[i], my_reg)['n_units'] for i in range(len(xy_eids))]
+    N = np.max(Ns)
+    pvals = [get_res_vals(res_table, xy_eids[i], my_reg)['p-value'] for i in range(len(xy_eids))]
+    sargs = np.argsort(pvals)
+    xy_eids = np.array(xy_eids)
+    xy_eids = xy_eids[sargs]
+    
+    
+    Nsubplots = 2*len(xy_eids) + 1
+    fig, axs = plt.subplots(Nsubplots, 
+                            figsize=(int(0.7*(N+1)), 3.5*Nsubplots))
+    
+    axs[0].set_title(f'{acronym2name(my_reg)} ({my_reg})', 
+                     fontsize=0.5*N)
+    axs[0].hist(pvals)
+    axs[0].set_ylabel('Count')
+    axs[0].set_xlabel('P-values of all decoder in this region')
+    axs[0].set_xlim(0,1)
+    
+    for ei in range(len(xy_eids)):
+        xyi = ei*2 + 1
+        my_eid = xy_eids[ei]
+        xy_vals = get_xy_vals(xy_table, my_eid, my_reg)
+        
+        xy_rgr = np.squeeze(xy_vals['regressors']).T
+        ws = np.squeeze(xy_vals['weights'])
+        assert len(ws.shape) == 3
+        xy_w = np.stack([np.ndarray.flatten(ws[:,:,i]) for i in range(ws.shape[2])]).T
+        assert xy_w.shape[0] == 50
+        xy_prd = np.mean(np.squeeze(xy_vals['predictions']), axis=0)
+        xy_trg = np.squeeze(xy_vals['targets'])
+        xy_prm = xy_vals['params']
+        #print(xy_rgr.shape)
+        
+        '''
+        --------------------------------------------------
+        first plot: violin plots of activity and predictions
+        --------------------------------------------------
+        '''
+        MAX_SPIKES = np.max(xy_rgr)
+        
+        x = []
+        xy_n = xy_rgr.shape[0]
+        pr_xval = xy_n
+        for i in range(xy_rgr.shape[0]):
+            for t in range(xy_rgr.shape[-1]):
+                x.append([i, t, xy_rgr[i,t], xy_trg[t]])
+        
+        for t in range(xy_rgr.shape[1]):
+            x.append([pr_xval, t, MAX_SPIKES*xy_prd[t], xy_trg[t]])
+        
+        df = pd.DataFrame(x, columns=['neuron',
+                                      'trial',
+                                      'spikes',
+                                      'target'])
+        mr = res_table.loc[(res_table['eid']==my_eid)&(res_table['region']==my_reg)]
+        assert len(mr)==1
+        mr = mr.iloc[0]
+        nt = len(xy_trg)
+        nt0 = len(xy_trg[xy_trg==0])
+        nt1 = len(xy_trg[xy_trg==1])
+        assert nt == (nt0 + nt1)
+        axs[xyi].set_title(f'eid:{my_eid}, score:{mr["score"]:.3f}, p:{mr["p-value"]:.3f}, frac_w:{mr["frac_large_w"]:.3f}, gini_w:{mr["gini_w"]:.3f}, n_trials:{nt}, n_trials0:{nt0}, n_trials1:{nt1}',
+                           fontsize=0.5*N)
+        sns.violinplot(ax=axs[xyi], data=df, 
+                       x="neuron", y="spikes", 
+                       hue="target", split=True,
+                       cut=0, linewidth=0)
+        lxs = np.linspace(-0.4,0.4)
+        lys = MAX_SPIKES*np.ones_like(lxs)
+        axs[xyi].plot(lxs+pr_xval,lys,'r',lw=4)
+        axs[xyi].plot(lxs+pr_xval,np.zeros_like(lxs),'r',lw=4)
+        axs[xyi].text(pr_xval+0.5,MAX_SPIKES*(1),'Y*=1')
+        axs[xyi].text(pr_xval+0.5,MAX_SPIKES*(0),'Y*=0')
+        axs[xyi].text(pr_xval+0.6,MAX_SPIKES*(0.5), 
+                      'Prediction of logistic decoder, Y*, \nbetween 0 and 1')
+        tlabels = np.concatenate((np.arange(xy_n), np.array([pr_xval])))
+        newlabels = ['Y*' if l==pr_xval else str(l) for l in tlabels]
+        axs[xyi].set_xticks(tlabels)
+        axs[xyi].set_xticklabels(newlabels)
+        # align weights to violin plot
+        # define heatmap edges relative to violin plot x-values 
+        # as a fraction of total violin plot x-axis (c_0, c_f), 
+        # then solve for the x-limits to choose in violin plot (Svec)
+        # so that neuron numbers {0, 1... N-1} line up
+        c_0, c_f = 0, .80
+        M_inv = np.linalg.inv(np.array([[1-c_0, c_0],[1-c_f, c_f]]))
+        Svec = np.matmul(M_inv, np.array([[-0.5],[xy_n+0.5]]))[:,0]
+        axs[xyi].set_xlim(Svec[0],Svec[1])
+        axs[xyi].legend(loc='upper left', title='Target')
+        
+        '''
+        --------------------------------------------
+        second plot: distribution of decoder weights
+        --------------------------------------------
+        '''
+        xy_w_abs = np.abs(xy_w)
+        
+        prms = np.squeeze(xy_prm[:,:,:,1])
+        assert len(prms.shape)==2
+        assert prms.shape[0] == 10
+        assert prms.shape[1] == 5
+        prms = np.reshape(np.array(np.ndarray.flatten(prms), dtype=float), 
+                          (50, 1))
+        prms_plt = np.log10(prms)
+        prms_plt = prms_plt - np.min(prms_plt)
+        prms_plt = np.max(xy_w_abs)*prms_plt/np.max(prms_plt) if np.max(prms_plt)>0 else np.zeros_like(prms_plt)
+        MW = np.hstack((xy_w_abs,prms_plt))
+        
+        w_ticks = np.arange(xy_n+1)
+        im, cbar = heatmap(MW, np.arange(50), w_ticks, ax=axs[xyi+1],
+                    cmap="YlGn", cbarlabel="Decoder weights (abs. value)",
+                    aspect=xy_n/1500,
+                    interpolation=None,
+                    cbar_kw={'shrink': 0.7,
+                             'location': 'right'})
+        w_ticklabels = ['Decoder \nparams \n(log spacing)' if w == xy_n else str(w) for w in w_ticks]
+        axs[xyi+1].set_xticks(w_ticks, labels=w_ticklabels)
+        prm_mini = np.argmin(prms)
+        prm_min = np.min(prms)
+        prm_maxi = np.argmax(prms)
+        prm_max = np.max(prms)
+        axs[xyi+1].text(xy_n+0.5, prm_mini+1, 
+                        f'--- min: {prm_min:.1e}',
+                        fontsize=8)
+        axs[xyi+1].text(xy_n+0.5, prm_maxi+1, 
+                        f'--- max: {prm_max:.1e}',
+                        fontsize=8)
+        
+        plt.tight_layout()
+        plt.savefig(save_path,dpi=100)
+        
+        return axs

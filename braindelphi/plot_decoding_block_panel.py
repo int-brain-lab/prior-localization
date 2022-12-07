@@ -9,8 +9,8 @@ import os
 import numpy as np
 import pandas as pd
 import scipy.stats
-from plot_utils import get_xy_vals, get_res_vals, brain_SwansonFlat_results, bar_results, sess2preds
-from plot_utils import heatmap, annotate_heatmap
+from plot_utils import acronym2name, get_xy_vals, get_res_vals, brain_SwansonFlat_results, bar_results, sess2preds
+from plot_utils import heatmap, annotate_heatmap, activity_and_decoding_weights
 import matplotlib.pyplot as plt
 import seaborn as sns
 from ibllib.atlas import AllenAtlas
@@ -23,6 +23,8 @@ DATE = '28-11-2022'
 file_all_results = 'decoding_results/summary/28-11-2022_decode_pLeft_oracle_LogisticsRegression_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_-0_4_-0_1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
 file_xy_results = 'decoding_results/summary/28-11-2022_decode_pLeft_oracle_LogisticsRegression_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_-0_4_-0_1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_xy.pkl'
 FIG_SUF = ''
+
+FOCUS_REGIONS = ['ORBvl']
 
 #%% Block
 
@@ -122,7 +124,8 @@ acr_plotted = bar_results(regions,
                             ylab='Bal. Acc.',
                             ticks=([0.5,0.6,0.7,0.8],[0.5,0.6,0.7,0.8]),
                             TOP_N=14,
-                            sort_args=None)
+                            sort_args=None,
+                            bolded_regions=FOCUS_REGIONS)
 # check criteria.
 for reg in acr_plotted:
     print(reg)
@@ -179,7 +182,7 @@ trials = np.arange(len(mask))[[m==1 for m in mask]]
 
 plt.figure(figsize=(10,2.5))
 
-plt.title(f"session: {eid} \n region: {region} \n balanced accuracy = {er_vals['score']:.3f} (average across 10 models)")
+plt.title(f"session: {eid} \n region: {acronym2name(region)} ({region}) \n balanced accuracy = {er_vals['score']:.3f} (average across 10 models)")
 plt.plot(trials, targs, '-', c='k',lw=4)
 plt.plot(trials, preds, '-', c='mediumpurple')
 plt.yticks([0,.5,1])
@@ -202,28 +205,34 @@ xy_table = pd.read_pickle(file_xy_results)
 
 regions = np.unique(res_table['region'])
 regions = np.array([reg for reg in regions if not ((reg=='root') or (reg=='void'))])
-regions = np.array(['ORBvl'])
+regions = regions[np.argwhere(regions=='PL')[0][0]:]
+#regions = np.array(['MRN', 'CP', 'SUB'])
 for my_reg in regions:
     xy_eids = [er.split('_')[0] for er in xy_table['eid_region'] if er.split('_')[1] == my_reg]
-
-
-    xy_bool = np.array([er.split('_')[1] == my_reg for er in xy_table['eid_region']])
-    xy_rgrs = list(xy_table.loc[xy_bool,'regressors'])
-    xy_trgs = list(xy_table.loc[xy_bool,'targets'])
-    xy_prds = list(xy_table.loc[xy_bool,'predictions'])
     # assert (len(xy_rgrs) == len(xy_trgs)) and (len(xy_rgrs)==len(xy_prds))
     # assert len(xy_rgrs) == len(xy_eids)
-    N = np.max([xyr.shape[-1] for xyr in xy_rgrs])
+    Ns = [get_res_vals(res_table, xy_eids[i], my_reg)['n_units'] for i in range(len(xy_eids))]
+    N = np.max(Ns)
+    pvals = [get_res_vals(res_table, xy_eids[i], my_reg)['p-value'] for i in range(len(xy_eids))]
+    sargs = np.argsort(pvals)
+    xy_eids = np.array(xy_eids)
+    xy_eids = xy_eids[sargs]
     
-    fig, axs = plt.subplots(2*len(xy_rgrs), 
-                            figsize=(int(N)+1, int(3*len(xy_eids))))
-    # plt.figure(figsize=(int(N/3)+1,32))
+    
+    Nsubplots = 2*len(xy_eids) + 1
+    fig, axs = plt.subplots(Nsubplots, 
+                            figsize=(int(0.6*(N+1)), 4*Nsubplots))
+    
+    axs[0].set_title(f'{acronym2name(my_reg)} ({my_reg})', 
+                      fontsize=0.5*N)
+    axs[0].hist(pvals)
+    axs[0].set_ylabel('Count')
+    axs[0].set_xlabel('P-values of all decoder in this region')
+    axs[0].set_xlim(0,1)
     
     for ei in range(len(xy_eids)):
-        xyi = ei*2
+        xyi = ei*2 + 1
         my_eid = xy_eids[ei]
-        xy_rgr_old, xy_trg_old, xy_prd_old = xy_rgrs[ei], xy_trgs[ei], xy_prds[ei] 
-        
         xy_vals = get_xy_vals(xy_table, my_eid, my_reg)
         
         xy_rgr = np.squeeze(xy_vals['regressors']).T
@@ -233,6 +242,8 @@ for my_reg in regions:
         assert xy_w.shape[0] == 50
         xy_prd = np.mean(np.squeeze(xy_vals['predictions']), axis=0)
         xy_trg = np.squeeze(xy_vals['targets'])
+        xy_prm = xy_vals['params']
+        #print(xy_rgr.shape)
         
         '''
         --------------------------------------------------
@@ -242,12 +253,14 @@ for my_reg in regions:
         MAX_SPIKES = np.max(xy_rgr)
         
         x = []
-        for i in range(xy_rgr.shape[-1]):
-            for t in range(xy_rgr.shape[0]):
-                x.append([i, t, xy_rgr[t,0,i], xy_trg[t,0]])
+        xy_n = xy_rgr.shape[0]
+        pr_xval = xy_n
+        for i in range(xy_rgr.shape[0]):
+            for t in range(xy_rgr.shape[-1]):
+                x.append([i, t, xy_rgr[i,t], xy_trg[t]])
         
-        for t in range(xy_rgr.shape[0]):
-            x.append([-1, t, MAX_SPIKES*np.mean(xy_prd[:,t]), xy_trg[t,0]])
+        for t in range(xy_rgr.shape[1]):
+            x.append([pr_xval, t, MAX_SPIKES*xy_prd[t], xy_trg[t]])
         
         df = pd.DataFrame(x, columns=['neuron',
                                       'trial',
@@ -261,33 +274,77 @@ for my_reg in regions:
         nt1 = len(xy_trg[xy_trg==1])
         assert nt == (nt0 + nt1)
         axs[xyi].set_title(f'eid:{my_eid}, score:{mr["score"]:.3f}, p:{mr["p-value"]:.3f}, frac_w:{mr["frac_large_w"]:.3f}, gini_w:{mr["gini_w"]:.3f}, n_trials:{nt}, n_trials0:{nt0}, n_trials1:{nt1}',
-                           fontsize=10)
+                            fontsize=0.5*N)
         sns.violinplot(ax=axs[xyi], data=df, 
-                       x="neuron", y="spikes", 
-                       hue="target", split=True,
-                       cut=0, linewidth=0)
+                        x="neuron", y="spikes", 
+                        hue="target", split=True,
+                        cut=0, linewidth=0)
         lxs = np.linspace(-0.4,0.4)
         lys = MAX_SPIKES*np.ones_like(lxs)
-        axs[xyi].plot(lxs,lys,'r',lw=4)
-        axs[xyi].plot(lxs,np.zeros_like(lxs),'r',lw=4)
-        axs[xyi].text(-0.5,MAX_SPIKES*(1+0.02),'Y*=1')
-        axs[xyi].text(-0.5,MAX_SPIKES*(-0.08),'Y*=0')
-        tlabels = np.arange(xy_rgr.shape[-1]+1)-1
-        newlabels = ['Y*' if l==-1 else str(l) for l in tlabels]
-        # ax.set_xticks(tlabels)
+        axs[xyi].plot(lxs+pr_xval,lys,'r',lw=4)
+        axs[xyi].plot(lxs+pr_xval,np.zeros_like(lxs),'r',lw=4)
+        axs[xyi].text(pr_xval+0.5,MAX_SPIKES*(1),'Y*=1')
+        axs[xyi].text(pr_xval+0.5,MAX_SPIKES*(0),'Y*=0')
+        axs[xyi].text(pr_xval+0.6,MAX_SPIKES*(0.5), 
+                      'Prediction of logistic decoder, Y*, \nbetween 0 and 1')
+        tlabels = np.concatenate((np.arange(xy_n), np.array([pr_xval])))
+        newlabels = ['Y*' if l==pr_xval else str(l) for l in tlabels]
+        axs[xyi].set_xticks(tlabels)
         axs[xyi].set_xticklabels(newlabels)
+        # align weights to violin plot
+        # define heatmap edges relative to violin plot x-values 
+        # as a fraction of total violin plot x-axis (c_0, c_f), 
+        # then solve for the x-limits to choose in violin plot (Svec)
+        # so that neuron numbers {0, 1... N-1} line up
+        c_0, c_f = 0, .80
+        M_inv = np.linalg.inv(np.array([[1-c_0, c_0],[1-c_f, c_f]]))
+        Svec = np.matmul(M_inv, np.array([[-0.5],[xy_n+0.5]]))[:,0]
+        axs[xyi].set_xlim(Svec[0],Svec[1])
+        axs[xyi].legend(loc='upper left', title='Target')
         
         '''
         --------------------------------------------
         second plot: distribution of decoder weights
         --------------------------------------------
         '''
-        im, cbar = heatmap(harvest, vegetables, farmers, ax=ax,
-                   cmap="YlGn", cbarlabel="harvest [t/year]")
-        texts = annotate_heatmap(im, valfmt="{x:.1f} t")
+        xy_w_abs = np.abs(xy_w)
+        
+        prms = np.squeeze(xy_prm[:,:,:,1])
+        assert len(prms.shape)==2
+        assert prms.shape[0] == 10
+        assert prms.shape[1] == 5
+        prms = np.reshape(np.array(np.ndarray.flatten(prms), dtype=float), 
+                          (50, 1))
+        prms_plt = np.log10(prms)
+        prms_plt = prms_plt - np.min(prms_plt)
+        prms_plt = np.max(xy_w_abs)*prms_plt/np.max(prms_plt) if np.max(prms_plt)>0 else np.zeros_like(prms_plt)
+        MW = np.hstack((xy_w_abs,prms_plt))
+        
+        w_ticks = np.arange(xy_n+1)
+        im, cbar = heatmap(MW, np.arange(50), w_ticks, ax=axs[xyi+1],
+                    cmap="YlGn", cbarlabel="Decoder weights (abs. value)",
+                    aspect=xy_n/1500,
+                    interpolation=None,
+                    cbar_kw={'shrink': 0.7,
+                              'location': 'right'})
+        w_ticklabels = ['Decoder \nparams \n(log spacing)' if w == xy_n else str(w) for w in w_ticks]
+        axs[xyi+1].set_xticks(w_ticks, labels=w_ticklabels)
+        prm_mini = np.argmin(prms)
+        prm_min = np.min(prms)
+        prm_maxi = np.argmax(prms)
+        prm_max = np.max(prms)
+        axs[xyi+1].text(xy_n+0.5, prm_mini+1, 
+                        f'--- min: {prm_min:.1e}',
+                        fontsize=8)
+        axs[xyi+1].text(xy_n+0.5, prm_maxi+1, 
+                        f'--- max: {prm_max:.1e}',
+                        fontsize=8)
+    # save_path = f'decoding_figures/block_bin_dist/{my_reg}.png'
+    # axs = activity_and_decoding_weights(res_table, xy_table, 
+    #                                     my_reg, save_path)
     
     plt.tight_layout()
-    plt.savefig(f'decoding_figures/block_bin_dist/{my_reg}.png',dpi=100)
-    print('hi')
+    plt.savefig(f'decoding_figures/block_bin_dist/{my_reg}.png',dpi=50)
+    print(f'region complete: {my_reg}')
     
 
