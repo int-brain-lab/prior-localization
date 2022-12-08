@@ -11,10 +11,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib
 import seaborn as sns
+import scipy.stats
 #from ibllib.atlas import AllenAtlas, FlatMap
 #from ibllib.atlas.plots import plot_scalar_on_flatmap
 from ibllib.atlas.flatmaps import plot_swanson
-from ibllib.atlas import BrainRegions
+from ibllib.atlas import BrainRegions, AllenAtlas
 from ibllib.atlas.plots import reorder_data
 br = BrainRegions()
 
@@ -51,6 +52,64 @@ def get_res_vals(res_table, eid, region):
     er_vals = res_table[(res_table['eid']==eid) & (res_table['region']==region)]
     assert len(er_vals)==1
     return er_vals.iloc[0]
+
+def get_within_region_mean_var(res_table):
+    regions = np.array([reg for reg in np.unique(res_table['region']) if not ((reg=='root') or (reg=='void'))])
+    get_vals = lambda reg: np.array(res_table.loc[res_table['region']==reg,'score'])
+    wi_means = [np.mean(get_vals(reg)) for reg in regions]
+    wi_vars = [np.var(get_vals(reg)) for reg in regions]
+    return wi_means, wi_vars
+
+def comb_regs_df(res_table, USE_ALL_BERYL_REGIONS=True):
+    '''
+    combine all of the same regions in res_table and compute a set of 
+    session-combined metrics per region.
+
+    Parameters
+    ----------
+    res_table : pandas DataFrame,
+        output of decoding pipeline which has scalar summaries of decoding
+        results.  Different than xy_table which has multi-dimensional data.
+    
+    USE_ALL_BERYL_REGIONS : bool,
+        if True, includes all beryl regions as rows of dataFrame.  Rows with 
+        regions not in res_table have np.nan values.  Regions are ordered
+        amongst rows using the ordering of regions in beryl.npy.
+        if False, includes only those regions which are in res_table
+
+    Returns
+    -------
+    comb_regs_data : pandas DataFrame
+
+    '''
+    
+    regions = np.array([reg for reg in np.unique(res_table['region']) if not ((reg=='root') or (reg=='void'))])
+    
+    if USE_ALL_BERYL_REGIONS:
+        all_regs = AllenAtlas().regions.id2acronym(np.load('../../beryl.npy'))
+    else:
+        all_regs = regions
+    
+    frac_sig_region = lambda reg: np.mean(np.array(res_table.loc[res_table['region']==reg,'p-value']<0.05))
+    get_vals = lambda reg: np.array(res_table.loc[res_table['region']==reg,'score'])
+    get_pvals = lambda reg: np.array(res_table.loc[res_table['region']==reg,'p-value'])
+    get_nulls = lambda reg: np.array(res_table.loc[res_table['region']==reg,'median-null'])
+    get_nunits = lambda reg: np.array(res_table.loc[res_table['region']==reg,'n_units'])
+    reg_comb_pval = lambda reg: scipy.stats.combine_pvalues(get_pvals(reg)
+                                                            , method='fisher')[1]
+    get_ms_reg = lambda reg: np.median(res_table.loc[(res_table['region']==reg) & (res_table['p-value']<0.05), 'score'])
+
+    comb_regs_data = pd.DataFrame({'region': all_regs, 
+              'combined_p-value': [reg_comb_pval(r) if r in regions else np.nan for r in all_regs],
+              'combined_sig': [reg_comb_pval(r)<0.05 if r in regions else np.nan for r in all_regs],
+              'n_sessions': [len(get_vals(r)) if r in regions else np.nan for r in all_regs],
+              'n_units_mean': [np.mean(get_nunits(r)) if r in regions else np.nan for r in all_regs],
+              'values_std': [np.std(get_vals(r)) if r in regions else np.nan for r in all_regs],
+              'values_median': [np.median(get_vals(r)) if r in regions else np.nan for r in all_regs],
+              'frac_sig': [frac_sig_region(r) if r in regions else np.nan for r in all_regs],
+              'values_median_sig': [get_ms_reg(r) if r in regions else np.nan for r in all_regs],
+              'null_median_of_medians': [np.median(get_nulls(r)) if r in regions else np.nan for r in all_regs]})
+    return comb_regs_data
 
 def brain_SwansonFlat_results(acronyms, values, 
                   filename=None, 
@@ -165,6 +224,7 @@ def discretize_target(target_continuous,
 
 def bar_results(acronyms_unordered, 
                 values_eids_unordered, 
+                values_unordered,
                 nulls_unordered, 
                 fillcircle_eids_unordered=None,
                 filename='test.png', 
@@ -186,6 +246,9 @@ def bar_results(acronyms_unordered,
     values_eids_unordered : array of arrays
         each element in array is an array of all sessions' values
         first dimension corresponds to regions in acronyms_unordered
+    values_unordered : array
+        the combined values across eids in values_eids_unordered
+        each element corresponds to regions in acronyms_unordered
     nulls_unordered : array
         the null value to plot as white circle on each region's bar.
         each element corresponds to regions in acronyms_unordered
@@ -216,13 +279,13 @@ def bar_results(acronyms_unordered,
     acronyms of TOP_N values
 
     '''
-    if POOL_PROTOCOL == 'median':
-        values_unordered = np.array([np.median(vs) for vs in values_eids_unordered])
-    elif POOL_PROTOCOL == 'mean':
-        values_unordered = np.array([np.mean(vs) for vs in values_eids_unordered])
-    else:
-        raise ValueError('This value of POOL_PROTOCOL is not implemented.')
-        
+    # if POOL_PROTOCOL == 'median':
+    #     values_unordered = np.array([np.median(vs) for vs in values_eids_unordered])
+    # elif POOL_PROTOCOL == 'mean':
+    #     values_unordered = np.array([np.mean(vs) for vs in values_eids_unordered])
+    # else:
+    #     raise ValueError('This value of POOL_PROTOCOL is not implemented.')
+    # values_unordered
     if fillcircle_eids_unordered is None:
         fillcircle_eids_unordered = np.array([np.ones(len(vs)) for vs in values_eids_unordered])
     

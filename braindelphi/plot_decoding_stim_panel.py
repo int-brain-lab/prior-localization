@@ -5,145 +5,148 @@ Created on Tue Sep 20 14:29:32 2022
 
 @author: bensonb
 """
+import os
 import numpy as np
 import pandas as pd
-import scipy.stats
-from plot_utils import brain_SwansonFlat_results, bar_results, sess2preds
+from plot_utils import acronym2name, get_xy_vals, get_res_vals, brain_SwansonFlat_results, bar_results
+from plot_utils import heatmap, activity_and_decoding_weights
+from plot_utils import comb_regs_df, get_within_region_mean_var
 import matplotlib.pyplot as plt
 import seaborn as sns
-from ibllib.atlas import AllenAtlas
 sns.set_style('whitegrid')
 
-br = AllenAtlas()
-all_regs = br.regions.id2acronym(np.load('../../beryl.npy'))
-
-#%% Block
-file_all_results = 'decoding_processing/07-11-2022_stim.csv'
+DATE = '29-11-2022'
+VARI = 'stim'
+file_all_results = 'decoding_results/summary/29-11-2022_decode_signcont_task_Lasso_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_0_0_0_1_imposterSess_0_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
+file_xy_results = 'decoding_results/summary/29-11-2022_decode_signcont_task_Lasso_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_0_0_0_1_imposterSess_0_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_xy.pkl'
 FIG_SUF = ''
-res_table = pd.read_csv(file_all_results)
 
-frac_sig_region = lambda reg: np.mean(np.array(res_table.loc[res_table['region']==reg,'p-value']<0.05))
-uni_regs = np.unique(res_table['region'])
-uni_regs = uni_regs[(uni_regs!='root')&(uni_regs!='void')]
-fs_regs = np.array([frac_sig_region(reg) for reg in uni_regs])
+FOCUS_REGIONS = ['ORBvl']
+
+res_table = pd.read_csv(file_all_results)
+save_comb_regs_data = comb_regs_df(res_table, USE_ALL_BERYL_REGIONS=True)
+regs_table = comb_regs_df(res_table, USE_ALL_BERYL_REGIONS=False)
+
+n_sig = regs_table['combined_sig'].sum()
+f_sig = regs_table['combined_sig'].mean()
+wi_means, wi_vars = get_within_region_mean_var(res_table)
+wi_var = np.mean(wi_vars)
+wo_var = np.var(wi_means)
+wi2wo_var = wi_var/wo_var
+save_comb_regs_data.to_csv(f'decoding_processing/{DATE}_{VARI}_regs_nsig{n_sig}_fsig{f_sig:.3f}_wi2ovar{wi2wo_var:.3f}.csv')
+
+
+
+#%% Stim
+
+regs = np.array(regs_table['region'])
+fs_regs = np.array(regs_table['frac_sig'])
 assert not np.any(np.isnan(fs_regs))
 
-brain_SwansonFlat_results(uni_regs, 
+brain_SwansonFlat_results(regs, 
                           fs_regs, 
-                  filename='stim_swanson_fs'+FIG_SUF, 
+                  filename=f'{VARI}_swanson_fs'+FIG_SUF, 
                   cmap='Blues',
                   clevels=[0, 0.55],
                   ticks=None,
                   extend='max',
                   value_title='Frac. Sig.')
 
-def get_ms_reg(reg):
-    c1 = (res_table['region']==reg)
-    c2 = (res_table['p-value']<0.05)
-    return np.median(res_table.loc[c1 & c2, 'score'])
-# frac_sig_region = lambda reg: np.median(np.array(res_table.loc[res_table['region']==reg,'balanced_acc_test']))
-ms_regs = np.array([get_ms_reg(reg) for reg in uni_regs])
-r2olivier, v2olivier = uni_regs, ms_regs
-brain_SwansonFlat_results(uni_regs[~np.isnan(ms_regs)], 
+ms_regs = np.array(regs_table['values_median_sig'])
+
+brain_SwansonFlat_results(regs[~np.isnan(ms_regs)], 
                           ms_regs[~np.isnan(ms_regs)], 
-                  filename='stim_swanson_ms'+FIG_SUF, 
+                  filename=f'{VARI}_swanson_ms'+FIG_SUF, 
                   cmap='Blues',
                   clevels=[None, None],
                   ticks=None,
                   extend=None,
                   value_title='Median Sig. \nScore')
 
-n_reg = lambda reg: len(np.array(res_table.loc[res_table['region']==reg,'p-value']))
-n_regs = np.array([n_reg(reg) for reg in uni_regs])
+n_regs = np.array(regs_table['n_sessions'])
 assert not np.any(n_regs==0)
 n_regs = np.log(n_regs)/np.log(2)
 
-brain_SwansonFlat_results(uni_regs, 
+brain_SwansonFlat_results(regs, 
                           n_regs, 
-                  filename='stim_swanson_n'+FIG_SUF, 
+                  filename=f'{VARI}_swanson_n'+FIG_SUF, 
                   cmap='Blues',
                   clevels=[None, None],
                   ticks=([1,2,3,4,5],[2,4,8,16,32]),
                   extend=None,
                   value_title='N Sessions')
 
-get_vals = lambda reg: np.array(res_table.loc[res_table['region']==reg,'score'])
-get_pvals = lambda reg: np.array(res_table.loc[res_table['region']==reg,'p-value'])
-get_nulls = lambda reg: np.array(res_table.loc[res_table['region']==reg,'median-null'])
-get_nunits = lambda reg: np.array(res_table.loc[res_table['region']==reg,'n_units'])
-
-# assert regions have at least 1 sig session TODO bon. corr, 
+# assert regions have a fisher combined p-value<0.05,
 #        sorted by best median performance (TOPN values plotted), 
 #        and greater median performance than the median of the null
 
-regions = np.unique(res_table['region'])
-regions = np.array([reg for reg in regions if not ((reg=='root') or (reg=='void'))])
-reg_comb_pval = lambda reg: scipy.stats.combine_pvalues(get_pvals(reg)
-                                                        , method='fisher')[1]
-save_comb_regs_data = pd.DataFrame({'regions': all_regs, 
-              'combined_p-values': [reg_comb_pval(r) if r in regions else np.nan for r in all_regs],
-              'combined_sig': [reg_comb_pval(r)<0.05 if r in regions else np.nan for r in all_regs],
-              'n_sessions': [len(get_vals(r)) if r in regions else np.nan for r in all_regs],
-              'n_units_average': [np.mean(get_nunits(r)) if r in regions else np.nan for r in all_regs],
-              'std_vals': [np.std(get_vals(r)) if r in regions else np.nan for r in all_regs],
-              'median_vals': [np.median(get_vals(r)) if r in regions else np.nan for r in all_regs],
-              'frac_sig': [frac_sig_region(r) if r in regions else np.nan for r in all_regs],
-              'median_sig': [get_ms_reg(r) if r in regions else np.nan for r in all_regs]})
-n_sig = np.sum([reg_comb_pval(reg)<0.05 for reg in regions])
-f_sig = np.mean([reg_comb_pval(reg)<0.05 for reg in regions])
-wi_var = np.mean([np.var(get_vals(reg)) for reg in regions])
-wo_var = np.var([np.mean(get_vals(reg)) for reg in regions])
-wi2wo_var = wi_var/wo_var
-save_comb_regs_data.to_csv(file_all_results.split('.')[0]+'_regs_nsig%s_fsig%.3f_wi2ovar%.3f.csv'%(n_sig,f_sig,wi2wo_var))# reg_1sigsession = lambda reg: np.any(res_table.loc[res_table['region']==reg,
-#                                                    'p-value']<=(0.05/len(res_table.loc[res_table['region']==reg,
-#                                                                                                       'p-value'])))
-# regions = np.array([reg for reg in regions if reg_1sigsession(reg)])
-regions = np.array([reg for reg in regions if reg_comb_pval(reg)<0.05])
-print('regions sig', regions, np.unique(res_table['region']))
-print('frac regions', (len(regions)-1)/(len(np.unique(res_table['region']))-2))
+regions = np.array(regs_table.loc[regs_table['combined_sig'],'region'])
+
+get_vals = lambda reg: np.array(res_table.loc[res_table['region']==reg,'score'])
 values = np.array([get_vals(reg) for reg in regions])
+
+get_pvals = lambda reg: np.array(res_table.loc[res_table['region']==reg,'p-value'])
 values_sig = np.array([(get_pvals(reg)<0.05)+0 for reg in regions])
-comb_pvalues = np.array([reg_comb_pval(reg) for reg in regions])
-comb_nulls = np.array([np.median(get_nulls(reg)) for reg in regions])
+
+comb_vals = np.array([np.median(v) for v in values])
+comb_nulls = np.array(regs_table.loc[regs_table['combined_sig'],'null_median_of_medians'])
 acr_plotted = bar_results(regions, 
                             values,
+                            comb_vals,
                             comb_nulls,
                             fillcircle_eids_unordered=values_sig,
-                            filename='stim_bars'+FIG_SUF, 
+                            filename=f'{VARI}_bars'+FIG_SUF, 
                             YMIN=np.min([np.min(v) for v in values]),
                             ylab='$R^2$',
                             TOP_N=15,
-                            sort_args=None)
-
+                            sort_args=None,
+                            bolded_regions=FOCUS_REGIONS)
 # check criteria.
 for reg in acr_plotted:
     print(reg)
-    # assert np.any(res_table.loc[res_table['region']==reg,
-    #                             'p-value']<=(0.05/len(res_table.loc[res_table['region']==reg,
-    #                                                    'p-value'])))
-    assert np.median(get_vals(reg)) > np.median(get_nulls(reg))
+    assert np.median(get_vals(reg)) > np.median(res_table.loc[res_table['region']==reg, 'median-null'])
 
 #%% plot single session traces
+# TODO create heatmaps
 
 clp = lambda x: np.minimum(np.maximum(x,-1),1)
 inverse_stim_transf = lambda x : np.round(np.arctanh(clp(x)*np.tanh(5))/5,
                                           decimals=8)
 
-folder = 'decoding_results/07-11-2022_singlesessions/CSHL059_dda5fc59-f09a-4256-9fb5-66c67667a466/'
-cur_plot_region = 'VISpm'
-file = f'28-10-2022_{cur_plot_region}_target_signcont_timeWindow_0_0_0_1_pseudo_id_-1__binsize=100.0_lags=None_mergedProbes_True.pkl'
-ss_res = pd.read_pickle(folder+file)
-preds, targs, mask = sess2preds(ss_res, 
-                                inverse_transf=inverse_stim_transf)
+res_table = pd.read_csv(file_all_results)
+xy_table = pd.read_pickle(file_xy_results)
 
+# load single trial data
+eid = 'dda5fc59-f09a-4256-9fb5-66c67667a466'
+region = 'VISpm'
+xy_vals = get_xy_vals(xy_table, eid, region)
+er_vals = get_res_vals(res_table, eid, region)
+
+l = xy_vals['regressors'].shape[0]
+X = np.squeeze(xy_vals['regressors']).T
+ws = np.squeeze(xy_vals['weights'])
+assert len(ws.shape) == 3
+W = np.stack([np.ndarray.flatten(ws[:,:,i]) for i in range(ws.shape[2])]).T
+assert W.shape[0] == 50
+mask = xy_vals['mask']
+preds = np.mean(np.squeeze(xy_vals['predictions']), axis=0)
+targs = np.squeeze(xy_vals['targets'])
 trials = np.arange(len(mask))[[m==1 for m in mask]]
+
+# folder = 'decoding_results/07-11-2022_singlesessions/CSHL059_dda5fc59-f09a-4256-9fb5-66c67667a466/'
+# cur_plot_region = 'VISpm'
+# file = f'28-10-2022_{cur_plot_region}_target_signcont_timeWindow_0_0_0_1_pseudo_id_-1__binsize=100.0_lags=None_mergedProbes_True.pkl'
+# ss_res = pd.read_pickle(folder+file)
+# preds, targs, mask = sess2preds(ss_res, 
+#                                 inverse_transf=inverse_stim_transf)
+# trials = np.arange(len(mask))[[m==1 for m in mask]]
 plt.figure(figsize=(10,2.5))#2.5
-sessreg_score = np.array(res_table.loc[(res_table['eid']==ss_res['eid'])&
-                                       (res_table['region']==cur_plot_region),
+sessreg_score = np.array(res_table.loc[(res_table['eid']==eid)&
+                                       (res_table['region']==region),
                                        'score'])
 assert len(sessreg_score) == 1
 sessreg_score = sessreg_score[0]
-plt.title(f'session: {ss_res["eid"]} \n region: {cur_plot_region} \n $R^2$ = {sessreg_score:.3f} (average across 10 models)')
+plt.title(f'session: {eid} \n region: {acronym2name(region)} ({region}) \n $R^2$ = {sessreg_score:.3f} (average across 10 models)')
 
 plt.plot(trials[targs>0], preds[targs>0],'C0o',lw=2,ms=4)
 plt.plot(trials[targs<0],preds[targs<0],'C1o',lw=2,ms=4)
@@ -154,14 +157,14 @@ plt.legend(['Prediction given stimulus $> 0$',
 plt.xlabel('Trials')
 plt.ylabel('Stimulus')
 plt.tight_layout()
-plt.savefig(f'decoding_figures/stim_trace_{cur_plot_region}', dpi=600)
+plt.savefig(f'decoding_figures/stim_trace_{region}', dpi=600)
 plt.show()
 
 best_df = pd.DataFrame({'Target': targs,
                        'Predictions': preds})
 
 plt.figure(figsize=(4.2,5))
-plt.title(f'session: {ss_res["eid"]} \n region: {cur_plot_region} \n $R^2$ = {sessreg_score:.3f} (average across 10 models)')
+plt.title(f'session: {eid} \n region: {acronym2name(region)} ({region}) \n $R^2$ = {sessreg_score:.3f} (average across 10 models)')
 ax = sns.barplot(x='Target', y='Predictions',
                  data=best_df, 
                  ci=95, capsize=.2)
@@ -169,27 +172,32 @@ ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
 ax.set(xlabel='Stimulus')
 plt.ylim(-1,1)
 plt.tight_layout()
-plt.savefig(f'decoding_figures/stim_calibrate_{cur_plot_region}', dpi=600)
+plt.savefig(f'decoding_figures/stim_calibrate_{region}', dpi=600)
 plt.show()
 
+eid = '16c3667b-e0ea-43fb-9ad4-8dcd1e6c40e1'
+region = 'PRNr'
+xy_vals = get_xy_vals(xy_table, eid, region)
+er_vals = get_res_vals(res_table, eid, region)
 
-# folder = 'decoding_results/20-09-2022_singlesessions/KS014_b9c205c3-feac-485b-a89d-afc96d9cb280/'
-# cur_plot_region = 'MRN'
-folder = 'decoding_results/07-11-2022_singlesessions/KS016_16c3667b-e0ea-43fb-9ad4-8dcd1e6c40e1/'
-cur_plot_region = 'PRNr'
-file = f'28-10-2022_{cur_plot_region}_target_signcont_timeWindow_0_0_0_1_pseudo_id_-1__binsize=100.0_lags=None_mergedProbes_True.pkl'
-ss_res = pd.read_pickle(folder+file)
-preds, targs, mask = sess2preds(ss_res, 
-                                inverse_transf=inverse_stim_transf)
-
+l = xy_vals['regressors'].shape[0]
+X = np.squeeze(xy_vals['regressors']).T
+ws = np.squeeze(xy_vals['weights'])
+assert len(ws.shape) == 3
+W = np.stack([np.ndarray.flatten(ws[:,:,i]) for i in range(ws.shape[2])]).T
+assert W.shape[0] == 50
+mask = xy_vals['mask']
+preds = np.mean(np.squeeze(xy_vals['predictions']), axis=0)
+targs = np.squeeze(xy_vals['targets'])
 trials = np.arange(len(mask))[[m==1 for m in mask]]
+
 plt.figure(figsize=(10,2.5))
-sessreg_score = np.array(res_table.loc[(res_table['eid']==ss_res['eid'])&
-                                       (res_table['region']==cur_plot_region),
+sessreg_score = np.array(res_table.loc[(res_table['eid']==eid)&
+                                       (res_table['region']==region),
                                        'score'])
 assert len(sessreg_score) == 1
 sessreg_score = sessreg_score[0]
-plt.title(f'session: {ss_res["eid"]} \n region: {cur_plot_region} \n $R^2$ = {sessreg_score:.3f} (average across 10 models)')
+plt.title(f'session: {eid} \n region: {acronym2name(region)} {(region)} \n $R^2$ = {sessreg_score:.3f} (average across 10 models)')
 
 plt.plot(trials[targs>0], preds[targs>0],'C0o',lw=2,ms=4)
 plt.plot(trials[targs<0],preds[targs<0],'C1o',lw=2,ms=4)
@@ -200,14 +208,14 @@ plt.legend(['Prediction given stimulus $> 0$',
 plt.xlabel('Trials')
 plt.ylabel('Stimulus')
 plt.tight_layout()
-plt.savefig(f'decoding_figures/stim_trace_{cur_plot_region}', dpi=600)
+plt.savefig(f'decoding_figures/stim_trace_{region}', dpi=600)
 plt.show()
 
 best_df = pd.DataFrame({'Target': targs,
                        'Predictions': preds})
 
 plt.figure(figsize=(4.2,5))
-plt.title(f'session: {ss_res["eid"]} \n region: {cur_plot_region} \n $R^2$ = {sessreg_score:.3f} (average across 10 models)')
+plt.title(f'session: {eid} \n region: {acronym2name(region)} {(region)} \n $R^2$ = {sessreg_score:.3f} (average across 10 models)')
 ax = sns.barplot(x='Target', y='Predictions',
                  data=best_df, 
                  ci=95, capsize=.2)
@@ -215,5 +223,5 @@ ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
 ax.set(xlabel='Stimulus')
 plt.ylim(-1,1)
 plt.tight_layout()
-plt.savefig(f'decoding_figures/stim_calibrate_{cur_plot_region}', dpi=600)
+plt.savefig(f'decoding_figures/stim_calibrate_{region}', dpi=600)
 plt.show()
