@@ -1,229 +1,148 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Sep 20 14:29:32 2022
-
-@author: bensonb
-"""
+import os
 import numpy as np
 import pandas as pd
-import scipy.stats
-from plot_utils import brain_SwansonFlat_results, bar_results, sess2preds
+from plot_utils import acronym2name, get_xy_vals, get_res_vals, brain_SwansonFlat_results, bar_results
+from plot_utils import heatmap, activity_and_decoding_weights
+from plot_utils import comb_regs_df, get_within_region_mean_var
 import matplotlib.pyplot as plt
 import seaborn as sns
-from ibllib.atlas import AllenAtlas
+sns.set(font_scale=1.5)
 sns.set_style('whitegrid')
 
-br = AllenAtlas()
-all_regs = br.regions.id2acronym(np.load('../../beryl.npy'))
-
-file_all_results = 'decoding_processing/02-11-2022_stimside.csv'
-file_xy_results = 'decoding_processing/02-11-2022_stimside_xy.pkl'
+DATE = '30-11-2022'
+VARI = 'stimside'
+file_all_results = 'decoding_results/summary/30-11-2022_decode_signcont_task_LogisticsRegression_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_0_0_0_1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
+file_xy_results = 'decoding_results/summary/30-11-2022_decode_signcont_task_LogisticsRegression_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_0_0_0_1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_xy.pkl'
 FIG_SUF = ''
+
+FOCUS_REGIONS = ['ORBvl']
+
+res_table = pd.read_csv(file_all_results)
+save_comb_regs_data = comb_regs_df(res_table, USE_ALL_BERYL_REGIONS=True)
+regs_table = comb_regs_df(res_table, USE_ALL_BERYL_REGIONS=False)
+
+n_sig = regs_table['combined_sig'].sum()
+f_sig = regs_table['combined_sig'].mean()
+wi_means, wi_vars = get_within_region_mean_var(res_table)
+wi_var = np.mean(wi_vars)
+wo_var = np.var(wi_means)
+wi2wo_var = wi_var/wo_var
+save_comb_regs_data.to_csv(f'decoding_processing/{DATE}_{VARI}_regs_nsig{n_sig}_fsig{f_sig:.3f}_wi2ovar{wi2wo_var:.3f}.csv')
+
 
 #%% Stimside
 
-res_table = pd.read_csv(file_all_results)
 
-frac_sig_region = lambda reg: np.mean(np.array(res_table.loc[res_table['region']==reg,'p-value']<0.05))
-uni_regs = np.unique(res_table['region'])
-uni_regs = uni_regs[(uni_regs!='root')&(uni_regs!='void')]
-fs_regs = np.array([frac_sig_region(reg) for reg in uni_regs])
+regs = np.array(regs_table['region'])
+fs_regs = np.array(regs_table['frac_sig'])
 assert not np.any(np.isnan(fs_regs))
 
-brain_SwansonFlat_results(uni_regs, 
+brain_SwansonFlat_results(regs, 
                           fs_regs, 
-                  filename='stimside_swanson_fs'+FIG_SUF, 
+                  filename=f'{VARI}_swanson_fs'+FIG_SUF, 
                   cmap='Blues',
                   clevels=[0, 0.55],
                   ticks=None,
                   extend='max',
-                  value_title='Frac. Sig.')
+                  cbar_orientation='horizontal',
+                  value_title='Fraction of significant sessions')
 
-def get_ms_reg(reg):
-    c1 = (res_table['region']==reg)
-    c2 = (res_table['p-value']<0.05)
-    return np.median(res_table.loc[c1 & c2, 'score'])
-# frac_sig_region = lambda reg: np.median(np.array(res_table.loc[res_table['region']==reg,'balanced_acc_test']))
-ms_regs = np.array([get_ms_reg(reg) for reg in uni_regs])
-r2olivier, v2olivier = uni_regs, ms_regs
-brain_SwansonFlat_results(uni_regs[~np.isnan(ms_regs)], 
+ms_regs = np.array(regs_table['values_median_sig'])
+
+brain_SwansonFlat_results(regs[~np.isnan(ms_regs)], 
                           ms_regs[~np.isnan(ms_regs)], 
-                  filename='stimside_swanson_ms'+FIG_SUF, 
+                  filename=f'{VARI}_swanson_ms'+FIG_SUF, 
                   cmap='Blues',
                   clevels=[None, None],
                   ticks=None,
                   extend=None,
-                  value_title='Median Sig. \nScore')
+                  cbar_orientation='horizontal',
+                  value_title='Median significant balanced accuracy')
 
-n_reg = lambda reg: len(np.array(res_table.loc[res_table['region']==reg,'p-value']))
-n_regs = np.array([n_reg(reg) for reg in uni_regs])
+n_regs = np.array(regs_table['n_sessions'])
 assert not np.any(n_regs==0)
 n_regs = np.log(n_regs)/np.log(2)
 
-brain_SwansonFlat_results(uni_regs, 
+brain_SwansonFlat_results(regs, 
                           n_regs, 
-                  filename='stimside_swanson_n'+FIG_SUF, 
+                  filename=f'{VARI}_swanson_n'+FIG_SUF, 
                   cmap='Blues',
                   clevels=[None, None],
                   ticks=([1,2,3,4,5],[2,4,8,16,32]),
                   extend=None,
+                  cbar_orientation='vertical',
                   value_title='N Sessions')
 
-get_vals = lambda reg: np.array(res_table.loc[res_table['region']==reg,'score'])
-get_pvals = lambda reg: np.array(res_table.loc[res_table['region']==reg,'p-value'])
-get_nulls = lambda reg: np.array(res_table.loc[res_table['region']==reg,'median-null'])
-get_nunits = lambda reg: np.array(res_table.loc[res_table['region']==reg,'n_units'])
-get_fraclgws = lambda reg: np.array(res_table.loc[res_table['region']==reg,'frac_large_w'])
-get_giniws = lambda reg: np.array(res_table.loc[res_table['region']==reg,'gini_w'])
-
-# assert regions have at least 1 sig session TODO bon. corr, 
+# assert regions have a fisher combined p-value<0.05,
 #        sorted by best median performance (TOPN values plotted), 
 #        and greater median performance than the median of the null
 
-regions = np.unique(res_table['region'])
-regions = np.array([reg for reg in regions if not ((reg=='root') or (reg=='void'))])
-reg_comb_pval = lambda reg: scipy.stats.combine_pvalues(get_pvals(reg)
-                                                        , method='fisher')[1]
-save_comb_regs_data = pd.DataFrame({'regions': all_regs, 
-              'combined_p-values': [reg_comb_pval(r) if r in regions else np.nan for r in all_regs],
-              'combined_sig': [reg_comb_pval(r)<0.05 if r in regions else np.nan for r in all_regs],
-              'n_sessions': [len(get_vals(r)) if r in regions else np.nan for r in all_regs],
-              'n_units_average': [np.mean(get_nunits(r)) if r in regions else np.nan for r in all_regs],
-              'std_vals': [np.std(get_vals(r)) if r in regions else np.nan for r in all_regs],
-              'median_vals': [np.median(get_vals(r)) if r in regions else np.nan for r in all_regs],
-              'frac_sig': [frac_sig_region(r) if r in regions else np.nan for r in all_regs],
-              'median_sig': [get_ms_reg(r) if r in regions else np.nan for r in all_regs],
-              'mean_frac_lg_w': [np.mean(get_fraclgws(r)) if r in regions else np.nan for r in all_regs],
-              'mean_gini_w': [np.mean(get_giniws(r)) if r in regions else np.nan for r in all_regs]})
-n_sig = np.sum([reg_comb_pval(reg)<0.05 for reg in regions])
-f_sig = np.mean([reg_comb_pval(reg)<0.05 for reg in regions])
-wi_var = np.mean([np.var(get_vals(reg)) for reg in regions])
-wo_var = np.var([np.mean(get_vals(reg)) for reg in regions])
-wi2wo_var = wi_var/wo_var
-save_comb_regs_data.to_csv(file_all_results.split('.')[0]+'_regs_nsig%s_fsig%.3f_wi2ovar%.3f.csv'%(n_sig,f_sig,wi2wo_var))# reg_1sigsession = lambda reg: np.any(res_table.loc[res_table['region']==reg,
-#                                                    'p-value']<=(0.05/len(res_table.loc[res_table['region']==reg,
-#                                                                                                       'p-value'])))
-# regions = np.array([reg for reg in regions if reg_1sigsession(reg)])
-regions = np.array([reg for reg in regions if reg_comb_pval(reg)<0.05])
-print('regions sig', regions, np.unique(res_table['region']))
-print('frac regions', (len(regions)-1)/(len(np.unique(res_table['region']))-2))
+regions = np.array(regs_table.loc[regs_table['combined_sig'],'region'])
+
+get_vals = lambda reg: np.array(res_table.loc[res_table['region']==reg,'score'])
 values = np.array([get_vals(reg) for reg in regions])
+
+get_pvals = lambda reg: np.array(res_table.loc[res_table['region']==reg,'p-value'])
 values_sig = np.array([(get_pvals(reg)<0.05)+0 for reg in regions])
-comb_pvalues = np.array([reg_comb_pval(reg) for reg in regions])
-comb_nulls = np.array([np.median(get_nulls(reg)) for reg in regions])
+
+comb_vals = np.array([np.median(v) for v in values])
+comb_nulls = np.array(regs_table.loc[regs_table['combined_sig'],'null_median_of_medians'])
 acr_plotted = bar_results(regions, 
                             values,
+                            comb_vals,
                             comb_nulls,
                             fillcircle_eids_unordered=values_sig,
-                            filename='stimside_bars'+FIG_SUF, 
+                            filename=f'{VARI}_bars'+FIG_SUF, 
                             YMIN=np.min([np.min(v) for v in values]),
-                            ylab='$R^2$',
+                            ylab='Bal. Acc.',
+                            ticks=([0.5,0.6,0.7,0.8], [0.5,0.6,0.7,0.8]),
                             TOP_N=15,
-                            sort_args=None)
-
+                            sort_args=None,
+                            bolded_regions=FOCUS_REGIONS)
 # check criteria.
 for reg in acr_plotted:
     print(reg)
-    # assert np.any(res_table.loc[res_table['region']==reg,
-    #                             'p-value']<=(0.05/len(res_table.loc[res_table['region']==reg,
-    #                                                    'p-value'])))
-    assert np.median(get_vals(reg)) > np.median(get_nulls(reg))
+    assert np.median(get_vals(reg)) > np.median(res_table.loc[res_table['region']==reg, 'median-null'])
 
-# #%% plot single session traces
+#%% plot single session traces
 
-# clp = lambda x: np.minimum(np.maximum(x,-1),1)
-# inverse_stim_transf = lambda x : np.round(np.arctanh(clp(x)*np.tanh(5))/5,
-#                                           decimals=8)
+res_table = pd.read_csv(file_all_results)
+xy_table = pd.read_pickle(file_xy_results)
 
-# folder = 'decoding_results/07-11-2022_singlesessions/CSHL059_dda5fc59-f09a-4256-9fb5-66c67667a466/'
-# cur_plot_region = 'VISpm'
-# file = f'28-10-2022_{cur_plot_region}_target_signcont_timeWindow_0_0_0_1_pseudo_id_-1__binsize=100.0_lags=None_mergedProbes_True.pkl'
-# ss_res = pd.read_pickle(folder+file)
-# preds, targs, mask = sess2preds(ss_res, 
-#                                 inverse_transf=inverse_stim_transf)
+# load single trial data
+eid = 'a82800ce-f4e3-4464-9b80-4c3d6fade333'
+region = 'LGd'
+xy_vals = get_xy_vals(xy_table, eid, region)
+er_vals = get_res_vals(res_table, eid, region)
 
-# trials = np.arange(len(mask))[[m==1 for m in mask]]
-# plt.figure(figsize=(10,2.5))#2.5
-# sessreg_score = np.array(res_table.loc[(res_table['eid']==ss_res['eid'])&
-#                                        (res_table['region']==cur_plot_region),
-#                                        'score'])
-# assert len(sessreg_score) == 1
-# sessreg_score = sessreg_score[0]
-# plt.title(f'session: {ss_res["eid"]} \n region: {cur_plot_region} \n $R^2$ = {sessreg_score:.3f} (average across 10 models)')
+l = xy_vals['regressors'].shape[0]
+X = np.squeeze(xy_vals['regressors']).T
+ws = np.squeeze(xy_vals['weights'])
+assert len(ws.shape) == 3
+W = np.stack([np.ndarray.flatten(ws[:,:,i]) for i in range(ws.shape[2])]).T
+assert W.shape[0] == 50
+mask = xy_vals['mask']
+preds = np.mean(np.squeeze(xy_vals['predictions']), axis=0)
+targs = np.squeeze(xy_vals['targets'])
+trials = np.arange(len(mask))[[m==1 for m in mask]]
 
-# plt.plot(trials[targs>0], preds[targs>0],'C0o',lw=2,ms=4)
-# plt.plot(trials[targs<0],preds[targs<0],'C1o',lw=2,ms=4)
-# # plt.yticks([-1,0,1])
-# # plt.ylim(-1,1)
-# plt.legend(['Prediction given stimulus $> 0$', 
-#             'Prediction given stimulus $< 0$'],frameon=True,loc=(-0.15,1.1))
-# plt.xlabel('Trials')
-# plt.ylabel('Stimulus')
-# plt.tight_layout()
-# plt.savefig(f'decoding_figures/stim_trace_{cur_plot_region}', dpi=600)
-# plt.show()
+plt.figure(figsize=(14,3.3))
 
-# best_df = pd.DataFrame({'Target': targs,
-#                        'Predictions': preds})
-
-# plt.figure(figsize=(4.2,5))
-# plt.title(f'session: {ss_res["eid"]} \n region: {cur_plot_region} \n $R^2$ = {sessreg_score:.3f} (average across 10 models)')
-# ax = sns.barplot(x='Target', y='Predictions',
-#                  data=best_df, 
-#                  ci=95, capsize=.2)
-# ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
-# ax.set(xlabel='Stimulus')
-# plt.ylim(-1,1)
-# plt.tight_layout()
-# plt.savefig(f'decoding_figures/stim_calibrate_{cur_plot_region}', dpi=600)
-# plt.show()
-
-
-# # folder = 'decoding_results/20-09-2022_singlesessions/KS014_b9c205c3-feac-485b-a89d-afc96d9cb280/'
-# # cur_plot_region = 'MRN'
-# folder = 'decoding_results/07-11-2022_singlesessions/KS016_16c3667b-e0ea-43fb-9ad4-8dcd1e6c40e1/'
-# cur_plot_region = 'PRNr'
-# file = f'28-10-2022_{cur_plot_region}_target_signcont_timeWindow_0_0_0_1_pseudo_id_-1__binsize=100.0_lags=None_mergedProbes_True.pkl'
-# ss_res = pd.read_pickle(folder+file)
-# preds, targs, mask = sess2preds(ss_res, 
-#                                 inverse_transf=inverse_stim_transf)
-
-# trials = np.arange(len(mask))[[m==1 for m in mask]]
-# plt.figure(figsize=(10,2.5))
-# sessreg_score = np.array(res_table.loc[(res_table['eid']==ss_res['eid'])&
-#                                        (res_table['region']==cur_plot_region),
-#                                        'score'])
-# assert len(sessreg_score) == 1
-# sessreg_score = sessreg_score[0]
-# plt.title(f'session: {ss_res["eid"]} \n region: {cur_plot_region} \n $R^2$ = {sessreg_score:.3f} (average across 10 models)')
-
-# plt.plot(trials[targs>0], preds[targs>0],'C0o',lw=2,ms=4)
-# plt.plot(trials[targs<0],preds[targs<0],'C1o',lw=2,ms=4)
-# # plt.yticks([-1,0,1])
-# # plt.ylim(-1,1)
-# plt.legend(['Prediction given stimulus $> 0$', 
-#             'Prediction given stimulus $< 0$'],frameon=True,loc=(-0.15,1.1))
-# plt.xlabel('Trials')
-# plt.ylabel('Stimulus')
-# plt.tight_layout()
-# plt.savefig(f'decoding_figures/stim_trace_{cur_plot_region}', dpi=600)
-# plt.show()
-
-# best_df = pd.DataFrame({'Target': targs,
-#                        'Predictions': preds})
-
-# plt.figure(figsize=(4.2,5))
-# plt.title(f'session: {ss_res["eid"]} \n region: {cur_plot_region} \n $R^2$ = {sessreg_score:.3f} (average across 10 models)')
-# ax = sns.barplot(x='Target', y='Predictions',
-#                  data=best_df, 
-#                  ci=95, capsize=.2)
-# ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
-# ax.set(xlabel='Stimulus')
-# plt.ylim(-1,1)
-# plt.tight_layout()
-# plt.savefig(f'decoding_figures/stim_calibrate_{cur_plot_region}', dpi=600)
-# plt.show()
+plt.title(f"session: {eid} \n region: {acronym2name(region)} ({region}) \n balanced accuracy = {er_vals['score']:.3f} (average across 10 models)")
+plt.plot(trials, targs, '-', c='k',lw=4)
+plt.plot(trials, preds, '-', c='C0')
+plt.yticks([0,.5,1])
+plt.ylim(-0.1,1.1)
+plt.xlim(0,len(mask))
+plt.legend(['Left Biased Block',
+            'Probability of left prediction \n(across 10 models)'],
+           frameon=True,
+           loc=(-0.15,1.1))
+plt.xlabel('Trials')
+plt.ylabel('Block')
+plt.tight_layout()
+plt.savefig(f'decoding_figures/{VARI}_trace', dpi=200)
+plt.show()
 
 #%%
 
@@ -232,35 +151,63 @@ xy_table = pd.read_pickle(file_xy_results)
 
 regions = np.unique(res_table['region'])
 regions = np.array([reg for reg in regions if not ((reg=='root') or (reg=='void'))])
-# regions = np.array(['CP'])
+regions = regions[np.argwhere(regions=='MEA')[0][0]:]
+# regions = np.array(['MRN', 'CP', 'SUB'])
 for my_reg in regions:
     xy_eids = [er.split('_')[0] for er in xy_table['eid_region'] if er.split('_')[1] == my_reg]
-    xy_bool = np.array([er.split('_')[1] == my_reg for er in xy_table['eid_region']])
-    xy_rgrs = list(xy_table.loc[xy_bool,'regressors'])
-    xy_trgs = list(xy_table.loc[xy_bool,'targets'])
-    xy_prds = list(xy_table.loc[xy_bool,'predictions'])
+    # assert (len(xy_rgrs) == len(xy_trgs)) and (len(xy_rgrs)==len(xy_prds))
+    # assert len(xy_rgrs) == len(xy_eids)
+    Ns = [get_res_vals(res_table, xy_eids[i], my_reg)['n_units'] for i in range(len(xy_eids))]
+    N = np.max(Ns)
+    pvals = [get_res_vals(res_table, xy_eids[i], my_reg)['p-value'] for i in range(len(xy_eids))]
+    sargs = np.argsort(pvals)
+    xy_eids = np.array(xy_eids)
+    xy_eids = xy_eids[sargs]
     
-    assert (len(xy_rgrs) == len(xy_trgs)) and (len(xy_rgrs)==len(xy_prds))
-    assert len(xy_rgrs) == len(xy_eids)
     
-    N = np.max([xyr.shape[1] for xyr in xy_rgrs])
-    fig, axs = plt.subplots(len(xy_rgrs), 
-                            figsize=(int(N/2)+1, int(3*len(xy_eids))))
-    # plt.figure(figsize=(int(N/3)+1,32))
+    Nsubplots = 2*len(xy_eids) + 1
+    fig, axs = plt.subplots(Nsubplots, 
+                            figsize=(40, 3*Nsubplots)) # int(0.6*(N+1))
     
-    for xyi in range(len(xy_eids)):
-        my_eid = xy_eids[xyi]
-        xy_rgr, xy_trg, xy_prd = xy_rgrs[xyi], xy_trgs[xyi], xy_prds[xyi] 
+    axs[0].set_title(f'{acronym2name(my_reg)} ({my_reg})', 
+                      fontsize=30)
+    axs[0].hist(pvals)
+    axs[0].set_ylabel('Count')
+    axs[0].set_xlabel('P-values across sessions')
+    axs[0].set_xlim(0,1)
+    
+    for ei in range(len(xy_eids)):
+        xyi = ei*2 + 1
+        my_eid = xy_eids[ei]
+        xy_vals = get_xy_vals(xy_table, my_eid, my_reg)
         
+        xy_rgr = np.squeeze(xy_vals['regressors']).T
+        ws = np.squeeze(xy_vals['weights'])
+        assert len(ws.shape) == 3
+        xy_w = np.stack([np.ndarray.flatten(ws[:,:,i]) for i in range(ws.shape[2])]).T
+        assert xy_w.shape[0] == 50
+        xy_w = np.mean(xy_rgr,axis=1)*xy_w # if weight by mean activity
+        xy_prd = np.mean(np.squeeze(xy_vals['predictions']), axis=0)
+        xy_trg = np.squeeze(xy_vals['targets'])
+        xy_prm = xy_vals['params']
+        #print(xy_rgr.shape)
+        
+        '''
+        --------------------------------------------------
+        first plot: violin plots of activity and predictions
+        --------------------------------------------------
+        '''
         MAX_SPIKES = np.max(xy_rgr)
         
         x = []
-        for i in range(xy_rgr.shape[1]):
-            for t in range(xy_rgr.shape[0]):
-                x.append([i, t, xy_rgr[t,i], xy_trg[t]])
+        xy_n = xy_rgr.shape[0]
+        pr_xval = xy_n
+        for i in range(xy_rgr.shape[0]):
+            for t in range(xy_rgr.shape[-1]):
+                x.append([i, t, xy_rgr[i,t], xy_trg[t]])
         
-        for t in range(xy_rgr.shape[0]):
-            x.append([-1, t, MAX_SPIKES*xy_prd[t], xy_trg[t]])
+        for t in range(xy_rgr.shape[1]):
+            x.append([pr_xval, t, MAX_SPIKES*xy_prd[t], xy_trg[t]])
         
         df = pd.DataFrame(x, columns=['neuron',
                                       'trial',
@@ -274,17 +221,84 @@ for my_reg in regions:
         nt1 = len(xy_trg[xy_trg==1])
         assert nt == (nt0 + nt1)
         axs[xyi].set_title(f'eid:{my_eid}, score:{mr["score"]:.3f}, p:{mr["p-value"]:.3f}, frac_w:{mr["frac_large_w"]:.3f}, gini_w:{mr["gini_w"]:.3f}, n_trials:{nt}, n_trials0:{nt0}, n_trials1:{nt1}',
-                           fontsize=10)
-        sns.violinplot(ax=axs[xyi], data=df, x="neuron", y="spikes", hue="target", split=True)
-        tlabels = np.arange(xy_rgr.shape[1]+1)-1
-        newlabels = ['Y*' if l==-1 else str(l) for l in tlabels]
-        # ax.set_xticks(tlabels)
-        axs[xyi].set_xticklabels(newlabels)
+                            fontsize=30)
+        sns.violinplot(ax=axs[xyi], data=df, 
+                        x="neuron", y="spikes", 
+                        hue="target", split=True,
+                        cut=0, linewidth=0)
+        lxs = np.linspace(-0.4,0.4)
+        lys = MAX_SPIKES*np.ones_like(lxs)
+        axs[xyi].plot(lxs+pr_xval,lys,'r',lw=4)
+        axs[xyi].plot(lxs+pr_xval,np.zeros_like(lxs),'r',lw=4)
+        axs[xyi].text(pr_xval+0.5,MAX_SPIKES*(1),'Y*=1')
+        axs[xyi].text(pr_xval+0.5,MAX_SPIKES*(0),'Y*=0')
+        axs[xyi].text(pr_xval+0.6,MAX_SPIKES*(0.5), 
+                      'Prediction of logistic decoder, Y*, \nbetween 0 and 1')
+        tlabels = np.concatenate((np.arange(xy_n), np.array([pr_xval])))
+        newlabels = ['Y*' if l==pr_xval else str(l) for l in tlabels]
+        axs[xyi].set_xticks(tlabels)
+        axs[xyi].set_xticklabels(newlabels, 
+                                 rotation=-45)
+        # align weights to violin plot
+        # define heatmap edges relative to violin plot x-values 
+        # as a fraction of total violin plot x-axis (c_0, c_f), 
+        # then solve for the x-limits to choose in violin plot (Svec)
+        # so that neuron numbers {0, 1... N-1} line up
+        c_0, c_f = 0, .80
+        M_inv = np.linalg.inv(np.array([[1-c_0, c_0],[1-c_f, c_f]]))
+        Svec = np.matmul(M_inv, np.array([[-0.5],[xy_n+0.5]]))[:,0]
+        axs[xyi].set_xlim(Svec[0],Svec[1])
+        axs[xyi].legend(loc='upper left', title='Target')
         
-        # if my_eid == 'b658bc7d-07cd-4203-8a25-7b16b549851b':
-        #     break
+        '''
+        --------------------------------------------
+        second plot: distribution of decoder weights
+        --------------------------------------------
+        '''
+        xy_w_abs = np.abs(xy_w)
+        
+        prms = np.squeeze(xy_prm[:,:,:,1])
+        assert len(prms.shape)==2
+        assert prms.shape[0] == 10
+        assert prms.shape[1] == 5
+        prms = np.reshape(np.array(np.ndarray.flatten(prms), dtype=float), 
+                          (50, 1))
+        prms_plt = np.log10(prms)
+        prms_plt = prms_plt - np.min(prms_plt)
+        prms_plt = np.max(xy_w_abs)*prms_plt/np.max(prms_plt) if np.max(prms_plt)>0 else np.zeros_like(prms_plt)
+        MW = np.hstack((xy_w_abs,prms_plt))
+        
+        w_ticks = np.arange(xy_n+1)
+        im, cbar = heatmap(MW, np.arange(50), w_ticks, ax=axs[xyi+1],
+                    cmap="YlGn", cbarlabel="Decoder weights (abs. value)",
+                    aspect=xy_n/900,
+                    interpolation=None,
+                    filternorm=False,
+                    resample=False,
+                    cbar_kw={'shrink': 0.7,
+                              'location': 'right'})
+        w_ticklabels = ['' if w == xy_n else str(w) for w in w_ticks]
+        axs[xyi+1].set_xticks(w_ticks, 
+                              labels=w_ticklabels,
+                              rotation=-45)
+        prm_mini = np.argmin(prms)
+        prm_min = np.min(prms)
+        prm_maxi = np.argmax(prms)
+        prm_max = np.max(prms)
+        axs[xyi+1].text(xy_n+0.5, prm_mini+1, 
+                        f'--- min: {prm_min:.1e}',
+                        fontsize=8)
+        axs[xyi+1].text(xy_n+0.5, prm_maxi+1, 
+                        f'--- max: {prm_max:.1e}',
+                        fontsize=8)
+        axs[xyi+1].text(xy_n-0.25, 51, 
+                        'Decoder \nhyper-params \n(log spacing)',
+                        va='top',
+                        fontsize=8)
+    # save_path = f'decoding_figures/block_bin_dist/{my_reg}.png'
+    # axs = activity_and_decoding_weights(res_table, xy_table, 
+    #                                     my_reg, save_path)
     
     plt.tight_layout()
-    plt.savefig(f'decoding_figures/stimside_bin_dist/{my_reg}.png',dpi=200)
-    
-    
+    plt.savefig(f'decoding_figures/{VARI}_bin_dist/{my_reg}.png',dpi=100)
+    print(f'region complete: {my_reg}')

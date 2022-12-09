@@ -13,6 +13,7 @@ from plot_utils import heatmap, activity_and_decoding_weights
 from plot_utils import comb_regs_df, get_within_region_mean_var
 import matplotlib.pyplot as plt
 import seaborn as sns
+sns.set(font_scale=1.5)
 sns.set_style('whitegrid')
 
 DATE = '28-11-2022'
@@ -49,7 +50,8 @@ brain_SwansonFlat_results(regs,
                   clevels=[0, 0.55],
                   ticks=None,
                   extend='max',
-                  value_title='Frac. Sig.')
+                  cbar_orientation='horizontal',
+                  value_title='Fraction of significant sessions')
 
 ms_regs = np.array(regs_table['values_median_sig'])
 
@@ -60,7 +62,8 @@ brain_SwansonFlat_results(regs[~np.isnan(ms_regs)],
                   clevels=[None, None],
                   ticks=None,
                   extend=None,
-                  value_title='Median Sig. \nScore')
+                  cbar_orientation='horizontal',
+                  value_title='Median significant balanced accuracy')
 
 n_regs = np.array(regs_table['n_sessions'])
 assert not np.any(n_regs==0)
@@ -73,6 +76,7 @@ brain_SwansonFlat_results(regs,
                   clevels=[None, None],
                   ticks=([1,2,3,4,5],[2,4,8,16,32]),
                   extend=None,
+                  cbar_orientation='vertical',
                   value_title='N Sessions')
 
 # assert regions have a fisher combined p-value<0.05,
@@ -128,7 +132,7 @@ preds = np.mean(np.squeeze(xy_vals['predictions']), axis=0)
 targs = np.squeeze(xy_vals['targets'])
 trials = np.arange(len(mask))[[m==1 for m in mask]]
 
-plt.figure(figsize=(10,2.5))
+plt.figure(figsize=(14,3.3))
 
 plt.title(f"session: {eid} \n region: {acronym2name(region)} ({region}) \n balanced accuracy = {er_vals['score']:.3f} (average across 10 models)")
 plt.plot(trials, targs, '-', c='k',lw=4)
@@ -143,14 +147,14 @@ plt.legend(['Left Biased Block',
 plt.xlabel('Trials')
 plt.ylabel('Block')
 plt.tight_layout()
-plt.savefig(f'decoding_figures/{VARI}_trace', dpi=600)
+plt.savefig(f'decoding_figures/{VARI}_trace', dpi=200)
 plt.show()
 
 #%%
 
 regions = np.unique(res_table['region'])
 regions = np.array([reg for reg in regions if not ((reg=='root') or (reg=='void'))])
-# regions = regions[np.argwhere(regions=='PL')[0][0]:]
+regions = regions[np.argwhere(regions=='VISrl')[0][0]:]
 # regions = np.array(['MRN', 'CP', 'SUB'])
 for my_reg in regions:
     xy_eids = [er.split('_')[0] for er in xy_table['eid_region'] if er.split('_')[1] == my_reg]
@@ -185,6 +189,7 @@ for my_reg in regions:
         assert len(ws.shape) == 3
         xy_w = np.stack([np.ndarray.flatten(ws[:,:,i]) for i in range(ws.shape[2])]).T
         assert xy_w.shape[0] == 50
+        xy_w = np.mean(xy_rgr,axis=1)*xy_w # if weight by mean activity
         xy_prd = np.mean(np.squeeze(xy_vals['predictions']), axis=0)
         xy_trg = np.squeeze(xy_vals['targets'])
         xy_prm = xy_vals['params']

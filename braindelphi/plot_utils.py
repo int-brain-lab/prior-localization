@@ -115,8 +115,9 @@ def brain_SwansonFlat_results(acronyms, values,
                   filename=None, 
                   cmap='viridis',
                   clevels=[None, None],
-                  ticks=None,
+                  ticks=(None,None),
                   extend=None,
+                  cbar_orientation='vertical',
                   value_title='',
                   FILE_PATH='/home/bensonb/IntBrainLab/prior-localization/braindelphi/decoding_figures/'):
     '''
@@ -134,9 +135,16 @@ def brain_SwansonFlat_results(acronyms, values,
     clevels : iterable of len 2, optional
         The default is [None, None].
     ticks : tuple, (tick_list, tick_label_list)
+        colorbar ticks.  if not None, then cbar_orientation must be 'vertical',
+        otherwise there is an issue
         The default is None.
     extend : string, optional
         can be 'max', 'min', 'both'
+    cbar_orientation : string, optional
+        'vertical' or 'horizontal', determines placement and orientation of 
+        colorbar.  if ticks is not None, then use 'vertical', otherwise there 
+        is an issue
+        The default is 'vertical'
     value_title : string, optional
         The default is ''.
     FILE_PATH : string, optional
@@ -165,6 +173,7 @@ def brain_SwansonFlat_results(acronyms, values,
     # plt.colorbar()# doesn't work
     # fig, axes = plt.subplots(1,10)
     fig = plt.figure()
+    plt.title(value_title, fontsize=16)
     ax_swan = plot_swanson(acronyms, 
                     values, 
                     cmap=cmap, # empty_color = 'grey',
@@ -176,14 +185,26 @@ def brain_SwansonFlat_results(acronyms, values,
     
     fig.subplots_adjust(right=0.85)
     
-    cb_ax = fig.add_axes([0.88, 0.25, 0.02, 0.5])
+    if cbar_orientation == 'vertical':
+        cb_ax = fig.add_axes([0.88, 0.25, 0.02, 0.5])
+    elif cbar_orientation == 'horizontal':
+        cb_ax = fig.add_axes([0.2, 0.2, 0.6, 0.03])
+    else:
+        raise NotImplementedError('this color bar orientation is not implemented')
     cbar = plt.colorbar(mappable=ax_swan.images[0], cax=cb_ax, 
-                        extend=extend)
+                        extend=extend, orientation=cbar_orientation)# ,
+                        #ticks=None if ticks is None else ticks[0]
+    cb_ax.tick_params(labelsize=14)
     #cbar.set_ticks
-    cb_ax.set_title(value_title)
+    #cb_ax.set_title(value_title)
     if not (ticks is None):
-        cb_ax.set_yticklabels(ticks[1])
         cb_ax.set_yticks(ticks[0])
+        cb_ax.set_yticklabels(ticks[1])
+        
+    #     print('ticks get', cbar)
+    #     print('ticks 1', ticks[1])
+        # cbar.ticks(ticks=ticks[0], labels=ticks[1])
+        #cb_ax.set_yticklabels(ticks[1])
     #cb_ax.set_visible(False)
     # cbar.set_ticks([0,.2,.4,.6,.8,1])
     # cb_ax.set_title(value_title)
@@ -331,7 +352,7 @@ def bar_results(acronyms_unordered,
         
     PLOT_TITLE = ''
     SAVE_PATH = os.path.join(FILE_PATH, filename)
-    fig = plt.figure(figsize=(8,2))
+    fig = plt.figure(figsize=(8,2.5))
     plt.title(PLOT_TITLE)
     inds = np.arange(len(acronyms))
     plt.bar(inds, values, 
