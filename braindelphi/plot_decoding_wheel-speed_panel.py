@@ -128,7 +128,7 @@ targs_alltrials = np.squeeze(xy_vals['targets'])
 assert targs_alltrials.shape[0] == len(movetimes)
 trials = np.arange(len(mask))[[m==1 for m in mask]]
 
-fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4, figsize=(14,6))
+fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4, figsize=(16,6))
 fig.suptitle(f"session: {eid} \n region: {acronym2name(region)} ({region}) \n $R^2$ = {er_vals['score']:.3f} (average across 2 models)")
 LW = 3
 YMIN, YMAX = -0.9, 8.75
@@ -141,7 +141,7 @@ ax1.plot((np.arange(len(targs))-10)*0.02 + movetime, preds, 'r', lw=LW)
 ax1.plot(np.zeros(50)+movetime, np.linspace(YMIN, YMAX), 'k--', lw=LW*0.5)
 # ymin, ymax = ax1.get_ylim()
 ax1.set_ylim(YMIN,YMAX)
-ax1.set_ylabel('Wheel speed (rad./s)')
+ax1.set_ylabel('Actual/predicted wheel speed \n(rad./s)')
 ax1.set_xticks([movetime, movetime+0.7],
                [f'{movetime:.2f}', f'{movetime+0.7:.2f}'])
 ax1.set_xlabel(' ')
@@ -180,7 +180,9 @@ ax4.set_xticks([movetime, movetime+0.7],
                [f'{movetime:.2f}', f'{movetime+0.7:.2f}'])
 
 fig.text(.5, 0.04, 'Time (s)', ha='center')
-fig.legend(['Wheel-speed', 'Prediction average \n (across 2 models)', 'Movement Onset'], loc='upper left')
+fig.legend(['Actual wheel-speed', 'Predicted wheel-speed \n(average across 2 models)', 'Movement onset'],
+           frameon=True,
+           loc=(0.75,0.765))
 
 plt.tight_layout()
 plt.savefig('decoding_figures/wheel-speed_trace', dpi=600)

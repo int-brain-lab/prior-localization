@@ -143,9 +143,9 @@ plt.xlim(0,len(mask))
 plt.legend(['Left Biased Block',
             'Probability of left prediction \n(across 10 models)'],
            frameon=True,
-           loc=(-0.15,1.1))
+           loc=(0.9,1.1))
 plt.xlabel('Trials')
-plt.ylabel('Block')
+plt.ylabel('Average predicted \nleft block')
 plt.tight_layout()
 plt.savefig(f'decoding_figures/{VARI}_trace', dpi=200)
 plt.show()

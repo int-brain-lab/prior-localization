@@ -134,10 +134,13 @@ plt.plot(trials[targs==1], preds[targs==1],'C0o',lw=2,ms=4)
 plt.plot(trials[targs==0],preds[targs==0],'C1o',lw=2,ms=4)
 # plt.yticks([-1,0,1])
 # plt.ylim(-1,1)
-plt.legend(['Prediction given choice$= 1$', 
-            'Prediction given choice$= 0$'],frameon=True,loc=(-0.15,1.1))
+plt.xlim(0,len(mask))
+plt.legend(['Prediction given choice$=$L', 
+            'Prediction given choice$=$R'],
+           frameon=True,
+           loc=(0.9,1.1))
 plt.xlabel('Trials')
-plt.ylabel('Choice')
+plt.ylabel('Average predicte \nleft choice')
 plt.tight_layout()
 plt.savefig(f'decoding_figures/{VARI}_trace', dpi=600)
 plt.show()

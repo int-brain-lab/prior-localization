@@ -130,9 +130,12 @@ plt.title(f"session: {eid} \n region: {acronym2name(region)} ({region}) \n balan
 plt.plot(trials[targs==1], preds[targs==1],'C0o',lw=2,ms=4)
 plt.plot(trials[targs==0],preds[targs==0],'C1o',lw=2,ms=4)
 plt.legend(['Prediction given reward$= 1$', 
-            'Prediction given reward$= 0$'],frameon=True,loc=(-0.15,1.1))
+            'Prediction given reward$= 0$'],
+           frameon=True,
+           loc=(0.9,1.1))#,loc=(-0.15,1.1))
 plt.xlabel('Trials')
-plt.ylabel('Reward')
+plt.ylabel('Average predicted \nreward')
+plt.xlim(0,len(mask))
 plt.tight_layout()
 plt.savefig(f'decoding_figures/{VARI}_trace', dpi=600)
 plt.show()

@@ -145,10 +145,13 @@ plt.plot(trials[targs>0], preds[targs>0],'C0o',lw=2,ms=4)
 plt.plot(trials[targs<0],preds[targs<0],'C1o',lw=2,ms=4)
 # plt.yticks([-1,0,1])
 # plt.ylim(-1,1)
+plt.xlim(0,len(mask))
 plt.legend(['Prediction given stimulus$> 0$', 
-            'Prediction given stimulus$< 0$'],frameon=True,loc=(-0.15,1.1))
+            'Prediction given stimulus$< 0$'],
+           frameon=True,
+           loc=(0.9,1.1))
 plt.xlabel('Trials')
-plt.ylabel('Stimulus')
+plt.ylabel('Average predicted \nsigned stimulus \ncontrast')
 plt.tight_layout()
 plt.savefig(f'decoding_figures/stim_trace_{region}', dpi=600)
 plt.show()
@@ -159,17 +162,17 @@ plt.title(f"session: {eid} \n region: {acronym2name(region)} {(region)} \n $R^2$
 ts = targs_multirun.flatten()
 ps = preds_multirun.flatten()
 best_df = pd.DataFrame({'Target': [str(t) for t in ts[np.argsort(ts)]],
-                       'Predictions': ps[np.argsort(ts)]})
+                       'Predicted stimulus contrast': ps[np.argsort(ts)]})
 ax = sns.histplot(best_df, 
              x='Target', 
-             y='Predictions',
+             y='Predicted stimulus contrast',
              bins=[c for c in np.linspace(-1,1,21)],
              cbar=True,
              cbar_kws={'label':'Frequency'},
              stat='probability')
 ax.tick_params(axis='x', rotation=45)
 
-ax.set(xlabel='Stimulus')
+ax.set(xlabel='Signed stimulus contrast')
 plt.ylim(-1,1)
 plt.tight_layout()
 plt.savefig(f'decoding_figures/stim_calibrate_{region}', dpi=600)
@@ -200,10 +203,13 @@ plt.plot(trials[targs>0], preds[targs>0],'C0o',lw=2,ms=4)
 plt.plot(trials[targs<0],preds[targs<0],'C1o',lw=2,ms=4)
 # plt.yticks([-1,0,1])
 # plt.ylim(-1,1)
+plt.xlim(0,len(mask))
 plt.legend(['Prediction given stimulus$> 0$', 
-            'Prediction given stimulus$< 0$'],frameon=True,loc=(-0.15,1.1))
+            'Prediction given stimulus$< 0$'],
+           frameon=True,
+           loc=(0.9,1.1))
 plt.xlabel('Trials')
-plt.ylabel('Stimulus')
+plt.ylabel('Average predicted \nsigned stimulus \ncontrast')
 plt.tight_layout()
 plt.savefig(f'decoding_figures/stim_trace_{region}', dpi=600)
 plt.show()
@@ -214,17 +220,17 @@ plt.title(f"session: {eid} \n region: {acronym2name(region)} {(region)} \n $R^2$
 ts = targs_multirun.flatten()
 ps = preds_multirun.flatten()
 best_df = pd.DataFrame({'Target': [str(t) for t in ts[np.argsort(ts)]],
-                       'Predictions': ps[np.argsort(ts)]})
+                       'Predicted stimulus contrast': ps[np.argsort(ts)]})
 ax = sns.histplot(best_df, 
              x='Target', 
-             y='Predictions',
+             y='Predicted stimulus contrast',
              bins=[c for c in np.linspace(-1,1,21)],
              cbar=True,
              cbar_kws={'label':'Frequency'},
              stat='probability')
 ax.tick_params(axis='x', rotation=45)
 
-ax.set(xlabel='Stimulus')
+ax.set(xlabel='Signed stimulus contrast')
 plt.ylim(-1,1)
 plt.tight_layout()
 plt.savefig(f'decoding_figures/stim_calibrate_{region}', dpi=600)
