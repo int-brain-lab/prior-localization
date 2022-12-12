@@ -18,7 +18,7 @@ file_all_results = 'decoding_results/summary/28-11-2022_decode_wheel-speed_task_
 file_xy_results = 'decoding_results/summary/28-11-2022_decode_wheel-speed_task_Lasso_align_firstMovement_times_100_pseudosessions_regionWise_timeWindow_-0_2_1_0_imposterSess_1_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_xy.pkl'
 FIG_SUF = ''
 
-FOCUS_REGIONS = ['ORBvl']
+FOCUS_REGIONS = ['GRN']
 
 res_table = pd.read_csv(file_all_results)
 xy_table = pd.read_pickle(file_xy_results)

@@ -295,6 +295,9 @@ def bar_results(acronyms_unordered,
                            in sorting)
         if array and TOP_N is given, the first TOP_N arguments in sort_args
         will be plotted
+    bolded_regions : None or array
+        if not None, array of strings for each region which should be bolded
+        in the x-axis
     Returns
     -------
     acronyms of TOP_N values
@@ -379,8 +382,10 @@ def bar_results(acronyms_unordered,
                          vs[j], 
                          'ko', markersize=4 , mfc=mfc)
     plt.xticks(inds, labels=acronyms, rotation=90)
-    # xtls = fig.axes[0].get_xticklabels()
-    # [xtl.get_text() in bolded_regions for xtl in xtls]
+    xtls = fig.axes[0].get_xticklabels()
+    [xtl.set_fontweight('extra bold') for xtl in xtls if xtl.get_text() in bolded_regions]
+    #fig.axes[0].set_xticklabels(xtls)
+    print('bar, x-axis tick labels', xtls)
     if not (ticks is None):
         plt.yticks(ticks[0], labels=ticks[1])
     #print(acronyms)

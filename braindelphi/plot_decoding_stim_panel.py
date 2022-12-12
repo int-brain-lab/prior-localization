@@ -22,7 +22,7 @@ file_all_results = 'decoding_results/summary/29-11-2022_decode_signcont_task_Las
 file_xy_results = 'decoding_results/summary/29-11-2022_decode_signcont_task_Lasso_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_0_0_0_1_imposterSess_0_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_xy.pkl'
 FIG_SUF = ''
 
-FOCUS_REGIONS = ['ORBvl']
+FOCUS_REGIONS = ['VISpm', 'PRNr']
 
 res_table = pd.read_csv(file_all_results)
 save_comb_regs_data = comb_regs_df(res_table, USE_ALL_BERYL_REGIONS=True)

@@ -15,7 +15,7 @@ file_all_results = 'decoding_results/summary/28-11-2022_decode_feedback_task_Log
 file_xy_results = 'decoding_results/summary/28-11-2022_decode_feedback_task_LogisticsRegression_align_feedback_times_200_pseudosessions_regionWise_timeWindow_0_0_0_2_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_xy.pkl'
 FIG_SUF = ''
 
-FOCUS_REGIONS = ['ORBvl']
+FOCUS_REGIONS = ['PRNc']
 
 res_table = pd.read_csv(file_all_results)
 xy_table = pd.read_pickle(file_xy_results)
