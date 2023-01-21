@@ -33,6 +33,14 @@ wo_var = np.var(wi_means)
 wi2wo_var = wi_var/wo_var
 save_comb_regs_data.to_csv(f'decoding_processing/{DATE}_{VARI}_regs_nsig{n_sig}_fsig{f_sig:.3f}_wi2ovar{wi2wo_var:.3f}.csv')
 
+assert np.all([len(xy_table.iloc[i]['cluster_uuids']) == xy_table.iloc[i]['weights'].shape[-1] for i in range(xy_table.shape[0])])
+cuuids = np.concatenate(list(xy_table['cluster_uuids']))
+ws = np.concatenate(list(xy_table['weights']),axis=-1)[:,:,0,:]
+ws = ws.reshape((50, -1))
+ws_dict = {f'ws_fold{i%5}_runid{i//5}' : ws[i,:] for i in range(50)}
+save_cluster_weights = pd.DataFrame({'cluster_uuids': cuuids, 
+                                     **ws_dict})
+save_cluster_weights.to_csv(f'decoding_processing/{DATE}_{VARI}_clusteruuids_weights.csv')
 
 #%%
 

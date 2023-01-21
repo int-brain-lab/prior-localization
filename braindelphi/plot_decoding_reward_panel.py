@@ -9,10 +9,13 @@ import seaborn as sns
 sns.set(font_scale=1.5)
 sns.set_style('whitegrid')
 
-DATE = '28-11-2022'
 VARI = 'feedback'
-file_all_results = 'decoding_results/summary/28-11-2022_decode_feedback_task_LogisticsRegression_align_feedback_times_200_pseudosessions_regionWise_timeWindow_0_0_0_2_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
-file_xy_results = 'decoding_results/summary/28-11-2022_decode_feedback_task_LogisticsRegression_align_feedback_times_200_pseudosessions_regionWise_timeWindow_0_0_0_2_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_xy.pkl'
+# DATE = '28-11-2022'
+# file_all_results = 'decoding_results/summary/28-11-2022_decode_feedback_task_LogisticsRegression_align_feedback_times_200_pseudosessions_regionWise_timeWindow_0_0_0_2_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
+# file_xy_results = 'decoding_results/summary/28-11-2022_decode_feedback_task_LogisticsRegression_align_feedback_times_200_pseudosessions_regionWise_timeWindow_0_0_0_2_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_xy.pkl'
+DATE = '18-01-2023'
+file_all_results = 'decoding_results/summary/18-01-2023_decode_feedback_task_LogisticsRegression_align_feedback_times_200_pseudosessions_regionWise_timeWindow_0_0_0_2_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
+file_xy_results = 'decoding_results/summary/18-01-2023_decode_feedback_task_LogisticsRegression_align_feedback_times_200_pseudosessions_regionWise_timeWindow_0_0_0_2_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_xy.pkl'
 FIG_SUF = ''
 
 FOCUS_REGIONS = ['PRNc']
@@ -30,6 +33,14 @@ wo_var = np.var(wi_means)
 wi2wo_var = wi_var/wo_var
 save_comb_regs_data.to_csv(f'decoding_processing/{DATE}_{VARI}_regs_nsig{n_sig}_fsig{f_sig:.3f}_wi2ovar{wi2wo_var:.3f}.csv')
 
+assert np.all([len(xy_table.iloc[i]['cluster_uuids']) == xy_table.iloc[i]['weights'].shape[-1] for i in range(xy_table.shape[0])])
+cuuids = np.concatenate(list(xy_table['cluster_uuids']))
+ws = np.concatenate(list(xy_table['weights']),axis=-1)[:,:,0,:]
+ws = ws.reshape((50, -1))
+ws_dict = {f'ws_fold{i%5}_runid{i//5}' : ws[i,:] for i in range(50)}
+save_cluster_weights = pd.DataFrame({'cluster_uuids': cuuids, 
+                                     **ws_dict})
+save_cluster_weights.to_csv(f'decoding_processing/{DATE}_{VARI}_clusteruuids_weights.csv')
 #%%
 
 regs = np.array(regs_table['region'])
