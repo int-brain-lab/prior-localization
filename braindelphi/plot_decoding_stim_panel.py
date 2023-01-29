@@ -25,11 +25,12 @@ DATE = '18-01-2023'
 file_all_results = 'decoding_results/summary/18-01-2023_decode_signcont_task_Lasso_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_0_0_0_1_imposterSess_0_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
 file_xy_results = 'decoding_results/summary/18-01-2023_decode_signcont_task_Lasso_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_0_0_0_1_imposterSess_0_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_xy.pkl'
 
-FIG_SUF = ''
+FIG_SUF = '.svg'
 
 FOCUS_REGIONS = ['VISpm', 'PRNr']
 
 res_table = pd.read_csv(file_all_results)
+xy_table = pd.read_pickle(file_xy_results)
 save_comb_regs_data = comb_regs_df(res_table, USE_ALL_BERYL_REGIONS=True)
 regs_table = comb_regs_df(res_table, USE_ALL_BERYL_REGIONS=False)
 
@@ -41,8 +42,14 @@ wo_var = np.var(wi_means)
 wi2wo_var = wi_var/wo_var
 save_comb_regs_data.to_csv(f'decoding_processing/{DATE}_{VARI}_regs_nsig{n_sig}_fsig{f_sig:.3f}_wi2ovar{wi2wo_var:.3f}.csv')
 
-
-
+assert np.all([len(xy_table.iloc[i]['cluster_uuids']) == xy_table.iloc[i]['weights'].shape[-1] for i in range(xy_table.shape[0])])
+cuuids = np.concatenate(list(xy_table['cluster_uuids']))
+ws = np.concatenate(list(xy_table['weights']),axis=-1)
+ws = ws.reshape((50, -1))
+ws_dict = {f'ws_fold{i%5}_runid{i//5}' : ws[i,:] for i in range(50)}
+save_cluster_weights = pd.DataFrame({'cluster_uuids': cuuids, 
+                                     **ws_dict})
+save_cluster_weights.to_csv(f'decoding_processing/{DATE}_{VARI}_clusteruuids_weights.csv')
 #%% Stim
 
 regs = np.array(regs_table['region'])
@@ -158,7 +165,7 @@ plt.legend(['Prediction given stimulus$> 0$',
 plt.xlabel('Trials')
 plt.ylabel('Average predicted \nsigned stimulus \ncontrast')
 plt.tight_layout()
-plt.savefig(f'decoding_figures/stim_trace_{region}', dpi=600)
+plt.savefig(f'decoding_figures/stim_trace_{region}.svg', dpi=600)
 plt.show()
 
 plt.figure(figsize=(8,5))
@@ -180,7 +187,7 @@ ax.tick_params(axis='x', rotation=45)
 ax.set(xlabel='Signed stimulus contrast')
 plt.ylim(-1,1)
 plt.tight_layout()
-plt.savefig(f'decoding_figures/stim_calibrate_{region}', dpi=600)
+plt.savefig(f'decoding_figures/stim_calibrate_{region}.svg', dpi=600)
 plt.show()
 
 eid = '16c3667b-e0ea-43fb-9ad4-8dcd1e6c40e1'
@@ -216,7 +223,7 @@ plt.legend(['Prediction given stimulus$> 0$',
 plt.xlabel('Trials')
 plt.ylabel('Average predicted \nsigned stimulus \ncontrast')
 plt.tight_layout()
-plt.savefig(f'decoding_figures/stim_trace_{region}', dpi=600)
+plt.savefig(f'decoding_figures/stim_trace_{region}.svg', dpi=600)
 plt.show()
 
 plt.figure(figsize=(8,5))
@@ -238,5 +245,5 @@ ax.tick_params(axis='x', rotation=45)
 ax.set(xlabel='Signed stimulus contrast')
 plt.ylim(-1,1)
 plt.tight_layout()
-plt.savefig(f'decoding_figures/stim_calibrate_{region}', dpi=600)
+plt.savefig(f'decoding_figures/stim_calibrate_{region}.svg', dpi=600)
 plt.show()

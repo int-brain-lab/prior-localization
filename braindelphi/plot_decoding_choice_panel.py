@@ -16,7 +16,7 @@ VARI = 'choice'
 DATE = '18-01-2023'
 file_all_results = 'decoding_results/summary/18-01-2023_decode_choice_task_LogisticsRegression_align_firstMovement_times_200_pseudosessions_regionWise_timeWindow_-0_1_0_0_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
 file_xy_results = 'decoding_results/summary/18-01-2023_decode_choice_task_LogisticsRegression_align_firstMovement_times_200_pseudosessions_regionWise_timeWindow_-0_1_0_0_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_xy.pkl'
-FIG_SUF = ''
+FIG_SUF = '.svg'
 
 FOCUS_REGIONS = ['SSp-ul']
 
@@ -153,7 +153,25 @@ plt.legend(['Prediction given choice$=$L',
 plt.xlabel('Trials')
 plt.ylabel('Average predicted \nleft choice')
 plt.tight_layout()
-plt.savefig(f'decoding_figures/{VARI}_trace', dpi=600)
+plt.savefig(f'decoding_figures/SI/{VARI}_trace.svg', dpi=600)
+plt.show()
+
+plt.figure(figsize=(5,4))
+
+plt.title(f"session: {eid} \n region: {acronym2name(region)} ({region}) \n balanced accuracy = {er_vals['score']:.3f} (average across 10 models)")
+plt.plot(trials[targs==1], preds[targs==1],'C0o',lw=2,ms=4)
+plt.plot(trials[targs==0],preds[targs==0],'C1o',lw=2,ms=4)
+# plt.yticks([-1,0,1])
+# plt.ylim(-1,1)
+plt.xlim(100,400)
+plt.legend(['Prediction given choice$=$L', 
+            'Prediction given choice$=$R'],
+           frameon=True,
+           loc=(0.9,1.1))
+plt.xlabel('Trials')
+plt.ylabel('Average predicted \nleft choice')
+plt.tight_layout()
+plt.savefig(f'decoding_figures/{VARI}_trace.svg', dpi=600)
 plt.show()
 
 #%%

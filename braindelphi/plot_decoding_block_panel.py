@@ -24,7 +24,7 @@ DATE = '18-01-2023'
 VARI = 'block'
 file_all_results = 'decoding_results/summary/01-18-2023_decode_pLeft_oracle_LogisticsRegression_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_-0_4_-0_1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
 file_xy_results = 'decoding_results/summary/01-18-2023_decode_pLeft_oracle_LogisticsRegression_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_-0_4_-0_1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_xy.pkl'
-FIG_SUF = ''
+FIG_SUF = '.svg'
 
 FOCUS_REGIONS = ['ORBvl']
 
@@ -160,7 +160,25 @@ plt.legend(['Left Biased Block',
 plt.xlabel('Trials')
 plt.ylabel('Average predicted \nleft block')
 plt.tight_layout()
-plt.savefig(f'decoding_figures/{VARI}_trace', dpi=200)
+plt.savefig(f'decoding_figures/SI/{VARI}_trace.svg', dpi=200)
+plt.show()
+
+plt.figure(figsize=(5,4))
+thin_inds = np.logical_and(trials>=100, trials<=400)
+plt.title(f"session: {eid} \n region: {acronym2name(region)} ({region}) \n balanced accuracy = {er_vals['score']:.3f} (average across 10 models)")
+plt.plot(trials[thin_inds], targs[thin_inds], '-', c='k',lw=4)
+plt.plot(trials[thin_inds], preds[thin_inds], '-', c='mediumpurple')
+plt.yticks([0,.5,1])
+plt.ylim(-0.1,1.1)
+plt.xlim(100,400)
+plt.legend(['Left Biased Block',
+            'Probability of left prediction \n(across 10 models)'],
+           frameon=True,
+           loc=(0.9,1.1))
+plt.xlabel('Trials')
+plt.ylabel('Average predicted \nleft block')
+plt.tight_layout()
+plt.savefig(f'decoding_figures/{VARI}_trace.svg', dpi=200)
 plt.show()
 
 #%%

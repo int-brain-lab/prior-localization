@@ -12,11 +12,12 @@ one = ONE()
 sns.set(font_scale=1.5)
 sns.set_style('whitegrid')
 
-DATE = '28-11-2022'
 VARI = 'wheel-speed'
-file_all_results = 'decoding_results/summary/28-11-2022_decode_wheel-speed_task_Lasso_align_firstMovement_times_100_pseudosessions_regionWise_timeWindow_-0_2_1_0_imposterSess_1_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
-file_xy_results = 'decoding_results/summary/28-11-2022_decode_wheel-speed_task_Lasso_align_firstMovement_times_100_pseudosessions_regionWise_timeWindow_-0_2_1_0_imposterSess_1_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_xy.pkl'
-FIG_SUF = ''
+
+DATE = '18-01-2023'
+file_all_results = 'decoding_results/summary/18-01-2023_decode_wheel-speed_task_Lasso_align_firstMovement_times_100_pseudosessions_regionWise_timeWindow_-0_2_1_0_imposterSess_1_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
+file_xy_results = 'decoding_results/summary/18-01-2023_decode_wheel-speed_task_Lasso_align_firstMovement_times_100_pseudosessions_regionWise_timeWindow_-0_2_1_0_imposterSess_1_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_xy.pkl'
+FIG_SUF = '.svg'
 
 FOCUS_REGIONS = ['GRN']
 
@@ -185,5 +186,5 @@ fig.legend(['Actual wheel-speed', 'Predicted wheel-speed \n(average across 2 mod
            loc=(0.75,0.765))
 
 plt.tight_layout()
-plt.savefig('decoding_figures/wheel-speed_trace', dpi=600)
+plt.savefig('decoding_figures/wheel-speed_trace.svg', dpi=600)
 plt.show()

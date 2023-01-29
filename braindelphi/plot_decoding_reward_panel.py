@@ -4,6 +4,7 @@ import pandas as pd
 from plot_utils import acronym2name, get_xy_vals, get_res_vals, brain_SwansonFlat_results, bar_results
 from plot_utils import heatmap, activity_and_decoding_weights
 from plot_utils import comb_regs_df, get_within_region_mean_var
+# from yanliang_brain_slice_plot import generate_sag_slices, generate_ctx_top
 import matplotlib.pyplot as plt
 import seaborn as sns
 sns.set(font_scale=1.5)
@@ -16,7 +17,7 @@ VARI = 'feedback'
 DATE = '18-01-2023'
 file_all_results = 'decoding_results/summary/18-01-2023_decode_feedback_task_LogisticsRegression_align_feedback_times_200_pseudosessions_regionWise_timeWindow_0_0_0_2_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
 file_xy_results = 'decoding_results/summary/18-01-2023_decode_feedback_task_LogisticsRegression_align_feedback_times_200_pseudosessions_regionWise_timeWindow_0_0_0_2_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_xy.pkl'
-FIG_SUF = ''
+FIG_SUF = '.svg'
 
 FOCUS_REGIONS = ['PRNc']
 
@@ -68,6 +69,9 @@ brain_SwansonFlat_results(regs[~np.isnan(ms_regs)],
                   extend=None,
                   cbar_orientation='horizontal',
                   value_title='Median significant balanced accuracy')
+
+# generate_sag_slices(regs[~np.isnan(ms_regs)], 
+#                           ms_regs[~np.isnan(ms_regs)])
 
 n_regs = np.array(regs_table['n_sessions'])
 assert not np.any(n_regs==0)
@@ -148,7 +152,23 @@ plt.xlabel('Trials')
 plt.ylabel('Average predicted \nreward')
 plt.xlim(0,len(mask))
 plt.tight_layout()
-plt.savefig(f'decoding_figures/{VARI}_trace', dpi=600)
+plt.savefig(f'decoding_figures/SI/{VARI}_trace.svg', dpi=600)
+plt.show()
+
+plt.figure(figsize=(5,4))
+
+plt.title(f"session: {eid} \n region: {acronym2name(region)} ({region}) \n balanced accuracy = {er_vals['score']:.3f} (average across 10 models)")
+plt.plot(trials[targs==1], preds[targs==1],'C0o',lw=2,ms=4)
+plt.plot(trials[targs==0],preds[targs==0],'C1o',lw=2,ms=4)
+plt.legend(['Prediction given reward$= 1$', 
+            'Prediction given reward$= 0$'],
+           frameon=True,
+           loc=(0.9,1.1))#,loc=(-0.15,1.1))
+plt.xlabel('Trials')
+plt.ylabel('Average predicted \nreward')
+plt.xlim(100,400)
+plt.tight_layout()
+plt.savefig(f'decoding_figures/{VARI}_trace.svg', dpi=600)
 plt.show()
 
 #%%
