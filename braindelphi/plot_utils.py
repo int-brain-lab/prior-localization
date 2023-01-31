@@ -48,6 +48,36 @@ def get_xy_vals(xy_table, eid, region):
     assert xy_vals.shape[0] == 1
     return xy_vals.iloc[0]
 
+def get_predprob_vals(xy_table, eid, region):
+    inds = list(xy_table[xy_table['eid_region']==f'{eid}_{region}'].index)
+    assert len(inds) == 1
+    ind = inds[0]
+    # shape of (runs, neurons, trials)
+    w_trials = np.empty((xy_table.loc[ind]['weights'].shape[0],
+                          xy_table.loc[ind]['weights'].shape[3],
+                          xy_table.loc[ind]['regressors'].shape[0]))
+    w_trials[:] = np.nan
+    for ri in range(10):
+        for fi in range(5):
+            w_trials[ri,:,xy_table.loc[ind]['idxes'][ri,fi]] = xy_table.loc[ind]['weights'][ri,fi,0,:]
+    assert not np.any(np.isnan(w_trials))        
+    
+    itcp_trials = np.empty((xy_table.loc[ind]['intercepts'].shape[0], 
+                          xy_table.loc[ind]['regressors'].shape[0]))
+    itcp_trials[:] = np.nan
+    for ri in range(10):
+        for fi in range(5):
+            itcp_trials[ri,xy_table.loc[ind]['idxes'][ri,fi]] = xy_table.loc[ind]['intercepts'][ri,fi,0]
+    assert not np.any(np.isnan(itcp_trials))
+    
+    expvals = -np.einsum('rnt,tn->rt',
+                          w_trials,
+                          xy_table.loc[ind]['regressors'][:,0,:]) - itcp_trials
+    predprobs = 1./(1+np.exp(expvals))
+    assert np.all(xy_table.loc[ind]['predictions'][:,:,0] == (predprobs>0.5))
+    
+    return predprobs.mean(axis=0)
+
 def get_res_vals(res_table, eid, region):
     er_vals = res_table[(res_table['eid']==eid) & (res_table['region']==region)]
     assert len(er_vals)==1
@@ -709,3 +739,4 @@ def activity_and_decoding_weights(res_table, xy_table,
         plt.savefig(save_path,dpi=100)
         
         return axs
+    

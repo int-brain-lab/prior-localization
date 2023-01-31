@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 from plot_utils import acronym2name, get_xy_vals, get_res_vals, brain_SwansonFlat_results, bar_results
 from plot_utils import heatmap, activity_and_decoding_weights
-from plot_utils import comb_regs_df, get_within_region_mean_var
+from plot_utils import comb_regs_df, get_within_region_mean_var, get_predprob_vals
 import matplotlib.pyplot as plt
 import seaborn as sns
 sns.set(font_scale=1.5)
@@ -142,6 +142,7 @@ W = np.stack([np.ndarray.flatten(ws[:,:,i]) for i in range(ws.shape[2])]).T
 assert W.shape[0] == 50
 mask = xy_vals['mask']
 preds = np.mean(np.squeeze(xy_vals['predictions']), axis=0)
+predprobs = get_predprob_vals(xy_table, eid, region)
 targs = np.squeeze(xy_vals['targets'])
 trials = np.arange(len(mask))[[m==1 for m in mask]]
 
@@ -149,7 +150,7 @@ plt.figure(figsize=(14,3.3))
 
 plt.title(f"session: {eid} \n region: {acronym2name(region)} ({region}) \n balanced accuracy = {er_vals['score']:.3f} (average across 10 models)")
 plt.plot(trials, targs, '-', c='k',lw=4)
-plt.plot(trials, preds, '-', c='mediumpurple')
+plt.plot(trials, predprobs, '-', c='mediumpurple')
 plt.yticks([0,.5,1])
 plt.ylim(-0.1,1.1)
 plt.xlim(0,len(mask))
@@ -164,10 +165,9 @@ plt.savefig(f'decoding_figures/SI/{VARI}_trace.svg', dpi=200)
 plt.show()
 
 plt.figure(figsize=(5,4))
-thin_inds = np.logical_and(trials>=100, trials<=400)
 plt.title(f"session: {eid} \n region: {acronym2name(region)} ({region}) \n balanced accuracy = {er_vals['score']:.3f} (average across 10 models)")
-plt.plot(trials[thin_inds], targs[thin_inds], '-', c='k',lw=4)
-plt.plot(trials[thin_inds], preds[thin_inds], '-', c='mediumpurple')
+plt.plot(trials, targs, '-', c='k',lw=4)
+plt.plot(trials, predprobs, '-', c='mediumpurple')
 plt.yticks([0,.5,1])
 plt.ylim(-0.1,1.1)
 plt.xlim(100,400)
