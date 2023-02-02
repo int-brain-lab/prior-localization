@@ -6,6 +6,7 @@ from pathlib import Path
 from braindelphi.pipelines.utils_common_pipelines import load_ephys
 from braindelphi.pipelines.utils_common_pipelines import cache_regressors
 
+
 # Third party libraries
 import dask
 import pandas as pd
@@ -22,11 +23,13 @@ CACHE_PATH.mkdir(parents=True, exist_ok=True)
 
 _logger = logging.getLogger("braindelphi")
 
+one = ONE()
+
 
 @dask.delayed
 def delayed_load(eid, pids, params):
     try:
-        return load_ephys(eid, pids, **params)
+        return load_ephys(eid, pids, one=one, **params)
     except KeyError:
         pass
 
@@ -53,9 +56,10 @@ dataset_futures = []
 
 one = ONE()
 one.alyx.clear_rest_cache()
-bwm_df = bwm_query(freeze="2022_10_initial").set_index(["subject", "eid"])
+bwm_df = bwm_query().set_index(["subject", "eid"])  # freeze="2022_10_update"
+from tqdm import tqdm
 
-for eid in bwm_df.index.unique(level="eid"):
+for eid in tqdm(bwm_df.index.unique(level="eid")):
     session_df = bwm_df.xs(eid, level="eid")
     subject = session_df.index[0]
     # If there are two probes, there are two options:
@@ -70,13 +74,15 @@ for eid in bwm_df.index.unique(level="eid"):
         dataset_futures.append([subject, eid, "merged_probes", save_future])
     else:
         for (pid, probe_name) in zip(pids, probe_names):
+            # load_outputs = load_ephys(eid, [pid], one=one, **params)
+            # save_future = cache_regressors(subject, eid, probe_name, {**params, "type": TYPE}, load_outputs)
             load_outputs = delayed_load(eid, [pid], params)
             save_future = delayed_save(
                 subject, eid, probe_name, {**params, "type": TYPE}, load_outputs
             )
             dataset_futures.append([subject, eid, probe_name, save_future])
 
-N_CORES = 3
+N_CORES = 5
 
 cluster = SLURMCluster(
     cores=N_CORES,
@@ -86,7 +92,7 @@ cluster = SLURMCluster(
     walltime="01:15:00",
     log_directory="/srv/beegfs/scratch/users/f/findling/dask-worker-logs",
     interface="ib0",
-    extra=["--lifetime", "60m", "--lifetime-stagger", "10m"],
+    extra=["--lifetime", "60m", "--lifetime-stagger", "30m"],
     job_cpu=N_CORES,
     env_extra=[
         f"export OMP_NUM_THREADS={N_CORES}",
@@ -96,10 +102,8 @@ cluster = SLURMCluster(
 )
 
 # cluster = LocalCluster()
-cluster.scale(2)
-
+cluster.scale(5)
 client = Client(cluster)
-
 tmp_futures = [client.compute(future[3]) for future in dataset_futures]
 
 # Run below code AFTER futures have finished!

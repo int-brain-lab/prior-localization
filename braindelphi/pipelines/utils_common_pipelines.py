@@ -14,7 +14,7 @@ import pandas as pd
 # IBL libraries
 import brainbox.io.one as bbone
 import brainbox.metrics.single_units as bbqc
-from ibllib.dsp.smooth import smooth_interpolate_savgol
+from neurodsp.smooth import smooth_interpolate_savgol
 from one.api import ONE
 from one.alf.exceptions import ALFObjectNotFound
 
@@ -23,6 +23,9 @@ from braindelphi.params import CACHE_PATH
 
 _logger = logging.getLogger("braindelphi")
 
+from one.api import ONE
+import one.params as one_params
+
 
 def load_ephys(
     session_id,
@@ -30,7 +33,10 @@ def load_ephys(
     ret_qc,
     one=None,
 ):
-    one = ONE() if one is None else one
+    # cache_dir = one_params.get().CACHE_DIR  # Retrieve the default dataset download directory (for the main alyx)
+    # one = ONE(base_url='https://openalyx.internationalbrainlab.org') #, password='international', silent=True)
+    # one_params.cache_dir = cache_dir
+    # one = ONE() #.setup(base_url='https://openalyx.internationalbrainlab.org')
 
     sess_loader = bbone.SessionLoader(one, session_id)
 
@@ -42,7 +48,7 @@ def load_ephys(
     spikes, clusters, cludfs = {}, {}, []
     clumax = 0
     for pid in pids:
-        ssl = bbone.SpikeSortingLoader(one=one, pid=pid)
+        ssl = bbone.SpikeSortingLoader(one=one, pid=pid, eid=session_id)
         spikes[pid], tmpclu, channels = ssl.load_spike_sorting()
         if "metrics" not in tmpclu:
             tmpclu["metrics"] = np.ones(tmpclu["channels"].size)
