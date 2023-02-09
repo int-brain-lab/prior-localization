@@ -11,6 +11,7 @@ import pandas as pd
 from plot_utils import acronym2name, get_xy_vals, get_res_vals, brain_SwansonFlat_results, bar_results
 from plot_utils import heatmap, activity_and_decoding_weights
 from plot_utils import comb_regs_df, get_within_region_mean_var, get_predprob_vals
+from yanliang_brain_slice_plot import get_cmap, generate_sag_slices
 import matplotlib.pyplot as plt
 import seaborn as sns
 sns.set(font_scale=1.5)
@@ -59,20 +60,22 @@ assert not np.any(np.isnan(fs_regs))
 brain_SwansonFlat_results(regs, 
                           fs_regs, 
                   filename=f'{VARI}_swanson_fs'+FIG_SUF, 
-                  cmap='Purples',
+                  cmap=get_cmap(VARI),
                   clevels=[0, 0.55],
                   ticks=None,
                   extend='max',
                   cbar_orientation='horizontal',
                   value_title='Fraction of significant sessions')
 
+# generate_sag_slices(regs, fs_regs)
+
 ms_regs = np.array(regs_table['values_median_sig'])
 
 brain_SwansonFlat_results(regs[~np.isnan(ms_regs)], 
                           ms_regs[~np.isnan(ms_regs)], 
                   filename=f'{VARI}_swanson_ms'+FIG_SUF, 
-                  cmap='Purples',
-                  clevels=[None, None],
+                  cmap=get_cmap(VARI),
+                  clevels=[0.5, 1.0],
                   ticks=None,
                   extend=None,
                   cbar_orientation='horizontal',
@@ -85,7 +88,7 @@ n_regs = np.log(n_regs)/np.log(2)
 brain_SwansonFlat_results(regs, 
                           n_regs, 
                   filename=f'{VARI}_swanson_n'+FIG_SUF, 
-                  cmap='Purples',
+                  cmap=get_cmap(VARI),
                   clevels=[None, None],
                   ticks=([1,2,3,4,5],[2,4,8,16,32]),
                   extend=None,

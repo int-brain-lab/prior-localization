@@ -5,6 +5,7 @@
 # import scipy.stats as scist
 import os
 import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 
 
 ###############################
@@ -16,7 +17,20 @@ import numpy as np
 from ibllib.atlas import AllenAtlas
 # atlas of 10um resolution #
 ba = AllenAtlas(10)
-ba.compute_surface()
+# ba.plot_cslice(2000/1e6)
+# def compute_top(ba):
+#     axz = ba.xyz2dims[2]  # this is the dv axis
+#     _surface = (ba.label == 0).astype(np.int8) * 2
+#     l0 = np.diff(_surface, axis=axz, append=2)
+#     _top = np.argmax(l0 == -2, axis=axz).astype(float)
+#     _top[_top == 0] = np.nan
+#     ba.top = ba.bc.i2z(_top + 1)
+
+#     return ba
+
+# ba = compute_top(ba)
+
+# ba.compute_surface()
 
 def _take(vol, ind, axis, mode='clip'):
     if mode == 'clip':
@@ -57,7 +71,7 @@ def _take(vol, ind, axis, mode='clip'):
 
 
 ######## create RGB image of sag view slice [pixel_x,pixel_y,3] ########
-def sag_slice_RGB(list_region_id, list_region_value,ML_coordinate,color_range=1):
+def sag_slice_RGB(list_region_id, list_region_value, ML_coordinate, color_range=1):
 
     
     #coordinate_1=(-4000+100*21)/1000000
@@ -81,7 +95,7 @@ def sag_slice_RGB(list_region_id, list_region_value,ML_coordinate,color_range=1)
 
 
     ########## color of values ##############
-    S_color=np.array([ [249/255, 228/255, 183/255],[0.9882,0.8510,0.5020],[0.9294,0.6902,0.1294], [0.8510,0.3294,0.1020]])
+    S_color=np.array([ [249/255, 228/255, 183/255], [0.9882,0.8510,0.5020],[0.9294,0.6902,0.1294], [0.8510,0.3294,0.1020]])
     
     ##### color of Null vlaues white=[1,1,1]
     N_color=[1,1,1]
@@ -346,4 +360,22 @@ def generate_ctx_top(list_region_label, list_region_value):
     im_ctx_1=ctx_slice_RGB(list_region_id, list_region_value,1)
 
     return make_ctx_plot(im_ctx_1)
+
+def get_cmap(split):
+    '''
+    for each split, get a colormap defined by Yanliang
+    function created by Michael Schartner
+    '''
+    dc = {'stim': ["#ffffff","#D5E1A0","#A3C968",
+                   "#86AF40","#517146"],
+          'choice': ["#ffffff","#F8E4AA","#F9D766",
+                     "#E8AC22","#DA4727"],
+          'feedback': ["#ffffff","#F1D3D0","#F5968A",
+                    "#E34335","#A23535"],
+          'block': ["#ffffff","#D0CDE4","#998DC3",
+                    "#6159A6","#42328E"],
+          'wheel-speed': ["#ffffff","#C2E1EA","#95CBEE",
+                    "#5373B8","#324BA0"]}
+
+    return LinearSegmentedColormap.from_list("mycmap", dc[split])
 

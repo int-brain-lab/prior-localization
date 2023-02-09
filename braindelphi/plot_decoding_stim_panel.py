@@ -11,6 +11,7 @@ import pandas as pd
 from plot_utils import acronym2name, get_xy_vals, get_res_vals, brain_SwansonFlat_results, bar_results
 from plot_utils import heatmap, activity_and_decoding_weights
 from plot_utils import comb_regs_df, get_within_region_mean_var
+from yanliang_brain_slice_plot import get_cmap
 import matplotlib.pyplot as plt
 import seaborn as sns
 sns.set(font_scale=1.5)
@@ -59,7 +60,7 @@ assert not np.any(np.isnan(fs_regs))
 brain_SwansonFlat_results(regs, 
                           fs_regs, 
                   filename=f'{VARI}_swanson_fs'+FIG_SUF, 
-                  cmap='Blues',
+                  cmap=get_cmap(VARI),
                   clevels=[0, 0.55],
                   ticks=None,
                   extend='max',
@@ -71,7 +72,7 @@ ms_regs = np.array(regs_table['values_median_sig'])
 brain_SwansonFlat_results(regs[~np.isnan(ms_regs)], 
                           ms_regs[~np.isnan(ms_regs)], 
                   filename=f'{VARI}_swanson_ms'+FIG_SUF, 
-                  cmap='Blues',
+                  cmap=get_cmap(VARI),
                   clevels=[None, None],
                   ticks=None,
                   extend=None,
@@ -85,7 +86,7 @@ n_regs = np.log(n_regs)/np.log(2)
 brain_SwansonFlat_results(regs, 
                           n_regs, 
                   filename=f'{VARI}_swanson_n'+FIG_SUF, 
-                  cmap='Blues',
+                  cmap=get_cmap(VARI),
                   clevels=[None, None],
                   ticks=([1,2,3,4,5],[2,4,8,16,32]),
                   extend=None,
@@ -181,6 +182,7 @@ ax = sns.histplot(best_df,
              bins=[c for c in np.linspace(-1,1,21)],
              cbar=True,
              cbar_kws={'label':'Frequency'},
+             cmap = get_cmap(VARI),
              stat='probability')
 ax.tick_params(axis='x', rotation=45)
 
@@ -239,6 +241,7 @@ ax = sns.histplot(best_df,
              bins=[c for c in np.linspace(-1,1,21)],
              cbar=True,
              cbar_kws={'label':'Frequency'},
+             cmap = get_cmap(VARI),
              stat='probability')
 ax.tick_params(axis='x', rotation=45)
 
