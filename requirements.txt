@@ -1,6 +1,0 @@
-filelock
-sobol-seq
-dask-jobqueue
-ibllib
-git+git@github.com:nicholas-roy/psytrack.git
-pytest
