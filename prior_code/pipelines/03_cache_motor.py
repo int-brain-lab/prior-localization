@@ -16,7 +16,7 @@ from dask.distributed import LocalCluster
 # IBL libraries
 from one.api import ONE
 from brainwidemap import bwm_query
-from code.params import CACHE_PATH
+from prior_code.params import CACHE_PATH
 
 CACHE_PATH.mkdir(parents=True, exist_ok=True)
 

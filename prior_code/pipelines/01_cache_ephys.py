@@ -3,8 +3,8 @@ import logging
 import pickle
 from datetime import datetime as dt
 from pathlib import Path
-from code.pipelines.utils_pipelines import load_ephys
-from code.pipelines.utils_pipelines import cache_regressors
+from prior_code.pipelines.utils_pipelines import load_ephys
+from prior_code.pipelines.utils_pipelines import cache_regressors
 import numpy as np
 
 # Third party libraries
@@ -13,7 +13,7 @@ import pandas as pd
 # IBL libraries
 from one.api import ONE
 from brainwidemap import bwm_query
-from code.params import CACHE_PATH
+from prior_code.params import CACHE_PATH
 
 from tqdm import tqdm
 

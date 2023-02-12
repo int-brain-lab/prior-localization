@@ -15,11 +15,10 @@ import pandas as pd
 import brainbox.io.one as bbone
 import brainbox.metrics.single_units as bbqc
 from neurodsp.smooth import smooth_interpolate_savgol
-from one.api import ONE
 from one.alf.exceptions import ALFObjectNotFound
 
 # code repo imports
-from code.params import CACHE_PATH
+from prior_code.params import CACHE_PATH
 
 _logger = logging.getLogger("code")
 
@@ -33,11 +32,6 @@ def load_ephys(
     ret_qc,
     one=None,
 ):
-    # cache_dir = one_params.get().CACHE_DIR  # Retrieve the default dataset download directory (for the main alyx)
-    # one = ONE(base_url='https://openalyx.internationalbrainlab.org') #, password='international', silent=True)
-    # one_params.cache_dir = cache_dir
-    # one = ONE() #.setup(base_url='https://openalyx.internationalbrainlab.org')
-
     sess_loader = bbone.SessionLoader(one, session_id)
 
     if sess_loader.trials.empty:
