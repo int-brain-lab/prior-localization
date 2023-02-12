@@ -1,10 +1,10 @@
 import pandas as pd
 import sys
-from braindelphi.decoding.settings import kwargs, N_PSEUDO_PER_JOB, N_PSEUDO
-from braindelphi.decoding.functions.decoding import fit_eid
+from code.decoding.settings import kwargs, N_PSEUDO_PER_JOB, N_PSEUDO
+from code.decoding.functions.decoding import fit_eid
 import numpy as np
-from braindelphi.params import CACHE_PATH, IMPOSTER_SESSION_PATH
-from braindelphi.decoding.functions.utils import load_metadata
+from code.params import CACHE_PATH, IMPOSTER_SESSION_PATH
+from code.decoding.functions.utils import load_metadata
 import pickle
 
 try:

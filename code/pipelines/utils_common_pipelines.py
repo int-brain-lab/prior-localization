@@ -18,10 +18,10 @@ from neurodsp.smooth import smooth_interpolate_savgol
 from one.api import ONE
 from one.alf.exceptions import ALFObjectNotFound
 
-# braindelphi repo imports
-from braindelphi.params import CACHE_PATH
+# code repo imports
+from code.params import CACHE_PATH
 
-_logger = logging.getLogger("braindelphi")
+_logger = logging.getLogger("code")
 
 from one.api import ONE
 import one.params as one_params

@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import brainbox.behavior.pyschofit as pfit
-from braindelphi.decoding.functions.process_targets import compute_beh_target
+from code.decoding.functions.process_targets import compute_beh_target
 
 
 def compute_neurometric_prior(trialsdf_neurometric, metadata, **kwargs):
@@ -27,7 +27,6 @@ def compute_neurometric_prior(trialsdf_neurometric, metadata, **kwargs):
         )
         trialsdf_neurometric["blockprob_neurometric"] = blockprob_neurometric
     return trialsdf_neurometric
-
 
 
 """
@@ -106,7 +105,6 @@ def get_target_df(target, pred, test_idxs, trialsdf):
         grpbyagg.loc[k].reset_index().values.T
         for k in grpbyagg.index.get_level_values("blockprob").unique().sort_values()
     ]
-
 
 
 def get_neurometric_parameters_(

@@ -12,33 +12,33 @@ from sklearn.linear_model import RidgeCV, Ridge, Lasso, LassoCV
 
 from ibllib.atlas import BrainRegions
 
-from braindelphi.decoding.functions.balancedweightings import balanced_weighting
-from braindelphi.decoding.functions.process_inputs import build_predictor_matrix
-from braindelphi.decoding.functions.process_inputs import select_ephys_regions
-from braindelphi.decoding.functions.process_inputs import get_bery_reg_wfi
-from braindelphi.decoding.functions.process_inputs import (
+from code.decoding.functions.balancedweightings import balanced_weighting
+from code.decoding.functions.process_inputs import build_predictor_matrix
+from code.decoding.functions.process_inputs import select_ephys_regions
+from code.decoding.functions.process_inputs import get_bery_reg_wfi
+from code.decoding.functions.process_inputs import (
     select_widefield_imaging_regions,
 )
-from braindelphi.decoding.functions.neurometric import compute_neurometric_prior
-from braindelphi.decoding.functions.process_inputs import preprocess_ephys
-from braindelphi.decoding.functions.process_inputs import preprocess_widefield_imaging
-from braindelphi.decoding.functions.process_targets import compute_beh_target
-from braindelphi.decoding.functions.process_targets import (
+from code.decoding.functions.neurometric import compute_neurometric_prior
+from code.decoding.functions.process_inputs import preprocess_ephys
+from code.decoding.functions.process_inputs import preprocess_widefield_imaging
+from code.decoding.functions.process_targets import compute_beh_target
+from code.decoding.functions.process_targets import (
     get_target_data_per_trial_wrapper,
 )
-from braindelphi.decoding.functions.utils import compute_mask
-from braindelphi.decoding.functions.utils import save_region_results
-from braindelphi.decoding.functions.utils import get_save_path
-from braindelphi.decoding.functions.balancedweightings import get_balanced_weighting
-from braindelphi.decoding.functions.nulldistributions import (
+from code.decoding.functions.utils import compute_mask
+from code.decoding.functions.utils import save_region_results
+from code.decoding.functions.utils import get_save_path
+from code.decoding.functions.balancedweightings import get_balanced_weighting
+from code.decoding.functions.nulldistributions import (
     generate_null_distribution_session,
 )
-from braindelphi.decoding.functions.process_targets import check_bhv_fit_exists
-from braindelphi.decoding.functions.process_targets import optimal_Bayesian
-from braindelphi.decoding.functions.neurometric import get_neurometric_parameters
-from braindelphi.decoding.functions.utils import derivative
+from code.decoding.functions.process_targets import check_bhv_fit_exists
+from code.decoding.functions.process_targets import optimal_Bayesian
+from code.decoding.functions.neurometric import get_neurometric_parameters
+from code.decoding.functions.utils import derivative
 
-from braindelphi.decoding.functions.process_motors import (
+from code.decoding.functions.process_motors import (
     preprocess_motors,
     compute_motor_prediction,
 )
@@ -153,7 +153,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
 
     if isinstance(kwargs["model"], str):
         import pickle
-        from braindelphi.params import INTER_INDIVIDUAL_PATH
+        from code.params import INTER_INDIVIDUAL_PATH
 
         inter_individual = pickle.load(
             open(INTER_INDIVIDUAL_PATH.joinpath(kwargs["model"]), "rb")
@@ -249,11 +249,41 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
     else:
         if kwargs["single_region"] == "Custom":
             regions = [["VISp"], ["MOs"]]
-        elif kwargs["single_region"] == 'Widefield':
-            regions = [['ACAd'], ['AUDd'], ['AUDp'], ['AUDpo'], ['AUDv'], ['FRP'], ['MOB'], ['MOp'], ['MOs'],
-       ['PL'], ['RSPagl'], ['RSPd'], ['RSPv'], ['SSp-bfd'], ['SSp-ll'], ['SSp-m'], ['SSp-n'],
-       ['SSp-tr'], ['SSp-ul'], ['SSp-un'], ['SSs'], ['TEa'], ['VISa'], ['VISal'], ['VISam'],
-       ['VISl'], ['VISli'], ['VISp'], ['VISpl'], ['VISpm'], ['VISpor'], ['VISrl']]
+        elif kwargs["single_region"] == "Widefield":
+            regions = [
+                ["ACAd"],
+                ["AUDd"],
+                ["AUDp"],
+                ["AUDpo"],
+                ["AUDv"],
+                ["FRP"],
+                ["MOB"],
+                ["MOp"],
+                ["MOs"],
+                ["PL"],
+                ["RSPagl"],
+                ["RSPd"],
+                ["RSPv"],
+                ["SSp-bfd"],
+                ["SSp-ll"],
+                ["SSp-m"],
+                ["SSp-n"],
+                ["SSp-tr"],
+                ["SSp-ul"],
+                ["SSp-un"],
+                ["SSs"],
+                ["TEa"],
+                ["VISa"],
+                ["VISal"],
+                ["VISam"],
+                ["VISl"],
+                ["VISli"],
+                ["VISp"],
+                ["VISpl"],
+                ["VISpm"],
+                ["VISpor"],
+                ["VISrl"],
+            ]
         else:
             regions = (
                 [[kwargs["single_region"]]]
@@ -425,7 +455,9 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                     normalize_input=kwargs["normalize_input"],
                     normalize_output=kwargs["normalize_output"],
                     rng_seed=rng_seed,
-                    use_cv_sklearn_method=kwargs["use_native_sklearn_for_hyperparameter_estimation"],
+                    use_cv_sklearn_method=kwargs[
+                        "use_native_sklearn_for_hyperparameter_estimation"
+                    ],
                 )
                 fit_result["mask"] = mask if save_predictions else None
                 fit_result["df"] = trials_df if pseudo_id == -1 else controlsess_df
@@ -758,10 +790,18 @@ def decode_cv(
                 # fit model
                 model.fit(X_train_array, y_train_array, sample_weight=sample_weight)
             else:
-                print('using sklearn native')
-                if normalize_input or normalize_output or estimator not in [Ridge, Lasso]:
+                print("using sklearn native")
+                if (
+                    normalize_input
+                    or normalize_output
+                    or estimator not in [Ridge, Lasso]
+                ):
                     raise NotImplementedError("This case is not implemented")
-                model = RidgeCV(alphas=hyperparam_grid[key]) if estimator == Ridge else LassoCV(alphas=hyperparam_grid[key])
+                model = (
+                    RidgeCV(alphas=hyperparam_grid[key])
+                    if estimator == Ridge
+                    else LassoCV(alphas=hyperparam_grid[key])
+                )
                 X_train_array = np.vstack(X_train)
                 mean_X_train = X_train_array.mean(axis=0) if normalize_input else 0
                 X_train_array = X_train_array - mean_X_train

@@ -1,10 +1,10 @@
 import logging
 import numpy as np
-from braindelphi.decoding.functions.process_targets import optimal_Bayesian
+from code.decoding.functions.process_targets import optimal_Bayesian
 from behavior_models.models.expSmoothing_prevAction import expSmoothing_prevAction
 from behavior_models.models.expSmoothing_stimside import expSmoothing_stimside
-from braindelphi.params import FIT_PATH as NEURAL_MOD_PATH
-from braindelphi.params import BEH_MOD_PATH as BEHAVIOR_MOD_PATH
+from code.params import FIT_PATH as NEURAL_MOD_PATH
+from code.params import BEH_MOD_PATH as BEHAVIOR_MOD_PATH
 import sklearn.linear_model as sklm
 import warnings
 
@@ -14,7 +14,7 @@ BEHAVIOR_MOD_PATH.mkdir(parents=True, exist_ok=True)
 logger = logging.getLogger("ibllib")
 logger.disabled = True
 
-NEURAL_DTYPE = "widefield" #"widefield"  # 'ephys' or 'widefield'
+NEURAL_DTYPE = "widefield"  # "widefield"  # 'ephys' or 'widefield'
 DATE = "30-01-2023"  # date 12 prev, 13 next, 14 prev
 
 # aligned -> histology was performed by one experimenter
@@ -33,7 +33,7 @@ BEH_MOUSELEVEL_TRAINING = (
     False  # if True, trains the behavioral model session-wise else mouse-wise
 )
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
-ESTIMATOR = sklm.Ridge # Must be in keys of strlut above
+ESTIMATOR = sklm.Ridge  # Must be in keys of strlut above
 USE_NATIVE_SKLEARN_FOR_HYPERPARAMETER_ESTIMATION = True
 BINARIZATION_VALUE = (
     None  # to binarize the target -> could be useful with logistic regression estimator
@@ -50,10 +50,8 @@ MIN_BEHAV_TRIAS = (
 )  # default BWM setting is 400. 200 must remain after filtering
 MIN_RT = 0.08  # 0.08  # Float (s) or None
 MAX_RT = None
-SINGLE_REGION = (
-   True # "Widefield" # False  # True  # perform decoding on region-wise or whole brain analysis
-)
-MERGED_PROBES = True # merge probes before performing analysis
+SINGLE_REGION = True  # "Widefield" # False  # True  # perform decoding on region-wise or whole brain analysis
+MERGED_PROBES = True  # merge probes before performing analysis
 NO_UNBIAS = False  # take out unbiased trials
 SHUFFLE = True  # interleaved cross validation
 BORDER_QUANTILES_NEUROMETRIC = [0.3, 0.7]  # [.3, .4, .5, .6, .7]
@@ -71,7 +69,7 @@ USE_IMPOSTER_SESSION = False  # if false, it uses pseudosessions and simulates t
 FILTER_PSEUDOSESSIONS_ON_MUTUALINFORMATION = False
 STITCHING_FOR_IMPORTER_SESSION = False  # if true, stitches sessions to create importers
 MAX_NUMBER_TRIALS_WHEN_NO_STITCHING_FOR_IMPORTER_SESSION = (
-   700  # this is a constraint on the number of trials of a session
+    700  # this is a constraint on the number of trials of a session
 )
 # to insure that there will be at least 1000 unstitched imposter sessions. IMPORTANT, with this number, you can not
 # generate more than 1000 control imposter sessions
@@ -92,12 +90,12 @@ HPARAM_GRID = (
     {
         #'alpha': np.array([0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000, 100000])
         "alpha": np.array(
-           [
+            [
                 0.00001,
                 0.0001,
                 0.001,
                 0.01,
-                0.1, 
+                0.1,
             ]
         )  # lasso , 0.01, 0.1
     }
