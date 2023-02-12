@@ -1,11 +1,9 @@
-code/decoding/behavior/
-code/decoding/links_widefield/
-code/decoding/pipelines/05_local_decode.py
-code/decoding/results/
-code/decoding/slurm_aggregate_results.sh
-code/decoding/unsorted_ephys/
-code/pipelines/01_cache_ephys_copy.py
-code/wide_field_imaging.zip
+prior_code/decoding/behavior/
+prior_code/decoding/links_widefield/
+prior_code/decoding/results/
+prior_code/decoding/slurm_aggregate_results.sh
+prior_code/decoding/unsorted_ephys/
+prior_code/wide_field_imaging.zip
 
 cache/
 wide_field_imaging/
