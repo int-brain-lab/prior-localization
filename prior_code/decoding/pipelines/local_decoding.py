@@ -1,10 +1,8 @@
-import pandas as pd
-import sys
-from code.decoding.settings import kwargs, N_PSEUDO_PER_JOB, N_PSEUDO
-from code.decoding.functions.decoding import fit_eid
+from prior_code.decoding.settings import kwargs
+from prior_code.decoding.functions.decoding import fit_eid
 import numpy as np
-from code.params import CACHE_PATH, IMPOSTER_SESSION_PATH
-from code.decoding.functions.utils import load_metadata
+from prior_code.params import CACHE_PATH
+from prior_code.decoding.functions.utils import load_metadata
 import pickle
 from tqdm import tqdm
 
@@ -36,4 +34,4 @@ for index in tqdm(np.arange(bwmdf["dataset_filenames"].index.size)):
         pseudo_ids=pseudo_ids,
         **kwargs,
     )
-    print("Slurm job successful")
+    print("job successful")

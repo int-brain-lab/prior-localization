@@ -1,10 +1,10 @@
 import logging
 import numpy as np
-from code.decoding.functions.process_targets import optimal_Bayesian
+from prior_code.decoding.functions.process_targets import optimal_Bayesian
 from behavior_models.models.expSmoothing_prevAction import expSmoothing_prevAction
 from behavior_models.models.expSmoothing_stimside import expSmoothing_stimside
-from code.params import FIT_PATH as NEURAL_MOD_PATH
-from code.params import BEH_MOD_PATH as BEHAVIOR_MOD_PATH
+from prior_code.params import FIT_PATH as NEURAL_MOD_PATH
+from prior_code.params import BEH_MOD_PATH as BEHAVIOR_MOD_PATH
 import sklearn.linear_model as sklm
 import warnings
 
