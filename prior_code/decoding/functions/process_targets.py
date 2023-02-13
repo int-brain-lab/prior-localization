@@ -8,8 +8,8 @@ from behavior_models.models.utils import format_data as format_data_mut
 from behavior_models.models.utils import format_input as format_input_mut
 from behavior_models.models.utils import build_path as build_path_mut
 
-from code.pipelines.utils_pipelines import load_behavior
-from code.decoding.functions.utils import compute_mask
+from prior_code.pipelines.utils_pipelines import load_behavior
+from prior_code.decoding.functions.utils import compute_mask
 
 
 def optimal_Bayesian(act, side):

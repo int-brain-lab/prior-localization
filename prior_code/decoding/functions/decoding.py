@@ -12,33 +12,33 @@ from sklearn.linear_model import RidgeCV, Ridge, Lasso, LassoCV
 
 from ibllib.atlas import BrainRegions
 
-from code.decoding.functions.balancedweightings import balanced_weighting
-from code.decoding.functions.process_inputs import build_predictor_matrix
-from code.decoding.functions.process_inputs import select_ephys_regions
-from code.decoding.functions.process_inputs import get_bery_reg_wfi
-from code.decoding.functions.process_inputs import (
+from prior_code.decoding.functions.balancedweightings import balanced_weighting
+from prior_code.decoding.functions.process_inputs import build_predictor_matrix
+from prior_code.decoding.functions.process_inputs import select_ephys_regions
+from prior_code.decoding.functions.process_inputs import get_bery_reg_wfi
+from prior_code.decoding.functions.process_inputs import (
     select_widefield_imaging_regions,
 )
-from code.decoding.functions.neurometric import compute_neurometric_prior
-from code.decoding.functions.process_inputs import preprocess_ephys
-from code.decoding.functions.process_inputs import preprocess_widefield_imaging
-from code.decoding.functions.process_targets import compute_beh_target
-from code.decoding.functions.process_targets import (
+from prior_code.decoding.functions.neurometric import compute_neurometric_prior
+from prior_code.decoding.functions.process_inputs import preprocess_ephys
+from prior_code.decoding.functions.process_inputs import preprocess_widefield_imaging
+from prior_code.decoding.functions.process_targets import compute_beh_target
+from prior_code.decoding.functions.process_targets import (
     get_target_data_per_trial_wrapper,
 )
-from code.decoding.functions.utils import compute_mask
-from code.decoding.functions.utils import save_region_results
-from code.decoding.functions.utils import get_save_path
-from code.decoding.functions.balancedweightings import get_balanced_weighting
-from code.decoding.functions.nulldistributions import (
+from prior_code.decoding.functions.utils import compute_mask
+from prior_code.decoding.functions.utils import save_region_results
+from prior_code.decoding.functions.utils import get_save_path
+from prior_code.decoding.functions.balancedweightings import get_balanced_weighting
+from prior_code.decoding.functions.nulldistributions import (
     generate_null_distribution_session,
 )
-from code.decoding.functions.process_targets import check_bhv_fit_exists
-from code.decoding.functions.process_targets import optimal_Bayesian
-from code.decoding.functions.neurometric import get_neurometric_parameters
-from code.decoding.functions.utils import derivative
+from prior_code.decoding.functions.process_targets import check_bhv_fit_exists
+from prior_code.decoding.functions.process_targets import optimal_Bayesian
+from prior_code.decoding.functions.neurometric import get_neurometric_parameters
+from prior_code.decoding.functions.utils import derivative
 
-from code.decoding.functions.process_motors import (
+from prior_code.decoding.functions.process_motors import (
     preprocess_motors,
     compute_motor_prediction,
 )
