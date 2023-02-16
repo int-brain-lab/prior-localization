@@ -1,30 +1,13 @@
 import os
 from pathlib import Path
 
-username = os.environ["USER"]  # os.getlogin()
-if username == "mattw":
-    out_dir = Path("/media/mattw/ibl/")
-elif username == "mw3323":
-    out_dir = Path("/home/mw3323/ibl/")
-elif username == "findling":
-    out_dir = Path("/home/users/f/findling/scratch/ibl/prior-localization/code")
-elif username == "csmfindling":
-    out_dir = Path(
-        "/Users/csmfindling/Documents/Postdoc-Geneva/IBL/code/prior-localization/code"
-    )
-elif username == "hubertf":
-    out_dir = Path("/home/users/h/hubertf/scratch/")
+out_dir = Path(
+    "/Users/csmfindling/Documents/Postdoc-Geneva/IBL/code/prior-localization/code"
+)
 
-# widefield imaging path
-if username in ["findling", "hubertf"]:
-    WIDE_FIELD_PATH = Path("/home/share/pouget_lab/wide_field_imaging/")
-else:
-    WIDE_FIELD_PATH = Path(
-        "/Users/csmfindling/Documents/Postdoc-Geneva/IBL/code/prior-localization/prior_code/wide_field_imaging"
-    )
-
-# path to user-specific settings file
-SETTINGS_PATH = out_dir.joinpath("decoding", "settings.yaml")
+WIDE_FIELD_PATH = Path(
+    "/Users/csmfindling/Documents/Postdoc-Geneva/IBL/code/prior-localization/prior_code/wide_field_imaging"
+)
 
 # store cached data for simpler loading
 CACHE_PATH = out_dir.joinpath("cache")
