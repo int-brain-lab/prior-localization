@@ -3,8 +3,8 @@ import logging
 import pickle
 from datetime import datetime as dt
 from pathlib import Path
-from prior_code.pipelines.utils_pipelines import load_ephys
-from prior_code.pipelines.utils_pipelines import cache_regressors
+from prior_code.caching_pipelines.utils_pipelines import load_ephys
+from prior_code.caching_pipelines.utils_pipelines import cache_regressors
 import numpy as np
 
 # Third party libraries

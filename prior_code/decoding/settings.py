@@ -55,7 +55,7 @@ MERGED_PROBES = True  # merge probes before performing analysis
 NO_UNBIAS = False  # take out unbiased trials
 SHUFFLE = True  # interleaved cross validation
 BORDER_QUANTILES_NEUROMETRIC = [0.3, 0.7]  # [.3, .4, .5, .6, .7]
-COMPUTE_NEUROMETRIC = True
+COMPUTE_NEUROMETRIC = False
 FORCE_POSITIVE_NEURO_SLOPES = False
 SAVE_PREDICTIONS = True
 

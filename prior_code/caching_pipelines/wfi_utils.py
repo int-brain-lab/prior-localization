@@ -126,51 +126,6 @@ def load_wfi(path_to_wfi, sessid=-1):
     return downsampled, behavior, ds_atlas, ds_map, frame_df
 
 
-def load_wfi_session(path_to_wfi, sessid):
-    downsampled, behavior, ds_atlas, ds_map, frame_df = load_wfi(path_to_wfi, sessid)
-    atlas = pd.read_csv("ccf_regions.csv")
-    for k in range(behavior.size):
-        behavior[k]["session_id"] = k
-        behavior[k]["session_to_decode"] = True if k == sessid else False
-    sessiondf = pd.concat(behavior, axis=0).reset_index(drop=True)
-    sessiondf["subject"] = "wfi%i" % int(path_to_wfi.split("-")[-1])
-    sessiondf = sessiondf[
-        [
-            "choice",
-            "stimOn_times",
-            "feedbackType",
-            "feedback_times",
-            "contrastLeft",
-            "goCue_times",
-            "contrastRight",
-            "probabilityLeft",
-            "session_to_decode",
-            "subject",
-            "signedContrast",
-            "session_id",
-            "firstMovement_times",
-        ]
-    ]
-    sessiondf = sessiondf.assign(
-        stim_side=(
-            sessiondf.choice * (sessiondf.feedbackType == 1)
-            - sessiondf.choice * (sessiondf.feedbackType == -1)
-        )
-    )
-    sessiondf["eid"] = sessiondf["session_id"].apply(
-        lambda x: ("wfi" + str(int(path_to_wfi.split("-")[-1])) + "s" + str(x))
-    )
-    # downsampled = downsampled[sessid]
-    frame_df = frame_df[sessid]
-    wideFieldImaging_dict = {
-        "activity": downsampled,
-        "timings": frame_df,
-        "regions": ds_atlas,
-        "atlas": atlas,
-    }
-    return sessiondf, wideFieldImaging_dict
-
-
 def format_resultsdf(
     resultsdf, target="prior", correction="median", additional_df=False
 ):

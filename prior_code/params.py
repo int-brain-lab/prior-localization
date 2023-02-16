@@ -19,7 +19,9 @@ elif username == "hubertf":
 if username in ["findling", "hubertf"]:
     WIDE_FIELD_PATH = Path("/home/share/pouget_lab/wide_field_imaging/")
 else:
-    WIDE_FIELD_PATH = Path("wide_field_imaging/")
+    WIDE_FIELD_PATH = Path(
+        "/Users/csmfindling/Documents/Postdoc-Geneva/IBL/code/prior-localization/prior_code/wide_field_imaging"
+    )
 
 # path to user-specific settings file
 SETTINGS_PATH = out_dir.joinpath("decoding", "settings.yaml")

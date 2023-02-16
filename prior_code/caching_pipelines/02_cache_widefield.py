@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 # IBL libraries
 from prior_code.params import CACHE_PATH, WIDE_FIELD_PATH
-from prior_code.pipelines.wfi_utils import load_wfi_session
+from prior_code.caching_pipelines.wfi_utils import load_wfi_session
 
 CACHE_PATH.mkdir(parents=True, exist_ok=True)
 _logger = logging.getLogger("code")

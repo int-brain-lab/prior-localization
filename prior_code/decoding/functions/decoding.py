@@ -790,7 +790,6 @@ def decode_cv(
                 # fit model
                 model.fit(X_train_array, y_train_array, sample_weight=sample_weight)
             else:
-                print("using sklearn native")
                 if (
                     normalize_input
                     or normalize_output
