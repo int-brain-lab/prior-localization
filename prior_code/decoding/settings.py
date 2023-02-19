@@ -14,8 +14,8 @@ BEHAVIOR_MOD_PATH.mkdir(parents=True, exist_ok=True)
 logger = logging.getLogger("ibllib")
 logger.disabled = True
 
-NEURAL_DTYPE = "widefield"  # "widefield"  # 'ephys' or 'widefield'
-DATE = "30-01-2023"  # date 12 prev, 13 next, 14 prev
+NEURAL_DTYPE = "ephys"  # "widefield"  # 'ephys' or 'widefield'
+DATE = "15-02-2023"  # date 12 prev, 13 next, 14 prev
 
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
@@ -28,12 +28,12 @@ if TARGET not in ["pLeft", "signcont", "strengthcont", "choice", "feedback"]:
     )
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
 # if MODEL is a path, this will be the interindividual results
-MODEL = optimal_Bayesian  # 'population_level_Nmice101_NmodelsClasses7_processed.pkl' #expSmoothing_stimside, expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
+MODEL = expSmoothing_prevAction  # 'population_level_Nmice101_NmodelsClasses7_processed.pkl' #expSmoothing_stimside, expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
 BEH_MOUSELEVEL_TRAINING = (
     False  # if True, trains the behavioral model session-wise else mouse-wise
 )
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
-ESTIMATOR = sklm.Ridge  # Must be in keys of strlut above
+ESTIMATOR = sklm.Lasso  # Must be in keys of strlut above
 USE_NATIVE_SKLEARN_FOR_HYPERPARAMETER_ESTIMATION = True
 BINARIZATION_VALUE = (
     None  # to binarize the target -> could be useful with logistic regression estimator
