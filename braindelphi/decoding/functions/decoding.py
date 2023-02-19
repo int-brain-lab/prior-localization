@@ -249,11 +249,41 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
     else:
         if kwargs["single_region"] == "Custom":
             regions = [["VISp"], ["MOs"]]
-        elif kwargs["single_region"] == 'Widefield':
-            regions = [['ACAd'], ['AUDd'], ['AUDp'], ['AUDpo'], ['AUDv'], ['FRP'], ['MOB'], ['MOp'], ['MOs'],
-       ['PL'], ['RSPagl'], ['RSPd'], ['RSPv'], ['SSp-bfd'], ['SSp-ll'], ['SSp-m'], ['SSp-n'],
-       ['SSp-tr'], ['SSp-ul'], ['SSp-un'], ['SSs'], ['TEa'], ['VISa'], ['VISal'], ['VISam'],
-       ['VISl'], ['VISli'], ['VISp'], ['VISpl'], ['VISpm'], ['VISpor'], ['VISrl']]
+        elif kwargs["single_region"] == "Widefield":
+            regions = [
+                ["ACAd"],
+                ["AUDd"],
+                ["AUDp"],
+                ["AUDpo"],
+                ["AUDv"],
+                ["FRP"],
+                ["MOB"],
+                ["MOp"],
+                ["MOs"],
+                ["PL"],
+                ["RSPagl"],
+                ["RSPd"],
+                ["RSPv"],
+                ["SSp-bfd"],
+                ["SSp-ll"],
+                ["SSp-m"],
+                ["SSp-n"],
+                ["SSp-tr"],
+                ["SSp-ul"],
+                ["SSp-un"],
+                ["SSs"],
+                ["TEa"],
+                ["VISa"],
+                ["VISal"],
+                ["VISam"],
+                ["VISl"],
+                ["VISli"],
+                ["VISp"],
+                ["VISpl"],
+                ["VISpm"],
+                ["VISpor"],
+                ["VISrl"],
+            ]
         else:
             regions = (
                 [[kwargs["single_region"]]]
@@ -425,7 +455,9 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                     normalize_input=kwargs["normalize_input"],
                     normalize_output=kwargs["normalize_output"],
                     rng_seed=rng_seed,
-                    use_cv_sklearn_method=kwargs["use_native_sklearn_for_hyperparameter_estimation"],
+                    use_cv_sklearn_method=kwargs[
+                        "use_native_sklearn_for_hyperparameter_estimation"
+                    ],
                 )
                 fit_result["mask"] = mask if save_predictions else None
                 fit_result["df"] = trials_df if pseudo_id == -1 else controlsess_df
@@ -758,10 +790,17 @@ def decode_cv(
                 # fit model
                 model.fit(X_train_array, y_train_array, sample_weight=sample_weight)
             else:
-                print('using sklearn native')
-                if normalize_input or normalize_output or estimator not in [Ridge, Lasso]:
+                if (
+                    normalize_input
+                    or normalize_output
+                    or estimator not in [Ridge, Lasso]
+                ):
                     raise NotImplementedError("This case is not implemented")
-                model = RidgeCV(alphas=hyperparam_grid[key]) if estimator == Ridge else LassoCV(alphas=hyperparam_grid[key])
+                model = (
+                    RidgeCV(alphas=hyperparam_grid[key])
+                    if estimator == Ridge
+                    else LassoCV(alphas=hyperparam_grid[key])
+                )
                 X_train_array = np.vstack(X_train)
                 mean_X_train = X_train_array.mean(axis=0) if normalize_input else 0
                 X_train_array = X_train_array - mean_X_train
