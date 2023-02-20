@@ -378,8 +378,8 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                     )
                     print(len(controltarget_vals_list))
 
-                if kwargs["use_imposter_session"]:
-                    mask = compute_mask(controlsess_df, **kwargs) & mask_target
+                # if kwargs["use_imposter_session"]:
+                #    mask = compute_mask(controlsess_df, **kwargs) & mask_target
 
                 save_predictions = kwargs.get(
                     "save_predictions_pseudo", kwargs["save_predictions"]
