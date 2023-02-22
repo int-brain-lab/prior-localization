@@ -224,10 +224,12 @@ def generate_imposter_session(
     # this is to correct for when the eid is not part of the imposterdf eids
     # which is very possible when using imposter sessions from biaisChoice world.
     if np.any(imposterdf.eid == eid):
-        raise ValueError(
-            "The eid of the current session was found in the imposter session df which is impossible as"
-            "you generate the imposter sessions from biasChoice world and decoding from ehysChoice world"
-        )
+        imposterdf = imposterdf[imposterdf.eid != eid]  # taking out eid of mice
+        if np.any(imposterdf.eid == eid):
+            raise ValueError(
+                "The eid of the current session was found in the imposter session df which is impossible as"
+                "you generate the imposter sessions from biasChoice world and decoding from ehysChoice world"
+            )
     temp_trick = list(imposterdf[imposterdf.eid == eid].template_sess.unique())
     temp_trick.append(-1)
     template_sess_eid = temp_trick[0]
