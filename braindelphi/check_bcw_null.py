@@ -31,7 +31,7 @@ res_table_ephys = pd.read_csv(file_all_results)
 ers_ephys = {f'{e}_{r}': p for e, r, p in zip(res_table_ephys['eid'],res_table_ephys['region'],res_table_ephys['p-value'])}
 erscore_ephys = {f'{e}_{r}': p for e, r, p in zip(res_table_ephys['eid'],res_table_ephys['region'],res_table_ephys['score'])}
 
-file_all_results = 'decoding_results/summary/20-01-2023_decode_wheel-speed_task_Lasso_align_firstMovement_times_100_pseudosessions_regionWise_timeWindow_-0_2_1_0_imposterSess_1_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
+file_all_results = 'decoding_results/summary/23-01-2023_decode_wheel-speed_task_Lasso_align_firstMovement_times_100_pseudosessions_regionWise_timeWindow_-0_2_1_0_imposterSess_1_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
 res_table_bcw = pd.read_csv(file_all_results)
 ers_bcw = {f'{e}_{r}': p for e, r, p in zip(res_table_bcw['eid'],res_table_bcw['region'],res_table_bcw['p-value'])}
 erscore_bcw = {f'{e}_{r}': p for e, r, p in zip(res_table_bcw['eid'],res_table_bcw['region'],res_table_bcw['score'])}

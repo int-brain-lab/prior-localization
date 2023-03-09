@@ -17,12 +17,13 @@ import seaborn as sns
 sns.set(font_scale=1.5)
 sns.set_style('whitegrid')
 
+DATE = '18-01-2023'
 VARI = 'stim'
 
 # DATE = '29-11-2022'
 # file_all_results = 'decoding_results/summary/29-11-2022_decode_signcont_task_Lasso_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_0_0_0_1_imposterSess_0_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
 # file_xy_results = 'decoding_results/summary/29-11-2022_decode_signcont_task_Lasso_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_0_0_0_1_imposterSess_0_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_xy.pkl'
-DATE = '18-01-2023'
+
 file_all_results = 'decoding_results/summary/18-01-2023_decode_signcont_task_Lasso_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_0_0_0_1_imposterSess_0_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
 file_xy_results = 'decoding_results/summary/18-01-2023_decode_signcont_task_Lasso_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_0_0_0_1_imposterSess_0_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_xy.pkl'
 
@@ -169,7 +170,7 @@ plt.tight_layout()
 plt.savefig(f'decoding_figures/stim_trace_{region}.svg', dpi=600)
 plt.show()
 
-plt.figure(figsize=(8,5))
+plt.figure(figsize=(7,7))
 plt.title(f"session: {eid} \n region: {acronym2name(region)} {(region)} \n $R^2$ = {er_vals['score']:.3f} (average across 10 models)")
 
 ts = targs_multirun.flatten()
@@ -179,15 +180,21 @@ best_df = pd.DataFrame({'Target': [str(t) for t in ts[np.argsort(ts)]],
 ax = sns.histplot(best_df, 
              x='Target', 
              y='Predicted stimulus contrast',
-             bins=[c for c in np.linspace(-1,1,21)],
+             bins=[c for c in np.linspace(-1,1,30)],
              cbar=True,
              cbar_kws={'label':'Frequency'},
-             cmap = get_cmap(VARI),
+             cmap = 'binary',
              stat='probability')
 ax.tick_params(axis='x', rotation=45)
 
+ax.grid(False)
+sigcontrasts = [-1., -0.25, -0.125, -0.0625,  0.,  0.0625,  0.125,  0.25,  1.]
+sns.lineplot(x=np.arange(len(sigcontrasts)), y=sigcontrasts, color='r', lw=4)
+
+
 ax.set(xlabel='Signed stimulus contrast')
 plt.ylim(-1,1)
+plt.legend(['Identity'])
 plt.tight_layout()
 plt.savefig(f'decoding_figures/stim_calibrate_{region}.svg', dpi=600)
 plt.show()
@@ -228,7 +235,7 @@ plt.tight_layout()
 plt.savefig(f'decoding_figures/stim_trace_{region}.svg', dpi=600)
 plt.show()
 
-plt.figure(figsize=(8,5))
+plt.figure(figsize=(7,7))
 plt.title(f"session: {eid} \n region: {acronym2name(region)} {(region)} \n $R^2$ = {er_vals['score']:.3f} (average across 10 models)")
 
 ts = targs_multirun.flatten()
@@ -238,15 +245,21 @@ best_df = pd.DataFrame({'Target': [str(t) for t in ts[np.argsort(ts)]],
 ax = sns.histplot(best_df, 
              x='Target', 
              y='Predicted stimulus contrast',
-             bins=[c for c in np.linspace(-1,1,21)],
+             bins=[c for c in np.linspace(-1,1,30)],
              cbar=True,
              cbar_kws={'label':'Frequency'},
-             cmap = get_cmap(VARI),
+             cmap = 'binary',
              stat='probability')
+
 ax.tick_params(axis='x', rotation=45)
+
+ax.grid(False)
+sigcontrasts = [-1., -0.25, -0.125, -0.0625,  0.,  0.0625,  0.125,  0.25,  1.]
+sns.lineplot(x=np.arange(len(sigcontrasts)), y=sigcontrasts, color='r', lw=4)
 
 ax.set(xlabel='Signed stimulus contrast')
 plt.ylim(-1,1)
+plt.legend(['Identity'])
 plt.tight_layout()
 plt.savefig(f'decoding_figures/stim_calibrate_{region}.svg', dpi=600)
 plt.show()

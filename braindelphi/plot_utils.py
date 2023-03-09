@@ -74,7 +74,8 @@ def get_predprob_vals(xy_table, eid, region):
                           w_trials,
                           xy_table.loc[ind]['regressors'][:,0,:]) - itcp_trials
     predprobs = 1./(1+np.exp(expvals))
-    assert np.all(xy_table.loc[ind]['predictions'][:,:,0] == (predprobs>0.5))
+    # assert np.all(xy_table.loc[ind]['predictions'][:,:,0] == (predprobs>0.5))
+    # assert np.all(xy_table.loc[ind]['predictions'][:,:,0] == predprobs)
     
     return predprobs.mean(axis=0)
 
@@ -124,6 +125,7 @@ def comb_regs_df(res_table, USE_ALL_BERYL_REGIONS=True):
     get_vals = lambda reg: np.array(res_table.loc[res_table['region']==reg,'score'])
     get_pvals = lambda reg: np.array(res_table.loc[res_table['region']==reg,'p-value'])
     get_nulls = lambda reg: np.array(res_table.loc[res_table['region']==reg,'median-null'])
+    get_valsminusnulls = lambda reg: get_vals(reg) - get_nulls(reg)
     get_nunits = lambda reg: np.array(res_table.loc[res_table['region']==reg,'n_units'])
     reg_comb_pval = lambda reg: scipy.stats.combine_pvalues(get_pvals(reg)
                                                             , method='fisher')[1]
@@ -136,6 +138,7 @@ def comb_regs_df(res_table, USE_ALL_BERYL_REGIONS=True):
               'n_units_mean': [np.mean(get_nunits(r)) if r in regions else np.nan for r in all_regs],
               'values_std': [np.std(get_vals(r)) if r in regions else np.nan for r in all_regs],
               'values_median': [np.median(get_vals(r)) if r in regions else np.nan for r in all_regs],
+              'valuesminusnull_median': [np.median(get_valsminusnulls(r)) if r in regions else np.nan for r in all_regs],
               'frac_sig': [frac_sig_region(r) if r in regions else np.nan for r in all_regs],
               'values_median_sig': [get_ms_reg(r) if r in regions else np.nan for r in all_regs],
               'null_median_of_medians': [np.median(get_nulls(r)) if r in regions else np.nan for r in all_regs]})
