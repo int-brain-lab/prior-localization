@@ -16,20 +16,40 @@ import seaborn as sns
 sns.set(font_scale=1.5)
 sns.set_style('whitegrid')
 
-DATE = '18-01-2023'
+# DATE = '18-01-2023'
+# VARI = 'block'
+# file_all_results = 'decoding_results/summary/01-18-2023_decode_pLeft_oracle_LogisticsRegression_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_-0_4_-0_1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
+# file_xy_results = 'decoding_results/summary/01-18-2023_decode_pLeft_oracle_LogisticsRegression_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_-0_4_-0_1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_xy.pkl'
+
+'''
+09-03-2023_decode_choice_task_LogisticsRegression_align_firstMovement_times_200_pseudosessions_regionWise_timeWindow_-0_1_0_0_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0
+09-03-2023_decode_pLeft_oracle_LogisticsRegression_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_-0_4_-0_1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0
+09-03-2023_decode_signcont_task_LogisticsRegression_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_0_0_0_1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0
+09-03-2023_decode_wheel-speed_task_Lasso_align_firstMovement_times_100_pseudosessions_regionWise_timeWindow_-0_2_1_0_imposterSess_1_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0
+'''
+
+DATE = '09-03-2023'
 VARI = 'block'
-file_all_results = 'decoding_results/summary/01-18-2023_decode_pLeft_oracle_LogisticsRegression_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_-0_4_-0_1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
-file_xy_results = 'decoding_results/summary/01-18-2023_decode_pLeft_oracle_LogisticsRegression_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_-0_4_-0_1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_xy.pkl'
-DATE = '02-03-2023'
-VARI = 'block'
-file_all_results = 'decoding_results/summary/02-03-2023_decode_pLeft_oracle_LogisticsRegression_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_-0_4_-0_1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
-file_xy_results = 'decoding_results/summary/02-03-2023_decode_pLeft_oracle_LogisticsRegression_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_-0_4_-0_1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_xy.pkl'
+preamb = 'decoding_results/summary/'
+file_all_results = preamb + '09-03-2023_decode_pLeft_oracle_LogisticsRegression_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_-0_4_-0_1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
+file_xy_results = file_all_results[:-4] + '_xy.pkl'
 FIG_SUF = '.svg'
 
 FOCUS_REGIONS = ['ORBvl']
 
+# read in results an filter for >=10 units and >=2 sessions
 res_table = pd.read_csv(file_all_results)
+res_table = res_table.loc[res_table['n_units']>=10]
+res_table = res_table.loc[res_table['region']!='void']
+res_table = res_table.loc[res_table['region']!='root']
+reg_counts = res_table['region'].value_counts()
+res_table = res_table.loc[res_table['region'].isin(reg_counts[reg_counts>=2].index)]
+
 xy_table = pd.read_pickle(file_xy_results)
+eid_regs_filtered = res_table.apply(lambda x: f"{x['eid']}_{x['region']}", axis=1)
+xy_table = xy_table.loc[xy_table['eid_region'].isin(eid_regs_filtered)]
+
+# combine regions
 save_comb_regs_data = comb_regs_df(res_table, USE_ALL_BERYL_REGIONS=True)
 regs_table = comb_regs_df(res_table, USE_ALL_BERYL_REGIONS=False)
 
@@ -52,6 +72,10 @@ save_cluster_weights = pd.DataFrame({'cluster_uuids': cuuids,
                                      **ws_dict})
 save_cluster_weights.to_csv(
     f'decoding_processing/{DATE}_{VARI}_clusteruuids_weights.csv')
+
+pd.DataFrame({'cluster_uuids': cuuids}).to_csv(f'decoding_processing/clusters_regions_sessions/{DATE}_{VARI}_clusters.csv')
+pd.DataFrame({'regions': np.unique(res_table['region'])}).to_csv(f'decoding_processing/clusters_regions_sessions/{DATE}_{VARI}_regions.csv')
+pd.DataFrame({'session_eids': np.unique(res_table['eid'])}).to_csv(f'decoding_processing/clusters_regions_sessions/{DATE}_{VARI}_sessions.csv')
 
 # %%
 
@@ -146,6 +170,8 @@ xy_table = pd.read_pickle(file_xy_results)
 # load single trial data
 eid = '1191f865-b10a-45c8-9c48-24a980fd9402'
 region = 'ORBvl'
+eid = 'dd4da095-4a99-4bf3-9727-f735077dba66'
+region = 'PL'
 xy_vals = get_xy_vals(xy_table, eid, region)
 er_vals = get_res_vals(res_table, eid, region)
 

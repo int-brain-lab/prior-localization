@@ -9,15 +9,64 @@ import seaborn as sns
 sns.set(font_scale=1.5)
 sns.set_style('whitegrid')
 
-DATE = '30-11-2022'
+
+filter_on_stim_clusters = False
+# DATE = '30-11-2022'
+# VARI = 'stimside'
+# preamb = 'decoding_results/summary/'
+# file_all_results = preamb + '30-11-2022_decode_signcont_task_LogisticsRegression_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_0_0_0_1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
+# file_xy_results = file_all_results[:-4] + '_xy.pkl'
+
+DATE = '09-03-2023'
 VARI = 'stimside'
-file_all_results = 'decoding_results/summary/30-11-2022_decode_signcont_task_LogisticsRegression_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_0_0_0_1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
-file_xy_results = 'decoding_results/summary/30-11-2022_decode_signcont_task_LogisticsRegression_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_0_0_0_1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_xy.pkl'
-FIG_SUF = ''
+preamb = 'decoding_results/summary/'
+file_all_results = preamb + '09-03-2023_decode_signcont_task_LogisticsRegression_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_0_0_0_1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
+file_xy_results = file_all_results[:-4] + '_xy.pkl'
+
+FIG_SUF = '.svg'
 
 FOCUS_REGIONS = ['ORBvl']
 
+
+# read in results an filter for >=10 units and >=2 sessions
 res_table = pd.read_csv(file_all_results)
+res_table = res_table.loc[res_table['n_units']>=10]
+res_table = res_table.loc[res_table['region']!='void']
+res_table = res_table.loc[res_table['region']!='root']
+reg_counts = res_table['region'].value_counts()
+res_table = res_table.loc[res_table['region'].isin(reg_counts[reg_counts>=2].index)]
+
+xy_table = pd.read_pickle(file_xy_results)
+eid_regs_filtered = res_table.apply(lambda x: f"{x['eid']}_{x['region']}", axis=1)
+xy_table = xy_table.loc[xy_table['eid_region'].isin(eid_regs_filtered)]
+
+###################### filter on stimulus clusters
+if filter_on_stim_clusters:
+    # get cuuids_stim
+    xy_table_stim = pd.read_pickle('decoding_results/summary/18-01-2023_decode_signcont_task_Lasso_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_0_0_0_1_imposterSess_0_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_xy.pkl')
+    cuuids_stim = np.concatenate(list(xy_table_stim['cluster_uuids']))
+    
+    # explode cuuids, filter on cuuids_stim
+    cuuids = xy_table.explode('cluster_uuids')
+    cuuids = cuuids.loc[cuuids['cluster_uuids'].isin(cuuids_stim)]
+    
+    # group, defining cluster number, eid, and region
+    c_grouped = cuuids.groupby(['eid_region'])['cluster_uuids'].count().reset_index()
+    c_grouped['eid'] = c_grouped['eid_region'].apply(lambda x:x.split('_')[0])
+    c_grouped['region'] = c_grouped['eid_region'].apply(lambda x:x.split('_')[1])
+    
+    # filter n_units and regions as before
+    c_grouped = c_grouped.loc[c_grouped['cluster_uuids']>=10]
+    reg_counts = c_grouped['region'].value_counts()
+    c_grouped = c_grouped.loc[c_grouped['region'].isin(reg_counts[reg_counts>=2].index)]
+    
+    # apply filter to res_table and xy_table
+    f_eid_reg = lambda x: f"{x['eid']}_{x['region']}"
+    res_table = res_table.loc[res_table.apply(f_eid_reg, axis=1).isin(c_grouped['eid_region'])]
+    xy_table = xy_table.loc[xy_table['eid_region'].isin(c_grouped['eid_region'])]
+##########################
+
+# combine regions
 save_comb_regs_data = comb_regs_df(res_table, USE_ALL_BERYL_REGIONS=True)
 regs_table = comb_regs_df(res_table, USE_ALL_BERYL_REGIONS=False)
 
@@ -26,8 +75,49 @@ f_sig = regs_table['combined_sig'].mean()
 wi_means, wi_vars = get_within_region_mean_var(res_table)
 wi_var = np.mean(wi_vars)
 wo_var = np.var(wi_means)
-wi2wo_var = wi_var/wo_var
-save_comb_regs_data.to_csv(f'decoding_processing/{DATE}_{VARI}_regs_nsig{n_sig}_fsig{f_sig:.3f}_wi2ovar{wi2wo_var:.3f}.csv')
+wi2wo_var = wi_var / wo_var
+save_comb_regs_data.to_csv(
+    f'decoding_processing/{DATE}_{VARI}_regs_nsig{n_sig}_fsig{f_sig:.3f}_wi2ovar{wi2wo_var:.3f}.csv')
+
+assert np.all([len(xy_table.iloc[i]['cluster_uuids']) == xy_table.iloc[i]
+              ['weights'].shape[-1] for i in range(xy_table.shape[0])])
+cuuids = np.concatenate(list(xy_table['cluster_uuids']))
+ws = np.concatenate(list(xy_table['weights']), axis=-1)[:, :, 0, :]
+ws = ws.reshape((50, -1))
+ws_dict = {f'ws_fold{i%5}_runid{i//5}': ws[i, :] for i in range(50)}
+save_cluster_weights = pd.DataFrame({'cluster_uuids': cuuids,
+                                     **ws_dict})
+save_cluster_weights.to_csv(
+    f'decoding_processing/{DATE}_{VARI}_clusteruuids_weights.csv')
+
+pd.DataFrame({'cluster_uuids': cuuids}).to_csv(f'decoding_processing/clusters_regions_sessions/{DATE}_{VARI}_clusters.csv')
+pd.DataFrame({'regions': np.unique(res_table['region'])}).to_csv(f'decoding_processing/clusters_regions_sessions/{DATE}_{VARI}_regions.csv')
+pd.DataFrame({'session_eids': np.unique(res_table['eid'])}).to_csv(f'decoding_processing/clusters_regions_sessions/{DATE}_{VARI}_sessions.csv')
+
+
+
+# save_comb_regs_data = comb_regs_df(res_table, USE_ALL_BERYL_REGIONS=True)
+# regs_table = comb_regs_df(res_table, USE_ALL_BERYL_REGIONS=False)
+
+
+# n_sig = regs_table['combined_sig'].sum()
+# f_sig = regs_table['combined_sig'].mean()
+# wi_means, wi_vars = get_within_region_mean_var(res_table)
+# wi_var = np.mean(wi_vars)
+# wo_var = np.var(wi_means)
+# wi2wo_var = wi_var/wo_var
+# save_comb_regs_data.to_csv(f'decoding_processing/{DATE}_{VARI}_regs_nsig{n_sig}_fsig{f_sig:.3f}_wi2ovar{wi2wo_var:.3f}.csv')
+
+# assert np.all([len(xy_table.iloc[i]['cluster_uuids']) == xy_table.iloc[i]
+#               ['weights'].shape[-1] for i in range(xy_table.shape[0])])
+# cuuids = np.concatenate(list(xy_table['cluster_uuids']))
+# ws = np.concatenate(list(xy_table['weights']), axis=-1)[:, :, 0, :]
+# ws = ws.reshape((50, -1))
+# ws_dict = {f'ws_fold{i%5}_runid{i//5}': ws[i, :] for i in range(50)}
+# save_cluster_weights = pd.DataFrame({'cluster_uuids': cuuids,
+#                                      **ws_dict})
+# save_cluster_weights.to_csv(
+#     f'decoding_processing/{DATE}_{VARI}_clusteruuids_weights.csv')
 
 
 #%% Stimside
@@ -105,13 +195,40 @@ for reg in acr_plotted:
     assert np.median(get_vals(reg)) > np.median(res_table.loc[res_table['region']==reg, 'median-null'])
 
 #%% plot single session traces
+eid = '5d01d14e-aced-4465-8f8e-9a1c674f62ec'
+region = 'VISp'
+
+clp = lambda x: np.minimum(np.maximum(x,-1),1)
+inverse_stim_transf = lambda x : np.round(np.arctanh(clp(x)*np.tanh(5))/5,
+                                          decimals=8)
+file_xy_stim_results = 'decoding_results/summary/18-01-2023_decode_signcont_task_Lasso_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_0_0_0_1_imposterSess_0_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_xy.pkl'
+xy_table_stim = pd.read_pickle(file_xy_stim_results)
+xy_vals_stim = get_xy_vals(xy_table_stim, eid, region)
+mask_stim = xy_vals_stim['mask']
+targs_stim = inverse_stim_transf(np.squeeze(xy_vals_stim['targets']))
+trials_stim = np.arange(len(mask_stim))[[m==1 for m in mask_stim]]
+
+# l = xy_vals['regressors'].shape[0]
+# X = np.squeeze(xy_vals['regressors']).T
+# ws = np.squeeze(xy_vals['weights'])
+# assert len(ws.shape) == 3
+# W = np.stack([np.ndarray.flatten(ws[:,:,i]) for i in range(ws.shape[2])]).T
+# assert W.shape[0] == 50
+# mask_stim = xy_vals_stim['mask']
+# preds_multirun = inverse_stim_transf(np.squeeze(xy_vals['predictions']))
+# preds = np.mean(preds_multirun, axis=0)
+# targs_stim = inverse_stim_transf(np.squeeze(xy_vals_stim['targets']))
+# targs_multirun = np.stack((targs_stim for _ in range(10)))
+# trials = np.arange(len(mask))[[m==1 for m in mask]]
 
 res_table = pd.read_csv(file_all_results)
 xy_table = pd.read_pickle(file_xy_results)
 
 # load single trial data
-eid = 'a82800ce-f4e3-4464-9b80-4c3d6fade333'
-region = 'LGd'
+# eid = 'a82800ce-f4e3-4464-9b80-4c3d6fade333'
+# region = 'LGd'
+eid = '5d01d14e-aced-4465-8f8e-9a1c674f62ec'
+region = 'VISp'
 xy_vals = get_xy_vals(xy_table, eid, region)
 er_vals = get_res_vals(res_table, eid, region)
 
@@ -125,6 +242,13 @@ mask = xy_vals['mask']
 preds = np.mean(np.squeeze(xy_vals['predictions']), axis=0)
 targs = np.squeeze(xy_vals['targets'])
 trials = np.arange(len(mask))[[m==1 for m in mask]]
+
+assert len(targs_stim) == len(trials_stim)
+assert np.all([t in trials_stim for t in trials])
+targ_conts = np.array([targs_stim[t==trials_stim][0] for t in trials])
+assert np.all(targs[targ_conts>0]==1)
+assert np.all(targs[targ_conts<0]==0)
+
 
 plt.figure(figsize=(14,3.3))
 
@@ -143,6 +267,24 @@ plt.ylabel('Block')
 plt.tight_layout()
 plt.savefig(f'decoding_figures/{VARI}_trace', dpi=200)
 plt.show()
+
+sns.set_style('white')
+plt.figure(figsize=(5,4))
+plt.title(f"session: {eid} \n region: {acronym2name(region)} ({region}) \n balanced accuracy = {er_vals['score']:.3f} (average across 10 models)")
+u_conts = np.unique(targ_conts)
+neurometric_curve = [np.mean(preds[targ_conts==c]) for c in u_conts]
+neurometric_curve_err = [2*np.std(preds[targ_conts==c]) for c in u_conts]
+plt.plot(u_conts, neurometric_curve, lw = 4, c='k')
+plt.ylim(0,1)
+plt.xlim(-1,1)
+# plt.xticks([-1,0,1])
+plt.xlabel('Contrast')
+plt.ylabel('Probability of Left choice')
+# plt.tick_params(axis='both', length=10)
+plt.tight_layout()
+plt.savefig(f'decoding_figures/stimside_neurocurve.svg', dpi=200)
+plt.show()
+
 
 #%%
 

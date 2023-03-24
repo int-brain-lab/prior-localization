@@ -136,6 +136,8 @@ xy_table = pd.read_pickle(file_xy_results)
 # load single trial data
 eid = 'dda5fc59-f09a-4256-9fb5-66c67667a466'
 region = 'VISpm'
+eid = '5d01d14e-aced-4465-8f8e-9a1c674f62ec'
+region = 'VISp'
 xy_vals = get_xy_vals(xy_table, eid, region)
 er_vals = get_res_vals(res_table, eid, region)
 
@@ -198,7 +200,7 @@ plt.legend(['Identity'])
 plt.tight_layout()
 plt.savefig(f'decoding_figures/stim_calibrate_{region}.svg', dpi=600)
 plt.show()
-
+#%%
 eid = '16c3667b-e0ea-43fb-9ad4-8dcd1e6c40e1'
 region = 'PRNr'
 xy_vals = get_xy_vals(xy_table, eid, region)

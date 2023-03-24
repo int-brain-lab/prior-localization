@@ -127,6 +127,8 @@ xy_table = pd.read_pickle(file_xy_results)
 
 eid = 'fece187f-b47f-4870-a1d6-619afe942a7d'
 region = 'PRNc'
+eid = 'e012d3e3-fdbc-4661-9ffa-5fa284e4e706'
+region = 'IRN'
 xy_vals = get_xy_vals(xy_table, eid, region)
 er_vals = get_res_vals(res_table, eid, region)
 
