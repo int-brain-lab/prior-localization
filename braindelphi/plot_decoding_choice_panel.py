@@ -10,10 +10,12 @@ import seaborn as sns
 sns.set(font_scale=1.5)
 sns.set_style('whitegrid')
 
-DATE = '09-03-2023'
+DATE = '24-03-2023'
+# DATE = '09-03-2023'
 VARI = 'choice'
 preamb = 'decoding_results/summary/'
-file_all_results = preamb + '09-03-2023_decode_choice_task_LogisticsRegression_align_firstMovement_times_200_pseudosessions_regionWise_timeWindow_-0_1_0_0_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
+file_all_results = preamb + '24-03-2023_decode_choice_task_LogisticsRegression_align_firstMovement_times_200_pseudosessions_regionWise_timeWindow_-0_1_0_0_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
+# file_all_results = preamb + '09-03-2023_decode_choice_task_LogisticsRegression_align_firstMovement_times_200_pseudosessions_regionWise_timeWindow_-0_1_0_0_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
 file_xy_results = file_all_results[:-4] + '_xy.pkl'
 FIG_SUF = '.svg'
 # file_all_results = 'decoding_results/summary/18-01-2023_decode_choice_task_LogisticsRegression_align_firstMovement_times_200_pseudosessions_regionWise_timeWindow_-0_1_0_0_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
@@ -22,13 +24,18 @@ FIG_SUF = '.svg'
 
 FOCUS_REGIONS = ['SSp-ul']
 
-# read in results an filter for >=10 units and >=2 sessions
+# read in results an filter for >=N_UNIT_THRESH units and >=N_SESS_THRESH sessions
+N_UNIT_THRESH = 1
+#N_UNIT_THRESH = 1
+N_SESS_THRESH = 1
+#N_SESS_THRESH = 1
+
 res_table = pd.read_csv(file_all_results)
-res_table = res_table.loc[res_table['n_units']>=10]
+res_table = res_table.loc[res_table['n_units']>=N_UNIT_THRESH]
 res_table = res_table.loc[res_table['region']!='void']
 res_table = res_table.loc[res_table['region']!='root']
 reg_counts = res_table['region'].value_counts()
-res_table = res_table.loc[res_table['region'].isin(reg_counts[reg_counts>=2].index)]
+res_table = res_table.loc[res_table['region'].isin(reg_counts[reg_counts>=N_SESS_THRESH].index)]
 
 xy_table = pd.read_pickle(file_xy_results)
 eid_regs_filtered = res_table.apply(lambda x: f"{x['eid']}_{x['region']}", axis=1)
