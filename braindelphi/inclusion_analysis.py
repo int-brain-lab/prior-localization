@@ -20,17 +20,23 @@ out = pd.read_csv(
     f'decoding_processing/{DATE}_{VARI}_clusteruuids_weights.csv')
 stim_cuuids = list(out['cluster_uuids'])
 
-DATE = '18-01-2023'
-VARI = 'choice'
+DATE = '09-03-2023'
+VARI = 'stimside'
 out = pd.read_csv(
     f'decoding_processing/{DATE}_{VARI}_clusteruuids_weights.csv')
-choice_cuuids = list(out['cluster_uuids'])
+stim_cuuids = list(out['cluster_uuids'])
 
-DATE = '18-01-2023'
-VARI = 'feedback'
-out = pd.read_csv(
-    f'decoding_processing/{DATE}_{VARI}_clusteruuids_weights.csv')
-feedback_cuuids = list(out['cluster_uuids'])
+# DATE = '18-01-2023'
+# VARI = 'choice'
+# out = pd.read_csv(
+#     f'decoding_processing/{DATE}_{VARI}_clusteruuids_weights.csv')
+# choice_cuuids = list(out['cluster_uuids'])
+
+# DATE = '18-01-2023'
+# VARI = 'feedback'
+# out = pd.read_csv(
+#     f'decoding_processing/{DATE}_{VARI}_clusteruuids_weights.csv')
+# feedback_cuuids = list(out['cluster_uuids'])
 
 # DATE = '18-01-2023'
 # VARI = 'wheel-speed'

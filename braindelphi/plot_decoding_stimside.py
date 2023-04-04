@@ -28,13 +28,18 @@ FIG_SUF = '.svg'
 FOCUS_REGIONS = ['ORBvl']
 
 
-# read in results an filter for >=10 units and >=2 sessions
+# read in results an filter for >=N_UNIT_THRESH units and >=N_SESS_THRESH sessions
+N_UNIT_THRESH = 10
+#N_UNIT_THRESH = 1
+N_SESS_THRESH = 2
+#N_SESS_THRESH = 1
+
 res_table = pd.read_csv(file_all_results)
-res_table = res_table.loc[res_table['n_units']>=10]
+res_table = res_table.loc[res_table['n_units']>=N_UNIT_THRESH]
 res_table = res_table.loc[res_table['region']!='void']
 res_table = res_table.loc[res_table['region']!='root']
 reg_counts = res_table['region'].value_counts()
-res_table = res_table.loc[res_table['region'].isin(reg_counts[reg_counts>=2].index)]
+res_table = res_table.loc[res_table['region'].isin(reg_counts[reg_counts>=N_SESS_THRESH].index)]
 
 xy_table = pd.read_pickle(file_xy_results)
 eid_regs_filtered = res_table.apply(lambda x: f"{x['eid']}_{x['region']}", axis=1)

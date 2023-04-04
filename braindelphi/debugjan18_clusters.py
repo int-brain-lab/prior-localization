@@ -5,11 +5,37 @@ Created on Thu Mar 23 09:28:17 2023
 
 @author: bensonb
 """
+from brainwidemap.bwm_loading import bwm_units
+from one.api import ONE
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+DATE = '01-04-2023'
+VARI = 'feedback'
+my_clusters = pd.read_csv(f'decoding_processing/clusters_regions_sessions/{DATE}_{VARI}_clusters.csv')
 
+one = ONE(base_url='https://alyx.internationalbrainlab.org')
+julias_clusters = bwm_units(one)
+
+bset = set(my_clusters.loc[:,'cluster_uuids'])
+jset = set(julias_clusters.loc[:,'uuids'])
+
+# bset is a subset of jset
+assert len(bset.intersection(jset)) == len(bset)
+
+del_list = list(jset.difference(bset))
+del_clusters = julias_clusters[julias_clusters['uuids'].isin(del_list)]
+
+# is a single eid responsible for all these clusters?
+del_eids = np.unique(del_clusters['eid'])
+assert len(del_eids) == 1
+
+# are these all the clusters in that eid?
+del_eid = del_eids[0]
+testset = set(julias_clusters[julias_clusters['eid']==del_eid]['uuids'])
+assert set(del_clusters['uuids']) == testset
+#%%
 ############## compare variables of newest run
 LABELS = ['old_decoding_params','old_decoding', 'new']
 DATES = ['24-03-2023', '25-03-2023', '26-03-2023']
