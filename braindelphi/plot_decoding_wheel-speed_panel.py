@@ -8,84 +8,94 @@ from yanliang_brain_slice_plot import get_cmap
 import matplotlib.pyplot as plt
 import seaborn as sns
 from one.api import ONE
-one = ONE()
-
+from brainwidemap.bwm_loading import bwm_units
 sns.set(font_scale=1.5)
 sns.set_style('whitegrid')
 
-# DATE = '18-01-2023'
-# VARI = 'wheel-speed'
-# file_all_results = 'decoding_results/summary/18-01-2023_decode_wheel-speed_task_Lasso_align_firstMovement_times_100_pseudosessions_regionWise_timeWindow_-0_2_1_0_imposterSess_1_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
-# file_xy_results = 'decoding_results/summary/18-01-2023_decode_wheel-speed_task_Lasso_align_firstMovement_times_100_pseudosessions_regionWise_timeWindow_-0_2_1_0_imposterSess_1_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_xy.pkl'
-# FIG_SUF = '.svg'
-DATE = '09-03-2023'
+# get reference cluster dataframe
+julias_clusters = bwm_units(ONE(base_url='https://openalyx.internationalbrainlab.org',
+                                password='international'))
+julias_clusters['sessreg'] = julias_clusters.apply(lambda x: f"{x['eid']}_{x['Beryl']}", axis=1)
+ref_clusters = julias_clusters[['uuids','sessreg']]
+
+one = ONE()
+
+CUSTOM_SESSREG_FILTER = None # can use something other than ref_clusters
+                             # if this is a tuple (min_units, min_reg)
+
+'''
+01-04-2023_decode_choice_task_LogisticsRegression_align_firstMovement_times_200_pseudosessions_regionWise_timeWindow_-0_1_0_0_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv
+01-04-2023_decode_feedback_task_LogisticsRegression_align_feedback_times_200_pseudosessions_regionWise_timeWindow_0_0_0_2_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv
+01-04-2023_decode_pLeft_oracle_LogisticsRegression_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_-0_4_-0_1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv
+02-04-2023_decode_signcont_task_LogisticsRegression_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_0_0_0_1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv
+01-04-2023_decode_wheel-speed_task_Lasso_align_firstMovement_times_100_pseudosessions_regionWise_timeWindow_-0_2_1_0_imposterSess_1_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv
+'''
+
+DATE = '01-04-2023'
 VARI = 'wheel-speed'
 preamb = 'decoding_results/summary/'
-file_all_results = preamb + '09-03-2023_decode_wheel-speed_task_Lasso_align_firstMovement_times_100_pseudosessions_regionWise_timeWindow_-0_2_1_0_imposterSess_1_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
+file_all_results = preamb + '01-04-2023_decode_wheel-speed_task_Lasso_align_firstMovement_times_100_pseudosessions_regionWise_timeWindow_-0_2_1_0_imposterSess_1_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
 file_xy_results = file_all_results[:-4] + '_xy.pkl'
 FIG_SUF = '.svg'
 
 FOCUS_REGIONS = ['GRN']
 
-
-# read in results an filter for >=N_UNIT_THRESH units and >=N_SESS_THRESH sessions
-N_UNIT_THRESH = 10
-#N_UNIT_THRESH = 1
-N_SESS_THRESH = 2
-#N_SESS_THRESH = 1
-
+# load results
 res_table = pd.read_csv(file_all_results)
-res_table = res_table.loc[res_table['n_units']>=N_UNIT_THRESH]
-res_table = res_table.loc[res_table['region']!='void']
-res_table = res_table.loc[res_table['region']!='root']
-reg_counts = res_table['region'].value_counts()
-res_table = res_table.loc[res_table['region'].isin(reg_counts[reg_counts>=N_SESS_THRESH].index)]
-
 xy_table = pd.read_pickle(file_xy_results)
-eid_regs_filtered = res_table.apply(lambda x: f"{x['eid']}_{x['region']}", axis=1)
-xy_table = xy_table.loc[xy_table['eid_region'].isin(eid_regs_filtered)]
+assert np.all([len(xy_table.iloc[i]['cluster_uuids']) == xy_table.iloc[i]
+              ['weights'].shape[-1]/11 for i in range(xy_table.shape[0])])
 
-# combine regions
+# filter results
+if not (CUSTOM_SESSREG_FILTER is None):
+    min_units, min_reg = CUSTOM_SESSREG_FILTER
+    res_table = pd.read_csv(file_all_results)
+    res_table = res_table.loc[res_table['n_units']>=min_units]
+    res_table = res_table.loc[res_table['region']!='void']
+    res_table = res_table.loc[res_table['region']!='root']
+    reg_counts = res_table['region'].value_counts()
+    res_table = res_table.loc[res_table['region'].isin(reg_counts[reg_counts>=min_reg].index)]
+    
+    xy_table = pd.read_pickle(file_xy_results)
+    eid_regs_filtered = res_table.apply(lambda x: f"{x['eid']}_{x['region']}", axis=1)
+    xy_table = xy_table.loc[xy_table['eid_region'].isin(eid_regs_filtered)]
+    
+    # check clusters
+    cuuids = np.concatenate(list(xy_table['cluster_uuids']))
+    assert set(ref_clusters['uuids']).issubset(set(cuuids))
+else:
+    #filter according to reference  session_regions
+    res_table['sessreg'] = res_table.apply(lambda x: f"{x['eid']}_{x['region']}", axis=1)
+    res_table = res_table[res_table['sessreg'].isin(ref_clusters['sessreg'])]
+    xy_table = xy_table.loc[xy_table['eid_region'].isin(ref_clusters['sessreg'])]
+
+    # check clusters
+    cuuids = np.concatenate(list(xy_table['cluster_uuids']))
+    assert set(cuuids) == set(ref_clusters['uuids'])
+
+# combine regions and save
 save_comb_regs_data = comb_regs_df(res_table, USE_ALL_BERYL_REGIONS=True)
 regs_table = comb_regs_df(res_table, USE_ALL_BERYL_REGIONS=False)
-
 n_sig = regs_table['combined_sig'].sum()
 f_sig = regs_table['combined_sig'].mean()
 wi_means, wi_vars = get_within_region_mean_var(res_table)
-wi_var = np.mean(wi_vars)
-wo_var = np.var(wi_means)
-wi2wo_var = wi_var / wo_var
 save_comb_regs_data.to_csv(
-    f'decoding_processing/{DATE}_{VARI}_regs_nsig{n_sig}_fsig{f_sig:.3f}_wi2ovar{wi2wo_var:.3f}.csv')
+    f'decoding_processing/{DATE}_{VARI}_regs_nsig{n_sig}_fsig{f_sig:.3f}_wi2ovar{np.mean(wi_vars)/np.var(wi_means):.3f}.csv')
 
-assert np.all([len(xy_table.iloc[i]['cluster_uuids']) == int(xy_table.iloc[i]
-              ['weights'].shape[-1]/11) for i in range(xy_table.shape[0])])
-cuuids = np.concatenate(list(xy_table['cluster_uuids']))
+# get weights and save
 # ws = np.concatenate(list(xy_table['weights']), axis=-1)[:, :, 0, :]
 # ws = ws.reshape((50, -1))
 # ws_dict = {f'ws_fold{i%5}_runid{i//5}': ws[i, :] for i in range(50)}
 # save_cluster_weights = pd.DataFrame({'cluster_uuids': cuuids,
-#                                       **ws_dict})
+#                                      **ws_dict})
 # save_cluster_weights.to_csv(
 #     f'decoding_processing/{DATE}_{VARI}_clusteruuids_weights.csv')
 
+# get cluster, region, session lists and save
 pd.DataFrame({'cluster_uuids': cuuids}).to_csv(f'decoding_processing/clusters_regions_sessions/{DATE}_{VARI}_clusters.csv')
 pd.DataFrame({'regions': np.unique(res_table['region'])}).to_csv(f'decoding_processing/clusters_regions_sessions/{DATE}_{VARI}_regions.csv')
 pd.DataFrame({'session_eids': np.unique(res_table['eid'])}).to_csv(f'decoding_processing/clusters_regions_sessions/{DATE}_{VARI}_sessions.csv')
-
-# old_version
-# res_table = pd.read_csv(file_all_results)
-# xy_table = pd.read_pickle(file_xy_results)
-# save_comb_regs_data = comb_regs_df(res_table, USE_ALL_BERYL_REGIONS=True)
-# regs_table = comb_regs_df(res_table, USE_ALL_BERYL_REGIONS=False)
-
-# n_sig = regs_table['combined_sig'].sum()
-# f_sig = regs_table['combined_sig'].mean()
-# wi_means, wi_vars = get_within_region_mean_var(res_table)
-# wi_var = np.mean(wi_vars)
-# wo_var = np.var(wi_means)
-# wi2wo_var = wi_var/wo_var
-# save_comb_regs_data.to_csv(f'decoding_processing/{DATE}_{VARI}_regs_nsig{n_sig}_fsig{f_sig:.3f}_wi2ovar{wi2wo_var:.3f}.csv')
+pd.DataFrame({'session_regions': np.unique(res_table.apply(lambda x: f"{x['eid']}_{x['region']}", axis=1))}).to_csv(f'decoding_processing/clusters_regions_sessions/{DATE}_{VARI}_sessionregions.csv')
 
 #%%
 

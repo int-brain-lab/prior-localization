@@ -6,87 +6,80 @@ from plot_utils import heatmap, activity_and_decoding_weights
 from plot_utils import comb_regs_df, get_within_region_mean_var
 import matplotlib.pyplot as plt
 import seaborn as sns
+from one.api import ONE
+from brainwidemap.bwm_loading import bwm_units
 sns.set(font_scale=1.5)
 sns.set_style('whitegrid')
 
+# get reference cluster dataframe
+julias_clusters = bwm_units(ONE(base_url='https://openalyx.internationalbrainlab.org',
+                                password='international'))
+julias_clusters['sessreg'] = julias_clusters.apply(lambda x: f"{x['eid']}_{x['Beryl']}", axis=1)
+ref_clusters = julias_clusters[['uuids','sessreg']]
 
-filter_on_stim_clusters = False
-# DATE = '30-11-2022'
-# VARI = 'stimside'
-# preamb = 'decoding_results/summary/'
-# file_all_results = preamb + '30-11-2022_decode_signcont_task_LogisticsRegression_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_0_0_0_1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
-# file_xy_results = file_all_results[:-4] + '_xy.pkl'
+CUSTOM_SESSREG_FILTER = None # can use something other than ref_clusters
+                             # if this is a tuple (min_units, min_reg)
 
-DATE = '09-03-2023'
+'''
+01-04-2023_decode_choice_task_LogisticsRegression_align_firstMovement_times_200_pseudosessions_regionWise_timeWindow_-0_1_0_0_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv
+01-04-2023_decode_feedback_task_LogisticsRegression_align_feedback_times_200_pseudosessions_regionWise_timeWindow_0_0_0_2_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv
+01-04-2023_decode_pLeft_oracle_LogisticsRegression_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_-0_4_-0_1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv
+02-04-2023_decode_signcont_task_LogisticsRegression_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_0_0_0_1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv
+01-04-2023_decode_wheel-speed_task_Lasso_align_firstMovement_times_100_pseudosessions_regionWise_timeWindow_-0_2_1_0_imposterSess_1_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv
+'''
+
+DATE = '01-04-2023'
 VARI = 'stimside'
 preamb = 'decoding_results/summary/'
-file_all_results = preamb + '09-03-2023_decode_signcont_task_LogisticsRegression_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_0_0_0_1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
+file_all_results = preamb + '02-04-2023_decode_signcont_task_LogisticsRegression_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_0_0_0_1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
 file_xy_results = file_all_results[:-4] + '_xy.pkl'
-
 FIG_SUF = '.svg'
 
 FOCUS_REGIONS = ['ORBvl']
 
-
-# read in results an filter for >=N_UNIT_THRESH units and >=N_SESS_THRESH sessions
-N_UNIT_THRESH = 10
-#N_UNIT_THRESH = 1
-N_SESS_THRESH = 2
-#N_SESS_THRESH = 1
-
+# load results
 res_table = pd.read_csv(file_all_results)
-res_table = res_table.loc[res_table['n_units']>=N_UNIT_THRESH]
-res_table = res_table.loc[res_table['region']!='void']
-res_table = res_table.loc[res_table['region']!='root']
-reg_counts = res_table['region'].value_counts()
-res_table = res_table.loc[res_table['region'].isin(reg_counts[reg_counts>=N_SESS_THRESH].index)]
-
 xy_table = pd.read_pickle(file_xy_results)
-eid_regs_filtered = res_table.apply(lambda x: f"{x['eid']}_{x['region']}", axis=1)
-xy_table = xy_table.loc[xy_table['eid_region'].isin(eid_regs_filtered)]
+assert np.all([len(xy_table.iloc[i]['cluster_uuids']) == xy_table.iloc[i]
+              ['weights'].shape[-1] for i in range(xy_table.shape[0])])
 
-###################### filter on stimulus clusters
-if filter_on_stim_clusters:
-    # get cuuids_stim
-    xy_table_stim = pd.read_pickle('decoding_results/summary/18-01-2023_decode_signcont_task_Lasso_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_0_0_0_1_imposterSess_0_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_xy.pkl')
-    cuuids_stim = np.concatenate(list(xy_table_stim['cluster_uuids']))
+# filter results
+if not (CUSTOM_SESSREG_FILTER is None):
+    min_units, min_reg = CUSTOM_SESSREG_FILTER
+    res_table = pd.read_csv(file_all_results)
+    res_table = res_table.loc[res_table['n_units']>=min_units]
+    res_table = res_table.loc[res_table['region']!='void']
+    res_table = res_table.loc[res_table['region']!='root']
+    reg_counts = res_table['region'].value_counts()
+    res_table = res_table.loc[res_table['region'].isin(reg_counts[reg_counts>=min_reg].index)]
     
-    # explode cuuids, filter on cuuids_stim
-    cuuids = xy_table.explode('cluster_uuids')
-    cuuids = cuuids.loc[cuuids['cluster_uuids'].isin(cuuids_stim)]
+    xy_table = pd.read_pickle(file_xy_results)
+    eid_regs_filtered = res_table.apply(lambda x: f"{x['eid']}_{x['region']}", axis=1)
+    xy_table = xy_table.loc[xy_table['eid_region'].isin(eid_regs_filtered)]
     
-    # group, defining cluster number, eid, and region
-    c_grouped = cuuids.groupby(['eid_region'])['cluster_uuids'].count().reset_index()
-    c_grouped['eid'] = c_grouped['eid_region'].apply(lambda x:x.split('_')[0])
-    c_grouped['region'] = c_grouped['eid_region'].apply(lambda x:x.split('_')[1])
-    
-    # filter n_units and regions as before
-    c_grouped = c_grouped.loc[c_grouped['cluster_uuids']>=10]
-    reg_counts = c_grouped['region'].value_counts()
-    c_grouped = c_grouped.loc[c_grouped['region'].isin(reg_counts[reg_counts>=2].index)]
-    
-    # apply filter to res_table and xy_table
-    f_eid_reg = lambda x: f"{x['eid']}_{x['region']}"
-    res_table = res_table.loc[res_table.apply(f_eid_reg, axis=1).isin(c_grouped['eid_region'])]
-    xy_table = xy_table.loc[xy_table['eid_region'].isin(c_grouped['eid_region'])]
-##########################
+    # check clusters
+    cuuids = np.concatenate(list(xy_table['cluster_uuids']))
+    assert set(ref_clusters['uuids']).issubset(set(cuuids))
+else:
+    #filter according to reference  session_regions
+    res_table['sessreg'] = res_table.apply(lambda x: f"{x['eid']}_{x['region']}", axis=1)
+    res_table = res_table[res_table['sessreg'].isin(ref_clusters['sessreg'])]
+    xy_table = xy_table.loc[xy_table['eid_region'].isin(ref_clusters['sessreg'])]
 
-# combine regions
+    # check clusters
+    cuuids = np.concatenate(list(xy_table['cluster_uuids']))
+    assert set(cuuids) == set(ref_clusters['uuids'])
+
+# combine regions and save
 save_comb_regs_data = comb_regs_df(res_table, USE_ALL_BERYL_REGIONS=True)
 regs_table = comb_regs_df(res_table, USE_ALL_BERYL_REGIONS=False)
-
 n_sig = regs_table['combined_sig'].sum()
 f_sig = regs_table['combined_sig'].mean()
 wi_means, wi_vars = get_within_region_mean_var(res_table)
-wi_var = np.mean(wi_vars)
-wo_var = np.var(wi_means)
-wi2wo_var = wi_var / wo_var
 save_comb_regs_data.to_csv(
-    f'decoding_processing/{DATE}_{VARI}_regs_nsig{n_sig}_fsig{f_sig:.3f}_wi2ovar{wi2wo_var:.3f}.csv')
+    f'decoding_processing/{DATE}_{VARI}_regs_nsig{n_sig}_fsig{f_sig:.3f}_wi2ovar{np.mean(wi_vars)/np.var(wi_means):.3f}.csv')
 
-assert np.all([len(xy_table.iloc[i]['cluster_uuids']) == xy_table.iloc[i]
-              ['weights'].shape[-1] for i in range(xy_table.shape[0])])
-cuuids = np.concatenate(list(xy_table['cluster_uuids']))
+# get weights and save
 ws = np.concatenate(list(xy_table['weights']), axis=-1)[:, :, 0, :]
 ws = ws.reshape((50, -1))
 ws_dict = {f'ws_fold{i%5}_runid{i//5}': ws[i, :] for i in range(50)}
@@ -95,35 +88,10 @@ save_cluster_weights = pd.DataFrame({'cluster_uuids': cuuids,
 save_cluster_weights.to_csv(
     f'decoding_processing/{DATE}_{VARI}_clusteruuids_weights.csv')
 
+# get cluster, region, session lists and save
 pd.DataFrame({'cluster_uuids': cuuids}).to_csv(f'decoding_processing/clusters_regions_sessions/{DATE}_{VARI}_clusters.csv')
 pd.DataFrame({'regions': np.unique(res_table['region'])}).to_csv(f'decoding_processing/clusters_regions_sessions/{DATE}_{VARI}_regions.csv')
 pd.DataFrame({'session_eids': np.unique(res_table['eid'])}).to_csv(f'decoding_processing/clusters_regions_sessions/{DATE}_{VARI}_sessions.csv')
-
-
-
-# save_comb_regs_data = comb_regs_df(res_table, USE_ALL_BERYL_REGIONS=True)
-# regs_table = comb_regs_df(res_table, USE_ALL_BERYL_REGIONS=False)
-
-
-# n_sig = regs_table['combined_sig'].sum()
-# f_sig = regs_table['combined_sig'].mean()
-# wi_means, wi_vars = get_within_region_mean_var(res_table)
-# wi_var = np.mean(wi_vars)
-# wo_var = np.var(wi_means)
-# wi2wo_var = wi_var/wo_var
-# save_comb_regs_data.to_csv(f'decoding_processing/{DATE}_{VARI}_regs_nsig{n_sig}_fsig{f_sig:.3f}_wi2ovar{wi2wo_var:.3f}.csv')
-
-# assert np.all([len(xy_table.iloc[i]['cluster_uuids']) == xy_table.iloc[i]
-#               ['weights'].shape[-1] for i in range(xy_table.shape[0])])
-# cuuids = np.concatenate(list(xy_table['cluster_uuids']))
-# ws = np.concatenate(list(xy_table['weights']), axis=-1)[:, :, 0, :]
-# ws = ws.reshape((50, -1))
-# ws_dict = {f'ws_fold{i%5}_runid{i//5}': ws[i, :] for i in range(50)}
-# save_cluster_weights = pd.DataFrame({'cluster_uuids': cuuids,
-#                                      **ws_dict})
-# save_cluster_weights.to_csv(
-#     f'decoding_processing/{DATE}_{VARI}_clusteruuids_weights.csv')
-
 
 #%% Stimside
 
