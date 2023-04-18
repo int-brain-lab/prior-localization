@@ -215,8 +215,14 @@ plt.show()
 plt.figure(figsize=(5,4))
 
 plt.title(f"session: {eid} \n region: {acronym2name(region)} ({region}) \n balanced accuracy = {er_vals['score']:.3f} (average across 10 models)")
-plt.plot(trials[targs==1], predprobs[targs==1],'C0o',lw=2,ms=4)
-plt.plot(trials[targs==0],predprobs[targs==0],'C1o',lw=2,ms=4)
+plt.plot(trials[targs==1], 
+         predprobs[targs==1],
+         'o', c = (34/255,77/255,169/255),
+         lw=2,ms=4)
+plt.plot(trials[targs==0],
+         predprobs[targs==0],
+         'o', c = (255/255, 48/255, 23/255),
+         lw=2,ms=4)
 # plt.yticks([-1,0,1])
 # plt.ylim(-1,1)
 plt.xlim(100,400)
