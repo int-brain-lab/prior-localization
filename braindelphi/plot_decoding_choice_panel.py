@@ -169,6 +169,7 @@ for reg in acr_plotted:
     assert np.median(get_vals(reg)) > np.median(res_table.loc[res_table['region']==reg, 'median-null'])
 
 #%% plot single session traces
+sns.set_style('ticks')
 
 res_table = pd.read_csv(file_all_results)
 xy_table = pd.read_pickle(file_xy_results)

@@ -168,6 +168,7 @@ for reg in acr_plotted:
     assert np.median(get_vals(reg)) > np.median(res_table.loc[res_table['region']==reg, 'median-null'])
 
 #%% plot single session traces
+sns.set_style('ticks')
 eid = '5d01d14e-aced-4465-8f8e-9a1c674f62ec'
 region = 'VISp'
 
@@ -241,7 +242,7 @@ plt.tight_layout()
 plt.savefig(f'decoding_figures/{VARI}_trace', dpi=200)
 plt.show()
 
-sns.set_style('white')
+sns.set_style('ticks')
 plt.figure(figsize=(5,4))
 plt.title(f"session: {eid} \n region: {acronym2name(region)} ({region}) \n balanced accuracy = {er_vals['score']:.3f} (average across 10 models)")
 u_conts = np.unique(targ_conts)

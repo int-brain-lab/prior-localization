@@ -186,6 +186,7 @@ for reg in acr_plotted:
         res_table.loc[res_table['region'] == reg, 'median-null'])
 
 # %% plot single session traces
+sns.set_style('ticks')
 
 res_table = pd.read_csv(file_all_results)
 xy_table = pd.read_pickle(file_xy_results)
@@ -232,15 +233,27 @@ plt.show()
 plt.figure(figsize=(5, 4))
 plt.title(
     f"session: {eid} \n region: {acronym2name(region)} ({region}) \n balanced accuracy = {er_vals['score']:.3f} (average across 10 models)")
-plt.plot(trials, targs, '-', c='k', lw=4)
-plt.plot(trials, predprobs, '-', c='mediumpurple')
+# plt.plot(trials, targs, '-', c='k', lw=4)
+# plt.plot(trials, predprobs, '-', c='mediumpurple')
+# plt.legend(['Left Biased Block',
+#             'Probability of left prediction \n(across 10 models)'],
+#            frameon=True,
+#            loc=(0.9, 1.1))
+plt.plot(trials[targs==1], 
+         predprobs[targs==1],
+         'o', c = (34/255,77/255,169/255),
+         lw=2,ms=4)
+plt.plot(trials[targs==0],
+         predprobs[targs==0],
+         'o', c = (255/255, 48/255, 23/255),
+         lw=2,ms=4)
+plt.legend(['Prediction given choice$=$L', 
+            'Prediction given choice$=$R'],
+           frameon=True,
+           loc=(0.9,1.1))
 plt.yticks([0, .5, 1])
 plt.ylim(-0.1, 1.1)
 plt.xlim(100, 400)
-plt.legend(['Left Biased Block',
-            'Probability of left prediction \n(across 10 models)'],
-           frameon=True,
-           loc=(0.9, 1.1))
 plt.xlabel('Trials')
 plt.ylabel('Average predicted \nleft block')
 plt.tight_layout()

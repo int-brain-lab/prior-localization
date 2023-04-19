@@ -172,6 +172,7 @@ for reg in acr_plotted:
 
 
 #%% plot single session traces
+sns.set_style('ticks')
 
 # file_all_results = 'decoding_results/summary/18-01-2023_decode_wheel-speed_task_Lasso_align_firstMovement_times_100_pseudosessions_regionWise_timeWindow_-0_2_1_0_imposterSess_1_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
 # file_xy_results = 'decoding_results/summary/18-01-2023_decode_wheel-speed_task_Lasso_align_firstMovement_times_100_pseudosessions_regionWise_timeWindow_-0_2_1_0_imposterSess_1_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0_xy.pkl'
@@ -199,7 +200,7 @@ trials = np.arange(len(mask))[[m==1 for m in mask]]
 fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4, figsize=(16,6))
 fig.suptitle(f"session: {eid} \n region: {acronym2name(region)} ({region}) \n $R^2$ = {er_vals['score']:.3f} (average across 2 models)")
 LW = 3
-YMIN, YMAX = -5, 5
+YMIN, YMAX = -4.1, 4.1
 
 t = 0
 targs, preds, movetime, trial = targs_alltrials[t,:], preds_alltrials[t,:], movetimes[t], trials[t]

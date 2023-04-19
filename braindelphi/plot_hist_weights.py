@@ -8,6 +8,9 @@ Created on Mon Apr 17 10:45:03 2023
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
+sns.set(font_scale=1.5)
+sns.set_style('ticks')
 
 DATES = ['01-04-2023', 
          '01-04-2023', 
