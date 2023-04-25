@@ -13,6 +13,7 @@ from plot_utils import heatmap, activity_and_decoding_weights
 from plot_utils import comb_regs_df, get_within_region_mean_var
 from matplotlib_venn import venn3
 import matplotlib.pyplot as plt
+from sklearn.metrics import r2_score
 import seaborn as sns
 from one.api import ONE
 from brainwidemap.bwm_loading import bwm_units
@@ -47,6 +48,12 @@ xy_table = xy_table.loc[xy_table['eid_region'].isin(ref_clusters['sessreg'])]
 cuuids = np.concatenate(list(xy_table['cluster_uuids']))
 assert set(cuuids) == set(ref_clusters['uuids'])
 
+# get targets
+xy_eids = xy_table.apply(lambda x: x['eid_region'].split('_')[0], axis=1)
+all_targs_wv = np.vstack([xy_table.loc[xy_eids[xy_eids==eid].index[0], 
+                          'targets'] for eid in xy_eids.unique()])
+
+
 regs_table = comb_regs_df(res_table, USE_ALL_BERYL_REGIONS=False)
 regs_table_wv = regs_table
 regs_wv = set(regs_table_wv[regs_table_wv['combined_sig']]['region'])
@@ -71,6 +78,10 @@ xy_table = xy_table.loc[xy_table['eid_region'].isin(ref_clusters['sessreg'])]
 # check clusters
 cuuids = np.concatenate(list(xy_table['cluster_uuids']))
 assert set(cuuids) == set(ref_clusters['uuids'])
+
+# get targets
+all_targs_ws = np.vstack([xy_table.loc[xy_eids[xy_eids==eid].index[0], 
+                          'targets'] for eid in xy_eids.unique()])
 
 regs_table = comb_regs_df(res_table, USE_ALL_BERYL_REGIONS=False)
 regs_table_ws = regs_table
@@ -114,69 +125,122 @@ assert np.all(regs_table_wv['region'] == regs_table_ws['region'])
 sns.set_style('ticks')
 
 plt.figure(figsize=(8,8))
-# plt.plot(regs_table_wv['valuesminusnull_median'], 
-#          regs_table_ws['valuesminusnull_median'],
-#          'o')
+plt.plot(regs_table_wv['valuesminusnull_median'], 
+          regs_table_ws['valuesminusnull_median'],
+          'o', ms=1)
 for x, y, s in zip(regs_table_wv['valuesminusnull_median'],
                    regs_table_ws['valuesminusnull_median'],
                    regs_table_wv['region']):
-    plt.text(x, y, s, fontsize=7)
-xs = np.linspace(0,0.4)
+    plt.text(x, y, s, fontsize=9)
+xs = np.linspace(0,0.55)
 plt.plot(xs,xs,'k--')
 plt.xlabel('Wheel-velocity')
 plt.ylabel('Wheel-speed')
 plt.tight_layout()
-plt.savefig('decoding_figures/wheelspeedvsvel_effectsize_scatter.png', dpi=200)
+plt.savefig('decoding_figures/SI/wheelspeedvsvel_effectsize_scatter.svg')
 plt.show()
 
 plt.figure(figsize=(8,8))
-# plt.plot(regs_table_wv['valuesminusnull_median'], 
-#          regs_table_ws['valuesminusnull_median'],
-#          'o')
+plt.plot(regs_table_wv['values_median'],
+                   regs_table_ws['values_median'],
+          'o', ms=1)
 for x, y, s in zip(regs_table_wv['values_median'],
                    regs_table_ws['values_median'],
                    regs_table_wv['region']):
-    plt.text(x, y, s, fontsize=7)
-xs = np.linspace(0,0.4)
+    plt.text(x, y, s, fontsize=9)
+xs = np.linspace(0,0.55)
 plt.plot(xs,xs,'k--')
 plt.xlabel('Wheel-velocity')
 plt.ylabel('Wheel-speed')
 plt.tight_layout()
-plt.savefig('decoding_figures/wheelspeedvsvel_r2_scatter.png', dpi=200)
+plt.savefig('decoding_figures/SI/wheelspeedvsvel_r2_scatter.svg')
 plt.show()
 
-plt.figure(figsize=(10,8))
-# plt.plot(regs_table_wv['valuesminusnull_median'], 
-#          regs_table_ws['valuesminusnull_median'],
-#          'o')
+plt.figure(figsize=(8,8))
+plt.plot(regs_table_wv['null_median_of_medians'],
+                   regs_table_ws['null_median_of_medians'],
+          'o', ms=1)
 for x, y, s in zip(regs_table_wv['null_median_of_medians'],
                    regs_table_ws['null_median_of_medians'],
                    regs_table_wv['region']):
-    plt.text(x, y, s, fontsize=7)
-xs = np.linspace(0,0.25)
-plt.plot(xs,xs,'k--')
-plt.xlabel('Wheel-velocity')
-plt.ylabel('Wheel-speed')
-plt.xlim(0,0.021)
-plt.ylim(0,0.23)
-plt.tight_layout()
-plt.savefig('decoding_figures/wheelspeedvsvel_r2null_scatter.png', dpi=200)
-plt.show()
-
-# plt.figure(figsize=(10,8))
-# # plt.plot(regs_table_wv['valuesminusnull_median'], 
-# #          regs_table_ws['valuesminusnull_median'],
-# #          'o')
-# for x, y, s in zip(regs_table_wv['null_median_of_medians'],
-#                    regs_table_ws['n_units_mean'],
-#                    regs_table_wv['region']):
-#     plt.text(x, y, s, fontsize=7)
+    plt.text(x, y, s, fontsize=9)
 # xs = np.linspace(0,0.25)
 # plt.plot(xs,xs,'k--')
-# plt.xlabel('Wheel-velocity')
-# plt.ylabel('Wheel-speed')
+plt.xlabel('Wheel-velocity')
+plt.ylabel('Wheel-speed')
 # plt.xlim(0,0.021)
 # plt.ylim(0,0.23)
-# plt.tight_layout()
+plt.tight_layout()
+plt.savefig('decoding_figures/SI/wheelspeedvsvel_r2null_scatter.svg')
+plt.show()
+
+plt.figure(figsize=(8,8))
+plt.plot(regs_table_ws['null_median_of_medians'], 
+          regs_table_ws['n_units_mean'],
+          'o', ms=1)
+for x, y, s in zip(regs_table_wv['null_median_of_medians'],
+                    regs_table_wv['n_units_mean'],
+                    regs_table_wv['region']):
+    plt.text(x, y, s, fontsize=7)
+# xs = np.linspace(0,0.25)
+# plt.plot(xs,xs,'k--')
+plt.xlabel('Wheel-velocity')
+plt.ylabel('Wheel-speed')
+# plt.xlim(0,0.021)
+# plt.ylim(0,0.23)
+plt.tight_layout()
 # plt.savefig('decoding_figures/wheelspeedvsnunits_scatter.png', dpi=200)
-# plt.show()
+plt.show()
+
+plt.figure(figsize = (6,6))
+ts = np.arange(60)*0.020 - 0.2
+plt.plot(ts, np.median(all_targs_ws, axis=0), lw=3)
+plt.plot(ts, np.median(all_targs_wv, axis=0), lw=3)
+plt.fill_between(ts, 
+                 np.percentile(all_targs_ws, 5, axis=0),
+                 np.percentile(all_targs_ws, 95, axis=0), 
+                 alpha=0.2, color='C0')
+plt.fill_between(ts, 
+                 np.percentile(all_targs_wv, 5, axis=0),
+                 np.percentile(all_targs_wv, 95, axis=0), 
+                 alpha=0.2, color='C1')
+plt.legend(['wheel-speed', 'wheel-velocity'], fontsize=14)
+plt.xlabel('Time (s)')
+plt.ylabel('Speed/velocity')
+plt.tight_layout()
+plt.savefig('decoding_figures/SI/wheelspeedvsvel_stereoshape.svg')
+plt.show()
+
+#%%
+
+n_boot = 50
+n_iter = 1000
+n_trials = 400
+
+stereo_ws = np.median(all_targs_ws, axis=0)
+stereo_ws = np.concatenate([stereo_ws] * n_trials)
+stereo_wv = np.median(all_targs_wv, axis=0)
+stereo_wv = np.concatenate([stereo_wv] * n_trials)
+
+n_ws = all_targs_ws.shape[0]
+sampletrials_ws = lambda : np.concatenate(all_targs_ws[np.random.randint(0,
+                                                    n_ws,
+                                                    size=n_trials),:])
+n_wv = all_targs_wv.shape[0]
+sampletrials_wv = lambda : np.concatenate(all_targs_wv[np.random.randint(0,
+                                                    n_wv,
+                                                    size=n_trials),:])
+
+r2_wss = []
+r2_wvs = []
+for _ in range(n_boot):
+    r2s = [r2_score(sampletrials_ws(), stereo_ws) for _ in range(n_iter)]
+    r2_wss.append(np.mean(r2s))
+    
+    r2s = [r2_score(sampletrials_wv(), stereo_wv) for _ in range(n_iter)]
+    r2_wvs.append(np.mean(r2s))
+
+r2mu_wv = np.mean(r2_wvs)
+r2err_wv = np.std(r2_wvs)/np.sqrt(n_boot)
+r2mu_ws = np.mean(r2_wss)
+r2err_ws = np.std(r2_wss)/np.sqrt(n_boot)
