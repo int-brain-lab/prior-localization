@@ -239,23 +239,23 @@ plt.title(
 #             'Probability of left prediction \n(across 10 models)'],
 #            frameon=True,
 #            loc=(0.9, 1.1))
-plt.plot(trials[targs==1], 
-         predprobs[targs==1],
-         'o', c = (34/255,77/255,169/255),
-         lw=2,ms=4)
 plt.plot(trials[targs==0],
-         predprobs[targs==0],
+         1-predprobs[targs==0],
          'o', c = (255/255, 48/255, 23/255),
          lw=2,ms=4)
-plt.legend(['Prediction given choice$=$L', 
-            'Prediction given choice$=$R'],
+plt.plot(trials[targs==1], 
+         1-predprobs[targs==1],
+         'o', c = (34/255,77/255,169/255),
+         lw=2,ms=4)
+plt.legend(['Prediction given choice$=$R',
+            'Prediction given choice$=$L'],
            frameon=True,
            loc=(0.9,1.1))
 plt.yticks([0, .5, 1])
 plt.ylim(-0.1, 1.1)
 plt.xlim(100, 400)
 plt.xlabel('Trials')
-plt.ylabel('Average predicted \nleft block')
+plt.ylabel('Average predicted \nright block')
 plt.tight_layout()
 plt.savefig(f'decoding_figures/{VARI}_trace.svg', dpi=200)
 plt.show()

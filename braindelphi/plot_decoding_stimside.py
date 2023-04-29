@@ -253,7 +253,7 @@ plt.ylim(0,1)
 plt.xlim(-1,1)
 plt.xticks([-1.    , -0.25  , -0.125 , -0.0625,  0, 0.0625,  0.125 ,  0.25  ,
         1.    ])
-plt.xlabel('Contrast')
+plt.xlabel('Contrast (right is >0, left is <0)')
 plt.ylabel('Probability of Right Stim side')
 # plt.tick_params(axis='both', length=10)
 plt.tight_layout()
