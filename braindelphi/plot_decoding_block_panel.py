@@ -78,7 +78,8 @@ else:
     assert set(cuuids) == set(ref_clusters['uuids'])
 
 # combine regions and save
-save_comb_regs_data = comb_regs_df(res_table, USE_ALL_BERYL_REGIONS=True)
+save_comb_regs_data = comb_regs_df(res_table, 
+                                   USE_ALL_BERYL_REGIONS=True)
 regs_table = comb_regs_df(res_table, USE_ALL_BERYL_REGIONS=False)
 n_sig = regs_table['combined_sig'].sum()
 f_sig = regs_table['combined_sig'].mean()

@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import matplotlib
 import seaborn as sns
 import scipy.stats
+from statsmodels.stats.multitest import multipletests
 #from ibllib.atlas import AllenAtlas, FlatMap
 #from ibllib.atlas.plots import plot_scalar_on_flatmap
 from ibllib.atlas.flatmaps import plot_swanson
@@ -91,7 +92,8 @@ def get_within_region_mean_var(res_table):
     wi_vars = [np.var(get_vals(reg)) for reg in regions]
     return wi_means, wi_vars
 
-def comb_regs_df(res_table, USE_ALL_BERYL_REGIONS=True):
+def comb_regs_df(res_table, 
+                 USE_ALL_BERYL_REGIONS=True):
     '''
     combine all of the same regions in res_table and compute a set of 
     session-combined metrics per region.
@@ -107,7 +109,7 @@ def comb_regs_df(res_table, USE_ALL_BERYL_REGIONS=True):
         regions not in res_table have np.nan values.  Regions are ordered
         amongst rows using the ordering of regions in beryl.npy.
         if False, includes only those regions which are in res_table
-
+        
     Returns
     -------
     comb_regs_data : pandas DataFrame
@@ -130,10 +132,17 @@ def comb_regs_df(res_table, USE_ALL_BERYL_REGIONS=True):
     reg_comb_pval = lambda reg: scipy.stats.combine_pvalues(get_pvals(reg)
                                                             , method='fisher')[1]
     get_ms_reg = lambda reg: np.median(res_table.loc[(res_table['region']==reg) & (res_table['p-value']<0.05), 'score'])
-
+    
+    ps_uncorr = [reg_comb_pval(r) for r in regions]
+    _, ps_corr, _, _ = multipletests(ps_uncorr, 0.05, method='fdr_bh')
+    ps_uncorr = {regions[i]: ps_uncorr[i] for i in range(len(regions))}
+    ps_corr = {regions[i]: ps_corr[i] for i in range(len(regions))}
+    
     comb_regs_data = pd.DataFrame({'region': all_regs, 
-              'combined_p-value': [reg_comb_pval(r) if r in regions else np.nan for r in all_regs],
-              'combined_sig': [reg_comb_pval(r)<0.05 if r in regions else np.nan for r in all_regs],
+              'combined_p-value': [ps_uncorr[r] if r in regions else np.nan for r in all_regs],
+              'combined_sig': [ps_uncorr[r]<0.05 if r in regions else np.nan for r in all_regs],
+              'combined_p-value_corr': [ps_corr[r] if r in regions else np.nan for r in all_regs],
+              'combined_sig_corr': [ps_corr[r]<0.05 if r in regions else np.nan for r in all_regs],
               'n_sessions': [len(get_vals(r)) if r in regions else np.nan for r in all_regs],
               'n_units_mean': [np.mean(get_nunits(r)) if r in regions else np.nan for r in all_regs],
               'values_std': [np.std(get_vals(r)) if r in regions else np.nan for r in all_regs],
