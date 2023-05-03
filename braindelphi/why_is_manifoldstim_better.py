@@ -18,6 +18,7 @@ import seaborn as sns
 from one.api import ONE
 from brainwidemap.bwm_loading import bwm_units
 sns.set(font_scale=1.5)
+sns.set_style('ticks')
 
 # load wv, ws, c region sets
 
@@ -28,24 +29,35 @@ julias_clusters['sessreg'] = julias_clusters.apply(lambda x: f"{x['eid']}_{x['Be
 ref_clusters = julias_clusters[['uuids','sessreg']]
 
 out = np.load('michael_stim_restr.npy', allow_pickle=True).flat[0]
+rs = list(out.keys())
+ns_man = {r:out[r]['nclus'] for r in list(out.keys())}
+vs_man = {r:out[r]['amp_euc_can'] for r in list(out.keys())}
+ss_man = {r:out[r]['p_euc_can']<0.05 for r in list(out.keys())}
 
-ns = {r:out[r]['nclus'] for r in list(out.keys())}
-ds = {r:out[r]['amp_euc_can'] for r in list(out.keys())}
-sigs = {r:out[r]['p_euc_can']<0.05 for r in list(out.keys())}
 
-
-DATE = '01-04-2023'
-VARI = 'stimside'
 out = pd.read_csv('decoding_processing/01-04-2023_stimside_regs_nsig42_fsig0.341_wi2ovar1.693.csv')
 
-vs = {r:v for v, r in zip(list(out['valuesminusnull_median']),
+vs_dec = {r:v for v, r in zip(list(out['valuesminusnull_median']),
                      list(out['region'])) if not np.isnan(v)}
-assert set(ds.keys()) == set(vs.keys())
-
-ss = {r:p<0.05 for p, r in zip(list(out['combined_p-value']),
+ss_dec = {r:p<0.05 for p, r in zip(list(out['combined_p-value']),
                      list(out['region'])) if not np.isnan(p)}
+assert set(vs_dec.keys()) == set(vs_man.keys())
 
+plt.figure(figsize=(11,10))
+# for r in rs:
+#     plt.text(vs_man[r], vs_dec[r], r, fontsize=7)
+# plt.plot([vs_man[r] for r in rs], [vs_dec[r] for r in rs], 
+#          'o',
+#          ms = 1)
 
-# plt.plot(ns, ds,'o')
-# plt.show()
+plt.scatter([vs_man[r] for r in rs], 
+            [vs_dec[r] for r in rs],
+            s = [0.5*ns_man[r] for r in rs],
+            c = [f'C{ss_man[r] + (2*ss_dec[r])}' for r in rs],
+            alpha=.15)
+plt.xlabel('Manifold')
+plt.ylabel('Decoding')
+plt.tight_layout()
+plt.savefig('decoding_fig')
+plt.show()
 
