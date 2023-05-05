@@ -24,17 +24,17 @@ julias_clusters = bwm_units(ONE(base_url='https://openalyx.internationalbrainlab
 julias_clusters['sessreg'] = julias_clusters.apply(lambda x: f"{x['eid']}_{x['Beryl']}", axis=1)
 ref_clusters = julias_clusters[['uuids','sessreg']]
 
-CUSTOM_SESSREG_FILTER = (10,1) # can use something other than ref_clusters
+CUSTOM_SESSREG_FILTER = None # can use something other than ref_clusters
                              # if this is a tuple (min_units, min_reg)
 
 '''
 01-04-2023_decode_wheel-speed_task_Lasso_align_firstMovement_times_100_pseudosessions_regionWise_timeWindow_-0_2_1_0_imposterSess_1_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv
 '''
 
-DATE = '01-05-2023'
+DATE = '03-05-2023'
 VARI = 'block'
 preamb = 'decoding_results/summary/'
-file_all_results = preamb + '01-05-2023_decode_pLeft_oracle_Lasso_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_-0_6_-0_1_imposterSess_0_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
+file_all_results = preamb + '03-05-2023_decode_pLeft_oracle_Lasso_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_-0_4_-0_1_imposterSess_0_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
 file_xy_results = file_all_results[:-4] + '_xy.pkl'
 FIG_SUF = '.svg'
 
@@ -83,3 +83,6 @@ wi_means, wi_vars = get_within_region_mean_var(res_table)
 save_comb_regs_data.to_csv(
     f'decoding_processing/{DATE}_{VARI}_regs_nsig{n_sig}_fsig{f_sig:.3f}_wi2ovar{np.mean(wi_vars)/np.var(wi_means):.3f}.csv')
 
+#%%
+
+'02-05-2023_decode_pLeft_oracle_Lasso_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_-0_6_-0_1_imposterSess_0_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
