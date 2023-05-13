@@ -11,7 +11,7 @@ import seaborn as sns
 from one.api import ONE
 from brainwidemap.bwm_loading import bwm_units
 sns.set(font_scale=1.5)
-sns.set_style('whitegrid')
+sns.set_style('ticks')
 
 # get reference cluster dataframe
 julias_clusters = bwm_units(ONE(base_url='https://openalyx.internationalbrainlab.org',
@@ -35,9 +35,9 @@ VARI = 'feedback'
 preamb = 'decoding_results/summary/'
 file_all_results = preamb + '01-04-2023_decode_feedback_task_LogisticsRegression_align_feedback_times_200_pseudosessions_regionWise_timeWindow_0_0_0_2_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
 file_xy_results = file_all_results[:-4] + '_xy.pkl'
-FIG_SUF = '.svg'
+FIG_SUF = '.png'
 
-FOCUS_REGIONS = ['PRNc']
+FOCUS_REGIONS = []
 
 # load results
 res_table = pd.read_csv(file_all_results)
@@ -145,7 +145,7 @@ brain_SwansonFlat_results(regs,
 #        sorted by best median performance (TOPN values plotted), 
 #        and greater median performance than the median of the null
 
-regions = np.array(regs_table.loc[regs_table['combined_sig'],'region'])
+regions = np.array(regs_table.loc[regs_table['combined_sig_corr'],'region'])
 
 get_vals = lambda reg: np.array(res_table.loc[res_table['region']==reg,'score'])
 values = np.array([get_vals(reg) for reg in regions])
@@ -154,7 +154,7 @@ get_pvals = lambda reg: np.array(res_table.loc[res_table['region']==reg,'p-value
 values_sig = np.array([(get_pvals(reg)<0.05)+0 for reg in regions])
 
 comb_vals = np.array([np.median(v) for v in values])
-comb_nulls = np.array(regs_table.loc[regs_table['combined_sig'],'null_median_of_medians'])
+comb_nulls = np.array(regs_table.loc[regs_table['combined_sig_corr'],'null_median_of_medians'])
 acr_plotted = bar_results(regions, 
                             values,
                             comb_vals,
@@ -163,8 +163,8 @@ acr_plotted = bar_results(regions,
                             filename=f'{VARI}_bars'+FIG_SUF, 
                             YMIN=np.min([np.min(v) for v in values]),
                             ylab='Bal. Acc.',
-                            ticks=([0.5,0.6,0.7,0.8,0.9,1.0],['0.5','0.6','0.7','0.8','0.9', '']),
-                            TOP_N=15,
+                            ticks=([0.5,0.6,0.7,0.8,0.9,1.0],['0.5','0.6','0.7','0.8','0.9','1.0']),
+                            #TOP_N=15,
                             sort_args=None,
                             bolded_regions=FOCUS_REGIONS)
 # check criteria.

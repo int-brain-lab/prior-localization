@@ -16,7 +16,7 @@ import seaborn as sns
 from one.api import ONE
 from brainwidemap.bwm_loading import bwm_units
 sns.set(font_scale=1.5)
-sns.set_style('whitegrid')
+sns.set_style('ticks')
 
 # get reference cluster dataframe
 julias_clusters = bwm_units(ONE(base_url='https://openalyx.internationalbrainlab.org',
@@ -35,14 +35,14 @@ CUSTOM_SESSREG_FILTER = None # can use something other than ref_clusters
 01-04-2023_decode_wheel-speed_task_Lasso_align_firstMovement_times_100_pseudosessions_regionWise_timeWindow_-0_2_1_0_imposterSess_1_balancedWeight_0_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv
 '''
 
-DATE = '01-04-2023'
+DATE = '04-05-2023'
 VARI = 'block'
 preamb = 'decoding_results/summary/'
-file_all_results = preamb + '01-04-2023_decode_pLeft_oracle_LogisticsRegression_align_stimOn_times_200_pseudosessions_regionWise_timeWindow_-0_4_-0_1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
+file_all_results = preamb + '04-05-2023_decode_pLeft_oracle_LogisticsRegression_align_stimOn_times_1000_pseudosessions_regionWise_timeWindow_-0_4_-0_1_imposterSess_0_balancedWeight_1_RegionLevel_1_mergedProbes_1_behMouseLevelTraining_0_constrainNullSess_0.csv'
 file_xy_results = file_all_results[:-4] + '_xy.pkl'
-FIG_SUF = '.svg'
+FIG_SUF = '.png'
 
-FOCUS_REGIONS = ['ORBvl']
+FOCUS_REGIONS = []
 
 # load results
 res_table = pd.read_csv(file_all_results)
@@ -149,7 +149,7 @@ brain_SwansonFlat_results(regs,
 #        sorted by best median performance (TOPN values plotted),
 #        and greater median performance than the median of the null
 
-regions = np.array(regs_table.loc[regs_table['combined_sig'], 'region'])
+regions = np.array(regs_table.loc[regs_table['combined_sig_corr'], 'region'])
 
 
 def get_vals(reg):
@@ -167,7 +167,7 @@ values_sig = np.array([(get_pvals(reg) < 0.05) + 0 for reg in regions])
 
 comb_vals = np.array([np.median(v) for v in values])
 comb_nulls = np.array(
-    regs_table.loc[regs_table['combined_sig'], 'null_median_of_medians'])
+    regs_table.loc[regs_table['combined_sig_corr'], 'null_median_of_medians'])
 acr_plotted = bar_results(regions,
                           values,
                           comb_vals,
@@ -177,7 +177,7 @@ acr_plotted = bar_results(regions,
                           YMIN=np.min([np.min(v) for v in values]),
                           ylab='Bal. Acc.',
                           ticks=([0.5, 0.6, 0.7, 0.8], [0.5, 0.6, 0.7, 0.8]),
-                          TOP_N=15,
+                          #TOP_N=15,
                           sort_args=None,
                           bolded_regions=FOCUS_REGIONS)
 # check criteria.
@@ -197,6 +197,8 @@ eid = '1191f865-b10a-45c8-9c48-24a980fd9402'
 region = 'ORBvl'
 eid = 'dd4da095-4a99-4bf3-9727-f735077dba66'
 region = 'PL'
+eid = 'b658bc7d-07cd-4203-8a25-7b16b549851b'
+region = 'CP'
 xy_vals = get_xy_vals(xy_table, eid, region)
 er_vals = get_res_vals(res_table, eid, region)
 
@@ -212,23 +214,45 @@ predprobs = get_predprob_vals(xy_table, eid, region)
 targs = np.squeeze(xy_vals['targets'])
 trials = np.arange(len(mask))[[m == 1 for m in mask]]
 
-plt.figure(figsize=(14, 3.3))
+plt.figure(figsize=(14, 6))
 
 plt.title(
     f"session: {eid} \n region: {acronym2name(region)} ({region}) \n balanced accuracy = {er_vals['score']:.3f} (average across 10 models)")
-plt.plot(trials, targs, '-', c='k', lw=4)
-plt.plot(trials, predprobs, '-', c='mediumpurple')
+plt.plot(trials, 1-targs, '-', c='k', lw=4)
+plt.plot(trials, 1-predprobs, '-', c='mediumpurple')
 plt.yticks([0, .5, 1])
 plt.ylim(-0.1, 1.1)
 plt.xlim(0, len(mask))
-plt.legend(['Left Biased Block',
-            'Probability of left prediction \n(across 10 models)'],
+plt.legend(['Right Biased Block',
+            'Probability of right prediction \n(across 10 models)'],
            frameon=True,
            loc=(0.9, 1.1))
 plt.xlabel('Trials')
-plt.ylabel('Average predicted \nleft block')
+plt.ylabel('Average predicted \nright block')
 plt.tight_layout()
-plt.savefig(f'decoding_figures/SI/{VARI}_trace.svg', dpi=200)
+plt.savefig(f'decoding_figures/SI/{VARI}_trace.png', dpi=200)
+plt.show()
+
+plt.figure(figsize=(14.2, 6))
+plt.title(
+    f"session: {eid} \n region: {acronym2name(region)} ({region}) \n balanced accuracy = {er_vals['score']:.3f} (average across 10 models)")
+
+nscores = []
+for i in range(3,6):
+    null_example = pd.read_pickle(f'decoding_results/null_example/04-05-2023_CP_target_pLeft_timeWindow_-0_4_-0_1_pseudo_id_{i}__binsize=300.0_lags=None_mergedProbes_True.pkl')
+    ntargs = np.array(null_example['fit'][0]['target'])[:,0]
+    plt.plot(trials, ntargs, lw=4)
+    nscores.append(np.mean([null_example['fit'][i]['balanced_acc_test_full'] for i in range(10)]))
+plt.legend([f'pseudo-session bal. acc.: {ns:.3f}'for ns in nscores],
+           frameon=True,
+           loc=(0.9, 1.1))   
+plt.yticks([0, .5, 1])
+plt.ylim(-0.1, 1.1)
+plt.xlim(0, len(mask))
+plt.xlabel('Trials')
+plt.ylabel(' \n Right block')
+plt.tight_layout()
+plt.savefig(f'decoding_figures/SI/{VARI}_trace_nullexamples.png', dpi=200)
 plt.show()
 
 plt.figure(figsize=(5, 4))
@@ -261,6 +285,30 @@ plt.tight_layout()
 plt.savefig(f'decoding_figures/{VARI}_trace.svg', dpi=200)
 plt.show()
 
+plt.figure(figsize=(6,4))
+nscores = []
+for i in range(1,1001):
+    null_example = pd.read_pickle(f'decoding_results/null_example/04-05-2023_CP_target_pLeft_timeWindow_-0_4_-0_1_pseudo_id_{i}__binsize=300.0_lags=None_mergedProbes_True.pkl')
+    ntargs = np.array(null_example['fit'][0]['target'])[:,0]
+    nscores.append(np.mean([null_example['fit'][i]['balanced_acc_test_full'] for i in range(10)]))
+plt.hist(nscores, 
+         bins=32, 
+         histtype='step',
+         density=True,
+         lw=4, color='k', alpha=0.5)
+median_val = np.median(nscores)
+real_val = er_vals['score']
+plt.plot(median_val*np.ones(10), np.linspace(0,15,10), 
+         'k-', lw=4)
+plt.plot(real_val*np.ones(10), np.linspace(0,15,10), 
+         '-', c='mediumpurple', lw=4)
+
+plt.xlim(0.45,1.0)
+plt.xlabel('Balanced accuracy')
+plt.ylabel('Density')
+plt.tight_layout()
+plt.savefig(f'decoding_figures/SI/{VARI}_nulldist_defineeffectsize.png', dpi=200)
+plt.show()
 # %%
 
 regions = np.unique(res_table['region'])

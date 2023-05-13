@@ -397,13 +397,13 @@ def bar_results(acronyms_unordered,
         
     PLOT_TITLE = ''
     SAVE_PATH = os.path.join(FILE_PATH, filename)
-    fig = plt.figure(figsize=(8,2.5))
+    fig = plt.figure(figsize=(2.5 + int(len(acronyms)/4),3))
     plt.title(PLOT_TITLE)
     inds = np.arange(len(acronyms))
     plt.bar(inds, values, 
             color=[reg2rgba_dict[r] for r in acronyms],
-            edgecolor='k',
-            linewidth=1,
+            #edgecolor='k',
+            #linewidth=1,
             )
     plt.errorbar(inds, nulls, yerr=nulls_errbars, 
                          ecolor='k', elinewidth=3, linestyle='')
@@ -435,7 +435,8 @@ def bar_results(acronyms_unordered,
     if not (YMIN is None):
         plt.ylim(YMIN, 
                  1.1*(np.max(np.concatenate(values_eids_unordered))-YMIN)+YMIN)
-    
+    plt.xlim(np.min(inds)-1, np.max(inds)+1)
+    plt.gca().spines[['right', 'top']].set_visible(False)
     plt.tight_layout()
     plt.savefig(SAVE_PATH, dpi=600)
     plt.show()
