@@ -2,10 +2,10 @@ import pickle
 from behavior_models.models.utils import format_data as format_data_mut
 import pandas as pd
 import glob
-from braindelphi.decoding.settings import *
+from prior_pipelines.decoding.settings import *
 import models.utils as mut
-from braindelphi.params import FIT_PATH
-from braindelphi.decoding.settings import modeldispatcher
+from prior_pipelines.params import FIT_PATH
+from prior_pipelines.decoding.settings import modeldispatcher
 from tqdm import tqdm
 
 SAVE_KFOLDS = False

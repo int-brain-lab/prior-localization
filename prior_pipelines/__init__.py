@@ -1,5 +1,3 @@
 #!/usr/bin/env python
-# @File: braindelphi/__init__.py
-# @Author: Niccolo' Bonacchi (@nbonacchi)
-# @Date: Sunday, May 22nd 2022, 11:23:08 am
+# @File: prior_pipelines/__init__.py
 __version__ = "0.0.1"

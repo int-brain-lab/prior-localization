@@ -15,11 +15,11 @@ import yaml
 
 from one.api import ONE
 
-from braindelphi.utils_root import load_pickle_data
-from braindelphi.params import CACHE_PATH, SETTINGS_PATH, FIT_PATH, IMPOSTER_SESSION_PATH
-from braindelphi.pipelines.utils_common_pipelines import load_ephys, load_behavior
-from braindelphi.decoding.functions.decoding import fit_eid
-from braindelphi.decoding.functions.utils import check_settings
+from prior_pipelines.utils_root import load_pickle_data
+from prior_pipelines.params import CACHE_PATH, SETTINGS_PATH, FIT_PATH, IMPOSTER_SESSION_PATH
+from prior_pipelines.pipelines.utils_common_pipelines import load_ephys, load_behavior
+from prior_pipelines.decoding.functions.decoding import fit_eid
+from prior_pipelines.decoding.functions.utils import check_settings
 
 
 def load_metadata(neural_dtype_path_regex, date=None):

@@ -3,8 +3,8 @@ import logging
 import pickle
 from datetime import datetime as dt
 from pathlib import Path
-from braindelphi.pipelines.utils_common_pipelines import load_ephys
-from braindelphi.pipelines.utils_common_pipelines import cache_regressors
+from prior_pipelines.pipelines.utils_common_pipelines import load_ephys
+from prior_pipelines.pipelines.utils_common_pipelines import cache_regressors
 
 
 # Third party libraries
@@ -17,11 +17,11 @@ from dask.distributed import LocalCluster
 # IBL libraries
 from one.api import ONE
 from brainwidemap import bwm_query
-from braindelphi.params import CACHE_PATH
+from prior_pipelines.params import CACHE_PATH
 
 CACHE_PATH.mkdir(parents=True, exist_ok=True)
 
-_logger = logging.getLogger("braindelphi")
+_logger = logging.getLogger("prior_pipelines")
 
 # Parameters
 ALGN_RESOLVED = True

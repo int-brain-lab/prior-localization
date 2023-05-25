@@ -1,11 +1,11 @@
-from braindelphi.decoding.functions.nulldistributions import generate_null_distribution_session
+from prior_pipelines.decoding.functions.nulldistributions import generate_null_distribution_session
 from behavior_models.models.utils import format_data as format_data_mut
 from behavior_models.models.utils import format_input as format_input_mut
-from braindelphi.params import CACHE_PATH
-from braindelphi.decoding.functions.utils import load_metadata
+from prior_pipelines.params import CACHE_PATH
+from prior_pipelines.decoding.functions.utils import load_metadata
 from behavior_models.models.expSmoothing_prevAction import expSmoothing_prevAction
-from braindelphi.decoding.functions.process_targets import check_bhv_fit_exists
-from braindelphi.decoding.settings import modeldispatcher
+from prior_pipelines.decoding.functions.process_targets import check_bhv_fit_exists
+from prior_pipelines.decoding.settings import modeldispatcher
 import pickle
 from pathlib import Path
 import numpy as np

@@ -11,9 +11,9 @@ from one.api import ONE
 import brainbox.io.one as bbone
 from brainbox.task.closed_loop import generate_pseudo_session
 
-from braindelphi.params import braindelphi_PATH, SETTINGS_PATH, FIT_PATH
-from braindelphi.decoding.functions.utils import check_settings
-from braindelphi.decoding.functions.process_targets import get_target_variable_in_df
+from prior_pipelines.params import prior_pipelines_PATH, SETTINGS_PATH, FIT_PATH
+from prior_pipelines.decoding.functions.utils import check_settings
+from prior_pipelines.decoding.functions.process_targets import get_target_variable_in_df
 
 
 # load settings as a dict
@@ -24,7 +24,7 @@ one = ONE()
 
 if kwargs['imposter_generate_from_ephys']:
     # ephys sessions from from one of ? templates
-    insdf = pd.read_parquet(braindelphi_PATH.joinpath('decoding', 'insertions.pqt'))
+    insdf = pd.read_parquet(prior_pipelines_PATH.joinpath('decoding', 'insertions.pqt'))
     insdf = insdf[insdf.spike_sorting != '']
     eids = insdf['eid'].unique()
 else:
@@ -104,4 +104,4 @@ all_trialsdf = pd.concat(all_trialsdf)
 # save imposter sessions
 ephys_str = '_beforeRecording' if not kwargs['imposter_generate_from_ephys'] else ''
 filename = 'imposterSessions_%s%s.pqt' % (kwargs['target'], ephys_str)
-all_trialsdf[columns].to_parquet(braindelphi_PATH.joinpath('decoding', filename))
+all_trialsdf[columns].to_parquet(prior_pipelines_PATH.joinpath('decoding', filename))

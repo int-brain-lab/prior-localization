@@ -1,9 +1,9 @@
 import pickle
 import pandas as pd
 import glob
-from braindelphi.decoding.settings import *
-from braindelphi.params import FIT_PATH
-from braindelphi.decoding.settings import modeldispatcher
+from prior_pipelines.decoding.settings import *
+from prior_pipelines.params import FIT_PATH
+from prior_pipelines.decoding.settings import modeldispatcher
 from tqdm import tqdm
 import gc
 

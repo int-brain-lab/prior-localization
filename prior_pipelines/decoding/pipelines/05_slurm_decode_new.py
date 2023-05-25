@@ -1,9 +1,9 @@
 import pandas as pd
 import sys
-from braindelphi.decoding.settings import kwargs, N_PSEUDO_PER_JOB, N_PSEUDO
-from braindelphi.decoding.functions.decoding import fit_eid
+from prior_pipelines.decoding.settings import kwargs, N_PSEUDO_PER_JOB, N_PSEUDO
+from prior_pipelines.decoding.functions.decoding import fit_eid
 import numpy as np
-from braindelphi.params import IMPOSTER_SESSION_PATH
+from prior_pipelines.params import IMPOSTER_SESSION_PATH
 from one.api import ONE
 from brainwidemap import bwm_query, load_good_units
 from brainbox.io.one import SessionLoader

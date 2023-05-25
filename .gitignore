@@ -1,14 +1,9 @@
-braindelphi/decoding/null_distributions
-braindelphi/decoding/results/
-braindelphi/decoding/links_widefield/
+prior_pipelines/decoding/null_distributions
+prior_pipelines/decoding/results/
+prior_pipelines/decoding/links_widefield/
 cache/
 wide_field_imaging/
-braindelphi/decoding/behavior
-delphi/logs/slurm
-delphi/decoding/settings/settings.py
-delphi/decoding/*pqt
-delphi/decoding/results/
-delphi/decoding/wide_field_imaging/
+prior_pipelines/decoding/behavior
 legacy_decoding/
 legacy
 .gitignore
@@ -166,4 +161,4 @@ ipython_config.py
 .python-version
 
 # felix debugging
-braindelphi/decoding/investigation/
+prior_pipelines/decoding/investigation/
