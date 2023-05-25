@@ -9,10 +9,10 @@ from tqdm import tqdm
 from behavior_models.models.utils import format_data as format_data_mut
 from behavior_models.models.utils import format_input as format_input_mut
 from sklearn.linear_model import RidgeCV, Ridge, Lasso, LassoCV
+from sklearn.utils.class_weight import compute_sample_weight
 
 from ibllib.atlas import BrainRegions
 
-from prior_pipelines.decoding.functions.balancedweightings import balanced_weighting
 from prior_pipelines.decoding.functions.process_inputs import build_predictor_matrix
 from prior_pipelines.decoding.functions.process_inputs import select_ephys_regions
 from prior_pipelines.decoding.functions.process_inputs import get_bery_reg_wfi
@@ -29,7 +29,6 @@ from prior_pipelines.decoding.functions.process_targets import (
 from prior_pipelines.decoding.functions.utils import compute_mask
 from prior_pipelines.decoding.functions.utils import save_region_results
 from prior_pipelines.decoding.functions.utils import get_save_path
-from prior_pipelines.decoding.functions.balancedweightings import get_balanced_weighting
 from prior_pipelines.decoding.functions.nulldistributions import (
     generate_null_distribution_session,
 )
@@ -206,7 +205,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
             if not istrained:
                 behmodel.load_or_train(remove_old=False)
 
-    target_distribution = get_balanced_weighting(trials_df, metadata, **kwargs)
+    target_distribution = None
 
     # TODO: stim, choice, feedback, etc
     if kwargs["target"] in ["pLeft", "signcont", "strengthcont", "choice", "feedback"]:
@@ -725,17 +724,7 @@ def decode_cv(
                     for i_alpha, alpha in enumerate(hyperparam_grid[key]):
 
                         # compute weight for each training sample if requested
-                        # (esp necessary for classification problems with imbalanced classes)
-                        if balanced_weight:
-                            sample_weight = balanced_weighting(
-                                vec=y_train_inner,
-                                continuous=balanced_continuous_target,
-                                use_openturns=use_openturns,
-                                bin_size_kde=bin_size_kde,
-                                target_distribution=target_distribution,
-                            )
-                        else:
-                            sample_weight = None
+                        sample_weight = compute_sample_weight("balanced", y=y_train_inner) if balanced_weight else None
 
                         # initialize model
                         model_inner = estimator(**{**estimator_kwargs, key: alpha})
@@ -773,16 +762,7 @@ def decode_cv(
                 y_train_array = y_train_array - mean_y_train
 
                 # compute weight for each training sample if requested
-                if balanced_weight:
-                    sample_weight = balanced_weighting(
-                        vec=y_train_array,
-                        continuous=balanced_continuous_target,
-                        use_openturns=use_openturns,
-                        bin_size_kde=bin_size_kde,
-                        target_distribution=target_distribution,
-                    )
-                else:
-                    sample_weight = None
+                sample_weight = compute_sample_weight("balanced", y=y_train_array) if balanced_weight else None
 
                 # initialize model
                 best_alpha = hyperparam_grid[key][np.argmax(r2s_avg)]
@@ -807,16 +787,8 @@ def decode_cv(
                 y_train_array = np.concatenate(y_train, axis=0)
                 mean_y_train = y_train_array.mean(axis=0) if normalize_output else 0
                 y_train_array = y_train_array - mean_y_train
-                if balanced_weight:
-                    sample_weight = balanced_weighting(
-                        vec=y_train_array,
-                        continuous=balanced_continuous_target,
-                        use_openturns=use_openturns,
-                        bin_size_kde=bin_size_kde,
-                        target_distribution=target_distribution,
-                    )
-                else:
-                    sample_weight = None
+                sample_weight = compute_sample_weight("balanced", y=y_train_array) if balanced_weight else None
+
                 model.fit(X_train_array, y_train_array, sample_weight=sample_weight)
                 best_alpha = model.alpha_
                 # model.fit(np.array(Xs).squeeze(), np.array(ys).squeeze())
