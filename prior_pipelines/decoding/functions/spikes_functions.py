@@ -4,7 +4,7 @@ from pathlib import Path
 from brainbox.population.decode import get_spike_counts_in_bins
 import one.alf.io as alfio
 from tqdm import tqdm
-from braindelphi.decoding.functions import utils as dut
+from prior_pipelines.decoding.functions import utils as dut
 import brainbox.io.one as bbone
 
 

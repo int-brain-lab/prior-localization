@@ -9,7 +9,7 @@ import itertools
 import os, sys
 from scipy import stats
 import glob
-from braindelphi.params import CACHE_PATH
+from prior_pipelines.params import CACHE_PATH
 from datetime import datetime
 import pickle
 

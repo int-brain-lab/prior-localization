@@ -200,7 +200,7 @@ def check_settings(settings):
     """
 
     from behavior_models.models.expSmoothing_prevAction import expSmoothing_prevAction
-    from braindelphi.decoding.functions.process_targets import optimal_Bayesian
+    from prior_pipelines.decoding.functions.process_targets import optimal_Bayesian
 
     # options for decoding targets
     target_options_singlebin = [
