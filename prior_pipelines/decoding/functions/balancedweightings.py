@@ -1,15 +1,15 @@
 import numpy as np
 import openturns
 from sklearn.utils.class_weight import compute_sample_weight
-from braindelphi.decoding.functions.process_targets import optimal_Bayesian, check_bhv_fit_exists
+from prior_pipelines.decoding.functions.process_targets import optimal_Bayesian, check_bhv_fit_exists
 import pickle
 import pandas as pd
 from brainbox.task.closed_loop import generate_pseudo_blocks, _draw_position, _draw_contrast
-from braindelphi.decoding.functions.nulldistributions import generate_imposter_session
+from prior_pipelines.decoding.functions.nulldistributions import generate_imposter_session
 from behavior_models.models.utils import format_data as format_data_mut
 from behavior_models.models.utils import format_input as format_input_mut
 import torch
-from braindelphi.decoding.settings import modeldispatcher
+from prior_pipelines.decoding.settings import modeldispatcher
 from behavior_models.models.expSmoothing_prevAction import expSmoothing_prevAction
 from behavior_models.models.expSmoothing_stimside import expSmoothing_stimside
 

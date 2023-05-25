@@ -12,7 +12,7 @@ import numpy as np
 # IBL libraries
 from one.api import ONE
 
-log = logging.getLogger('braindelphi')
+log = logging.getLogger('prior_pipelines')
 
 
 # def sessions_with_region(acronym, one=None):

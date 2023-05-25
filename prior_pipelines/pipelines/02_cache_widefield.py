@@ -11,10 +11,10 @@ import glob
 from tqdm import tqdm
 
 # IBL libraries
-from braindelphi.params import CACHE_PATH, WIDE_FIELD_PATH
-from braindelphi.wide_field_imaging.wfi_utils import _load_wfi_session as load_wfi_session
+from prior_pipelines.params import CACHE_PATH, WIDE_FIELD_PATH
+from prior_pipelines.wide_field_imaging.wfi_utils import _load_wfi_session as load_wfi_session
 CACHE_PATH.mkdir(parents=True, exist_ok=True)
-_logger = logging.getLogger('braindelphi')
+_logger = logging.getLogger('prior_pipelines')
 
 DATE = str(dt.today())
 HEMISPHERES = ['left','right'] # 'left', 'right'

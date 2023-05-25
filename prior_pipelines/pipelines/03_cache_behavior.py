@@ -14,13 +14,13 @@ from dask.distributed import LocalCluster
 # IBL libraries
 from one.api import ONE
 from brainwidemap import bwm_query
-from braindelphi.params import CACHE_PATH, SETTINGS_PATH
+from prior_pipelines.params import CACHE_PATH, SETTINGS_PATH
 CACHE_PATH.mkdir(parents=True, exist_ok=True)
-from braindelphi.pipelines.utils_common_pipelines import load_behavior
-from braindelphi.pipelines.utils_common_pipelines import cache_behavior
-from braindelphi.decoding.functions.utils import check_settings
+from prior_pipelines.pipelines.utils_common_pipelines import load_behavior
+from prior_pipelines.pipelines.utils_common_pipelines import cache_behavior
+from prior_pipelines.decoding.functions.utils import check_settings
 
-_logger = logging.getLogger('braindelphi')
+_logger = logging.getLogger('prior_pipelines')
 
 
 @dask.delayed

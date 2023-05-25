@@ -12,13 +12,13 @@ import pandas as pd
 from brainwidemap import bwm_query
 from one.api import ONE
 
-# braindelphi repo imports
-from braindelphi.params import CACHE_PATH, SETTINGS_PATH
-from braindelphi.pipelines.utils_common_pipelines import load_behavior
-from braindelphi.pipelines.utils_common_pipelines import cache_behavior
-from braindelphi.decoding.functions.utils import check_settings
+# prior_pipelines repo imports
+from prior_pipelines.params import CACHE_PATH, SETTINGS_PATH
+from prior_pipelines.pipelines.utils_common_pipelines import load_behavior
+from prior_pipelines.pipelines.utils_common_pipelines import cache_behavior
+from prior_pipelines.decoding.functions.utils import check_settings
 
-_logger = logging.getLogger('braindelphi')
+_logger = logging.getLogger('prior_pipelines')
 
 
 def delayed_load(eid, target):

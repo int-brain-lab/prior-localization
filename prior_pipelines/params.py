@@ -7,9 +7,9 @@ if username == 'mattw':
 elif username == 'mw3323':
     out_dir = Path('/home/mw3323/ibl/')
 elif username == 'findling':
-    out_dir = Path('/home/users/f/findling/scratch/ibl/prior-localization/braindelphi')
+    out_dir = Path('/home/users/f/findling/scratch/ibl/prior-localization/prior_pipelines')
 elif username == 'csmfindling':
-    out_dir = Path('/Users/csmfindling/Documents/Postdoc-Geneva/IBL/code/prior-localization/braindelphi')
+    out_dir = Path('/Users/csmfindling/Documents/Postdoc-Geneva/IBL/code/prior-localization/prior_pipelines')
 elif username == 'hubertf':
     out_dir = Path('/home/users/h/hubertf/scratch/')
 

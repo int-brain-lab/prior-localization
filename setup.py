@@ -48,10 +48,10 @@ def get_version(rel_path):
 
 
 setup(
-    name="braindelphi",
-    version=get_version(Path("braindelphi").joinpath("__init__.py")),
+    name="prior_pipelines",
+    version=get_version(Path("prior_pipelines").joinpath("__init__.py")),
     python_requires=">={}.{}".format(*REQUIRED_PYTHON),
-    description="braindelphi package for encoding and decoding brainwide neural activity",
+    description="prior_pipelines package for encoding and decoding brainwide neural activity",
     license="MIT",
     long_description=long_description,
     long_description_content_type="text/markdown",

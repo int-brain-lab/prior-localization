@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import brainbox.behavior.pyschofit as pfit
-from braindelphi.decoding.functions.process_targets import compute_beh_target
+from prior_pipelines.decoding.functions.process_targets import compute_beh_target
 
 
 def compute_neurometric_prior(trialsdf_neurometric, metadata, **kwargs):

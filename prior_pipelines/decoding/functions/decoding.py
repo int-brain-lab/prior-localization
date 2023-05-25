@@ -12,33 +12,33 @@ from sklearn.linear_model import RidgeCV, Ridge, Lasso, LassoCV
 
 from ibllib.atlas import BrainRegions
 
-from braindelphi.decoding.functions.balancedweightings import balanced_weighting
-from braindelphi.decoding.functions.process_inputs import build_predictor_matrix
-from braindelphi.decoding.functions.process_inputs import select_ephys_regions
-from braindelphi.decoding.functions.process_inputs import get_bery_reg_wfi
-from braindelphi.decoding.functions.process_inputs import (
+from prior_pipelines.decoding.functions.balancedweightings import balanced_weighting
+from prior_pipelines.decoding.functions.process_inputs import build_predictor_matrix
+from prior_pipelines.decoding.functions.process_inputs import select_ephys_regions
+from prior_pipelines.decoding.functions.process_inputs import get_bery_reg_wfi
+from prior_pipelines.decoding.functions.process_inputs import (
     select_widefield_imaging_regions,
 )
-from braindelphi.decoding.functions.neurometric import compute_neurometric_prior
-from braindelphi.decoding.functions.process_inputs import preprocess_ephys
-from braindelphi.decoding.functions.process_inputs import preprocess_widefield_imaging
-from braindelphi.decoding.functions.process_targets import compute_beh_target
-from braindelphi.decoding.functions.process_targets import (
+from prior_pipelines.decoding.functions.neurometric import compute_neurometric_prior
+from prior_pipelines.decoding.functions.process_inputs import preprocess_ephys
+from prior_pipelines.decoding.functions.process_inputs import preprocess_widefield_imaging
+from prior_pipelines.decoding.functions.process_targets import compute_beh_target
+from prior_pipelines.decoding.functions.process_targets import (
     get_target_data_per_trial_wrapper,
 )
-from braindelphi.decoding.functions.utils import compute_mask
-from braindelphi.decoding.functions.utils import save_region_results
-from braindelphi.decoding.functions.utils import get_save_path
-from braindelphi.decoding.functions.balancedweightings import get_balanced_weighting
-from braindelphi.decoding.functions.nulldistributions import (
+from prior_pipelines.decoding.functions.utils import compute_mask
+from prior_pipelines.decoding.functions.utils import save_region_results
+from prior_pipelines.decoding.functions.utils import get_save_path
+from prior_pipelines.decoding.functions.balancedweightings import get_balanced_weighting
+from prior_pipelines.decoding.functions.nulldistributions import (
     generate_null_distribution_session,
 )
-from braindelphi.decoding.functions.process_targets import check_bhv_fit_exists
-from braindelphi.decoding.functions.process_targets import optimal_Bayesian
-from braindelphi.decoding.functions.neurometric import get_neurometric_parameters
-from braindelphi.decoding.functions.utils import derivative
+from prior_pipelines.decoding.functions.process_targets import check_bhv_fit_exists
+from prior_pipelines.decoding.functions.process_targets import optimal_Bayesian
+from prior_pipelines.decoding.functions.neurometric import get_neurometric_parameters
+from prior_pipelines.decoding.functions.utils import derivative
 
-from braindelphi.decoding.functions.process_motors import (
+from prior_pipelines.decoding.functions.process_motors import (
     preprocess_motors,
     compute_motor_prediction,
 )
@@ -153,7 +153,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
 
     if isinstance(kwargs["model"], str):
         import pickle
-        from braindelphi.params import INTER_INDIVIDUAL_PATH
+        from prior_pipelines.params import INTER_INDIVIDUAL_PATH
 
         inter_individual = pickle.load(
             open(INTER_INDIVIDUAL_PATH.joinpath(kwargs["model"]), "rb")
