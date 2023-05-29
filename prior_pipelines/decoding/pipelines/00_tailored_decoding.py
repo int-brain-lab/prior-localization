@@ -3,7 +3,7 @@ import sys
 from prior_pipelines.decoding.settings import kwargs, N_PSEUDO_PER_JOB, N_PSEUDO
 from prior_pipelines.decoding.functions.decoding import fit_eid
 import numpy as np
-from prior_pipelines.params import CACHE_PATH, IMPOSTER_SESSION_PATH
+from prior_pipelines.params import CACHE_PATH
 from prior_pipelines.decoding.functions.utils import load_metadata
 import pickle
 
@@ -15,11 +15,6 @@ except:
 
 # import most recent cached data
 bwmdf, _ = load_metadata(CACHE_PATH.joinpath('*_%s_metadata.pkl' % kwargs['neural_dtype']).as_posix())
-
-if kwargs['use_imposter_session']:
-    kwargs['imposterdf'] = pd.read_parquet(IMPOSTER_SESSION_PATH.joinpath('imposterSessions_beforeRecordings.pqt'))
-else:
-    kwargs['imposterdf'] = None
 
 pid_id = index % bwmdf['dataset_filenames'].index.size
 job_id = index // bwmdf['dataset_filenames'].index.size

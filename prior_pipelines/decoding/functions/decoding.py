@@ -114,11 +114,6 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
     if kwargs["decode_prev_contrast"]:
         trials_df = trials_df.shift(1)
 
-    if kwargs["use_imposter_session"] and not kwargs["stitching_for_imposter_session"]:
-        trials_df = trials_df[
-            : int(kwargs["max_number_trials_when_no_stitching_for_imposter_session"])
-        ]
-
     if 0 in pseudo_ids:
         raise ValueError(
             "pseudo id can be -1 (actual session) or strictly greater than 0 (pseudo session)"
@@ -342,7 +337,7 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
         fit_results = []
         for pseudo_id in pseudo_ids:
 
-            # create pseudo/imposter session when necessary
+            # create pseudo session when necessary
             if pseudo_id > 0:
                 controlsess_df = generate_null_distribution_session(
                     trials_df, metadata, **kwargs
@@ -357,10 +352,6 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                 save_predictions = kwargs["save_predictions"]
 
             if kwargs["compute_neurometric"]:  # compute prior for neurometric curve
-                if kwargs["use_imposter_session"]:
-                    raise NotImplementedError(
-                        "neurometric and imposter sessions are incompatible in current codebase"
-                    )
                 trialsdf_neurometric = (
                     trials_df.reset_index()
                     if (pseudo_id == -1)
@@ -411,10 +402,6 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                     ys=y_decoding,
                     Xs=[Xs[m] for m in np.squeeze(np.where(mask))],
                     estimator=kwargs["estimator"],
-                    use_openturns=kwargs["use_openturns"],
-                    target_distribution=target_distribution,
-                    bin_size_kde=kwargs["bin_size_kde"],
-                    balanced_continuous_target=kwargs["balanced_continuous_target"],
                     estimator_kwargs=kwargs["estimator_kwargs"],
                     hyperparam_grid=kwargs["hyperparam_grid"],
                     save_binned=kwargs["save_binned"],
@@ -492,10 +479,6 @@ def decode_cv(
     Xs,
     estimator,
     estimator_kwargs,
-    use_openturns,
-    target_distribution,
-    bin_size_kde,
-    balanced_continuous_target=True,
     balanced_weight=False,
     hyperparam_grid=None,
     test_prop=0.2,

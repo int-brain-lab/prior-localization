@@ -67,27 +67,12 @@ NORMALIZE_INPUT = False  # take out mean of the neural activity per unit across 
 NORMALIZE_OUTPUT = False  # take out mean of output to predict
 if NORMALIZE_INPUT or NORMALIZE_OUTPUT:
     warnings.warn("This feature has not been tested")
-USE_IMPOSTER_SESSION = False  # if false, it uses pseudosessions and simulates the model when action are necessary
 FILTER_PSEUDOSESSIONS_ON_MUTUALINFORMATION = False
-STITCHING_FOR_IMPORTER_SESSION = False  # if true, stitches sessions to create importers
-MAX_NUMBER_TRIALS_WHEN_NO_STITCHING_FOR_IMPORTER_SESSION = (
-   700  # this is a constraint on the number of trials of a session
-)
-# to insure that there will be at least 1000 unstitched imposter sessions. IMPORTANT, with this number, you can not
-# generate more than 1000 control imposter sessions
 CONSTRAIN_NULL_SESSION_WITH_BEH = False  # add behavioral constraints
-USE_IMPOSTER_SESSION_FOR_BALANCING = (
-    False  # if false, it simulates the model (should be False)
-)
 SIMULATE_NEURAL_DATA = False
 QUASI_RANDOM = False  # if TRUE, decoding is launched in a quasi-random, reproducible way => it sets the seed
 
 BALANCED_WEIGHT = True  # seems to work better with BALANCED_WEIGHT=False, but putting True is important
-BALANCED_CONTINUOUS_TARGET = (
-    False  # is target continuous or discrete FOR BALANCED WEIGHTING
-)
-USE_OPENTURNS = False  # uses openturns to perform kernel density estimation
-BIN_SIZE_KDE = 0.05  # size of the kde bin
 HPARAM_GRID = (
     {
         #'alpha': np.array([0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000, 100000])
@@ -108,9 +93,8 @@ DEBUG = False  # in debugging/unit testing mode
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
 ADD_TO_SAVING_PATH = (
-    "imposterSess_%i_balancedWeight_%i_RegionLevel_%s_mergedProbes_%i_behMouseLevelTraining_%i_simulated_%i_constrainNullSess_%i"
+    "balancedWeight_%i_RegionLevel_%s_mergedProbes_%i_behMouseLevelTraining_%i_simulated_%i_constrainNullSess_%i"
     % (
-        USE_IMPOSTER_SESSION,
         BALANCED_WEIGHT,
         str(SINGLE_REGION),
         MERGED_PROBES,
@@ -179,24 +163,11 @@ strlut = {
 }
 
 if TARGET in ["choice", "feedback"] and (
-    MODEL != expSmoothing_prevAction or USE_IMPOSTER_SESSION
+    MODEL != expSmoothing_prevAction
 ):
     raise ValueError(
         "if you want to decode choice or feedback, you must use the actionKernel model and frankenstein sessions"
     )
-
-if USE_IMPOSTER_SESSION and COMPUTE_NEUROMETRIC:
-    raise ValueError(
-        "you can not use imposter sessions if you want to to compute the neurometric"
-    )
-
-if USE_IMPOSTER_SESSION_FOR_BALANCING:
-    raise ValueError(
-        "this is not implemented yet -- or it is but unsure of the state given recent code featuring"
-    )
-
-if ESTIMATOR == sklm.LogisticRegression and BALANCED_CONTINUOUS_TARGET:
-    raise ValueError("you can not have a continuous target with logistic regression")
 
 # ValueErrors and NotImplementedErrors
 if not SINGLE_REGION and not MERGED_PROBES:
@@ -245,11 +216,6 @@ fit_metadata = {
     "normalize_output": NORMALIZE_OUTPUT,
     "normalize_input": NORMALIZE_INPUT,
     "single_region": SINGLE_REGION,
-    "use_imposter_session": USE_IMPOSTER_SESSION,
-    "balanced_continuous_target": BALANCED_CONTINUOUS_TARGET,
-    "use_openturns": USE_OPENTURNS,
-    "bin_size_kde": BIN_SIZE_KDE,
-    "use_imposter_session_for_balancing": USE_IMPOSTER_SESSION_FOR_BALANCING,
     "beh_mouseLevel_training": BEH_MOUSELEVEL_TRAINING,
     "simulate_neural_data": SIMULATE_NEURAL_DATA,
     "constrain_null_session_with_beh": CONSTRAIN_NULL_SESSION_WITH_BEH,
@@ -294,7 +260,6 @@ kwargs = {
     "normalize_input": NORMALIZE_INPUT,
     "normalize_output": NORMALIZE_OUTPUT,
     "compute_on_each_fold": COMPUTE_NEURO_ON_EACH_FOLD,
-    "balanced_continuous_target": BALANCED_CONTINUOUS_TARGET,
     "force_positive_neuro_slopes": FORCE_POSITIVE_NEURO_SLOPES,
     "estimator": ESTIMATOR,
     "target": TARGET,
@@ -307,15 +272,11 @@ kwargs = {
     "qc_criteria": QC_CRITERIA,
     "min_units": MIN_UNITS,
     "time_window": TIME_WINDOW,
-    "use_imposter_session": USE_IMPOSTER_SESSION,
     "compute_neurometric": COMPUTE_NEUROMETRIC,
     "border_quantiles_neurometric": BORDER_QUANTILES_NEUROMETRIC,
     "add_to_saving_path": ADD_TO_SAVING_PATH,
-    "use_openturns": USE_OPENTURNS,
-    "bin_size_kde": BIN_SIZE_KDE,
     "neural_dtype": NEURAL_DTYPE,
     "wfi_hemispheres": WFI_HEMISPHERES,
-    "use_imposter_session_for_balancing": USE_IMPOSTER_SESSION_FOR_BALANCING,
     "beh_mouseLevel_training": BEH_MOUSELEVEL_TRAINING,
     "binarization_value": BINARIZATION_VALUE,
     "simulate_neural_data": SIMULATE_NEURAL_DATA,
@@ -327,8 +288,6 @@ kwargs = {
     "wfi_nb_frames_end": WFI_NB_FRAMES_END,
     "quasi_random": QUASI_RANDOM,
     "nb_trials_takeout_end": NB_TRIALS_TAKEOUT_END,
-    "stitching_for_imposter_session": STITCHING_FOR_IMPORTER_SESSION,
-    "max_number_trials_when_no_stitching_for_imposter_session": MAX_NUMBER_TRIALS_WHEN_NO_STITCHING_FOR_IMPORTER_SESSION,
     "filter_pseudosessions_on_mutualInformation": FILTER_PSEUDOSESSIONS_ON_MUTUALINFORMATION,
     "motor_regressors": MOTOR_REGRESSORS,
     "motor_regressors_only": MOTOR_REGRESSORS_ONLY,
