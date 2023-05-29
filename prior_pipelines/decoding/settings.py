@@ -62,10 +62,6 @@ SAVE_PREDICTIONS = True
 
 # Basically, quality metric on the stability of a single unit. Should have 1 metric per neuron
 QC_CRITERIA = 3 / 3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
-NORMALIZE_INPUT = False  # take out mean of the neural activity per unit across trials
-NORMALIZE_OUTPUT = False  # take out mean of output to predict
-if NORMALIZE_INPUT or NORMALIZE_OUTPUT:
-    warnings.warn("This feature has not been tested")
 QUASI_RANDOM = False  # if TRUE, decoding is launched in a quasi-random, reproducible way => it sets the seed
 
 BALANCED_WEIGHT = True  # seems to work better with BALANCED_WEIGHT=False, but putting True is important
@@ -201,8 +197,6 @@ fit_metadata = {
     "balanced_weight": BALANCED_WEIGHT,
     "compute_neurometric": COMPUTE_NEUROMETRIC,
     "n_runs": N_RUNS,
-    "normalize_output": NORMALIZE_OUTPUT,
-    "normalize_input": NORMALIZE_INPUT,
     "single_region": SINGLE_REGION,
     "beh_mouseLevel_training": BEH_MOUSELEVEL_TRAINING,
     "neural_dtype": NEURAL_DTYPE,
@@ -242,8 +236,6 @@ kwargs = {
     "save_binned": SAVE_BINNED,
     "shuffle": SHUFFLE,
     "balanced_weight": BALANCED_WEIGHT,
-    "normalize_input": NORMALIZE_INPUT,
-    "normalize_output": NORMALIZE_OUTPUT,
     "compute_on_each_fold": COMPUTE_NEURO_ON_EACH_FOLD,
     "estimator": ESTIMATOR,
     "target": TARGET,

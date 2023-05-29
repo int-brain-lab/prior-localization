@@ -352,8 +352,6 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                     save_predictions=save_predictions,
                     shuffle=kwargs["shuffle"],
                     balanced_weight=kwargs["balanced_weight"],
-                    normalize_input=kwargs["normalize_input"],
-                    normalize_output=kwargs["normalize_output"],
                     rng_seed=rng_seed,
                     use_cv_sklearn_method=kwargs[
                         "use_native_sklearn_for_hyperparameter_estimation"
@@ -432,8 +430,6 @@ def decode_cv(
     shuffle=True,
     outer_cv=True,
     rng_seed=None,
-    normalize_input=False,
-    normalize_output=False,
     use_cv_sklearn_method=False,
 ):
     """Regresses binned neural activity against a target, using a provided sklearn estimator.
@@ -483,11 +479,6 @@ def decode_cv(
     verbose : bool
         Whether you want to hear about the function's life, how things are going, and what the
         neighbor down the street said to it the other day.
-    normalize_output : bool
-        True to take out the mean across trials of the output
-    normalize_input : bool
-        True to take out the mean across trials of the input; average is taken across trials for
-        each unit (one average per unit is computed)
 
     Returns
     -------
@@ -598,17 +589,6 @@ def decode_cv(
                         [y_train[i] for i in test_idxs_inner], axis=0
                     )
 
-                    # normalize inputs/outputs if requested
-                    mean_X_train_inner = (
-                        X_train_inner.mean(axis=0) if normalize_input else 0
-                    )
-                    X_train_inner = X_train_inner - mean_X_train_inner
-                    X_test_inner = X_test_inner - mean_X_train_inner
-                    mean_y_train_inner = (
-                        y_train_inner.mean(axis=0) if normalize_output else 0
-                    )
-                    y_train_inner = y_train_inner - mean_y_train_inner
-
                     for i_alpha, alpha in enumerate(hyperparam_grid[key]):
 
                         # compute weight for each training sample if requested
@@ -640,14 +620,8 @@ def decode_cv(
                 # refit/evaluate on all inner-fold data
                 r2s_avg = r2s.mean(axis=0)
 
-                # normalize inputs/outputs if requested
                 X_train_array = np.vstack(X_train)
-                mean_X_train = X_train_array.mean(axis=0) if normalize_input else 0
-                X_train_array = X_train_array - mean_X_train
-
                 y_train_array = np.concatenate(y_train, axis=0)
-                mean_y_train = y_train_array.mean(axis=0) if normalize_output else 0
-                y_train_array = y_train_array - mean_y_train
 
                 # compute weight for each training sample if requested
                 sample_weight = compute_sample_weight("balanced", y=y_train_array) if balanced_weight else None
@@ -659,9 +633,7 @@ def decode_cv(
                 model.fit(X_train_array, y_train_array, sample_weight=sample_weight)
             else:
                 if (
-                    normalize_input
-                    or normalize_output
-                    or estimator not in [Ridge, Lasso]
+                    estimator not in [Ridge, Lasso]
                 ):
                     raise NotImplementedError("This case is not implemented")
                 model = (
@@ -670,11 +642,7 @@ def decode_cv(
                     else LassoCV(alphas=hyperparam_grid[key])
                 )
                 X_train_array = np.vstack(X_train)
-                mean_X_train = X_train_array.mean(axis=0) if normalize_input else 0
-                X_train_array = X_train_array - mean_X_train
                 y_train_array = np.concatenate(y_train, axis=0)
-                mean_y_train = y_train_array.mean(axis=0) if normalize_output else 0
-                y_train_array = y_train_array - mean_y_train
                 sample_weight = compute_sample_weight("balanced", y=y_train_array) if balanced_weight else None
 
                 model.fit(X_train_array, y_train_array, sample_weight=sample_weight)
