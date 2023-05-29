@@ -29,9 +29,6 @@ if TARGET not in ["pLeft", "signcont", "strengthcont", "choice", "feedback"]:
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
 # if MODEL is a path, this will be the interindividual results
 MODEL = optimal_Bayesian  #expSmoothing_stimside, expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
-BEH_MOUSELEVEL_TRAINING = (
-    False  # if True, trains the behavioral model session-wise else mouse-wise
-)
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
 ESTIMATOR = sklm.Ridge # Must be in keys of strlut above
 USE_NATIVE_SKLEARN_FOR_HYPERPARAMETER_ESTIMATION = True
@@ -85,12 +82,11 @@ DEBUG = False  # in debugging/unit testing mode
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
 ADD_TO_SAVING_PATH = (
-    "balancedWeight_%i_RegionLevel_%s_mergedProbes_%i_behMouseLevelTraining_%i"
+    "balancedWeight_%i_RegionLevel_%s_mergedProbes_%i"
     % (
         BALANCED_WEIGHT,
         str(SINGLE_REGION),
         MERGED_PROBES,
-        BEH_MOUSELEVEL_TRAINING,
     )
 )
 
@@ -198,7 +194,6 @@ fit_metadata = {
     "compute_neurometric": COMPUTE_NEUROMETRIC,
     "n_runs": N_RUNS,
     "single_region": SINGLE_REGION,
-    "beh_mouseLevel_training": BEH_MOUSELEVEL_TRAINING,
     "neural_dtype": NEURAL_DTYPE,
     "modeldispatcher": modeldispatcher,
     "behfit_path": BEHAVIOR_MOD_PATH,
@@ -253,7 +248,6 @@ kwargs = {
     "add_to_saving_path": ADD_TO_SAVING_PATH,
     "neural_dtype": NEURAL_DTYPE,
     "wfi_hemispheres": WFI_HEMISPHERES,
-    "beh_mouseLevel_training": BEH_MOUSELEVEL_TRAINING,
     "binarization_value": BINARIZATION_VALUE,
     "min_len": MIN_LEN,
     "max_len": MAX_LEN,

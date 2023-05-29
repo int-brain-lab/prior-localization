@@ -40,7 +40,7 @@ from prior_pipelines.decoding.functions.process_motors import (
 )
 
 
-def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **kwargs):
+def fit_eid(neural_dict, trials_df, metadata, pseudo_ids=[-1], **kwargs):
     """High-level function to decode a given target variable from brain regions for a single eid.
 
     Parameters
@@ -52,8 +52,6 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
         'feedback_times'
     metadata : dict
         'eid', 'eid_train', 'subject', 'probes'
-    dlc_dict: dict, optional
-        keys: 'times', 'values'
     pseudo_ids : array-like
         whether to compute a pseudosession or not. if pseudo_id=-1, the true session is considered.
         if pseudo_id>0, a pseudo session is used. cannot be 0.
@@ -114,20 +112,9 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
     if not np.all(np.sort(pseudo_ids) == pseudo_ids):
         raise ValueError("pseudo_ids must be sorted")
 
-    # check if is trained
-    eids_train = (
-        [metadata["eid"]]
-        if "eids_train" not in metadata.keys()
-        else metadata["eids_train"]
-    )
-
+    # if you want to train the model on one session or all sessions
     if "eids_train" not in metadata.keys():
-        metadata["eids_train"] = eids_train
-    elif metadata["eids_train"] != eids_train:
-        raise ValueError(
-            f"eids_train are not supported yet. If you do not understand this error, "
-            f"just take out the eids_train key in the metadata to solve it"
-        )
+        metadata["eids_train"] = [metadata["eid"]]
     
     # train model if not trained already
     if kwargs["model"] != optimal_Bayesian and kwargs["model"] is not None:
