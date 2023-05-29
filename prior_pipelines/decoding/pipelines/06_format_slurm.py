@@ -37,16 +37,6 @@ for fn in tqdm(finished):
         if result["fit"] is None:
             continue
         for i_decoding in range(len(result["fit"])):
-            # side, stim, act, _ = format_data_mut(result["fit"][i_decoding]["df"])
-            # mask = result["fit"][i_decoding]["mask"]  # np.all(result["fit"][i_decoding]["target"] == stim[mask])
-            # full_test_prediction = np.zeros(np.array(result["fit"][i_decoding]["target"]).size)
-            # for k in range(len(result["fit"][i_decoding]["idxes_test"])):
-            #    full_test_prediction[result["fit"][i_decoding]['idxes_test'][k]] = result["fit"][i_decoding]['predictions_test'][k]
-            # neural_act = np.sign(full_test_prediction)
-            # perf_allcontrasts = (side.values[mask][neural_act != 0] == neural_act[neural_act != 0]).mean()
-            # perf_allcontrasts_prevtrial = (side.values[mask][1:] == neural_act[:-1])[neural_act[:-1] != 0].mean()
-            # perf_0contrasts = (side.values[mask] == neural_act)[(stim[mask] == 0) * (neural_act != 0)].mean()
-            # nb_trials_act_is_0 = (neural_act == 0).mean()
             tmpdict = {
                 **{x: result[x] for x in indexers},
                 "fold": -1,
@@ -60,22 +50,7 @@ for fn in tqdm(finished):
                     ]
                 ),
                 "R2_test": result["fit"][i_decoding]["Rsquared_test_full"],
-                "prediction": list(result["fit"][i_decoding]["predictions_test"]),
-                "target": list(result["fit"][i_decoding]["target"]),
-                "weights": np.vstack(result["fit"][i_decoding]["weights"]).mean(axis=0).tolist(),
-                "intercepts": np.mean(result["fit"][i_decoding]["intercepts"]),
-                # 'perf_allcontrast': perf_allcontrasts,
-                # 'perf_allcontrasts_prevtrial': perf_allcontrasts_prevtrial,
-                # 'perf_0contrast': perf_0contrasts,
-                # 'nb_trials_act_is_0': nb_trials_act_is_0,
             }
-            #            if 'predictions_test' in result['fit'][i_decoding].keys():
-            #                tmpdict = {**tmpdict,
-            #                           'prediction': result['fit'][i_decoding]['predictions_test'],
-            #                           'target': result['fit'][i_decoding]['target']}
-            #            if 'acc_test_full' in result['fit'][i_decoding].keys():
-            #                tmpdict = {**tmpdict, 'acc_test': result['fit'][i_decoding]['acc_test_full'],
-            #                           'balanced_acc_test': result['fit'][i_decoding]['balanced_acc_test_full']}
             if result["fit"][i_decoding]["full_neurometric"] is not None:
                 tmpdict = {
                     **tmpdict,
@@ -120,25 +95,11 @@ print("loading of %i files failed" % failed_load)
 
 resultsdf = pd.DataFrame(resultslist)
 
-"""
-resultsdf = resultsdf[resultsdf.subject == 'NYU-12']
-resultsdf = resultsdf[resultsdf.eid == 'a8a8af78-16de-4841-ab07-fde4b5281a03']
-resultsdf.region = resultsdf.region.apply(lambda x:x[0])
-resultsdf = resultsdf[resultsdf.region == 'CA1']
-resultsdf = resultsdf[resultsdf.probe == 'probe00']
-resultsdf = resultsdf[resultsdf.run_id == 1]
-subdf = resultsdf.set_index(['subject', 'eid', 'probe', 'region']).drop('fold', axis=1)
-"""
-
-estimatorstr = strlut[ESTIMATOR]
-
 if NEURAL_DTYPE == "ephys":
     start_tw, end_tw = TIME_WINDOW
 if NEURAL_DTYPE == "widefield":
     start_tw = WFI_NB_FRAMES_START
     end_tw = WFI_NB_FRAMES_END
-
-model_str = "interIndividual" if isinstance(MODEL, str) else modeldispatcher[MODEL]
 
 fn = str(
     FIT_PATH.joinpath(
@@ -148,8 +109,8 @@ fn = str(
                 date,
                 "decode",
                 TARGET,
-                model_str if TARGET in ["prior", "pLeft"] else "task",
-                estimatorstr,
+                modeldispatcher[MODEL] if TARGET in ["prior", "pLeft"] else "task",
+                strlut[ESTIMATOR],
                 "align",
                 ALIGN_TIME,
                 "timeWindow",
