@@ -207,7 +207,6 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
 
     target_distribution = None
 
-    # TODO: stim, choice, feedback, etc
     if kwargs["target"] in ["pLeft", "signcont", "strengthcont", "choice", "feedback"]:
         target_vals_list = compute_beh_target(trials_df, metadata, **kwargs)
         mask_target = np.ones(len(target_vals_list), dtype=bool)
@@ -335,51 +334,22 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
 
         ##################################
 
-        # make design matrix
-        bins_per_trial = msub_binned[0].shape[0]
-        Xs = (
-            msub_binned
-            if bins_per_trial == 1
-            else [build_predictor_matrix(s, kwargs["n_bins_lag"]) for s in msub_binned]
-        )
+        # make feature matrix
+        Xs = msub_binned
+        if msub_binned[0].shape[0] != 1:
+            raise AssertionError('Decoding is only supported when the target is one dimensional')
 
         fit_results = []
         for pseudo_id in pseudo_ids:
 
             # create pseudo/imposter session when necessary
-            # TODO: integrate single-/multi-bin code
             if pseudo_id > 0:
-                if bins_per_trial == 1:
-                    controlsess_df = generate_null_distribution_session(
-                        trials_df, metadata, **kwargs
-                    )
-                    controltarget_vals_list = compute_beh_target(
-                        controlsess_df, metadata, **kwargs
-                    )
-                else:
-                    print(len(target_vals_list))
-                    imposter_df = kwargs["imposter_df"].copy()
-                    # remove current eid from imposter sessions
-                    df_clean = imposter_df[
-                        imposter_df.eid != metadata["eid"]
-                    ].reset_index()
-                    # randomly select imposter trial to start sequence
-                    n_trials = trials_df.index.size
-                    total_imposter_trials = df_clean.shape[0]
-                    idx_beg = np.random.choice(total_imposter_trials - n_trials)
-                    controlsess_df = df_clean.iloc[idx_beg : idx_beg + n_trials]
-                    # grab target values from this dataframe
-                    controltarget_vals_list = list(
-                        controlsess_df[kwargs["target"]].to_numpy()
-                    )
-                    mask_target = np.ones(
-                        n_trials,
-                    )
-                    print(len(controltarget_vals_list))
-
-                # if kwargs["use_imposter_session"]:
-                #    mask = compute_mask(controlsess_df, **kwargs) & mask_target
-
+                controlsess_df = generate_null_distribution_session(
+                    trials_df, metadata, **kwargs
+                )
+                controltarget_vals_list = compute_beh_target(
+                    controlsess_df, metadata, **kwargs
+                )
                 save_predictions = kwargs.get(
                     "save_predictions_pseudo", kwargs["save_predictions"]
                 )
@@ -631,7 +601,6 @@ def decode_cv(
 
     # initialize containers to save outputs
     n_trials = len(Xs)
-    bins_per_trial = len(Xs[0])
     scores_test, scores_train = [], []
     idxes_test, idxes_train = [], []
     weights, intercepts, best_params = [], [], []
@@ -802,7 +771,7 @@ def decode_cv(
             # evaluate model on test data
             y_true = np.concatenate(y_test, axis=0)
             y_pred = model.predict(np.vstack(X_test) - mean_X_train) + mean_y_train
-            if isinstance(estimator, sklm.LogisticRegression) and bins_per_trial == 1:
+            if isinstance(estimator, sklm.LogisticRegression):
                 y_pred_probs = (
                     model.predict_proba(np.vstack(X_test) - mean_X_train)[:, 0]
                     + mean_y_train
@@ -814,26 +783,12 @@ def decode_cv(
             # save the raw prediction in the case of linear and the predicted probabilities when
             # working with logitistic regression
             for i_fold, i_global in enumerate(test_idxs_outer):
-                if bins_per_trial == 1:
-                    # we already computed these estimates, take from above
-                    predictions[i_global] = np.array([y_pred[i_fold]])
-                    if isinstance(estimator, sklm.LogisticRegression):
-                        predictions_to_save[i_global] = np.array([y_pred_probs[i_fold]])
-                    else:
-                        predictions_to_save[i_global] = np.array([y_pred[i_fold]])
+                # we already computed these estimates, take from above
+                predictions[i_global] = np.array([y_pred[i_fold]])
+                if isinstance(estimator, sklm.LogisticRegression):
+                    predictions_to_save[i_global] = np.array([y_pred_probs[i_fold]])
                 else:
-                    # we already computed these above, but after all trials were stacked;
-                    # recompute per-trial
-                    predictions[i_global] = (
-                        model.predict(X_test[i_fold] - mean_X_train) + mean_y_train
-                    )
-                    if isinstance(estimator, sklm.LogisticRegression):
-                        predictions_to_save[i_global] = (
-                            model.predict_proba(X_test[i_fold] - mean_X_train)[:, 0]
-                            + mean_y_train
-                        )
-                    else:
-                        predictions_to_save[i_global] = predictions[i_global]
+                    predictions_to_save[i_global] = np.array([y_pred[i_fold]])
 
             # save out other data of interest
             idxes_test.append(test_idxs_outer)
