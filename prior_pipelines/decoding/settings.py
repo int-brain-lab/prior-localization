@@ -58,7 +58,6 @@ NO_UNBIAS = False  # take out unbiased trials
 SHUFFLE = True  # interleaved cross validation
 BORDER_QUANTILES_NEUROMETRIC = [0.3, 0.7]  # [.3, .4, .5, .6, .7]
 COMPUTE_NEUROMETRIC = True
-FORCE_POSITIVE_NEURO_SLOPES = False
 SAVE_PREDICTIONS = True
 
 # Basically, quality metric on the stability of a single unit. Should have 1 metric per neuron
@@ -200,7 +199,6 @@ fit_metadata = {
     "hyperparameter_grid": HPARAM_GRID,
     "save_binned": SAVE_BINNED,
     "balanced_weight": BALANCED_WEIGHT,
-    "force_positive_neuro_slopes": FORCE_POSITIVE_NEURO_SLOPES,
     "compute_neurometric": COMPUTE_NEUROMETRIC,
     "n_runs": N_RUNS,
     "normalize_output": NORMALIZE_OUTPUT,
@@ -247,7 +245,6 @@ kwargs = {
     "normalize_input": NORMALIZE_INPUT,
     "normalize_output": NORMALIZE_OUTPUT,
     "compute_on_each_fold": COMPUTE_NEURO_ON_EACH_FOLD,
-    "force_positive_neuro_slopes": FORCE_POSITIVE_NEURO_SLOPES,
     "estimator": ESTIMATOR,
     "target": TARGET,
     "model": MODEL,

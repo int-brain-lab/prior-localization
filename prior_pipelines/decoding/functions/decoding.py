@@ -423,7 +423,6 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
                         .reset_index()
                         .drop("index", axis=1),
                         compute_on_each_fold=kwargs["compute_on_each_fold"],
-                        force_positive_neuro_slopes=kwargs["compute_on_each_fold"],
                     )
                 else:
                     fit_result["full_neurometric"] = None
