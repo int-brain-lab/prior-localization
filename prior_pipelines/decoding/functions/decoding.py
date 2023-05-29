@@ -124,14 +124,6 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
         else metadata["eids_train"]
     )
 
-    if kwargs["model"] == optimal_Bayesian and np.any(
-        trials_df.probabilityLeft.values[:90] != 0.5
-    ):
-        raise ValueError(
-            "The optimal Bayesian model assumes 90 unbiased trials at the beginning of the session,"
-            "which is not the case here."
-        )
-
     if "eids_train" not in metadata.keys():
         metadata["eids_train"] = eids_train
     elif metadata["eids_train"] != eids_train:
@@ -139,77 +131,37 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
             f"eids_train are not supported yet. If you do not understand this error, "
             f"just take out the eids_train key in the metadata to solve it"
         )
-
-    if isinstance(kwargs["model"], str):
-        import pickle
-        from prior_pipelines.params import INTER_INDIVIDUAL_PATH
-
-        inter_individual = pickle.load(
-            open(INTER_INDIVIDUAL_PATH.joinpath(kwargs["model"]), "rb")
+    
+    # train model if not trained already
+    if kwargs["model"] != optimal_Bayesian and kwargs["model"] is not None:
+        side, stim, act, _ = format_data_mut(trials_df)
+        stimuli, actions, stim_side = format_input_mut([stim], [act], [side])
+        behmodel = kwargs["model"](
+            kwargs["behfit_path"],
+            np.array(metadata["eids_train"]),
+            metadata["subject"],
+            actions,
+            stimuli,
+            stim_side,
+            single_zeta=True,
         )
-        if metadata["eid"] not in inter_individual.keys():
-            logging.exception("no inter individual model found")
-            return filenames
-        inter_indiv_model_specifications = inter_individual[metadata["eid"]]
-        print(
-            "winning interindividual model is %s"
-            % inter_indiv_model_specifications["model_name"]
+        istrained, _ = check_bhv_fit_exists(
+            metadata["subject"],
+            kwargs["model"],
+            metadata["eids_train"],
+            kwargs["behfit_path"],
+            modeldispatcher=kwargs["modeldispatcher"],
+            single_zeta=True,
         )
-        if (
-            inter_indiv_model_specifications["model_name"]
-            not in kwargs["modeldispatcher"].values()
-        ):
-            logging.exception(
-                "winning inter individual model is LeftKernel or RightKernel"
-            )
-            return filenames
-        kwargs["model"] = {v: k for k, v in kwargs["modeldispatcher"].items()}[
-            inter_indiv_model_specifications["model_name"]
-        ]
-        kwargs["model_parameters"] = inter_indiv_model_specifications[
-            "model_parameters"
-        ]
-    else:
-        kwargs["model_parameters"] = None
-        # train model if not trained already
-        if kwargs["model"] != optimal_Bayesian and kwargs["model"] is not None:
-            side, stim, act, _ = format_data_mut(trials_df)
-            stimuli, actions, stim_side = format_input_mut([stim], [act], [side])
-            behmodel = kwargs["model"](
-                kwargs["behfit_path"],
-                np.array(metadata["eids_train"]),
-                metadata["subject"],
-                actions,
-                stimuli,
-                stim_side,
-                single_zeta=True,
-            )
-            istrained, _ = check_bhv_fit_exists(
-                metadata["subject"],
-                kwargs["model"],
-                metadata["eids_train"],
-                kwargs["behfit_path"],
-                modeldispatcher=kwargs["modeldispatcher"],
-                single_zeta=True,
-            )
-            if not istrained:
-                behmodel.load_or_train(remove_old=False)
-
-    target_distribution = None
+        if not istrained:
+            behmodel.load_or_train(remove_old=False)
 
     if kwargs["target"] in ["pLeft", "signcont", "strengthcont", "choice", "feedback"]:
         target_vals_list = compute_beh_target(trials_df, metadata, **kwargs)
         mask_target = np.ones(len(target_vals_list), dtype=bool)
     else:
-        _, target_vals_list, mask_target = get_target_data_per_trial_wrapper(
-            dlc_dict["times"],
-            dlc_dict["values"],
-            trials_df,
-            kwargs["align_time"],
-            kwargs["time_window"],
-            kwargs["binsize"],
-        )
-
+        raise NotImplementedError('this case is not implemented')
+    
     mask = compute_mask(trials_df, **kwargs) & mask_target
 
     if sum(mask) <= kwargs["min_behav_trials"]:
@@ -502,15 +454,8 @@ def decode_cv(
         GridSearchCV
     estimator_kwargs : dict
         additional arguments for sklearn estimator
-    use_openturns : bool
-    target_distribution : ?
-        ?
-    bin_size_kde : float
-        ?
-    balanced_weight : ?
-        ?
-    balanced_continuous_target : ?
-        ?
+    balanced_weight : bool
+        balanced weighting to target
     hyperparam_grid : dict
         key indicates hyperparameter to grid search over, and value is an array of nodes on the
         grid. See sklearn.model_selection.GridSearchCV : param_grid for more specs.

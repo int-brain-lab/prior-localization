@@ -40,7 +40,6 @@ def generate_null_distribution_session(trials_df, metadata, **kwargs):
             trials_df,
             subjModel,
             kwargs["modeldispatcher"],
-            kwargs["model_parameters"],
         )
         pseudosess["feedbackType"] = np.where(
             pseudosess["choice"] == pseudosess["stim_side"], 1, -1
@@ -55,23 +54,20 @@ def generate_choices(
     trials_df,
     subjModel,
     modeldispatcher,
-    model_parameters=None,
 ):
 
-    if model_parameters is None:
-        istrained, fullpath = check_bhv_fit_exists(
-            subjModel["subject"],
-            subjModel["modeltype"],
-            subjModel["eids_train"],
-            subjModel["behfit_path"].as_posix() + "/",
-            modeldispatcher,
-            single_zeta=True,
-        )
-    else:
-        istrained, fullpath = True, ""
+    istrained, fullpath = check_bhv_fit_exists(
+        subjModel["subject"],
+        subjModel["modeltype"],
+        subjModel["eids_train"],
+        subjModel["behfit_path"].as_posix() + "/",
+        modeldispatcher,
+        single_zeta=True,
+    )
 
     if not istrained:
         raise ValueError("Something is wrong. The model should be trained by this line")
+    
     model = subjModel["modeltype"](
         subjModel["behfit_path"],
         subjModel["eids_train"],
@@ -82,12 +78,9 @@ def generate_choices(
         single_zeta=True,
     )
 
-    if model_parameters is None:
-        model.load_or_train(loadpath=str(fullpath))
-        arr_params = model.get_parameters(parameter_type="posterior_mean")[None]
-    else:
-        arr_params = np.array(list(model_parameters.values()))[None]
-    valid = np.ones([1, pseudosess.index.size], dtype=bool)
+    model.load_or_train(loadpath=str(fullpath))
+    arr_params = model.get_parameters(parameter_type="posterior_mean")[None]
+
     stim, _, side = mut_format_input(
         [pseudosess.signed_contrast.values],
         [trials_df.choice.values],

@@ -28,7 +28,7 @@ if TARGET not in ["pLeft", "signcont", "strengthcont", "choice", "feedback"]:
     )
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
 # if MODEL is a path, this will be the interindividual results
-MODEL = optimal_Bayesian  # 'population_level_Nmice101_NmodelsClasses7_processed.pkl' #expSmoothing_stimside, expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
+MODEL = optimal_Bayesian  #expSmoothing_stimside, expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
 BEH_MOUSELEVEL_TRAINING = (
     False  # if True, trains the behavioral model session-wise else mouse-wise
 )
