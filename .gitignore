@@ -1,3 +1,4 @@
+prior_pipelines/decoding/pipelines/02_run_stand_alone.py
 prior_pipelines/decoding/slurm_format.sh
 prior_pipelines/decoding/logs
 prior_pipelines/decoding/plots
