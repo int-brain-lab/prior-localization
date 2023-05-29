@@ -13,7 +13,6 @@ from sklearn.utils.class_weight import compute_sample_weight
 
 from ibllib.atlas import BrainRegions
 
-from prior_pipelines.decoding.functions.process_inputs import build_predictor_matrix
 from prior_pipelines.decoding.functions.process_inputs import select_ephys_regions
 from prior_pipelines.decoding.functions.process_inputs import get_bery_reg_wfi
 from prior_pipelines.decoding.functions.process_inputs import (
@@ -23,9 +22,7 @@ from prior_pipelines.decoding.functions.neurometric import compute_neurometric_p
 from prior_pipelines.decoding.functions.process_inputs import preprocess_ephys
 from prior_pipelines.decoding.functions.process_inputs import preprocess_widefield_imaging
 from prior_pipelines.decoding.functions.process_targets import compute_beh_target
-from prior_pipelines.decoding.functions.process_targets import (
-    get_target_data_per_trial_wrapper,
-)
+
 from prior_pipelines.decoding.functions.utils import compute_mask
 from prior_pipelines.decoding.functions.utils import save_region_results
 from prior_pipelines.decoding.functions.utils import get_save_path
