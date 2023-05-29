@@ -1,3 +1,4 @@
+prior_pipelines/decoding/slurm_format.sh
 prior_pipelines/decoding/logs
 prior_pipelines/decoding/plots
 prior_pipelines/decoding/null_distributions
