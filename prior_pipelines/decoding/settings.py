@@ -67,9 +67,6 @@ NORMALIZE_INPUT = False  # take out mean of the neural activity per unit across 
 NORMALIZE_OUTPUT = False  # take out mean of output to predict
 if NORMALIZE_INPUT or NORMALIZE_OUTPUT:
     warnings.warn("This feature has not been tested")
-FILTER_PSEUDOSESSIONS_ON_MUTUALINFORMATION = False
-CONSTRAIN_NULL_SESSION_WITH_BEH = False  # add behavioral constraints
-SIMULATE_NEURAL_DATA = False
 QUASI_RANDOM = False  # if TRUE, decoding is launched in a quasi-random, reproducible way => it sets the seed
 
 BALANCED_WEIGHT = True  # seems to work better with BALANCED_WEIGHT=False, but putting True is important
@@ -93,14 +90,12 @@ DEBUG = False  # in debugging/unit testing mode
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
 ADD_TO_SAVING_PATH = (
-    "balancedWeight_%i_RegionLevel_%s_mergedProbes_%i_behMouseLevelTraining_%i_simulated_%i_constrainNullSess_%i"
+    "balancedWeight_%i_RegionLevel_%s_mergedProbes_%i_behMouseLevelTraining_%i"
     % (
         BALANCED_WEIGHT,
         str(SINGLE_REGION),
         MERGED_PROBES,
         BEH_MOUSELEVEL_TRAINING,
-        SIMULATE_NEURAL_DATA,
-        CONSTRAIN_NULL_SESSION_WITH_BEH,
     )
 )
 
@@ -129,9 +124,6 @@ MOTOR_REGRESSORS_ONLY = False  # only _use motor regressors
 
 # DO WE WANT TO DECODE MOTOR RESIDUAL OF THE PRIOR TARGET (WORK ONLY FOR OPTI BAYES)
 MOTOR_RESIDUAL = False
-
-# DO WE WANT TO DECODE THE PREVIOUS CONTRAST ? (FOR DEBUGGING)
-DECODE_PREV_CONTRAST = False
 
 # DO WE WANT TO DECODE THE DERIVATIVE OF THE TARGET SIGNAL ?
 DECODE_DERIVATIVE = False
@@ -193,9 +185,7 @@ fit_metadata = {
     "date": DATE,
     "criterion": SESS_CRITERION,
     "target": TARGET,
-    "model_type": "inter_individual"
-    if MODEL not in modeldispatcher.keys()
-    else modeldispatcher[MODEL],
+    "model_type": modeldispatcher[MODEL],
     "align_time": ALIGN_TIME,
     "time_window": TIME_WINDOW,
     "estimator": ESTIMATOR,
@@ -217,8 +207,6 @@ fit_metadata = {
     "normalize_input": NORMALIZE_INPUT,
     "single_region": SINGLE_REGION,
     "beh_mouseLevel_training": BEH_MOUSELEVEL_TRAINING,
-    "simulate_neural_data": SIMULATE_NEURAL_DATA,
-    "constrain_null_session_with_beh": CONSTRAIN_NULL_SESSION_WITH_BEH,
     "neural_dtype": NEURAL_DTYPE,
     "modeldispatcher": modeldispatcher,
     "behfit_path": BEHAVIOR_MOD_PATH,
@@ -234,7 +222,6 @@ fit_metadata = {
     "quasi_random": QUASI_RANDOM,
     "motor_regressors": MOTOR_REGRESSORS,
     "motor_regressors_only": MOTOR_REGRESSORS_ONLY,
-    "decode_prev_contrast": DECODE_PREV_CONTRAST,
     "decode_derivative": DECODE_DERIVATIVE,
     "motor_residual": MOTOR_RESIDUAL,
     "use_native_sklearn_for_hyperparameter_estimation": USE_NATIVE_SKLEARN_FOR_HYPERPARAMETER_ESTIMATION,
@@ -279,8 +266,6 @@ kwargs = {
     "wfi_hemispheres": WFI_HEMISPHERES,
     "beh_mouseLevel_training": BEH_MOUSELEVEL_TRAINING,
     "binarization_value": BINARIZATION_VALUE,
-    "simulate_neural_data": SIMULATE_NEURAL_DATA,
-    "constrain_null_session_with_beh": CONSTRAIN_NULL_SESSION_WITH_BEH,
     "min_len": MIN_LEN,
     "max_len": MAX_LEN,
     "save_predictions": SAVE_PREDICTIONS,
@@ -288,10 +273,8 @@ kwargs = {
     "wfi_nb_frames_end": WFI_NB_FRAMES_END,
     "quasi_random": QUASI_RANDOM,
     "nb_trials_takeout_end": NB_TRIALS_TAKEOUT_END,
-    "filter_pseudosessions_on_mutualInformation": FILTER_PSEUDOSESSIONS_ON_MUTUALINFORMATION,
     "motor_regressors": MOTOR_REGRESSORS,
     "motor_regressors_only": MOTOR_REGRESSORS_ONLY,
-    "decode_prev_contrast": DECODE_PREV_CONTRAST,
     "decode_derivative": DECODE_DERIVATIVE,
     "motor_residual": MOTOR_RESIDUAL,
     "wfi_average_over_frames": WFI_AVERAGE_OVER_FRAMES,

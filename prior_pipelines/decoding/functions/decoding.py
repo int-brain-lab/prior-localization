@@ -104,15 +104,10 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
             absolute path where decoding fits are saved
         add_to_saving_path : str
             additional string to append to filenames
-        decode_prev_contrast : bool
-            set to True for sanity check on being able to predict the next contrast (default False)
     """
 
     print(f"Working on eid : %s" % metadata["eid"])
     filenames = []  # this will contain paths to saved decoding results for this eid
-
-    if kwargs["decode_prev_contrast"]:
-        trials_df = trials_df.shift(1)
 
     if 0 in pseudo_ids:
         raise ValueError(
@@ -309,9 +304,6 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
             msub_binned = preprocess_widefield_imaging(neural_dict, reg_mask, **kwargs)
             n_units = np.sum(reg_mask)
         else:
-            raise NotImplementedError
-
-        if kwargs["simulate_neural_data"]:
             raise NotImplementedError
 
         ##### motor signal regressors #####
