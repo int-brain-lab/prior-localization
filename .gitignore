@@ -1,3 +1,5 @@
+prior_pipelines/decoding/logs
+prior_pipelines/decoding/plots
 prior_pipelines/decoding/null_distributions
 prior_pipelines/decoding/results/
 prior_pipelines/decoding/links_widefield/
