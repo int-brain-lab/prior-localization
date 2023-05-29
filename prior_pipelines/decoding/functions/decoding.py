@@ -602,7 +602,7 @@ def decode_cv(
                         )
                         # evaluate model
                         pred_test_inner = (
-                            model_inner.predict(X_test_inner) + mean_y_train_inner
+                            model_inner.predict(X_test_inner)
                         )
                         inner_predictions[test_idxs_inner, i_alpha] = pred_test_inner
                         inner_targets[test_idxs_inner, i_alpha] = y_test_inner
@@ -647,21 +647,19 @@ def decode_cv(
 
                 model.fit(X_train_array, y_train_array, sample_weight=sample_weight)
                 best_alpha = model.alpha_
-                # model.fit(np.array(Xs).squeeze(), np.array(ys).squeeze())
 
             # evalute model on train data
-            y_pred_train = model.predict(X_train_array) + mean_y_train
+            y_pred_train = model.predict(X_train_array)
             scores_train.append(
-                scoring_f(y_train_array + mean_y_train, y_pred_train + mean_y_train)
+                scoring_f(y_train_array, y_pred_train)
             )
 
             # evaluate model on test data
             y_true = np.concatenate(y_test, axis=0)
-            y_pred = model.predict(np.vstack(X_test) - mean_X_train) + mean_y_train
+            y_pred = model.predict(np.vstack(X_test))
             if isinstance(estimator, sklm.LogisticRegression):
                 y_pred_probs = (
-                    model.predict_proba(np.vstack(X_test) - mean_X_train)[:, 0]
-                    + mean_y_train
+                    model.predict_proba(np.vstack(X_test))[:, 0]
                 )
             else:
                 y_pred_probs = None
