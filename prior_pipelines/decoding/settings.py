@@ -14,7 +14,7 @@ BEHAVIOR_MOD_PATH.mkdir(parents=True, exist_ok=True)
 logger = logging.getLogger("ibllib")
 logger.disabled = True
 
-NEURAL_DTYPE = "widefield" #"widefield"  # 'ephys' or 'widefield'
+NEURAL_DTYPE = "ephys" #"widefield"  # 'ephys' or 'widefield'
 DATE = "30-01-2023"  # date 12 prev, 13 next, 14 prev
 
 # aligned -> histology was performed by one experimenter
@@ -50,11 +50,11 @@ MAX_RT = None
 SINGLE_REGION = (
    True # "Widefield" # False  # True  # perform decoding on region-wise or whole brain analysis
 )
-MERGED_PROBES = True # merge probes before performing analysis
+MERGED_PROBES = False # merge probes before performing analysis
 NO_UNBIAS = False  # take out unbiased trials
 SHUFFLE = True  # interleaved cross validation
 BORDER_QUANTILES_NEUROMETRIC = [0.3, 0.7]  # [.3, .4, .5, .6, .7]
-COMPUTE_NEUROMETRIC = True
+COMPUTE_NEUROMETRIC = False
 SAVE_PREDICTIONS = True
 
 # Basically, quality metric on the stability of a single unit. Should have 1 metric per neuron

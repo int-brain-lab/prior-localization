@@ -124,19 +124,15 @@ def compute_beh_target(trials_df, metadata, remove_old=False, **kwargs):
                                          if modetype=None, then it will return the actual pLeft (.2, .5, .8)
     '''
 
-    if kwargs['model_parameters'] is None:
-        istrained, fullpath = check_bhv_fit_exists(
-            metadata['subject'], kwargs['model'], metadata['eids_train'], kwargs['behfit_path'],
-            modeldispatcher=kwargs['modeldispatcher'], single_zeta=True)
-    else:
-        istrained, fullpath = False, ''
+    istrained, fullpath = check_bhv_fit_exists(
+        metadata['subject'], kwargs['model'], metadata['eids_train'], kwargs['behfit_path'],
+        modeldispatcher=kwargs['modeldispatcher'], single_zeta=True)
 
     if kwargs['target'] in ['signcont', 'strengthcont']:
         if 'signedContrast' in trials_df.keys():
             out = trials_df['signedContrast'].values
         else:
             out = np.nan_to_num(trials_df.contrastLeft) - np.nan_to_num(trials_df.contrastRight)
-       #  out = np.tanh(5 * out)/np.tanh(5)  # maps the signed contrast in -1, 1 linearly
         if kwargs['target'] == 'signcont':
             return out
         else:

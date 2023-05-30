@@ -4,38 +4,63 @@ from prior_pipelines.decoding.settings import kwargs, N_PSEUDO_PER_JOB, N_PSEUDO
 from prior_pipelines.decoding.functions.decoding import fit_eid
 import numpy as np
 from prior_pipelines.params import CACHE_PATH
-from prior_pipelines.decoding.functions.utils import load_metadata
-import pickle
-import ONE
+from prior_pipelines.pipelines.utils_common_pipelines import load_ephys
+from one.api import ONE
+from brainwidemap import bwm_query
 
-one = ONE()
+# parameters
 try:
-    index = int(sys.argv[1]) - 1
+    i_eid = int(sys.argv[1])
 except:
-    index = 32
-    pass
+    i_eid = 0
 
-# import most recent cached data
-bwmdf, _ = load_metadata(CACHE_PATH.joinpath('*_%s_metadata.pkl' % kwargs['neural_dtype']).as_posix())
+MERGE_PROBES = True
+ALGN_RESOLVED = True
+QC = 1
 
-pid_id = index % bwmdf['dataset_filenames'].index.size
-job_id = index // bwmdf['dataset_filenames'].index.size
+# ONE
+one = ONE()
+one.alyx.clear_rest_cache()
+bwm_df = bwm_query().set_index(["subject", "eid"])  # freeze="2022_10_update"
 
-pid = bwmdf['dataset_filenames'].iloc[pid_id]
-metadata = pickle.load(open(pid.meta_file, 'rb'))
-regressors = pickle.load(open(pid.reg_file, 'rb'))
+# get all eids
+eids = bwm_df.index.unique(level="eid")    
 
-if kwargs['neural_dtype'] == 'widefield':
-    trials_df, neural_dict = regressors
-else:
-    trials_df, neural_dict = regressors['trials_df'], regressors
+# select session, eid, and pids and subject of interest
+session_df = bwm_df.xs(eids[i_eid], level="eid")
+subject = session_df.index[0]
+pids = session_df.pid.to_list()
+probe_names = session_df.probe_name.to_list()
+eid = eids[i_eid]
+metadata = {
+    "subject": subject,
+    "eid": eid,
+    "probe_name": 'merged_probes' if MERGE_PROBES else None,
+    "ret_qc": QC,
+}
 
-if (job_id + 1) * N_PSEUDO_PER_JOB <= N_PSEUDO:
-    print(f"pid_id: {pid_id}")
-    pseudo_ids = np.arange(job_id * N_PSEUDO_PER_JOB, (job_id + 1) * N_PSEUDO_PER_JOB) + 1
-    if 1 in pseudo_ids:
-        pseudo_ids = np.concatenate((-np.ones(1), pseudo_ids)).astype('int64')
+# decoding function
+def decode(regressors, metadata, nb_pseudo_sessions=10):
+    if kwargs['neural_dtype'] == 'widefield':
+        trials_df, neural_dict = regressors
+    else:
+        trials_df, neural_dict = regressors['trials_df'], regressors
+
+    pseudo_ids = np.concatenate((-np.ones(1), np.arange(1, nb_pseudo_sessions))).astype('int64')
     results_fit_eid = fit_eid(neural_dict=neural_dict, trials_df=trials_df, metadata=metadata,
-                              pseudo_ids=pseudo_ids, **kwargs)
-print('Slurm job successful')
+                            pseudo_ids=pseudo_ids, **kwargs)
+    return results_fit_eid
 
+# launch decoding
+if MERGE_PROBES:
+    regressors = load_ephys(eid, pids, one=one, **{'ret_qc':True})
+    results_fit_eid = decode(regressors, metadata)
+else:
+    probe_names = session_df.probe_name.to_list()
+    for (pid, probe_name) in zip(pids, probe_names):
+        regressors =  load_ephys(eids[i_eid], [pid], one=one, ret_qc=QC)
+        metadata['probe_name'] = probe_name
+        results_fit_eid = decode(regressors, metadata)
+
+print('job successful')
+    

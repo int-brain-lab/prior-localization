@@ -10,9 +10,6 @@ from prior_pipelines.pipelines.utils_common_pipelines import cache_regressors
 # Third party libraries
 import dask
 import pandas as pd
-from dask.distributed import Client
-from dask_jobqueue import SLURMCluster
-from dask.distributed import LocalCluster
 
 # IBL libraries
 from one.api import ONE
@@ -23,14 +20,12 @@ CACHE_PATH.mkdir(parents=True, exist_ok=True)
 
 _logger = logging.getLogger("prior_pipelines")
 
-one = ONE()
-
 # Parameters
 ALGN_RESOLVED = True
 DATE = str(dt.today())
 QC = True
 TYPE = "primaries"
-MERGE_PROBES = False
+MERGE_PROBES = True
 # End parameters
 
 # Construct params dict from above
