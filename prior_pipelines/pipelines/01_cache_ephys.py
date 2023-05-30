@@ -25,20 +25,6 @@ _logger = logging.getLogger("prior_pipelines")
 
 one = ONE()
 
-
-@dask.delayed
-def delayed_load(eid, pids, params):
-    try:
-        return load_ephys(eid, pids, one=one, **params)
-    except KeyError:
-        pass
-
-
-@dask.delayed(pure=False, traverse=False)
-def delayed_save(subject, eid, probe_name, params, outputs):
-    return cache_regressors(subject, eid, probe_name, params, outputs)
-
-
 # Parameters
 ALGN_RESOLVED = True
 DATE = str(dt.today())
@@ -67,80 +53,31 @@ for eid in tqdm(bwm_df.index.unique(level="eid")):
     pids = session_df.pid.to_list()
     probe_names = session_df.probe_name.to_list()
     if MERGE_PROBES:
-        load_outputs = delayed_load(eid, pids, params)
-        save_future = delayed_save(
+        load_outputs = load_ephys(eid, pids, one=one, **params)
+        save_future = cache_regressors(
             subject, eid, "merged_probes", {**params, "type": TYPE}, load_outputs
         )
         dataset_futures.append([subject, eid, "merged_probes", save_future])
     else:
         for (pid, probe_name) in zip(pids, probe_names):
-            # load_outputs = load_ephys(eid, [pid], one=one, **params)
-            # save_future = cache_regressors(subject, eid, probe_name, {**params, "type": TYPE}, load_outputs)
-            load_outputs = delayed_load(eid, [pid], params)
-            save_future = delayed_save(
+            load_outputs =  load_ephys(eid, [pid], one=one, **params)
+            save_future = cache_regressors(
                 subject, eid, probe_name, {**params, "type": TYPE}, load_outputs
             )
             dataset_futures.append([subject, eid, probe_name, save_future])
 
-N_CORES = 5
-
-cluster = SLURMCluster(
-    cores=N_CORES,
-    memory="32GB",
-    processes=1,
-    queue="shared-cpu",
-    walltime="01:15:00",
-    log_directory="/srv/beegfs/scratch/users/f/findling/dask-worker-logs",
-    interface="ib0",
-    extra=["--lifetime", "60m", "--lifetime-stagger", "30m"],
-    job_cpu=N_CORES,
-    env_extra=[
-        f"export OMP_NUM_THREADS={N_CORES}",
-        f"export MKL_NUM_THREADS={N_CORES}",
-        f"export OPENBLAS_NUM_THREADS={N_CORES}",
-    ],
-)
-
-# cluster = LocalCluster()
-cluster.scale(5)
-client = Client(cluster)
-tmp_futures = [client.compute(future[3]) for future in dataset_futures]
-
-# Run below code AFTER futures have finished!
 dataset = [
     {
         "subject": x[0],
         "eid": x[1],
         "probe_name": x[2],
-        "meta_file": tmp_futures[i].result()[0],
-        "reg_file": tmp_futures[i].result()[1],
+        "meta_file": dataset_futures[-1][0],
+        "reg_file": dataset_futures[-1][1],
     }
     for i, x in enumerate(dataset_futures)
-    if tmp_futures[i].status == "finished"
 ]
 dataset = pd.DataFrame(dataset)
 
 outdict = {"params": params, "dataset_filenames": dataset}
 with open(Path(CACHE_PATH).joinpath(DATE + "_ephys_metadata.pkl"), "wb") as fw:
     pickle.dump(outdict, fw)
-
-"""
-import numpy as np
-failures = [(i, x) for i, x in enumerate(tmp_futures) if x.status == 'error']
-for i, failure in failures:
-    print(i, failure.exception(), failure.key)
-print(len(failures))
-print(np.array(failures)[:,1])
-import traceback
-tb = failure.traceback()
-traceback.print_tb(tb)
-print(len([(i, x) for i, x in enumerate(tmp_futures) if x.status == 'cancelled']))
-print(len([(i, x) for i, x in enumerate(tmp_futures) if x.status == 'error']))
-print(len([(i, x) for i, x in enumerate(tmp_futures) if x.status == 'lost']))
-print(len([(i, x) for i, x in enumerate(tmp_futures) if x.status == 'pending']))
-
-import numpy as np
-nb_trials_per_df = np.zeros(dataset.index.size)
-for i_filepath, filepath in enumerate(dataset.reg_file):
-    nb_trials_per_df[i_filepath] = pickle.load(open(filepath, 'rb'))['trials_df'].index.size
-"""

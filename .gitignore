@@ -1,3 +1,6 @@
+prior_pipelines/pipelines/utils_motor.py
+prior_pipelines/pipelines/03_cache_behavior.py
+prior_pipelines/pipelines/00_cache_behavior_stand_alone.py
 prior_pipelines/decoding/pipelines/02_run_stand_alone.py
 prior_pipelines/decoding/slurm_format.sh
 prior_pipelines/decoding/logs

@@ -324,14 +324,12 @@ def cache_motor(subject, eid, regressors):
     return metadata_fn, data_fn
 
 
-@dask.delayed
 def delayed_load(eid):
     try:
         return load_motor(eid)
     except KeyError:
         pass
 
-@dask.delayed(pure=False, traverse=False)
 def delayed_save(subject, eid, outputs):
     return cache_motor(subject, eid, outputs)
 
@@ -413,25 +411,3 @@ outdict = {'params': params, 'dataset_filenames': dataset}
 with open(Path(CACHE_PATH).joinpath(DATE + '_motor_metadata.pkl'), 'wb') as fw:
     pickle.dump(outdict, fw)
 
-
-"""
-import numpy as np
-failures = [(i, x) for i, x in enumerate(tmp_futures) if x.status == 'error']
-for i, failure in failures:
-    print(i, failure.exception(), failure.key)
-print(len(failures))
-print(np.array(failures)[:,1])
-import traceback
-tb = failure.traceback()
-traceback.print_tb(tb)
-print(len([(i, x) for i, x in enumerate(tmp_futures) if x.status == 'cancelled']))
-print(len([(i, x) for i, x in enumerate(tmp_futures) if x.status == 'error']))
-print(len([(i, x) for i, x in enumerate(tmp_futures) if x.status == 'lost']))
-print(len([(i, x) for i, x in enumerate(tmp_futures) if x.status == 'pending']))
-print(len([(i, x) for i, x in enumerate(tmp_futures) if x.status == 'finished']))
-
-import numpy as np
-nb_trials_per_df = np.zeros(dataset.index.size)
-for i_filepath, filepath in enumerate(dataset.reg_file):
-    nb_trials_per_df[i_filepath] = pickle.load(open(filepath, 'rb'))['trials_df'].index.size
-"""

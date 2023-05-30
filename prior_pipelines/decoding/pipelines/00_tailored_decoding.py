@@ -6,7 +6,9 @@ import numpy as np
 from prior_pipelines.params import CACHE_PATH
 from prior_pipelines.decoding.functions.utils import load_metadata
 import pickle
+import ONE
 
+one = ONE()
 try:
     index = int(sys.argv[1]) - 1
 except:
