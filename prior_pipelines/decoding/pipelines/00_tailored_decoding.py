@@ -46,6 +46,7 @@ def decode(regressors, metadata, nb_pseudo_sessions=10):
     else:
         trials_df, neural_dict = regressors['trials_df'], regressors
 
+    # pseudo_id=-1 decodes the prior of the session, pseudo_id>0 decodes pseudo-priors
     pseudo_ids = np.concatenate((-np.ones(1), np.arange(1, nb_pseudo_sessions))).astype('int64')
     results_fit_eid = fit_eid(neural_dict=neural_dict, trials_df=trials_df, metadata=metadata,
                             pseudo_ids=pseudo_ids, **kwargs)
