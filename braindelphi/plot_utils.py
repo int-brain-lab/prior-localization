@@ -93,6 +93,8 @@ def get_within_region_mean_var(res_table):
     return wi_means, wi_vars
 
 def comb_regs_df(res_table, 
+                 q_level=0.05,
+                 alpha_level=0.05,
                  USE_ALL_BERYL_REGIONS=True):
     '''
     combine all of the same regions in res_table and compute a set of 
@@ -103,6 +105,9 @@ def comb_regs_df(res_table,
     res_table : pandas DataFrame,
         output of decoding pipeline which has scalar summaries of decoding
         results.  Different than xy_table which has multi-dimensional data.
+    q_level : scalar in 0 to 1, q level of fdr correction
+    
+    alpha_level : scalar in 0 to 1, alpha significance level, non fdr correction
     
     USE_ALL_BERYL_REGIONS : bool,
         if True, includes all beryl regions as rows of dataFrame.  Rows with 
@@ -123,7 +128,7 @@ def comb_regs_df(res_table,
     else:
         all_regs = regions
     
-    frac_sig_region = lambda reg: np.mean(np.array(res_table.loc[res_table['region']==reg,'p-value']<0.05))
+    frac_sig_region = lambda reg: np.mean(np.array(res_table.loc[res_table['region']==reg,'p-value']<alpha_level))
     get_vals = lambda reg: np.array(res_table.loc[res_table['region']==reg,'score'])
     get_pvals = lambda reg: np.array(res_table.loc[res_table['region']==reg,'p-value'])
     get_nulls = lambda reg: np.array(res_table.loc[res_table['region']==reg,'median-null'])
@@ -131,18 +136,18 @@ def comb_regs_df(res_table,
     get_nunits = lambda reg: np.array(res_table.loc[res_table['region']==reg,'n_units'])
     reg_comb_pval = lambda reg: scipy.stats.combine_pvalues(get_pvals(reg)
                                                             , method='fisher')[1]
-    get_ms_reg = lambda reg: np.median(res_table.loc[(res_table['region']==reg) & (res_table['p-value']<0.05), 'score'])
+    get_ms_reg = lambda reg: np.median(res_table.loc[(res_table['region']==reg) & (res_table['p-value']<alpha_level), 'score'])
     
     ps_uncorr = [reg_comb_pval(r) for r in regions]
-    _, ps_corr, _, _ = multipletests(ps_uncorr, 0.05, method='fdr_bh')
+    _, ps_corr, _, _ = multipletests(ps_uncorr, q_level, method='fdr_bh')
     ps_uncorr = {regions[i]: ps_uncorr[i] for i in range(len(regions))}
     ps_corr = {regions[i]: ps_corr[i] for i in range(len(regions))}
     
     comb_regs_data = pd.DataFrame({'region': all_regs, 
               'combined_p-value': [ps_uncorr[r] if r in regions else np.nan for r in all_regs],
-              'combined_sig': [ps_uncorr[r]<0.05 if r in regions else np.nan for r in all_regs],
+              'combined_sig': [ps_uncorr[r]<alpha_level if r in regions else np.nan for r in all_regs],
               'combined_p-value_corr': [ps_corr[r] if r in regions else np.nan for r in all_regs],
-              'combined_sig_corr': [ps_corr[r]<0.05 if r in regions else np.nan for r in all_regs],
+              'combined_sig_corr': [ps_corr[r]<q_level if r in regions else np.nan for r in all_regs],
               'n_sessions': [len(get_vals(r)) if r in regions else np.nan for r in all_regs],
               'n_units_mean': [np.mean(get_nunits(r)) if r in regions else np.nan for r in all_regs],
               'values_std': [np.std(get_vals(r)) if r in regions else np.nan for r in all_regs],
