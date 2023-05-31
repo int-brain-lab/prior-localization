@@ -1,47 +1,144 @@
-from prior_pipelines.decoding.functions.nulldistributions import generate_null_distribution_session
-from behavior_models.models.utils import format_data as format_data_mut
-from behavior_models.models.utils import format_input as format_input_mut
-from prior_pipelines.params import CACHE_PATH
-from prior_pipelines.decoding.functions.utils import load_metadata
-from behavior_models.models.expSmoothing_prevAction import expSmoothing_prevAction
-from prior_pipelines.decoding.functions.process_targets import check_bhv_fit_exists
-from prior_pipelines.decoding.settings import modeldispatcher
 import pickle
-from pathlib import Path
-import numpy as np
+import pandas as pd
+import glob
+from prior_pipelines.decoding.settings import *
+from prior_pipelines.params import FIT_PATH
+from prior_pipelines.decoding.settings import modeldispatcher
+from tqdm import tqdm
 
-# load a trials_df
-bwmdf, _ = load_metadata(CACHE_PATH.joinpath('*_%s_metadata.pkl' % 'ephys').as_posix())
-pid = bwmdf['dataset_filenames'].iloc[0]
-trials_df = pickle.load(open(pid.reg_file, 'rb'))['trials_df']
-eid = '56956777-dca5-468c-87cb-78150432cc57'
-subject_name = 'NYU-11'
+date = "10-05-2025"
+finished = glob.glob(
+    str(FIT_PATH.joinpath(kwargs["neural_dtype"], "*", "*", "*", "*%s*" % date))
+)
+print("nb files:", len(finished))
 
-# folder in which the behavioral models will be stored
-BEH_MOD_PATH = Path('sandbox/behavioral')
-BEH_MOD_PATH.mkdir(exist_ok=True, parents=True)
+indexers = ["subject", "eid", "probe", "region"]
 
-# script to generate frankenstein session
-metadata = {
-     'eids_train': np.array([eid]),
-     'model': expSmoothing_prevAction,
-     'behfit_path': BEH_MOD_PATH,
-     'subject': subject_name,
-     'use_imposter_session': False,
-     'filter_pseudosessions_on_mutualInformation': True,
-     'constrain_null_session_with_beh': False,
-     'modeldispatcher': modeldispatcher,
-     'model_parameters': None,
-}
+resultslist = []
+weights, predictions, R2_test, intercepts, targets, masks = [], [], [], [], [], []
+nb_runs = 0
+failed_load = 0
+for fn in tqdm(finished):
+    #try:
+    fo = open(fn, "rb")
+    result = pickle.load(fo)
+    fo.close()
+    if result["fit"] is None:
+        continue
+    for i_decoding in range(len(result["fit"])):
+        if i_decoding == 0 or result["fit"][i_decoding]["pseudo_id"] != pseudo_id:
+            if nb_runs > 0:
+                tmpdict = {
+                    **indexers_dict,
+                    "fold": -1,
+                    "pseudo_id": pseudo_id,
+                    "N_units": N_units,
+                    "nb_runs": nb_runs,
+                    "mask": np.array(masks).mean(axis=0).tolist(),
+                    "R2_test": np.array(R2_test).mean(),
+                    "prediction": np.array(predictions).squeeze().mean(axis=0).tolist(),
+                    "contrastLeft": np.array(contrastsLeft).squeeze().mean(axis=0).tolist(),
+                    "contrastRight": np.array(contrastsRight).squeeze().mean(axis=0).tolist(),
+                    "target": np.array(targets).squeeze().mean(axis=0).tolist(),
+                    "weights": np.array(weights).mean(axis=0).tolist(),
+                    "intercepts": np.array(intercepts).mean(),
+                }
+                resultslist.append(tmpdict)
+                if nb_runs != 10:
+                    raise AssertionError('there is problem in the number of runs')
 
-side, stim, act, _ = format_data_mut(trials_df)
-stimuli, actions, stim_side = format_input_mut([stim], [act], [side])
-behmodel = expSmoothing_prevAction(metadata['behfit_path'], metadata['eids_train'], metadata['subject'],
-                           actions, stimuli, stim_side, single_zeta=True)
-istrained, _ = check_bhv_fit_exists(metadata['subject'], metadata['model'], metadata['eids_train'],
-                                    metadata['behfit_path'], modeldispatcher=modeldispatcher,
-                                    single_zeta=True)
-if not istrained:
-    behmodel.load_or_train(remove_old=False)
+            weights, predictions, R2_test, intercepts, targets, masks, contrastsLeft, contrastsRight  = (
+                [],
+                [],
+                [],
+                [],
+                [],
+                [],
+                [],
+                []
+            )
+            pseudo_id = result["fit"][i_decoding]["pseudo_id"]
+            nb_runs = 0
 
-frankenstein = generate_null_distribution_session(trials_df, metadata, **metadata)
+        if result["fit"][i_decoding]["pseudo_id"] != pseudo_id:
+            raise AssertionError('there is a problem in the script - unexpected behavior')
+
+        weights.append(
+            np.vstack(result["fit"][i_decoding]["weights"]).mean(axis=0)
+        )
+        predictions.append(result["fit"][i_decoding]["predictions_test"])
+        intercepts.append(np.mean(result["fit"][i_decoding]["intercepts"]))
+        targets.append(result["fit"][i_decoding]["target"])
+        R2_test.append(result["fit"][i_decoding]["Rsquared_test_full"])
+        contrastsLeft.append(result["fit"][i_decoding]['df']["contrastLeft"].values)
+        contrastsRight.append(result["fit"][i_decoding]['df']["contrastRight"].values)
+        masks.append(
+            np.array(
+                [
+                    str(item)
+                    for item in list(
+                        result["fit"][i_decoding]["mask"].values * 1
+                    )
+                ],
+                dtype=float,
+            )
+        )
+        N_units = result["N_units"]
+        indexers_dict = {x: result[x] for x in indexers}
+        nb_runs += 1
+
+    #except:
+    #    print(failed_load)
+    #    failed_load += 1
+    #    pass
+print("loading of %i files failed" % failed_load)
+
+resultsdf = pd.DataFrame(resultslist)
+
+
+estimatorstr = strlut[ESTIMATOR]
+
+if NEURAL_DTYPE == "ephys":
+    start_tw, end_tw = TIME_WINDOW
+if NEURAL_DTYPE == "widefield":
+    start_tw = WFI_NB_FRAMES_START
+    end_tw = WFI_NB_FRAMES_END
+
+model_str = "interIndividual" if isinstance(MODEL, str) else modeldispatcher[MODEL]
+
+fn = str(
+    FIT_PATH.joinpath(
+        kwargs["neural_dtype"],
+        "_".join(
+            [
+                date,
+                "decode",
+                TARGET,
+                model_str if TARGET in ["prior", "pLeft"] else "task",
+                estimatorstr,
+                "align",
+                ALIGN_TIME,
+                "timeWindow",
+                str(start_tw).replace(".", "_"),
+                str(end_tw).replace(".", "_"),
+            ]
+        ),
+    )
+)
+
+if COMPUTE_NEUROMETRIC:
+    fn = fn + "_".join(["", "neurometricPLeft", modeldispatcher[MODEL]])
+
+if ADD_TO_SAVING_PATH != "":
+    fn = fn + "_" + ADD_TO_SAVING_PATH
+
+fn = fn + ".parquet"
+
+metadata_df = pd.Series({"filename": fn, "date": date, **fit_metadata})
+metadata_fn = ".".join([fn.split(".")[0], "metadata", "pkl"])
+print("saving parquet")
+resultsdf.to_parquet(fn)
+print("parquet saved")
+print("saving metadata")
+metadata_df.to_pickle(metadata_fn)
+print("metadata saved")
