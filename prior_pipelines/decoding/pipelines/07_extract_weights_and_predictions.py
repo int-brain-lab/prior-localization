@@ -19,7 +19,6 @@ weights, predictions, R2_test, intercepts, targets, masks = [], [], [], [], [], 
 nb_runs = 0
 failed_load = 0
 for fn in tqdm(finished):
-    #try:
     fo = open(fn, "rb")
     result = pickle.load(fo)
     fo.close()
@@ -87,10 +86,6 @@ for fn in tqdm(finished):
         indexers_dict = {x: result[x] for x in indexers}
         nb_runs += 1
 
-    #except:
-    #    print(failed_load)
-    #    failed_load += 1
-    #    pass
 print("loading of %i files failed" % failed_load)
 
 resultsdf = pd.DataFrame(resultslist)
