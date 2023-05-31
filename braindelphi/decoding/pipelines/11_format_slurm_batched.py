@@ -6,7 +6,7 @@ from braindelphi.params import FIT_PATH
 from braindelphi.decoding.settings import modeldispatcher
 from tqdm import tqdm
 
-date = "30-01-2023"
+date = "10-05-2025"
 finished = glob.glob(
     str(FIT_PATH.joinpath(kwargs["neural_dtype"], "*", "*", "*", "*%s*" % date))
 )
@@ -19,49 +19,17 @@ weights, predictions, R2_test, intercepts, targets, masks = [], [], [], [], [], 
 nb_runs = 0
 failed_load = 0
 for fn in tqdm(finished):
-    try:
-        fo = open(fn, "rb")
-        result = pickle.load(fo)
-        fo.close()
-        if result["fit"] is None:
-            continue
-        for i_decoding in range(len(result["fit"])):
-            if i_decoding == 0:
-                weights, predictions, R2_test, intercepts, targets, masks = (
-                    [],
-                    [],
-                    [],
-                    [],
-                    [],
-                    [],
-                )
-                pseudo_id = result["fit"][i_decoding]["pseudo_id"]
-                nb_runs = 0
-
-            if result["fit"][i_decoding]["pseudo_id"] == pseudo_id:
-                weights.append(
-                    np.vstack(result["fit"][i_decoding]["weights"]).mean(axis=0)
-                )
-                predictions.append(result["fit"][i_decoding]["predictions_test"])
-                intercepts.append(np.mean(result["fit"][i_decoding]["intercepts"]))
-                targets.append(result["fit"][i_decoding]["target"])
-                R2_test.append(result["fit"][i_decoding]["Rsquared_test_full"])
-                masks.append(
-                    np.array(
-                        [
-                            str(item)
-                            for item in list(
-                                result["fit"][i_decoding]["mask"].values * 1
-                            )
-                        ],
-                        dtype=float,
-                    )
-                )
-                N_units = result["N_units"]
-                nb_runs += 1
-            else:
+    #try:
+    fo = open(fn, "rb")
+    result = pickle.load(fo)
+    fo.close()
+    if result["fit"] is None:
+        continue
+    for i_decoding in range(len(result["fit"])):
+        if i_decoding == 0 or result["fit"][i_decoding]["pseudo_id"] != pseudo_id:
+            if nb_runs > 0:
                 tmpdict = {
-                    **{x: result[x] for x in indexers},
+                    **indexers_dict,
                     "fold": -1,
                     "pseudo_id": pseudo_id,
                     "N_units": N_units,
@@ -69,25 +37,60 @@ for fn in tqdm(finished):
                     "mask": np.array(masks).mean(axis=0).tolist(),
                     "R2_test": np.array(R2_test).mean(),
                     "prediction": np.array(predictions).squeeze().mean(axis=0).tolist(),
+                    "contrastLeft": np.array(contrastsLeft).squeeze().mean(axis=0).tolist(),
+                    "contrastRight": np.array(contrastsRight).squeeze().mean(axis=0).tolist(),
                     "target": np.array(targets).squeeze().mean(axis=0).tolist(),
                     "weights": np.array(weights).mean(axis=0).tolist(),
                     "intercepts": np.array(intercepts).mean(),
                 }
                 resultslist.append(tmpdict)
-                weights, predictions, R2_test, intercepts, targets, masks = (
-                    [],
-                    [],
-                    [],
-                    [],
-                    [],
-                    [],
-                )
-                pseudo_id = result["fit"][i_decoding]["pseudo_id"]
-                nb_runs = 0
-    except:
-        print(failed_load)
-        failed_load += 1
-        pass
+                if nb_runs != 10:
+                    raise AssertionError('there is problem in the number of runs')
+
+            weights, predictions, R2_test, intercepts, targets, masks, contrastsLeft, contrastsRight  = (
+                [],
+                [],
+                [],
+                [],
+                [],
+                [],
+                [],
+                []
+            )
+            pseudo_id = result["fit"][i_decoding]["pseudo_id"]
+            nb_runs = 0
+
+        if result["fit"][i_decoding]["pseudo_id"] != pseudo_id:
+            raise AssertionError('there is a problem in the script - unexpected behavior')
+
+        weights.append(
+            np.vstack(result["fit"][i_decoding]["weights"]).mean(axis=0)
+        )
+        predictions.append(result["fit"][i_decoding]["predictions_test"])
+        intercepts.append(np.mean(result["fit"][i_decoding]["intercepts"]))
+        targets.append(result["fit"][i_decoding]["target"])
+        R2_test.append(result["fit"][i_decoding]["Rsquared_test_full"])
+        contrastsLeft.append(result["fit"][i_decoding]['df']["contrastLeft"].values)
+        contrastsRight.append(result["fit"][i_decoding]['df']["contrastRight"].values)
+        masks.append(
+            np.array(
+                [
+                    str(item)
+                    for item in list(
+                        result["fit"][i_decoding]["mask"].values * 1
+                    )
+                ],
+                dtype=float,
+            )
+        )
+        N_units = result["N_units"]
+        indexers_dict = {x: result[x] for x in indexers}
+        nb_runs += 1
+
+    #except:
+    #    print(failed_load)
+    #    failed_load += 1
+    #    pass
 print("loading of %i files failed" % failed_load)
 
 resultsdf = pd.DataFrame(resultslist)
