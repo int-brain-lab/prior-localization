@@ -36,7 +36,6 @@ dj_local_conf.json
 *.*lock
 *.parquet
 *.pkl
-*.npy
 *.pdf
 *.out
 *.jpg
