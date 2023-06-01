@@ -100,6 +100,10 @@ def fit_eid(neural_dict, trials_df, metadata, pseudo_ids=[-1], **kwargs):
         add_to_saving_path : str
             additional string to append to filenames
     """
+    #############################################################################
+    if kwargs['set_seed_for_DEBUG']:
+        np.random.seed(0) # setting seed for refactoring purpose <- NOT MEANT TO STAY
+    #############################################################################
 
     print(f"Working on eid : %s" % metadata["eid"])
     filenames = []  # this will contain paths to saved decoding results for this eid
@@ -383,6 +387,9 @@ def fit_eid(neural_dict, trials_df, metadata, pseudo_ids=[-1], **kwargs):
             add_to_saving_path=kwargs["add_to_saving_path"],
         )
 
+        if kwargs['run_integration_test']:
+            save_path = save_path.parent.joinpath(save_path.name.split('.pkl')[0] + '_to_be_tested.pkl')
+
         filename = save_region_results(
             fit_result=fit_results,
             pseudo_id=pseudo_ids,
@@ -393,6 +400,7 @@ def fit_eid(neural_dict, trials_df, metadata, pseudo_ids=[-1], **kwargs):
             n_units=n_units,
             save_path=save_path,
         )
+        
 
         filenames.append(filename)
 

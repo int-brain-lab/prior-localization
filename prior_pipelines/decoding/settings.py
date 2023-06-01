@@ -29,17 +29,17 @@ if TARGET not in ["pLeft", "signcont", "strengthcont", "choice", "feedback"]:
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
 # if MODEL is a path, this will be the interindividual results
 MODEL = optimal_Bayesian  #expSmoothing_stimside, expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
-TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
+TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  # only ephys
 ESTIMATOR = sklm.Ridge # Must be in keys of strlut above
-USE_NATIVE_SKLEARN_FOR_HYPERPARAMETER_ESTIMATION = True
+USE_NATIVE_SKLEARN_FOR_HYPERPARAMETER_ESTIMATION = (ESTIMATOR == sklm.Ridge)
 BINARIZATION_VALUE = (
     None  # to binarize the target -> could be useful with logistic regression estimator
 )
 ESTIMATOR_KWARGS = {"tol": 0.0001, "max_iter": 20000, "fit_intercept": True}
 N_PSEUDO = 200
-N_PSEUDO_PER_JOB = 50
+N_PSEUDO_PER_JOB = 10
 N_JOBS_PER_SESSION = N_PSEUDO // N_PSEUDO_PER_JOB
-N_RUNS = 10
+N_RUNS = 2
 MIN_UNITS = 10
 NB_TRIALS_TAKEOUT_END = 0
 MIN_BEHAV_TRIAS = (

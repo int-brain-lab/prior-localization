@@ -8,7 +8,7 @@ from behavior_models.models.utils import format_data as format_data_mut
 from behavior_models.models.utils import format_input as format_input_mut
 from behavior_models.models.utils import build_path as build_path_mut
 
-from prior_pipelines.pipelines.utils_common_pipelines import load_behavior
+from prior_pipelines.pipelines.utils_ephys import load_behavior
 from prior_pipelines.decoding.functions.utils import compute_mask
 
 
