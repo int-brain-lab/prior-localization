@@ -101,8 +101,7 @@ def fit_eid(neural_dict, trials_df, metadata, pseudo_ids=[-1], **kwargs):
             additional string to append to filenames
     """
     #############################################################################
-    if kwargs['set_seed_for_DEBUG']:
-        np.random.seed(0) # setting seed for refactoring purpose <- NOT MEANT TO STAY
+    np.random.seed(0) # setting seed for refactoring purpose <- NOT MEANT TO STAY
     #############################################################################
 
     print(f"Working on eid : %s" % metadata["eid"])
@@ -170,7 +169,7 @@ def fit_eid(neural_dict, trials_df, metadata, pseudo_ids=[-1], **kwargs):
 
     if isinstance(kwargs["single_region"], bool):
         regions = (
-            [[k] for k in np.unique(beryl_reg)]
+            [[k] for k in np.unique(beryl_reg) if k not in ['root', 'void']]
             if kwargs["single_region"]
             else [np.unique(beryl_reg)]
         )
@@ -386,9 +385,6 @@ def fit_eid(neural_dict, trials_df, metadata, pseudo_ids=[-1], **kwargs):
             target=kwargs["target"],
             add_to_saving_path=kwargs["add_to_saving_path"],
         )
-
-        if kwargs['run_integration_test']:
-            save_path = save_path.parent.joinpath(save_path.name.split('.pkl')[0] + '_to_be_tested.pkl')
 
         filename = save_region_results(
             fit_result=fit_results,
