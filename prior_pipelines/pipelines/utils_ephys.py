@@ -32,6 +32,7 @@ def load_ephys(
     pids,
     ret_qc,
     one=None,
+    pnames='',
 ):
     # cache_dir = one_params.get().CACHE_DIR  # Retrieve the default dataset download directory (for the main alyx)
     # one = ONE(base_url='https://openalyx.internationalbrainlab.org') #, password='international', silent=True)
@@ -47,8 +48,9 @@ def load_ephys(
 
     spikes, clusters, cludfs = {}, {}, []
     clumax = 0
-    for pid in pids:
-        ssl = bbone.SpikeSortingLoader(one=one, pid=pid, eid=session_id)
+    pnames = [''] * len(pids) if pnames == '' else pnames
+    for (pid, pname) in zip(pids, pnames):
+        ssl = bbone.SpikeSortingLoader(one=one, pid=pid, eid=session_id, pname=pname)
         spikes[pid], tmpclu, channels = ssl.load_spike_sorting()
         if "metrics" not in tmpclu:
             tmpclu["metrics"] = np.ones(tmpclu["channels"].size)
