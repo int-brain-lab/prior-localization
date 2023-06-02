@@ -93,9 +93,10 @@ def fit_session(probe_name, trials_df, session_id, subject, neural_dtype='ephys'
         add_to_saving_path : str
             additional string to append to filenames
     """
-    # We need a seed for the integration test to be reproducible
-    if kwargs.pop('integration_test', None):
-        np.random.seed(0)
+    #############################################################################
+    if kwargs['set_seed_for_DEBUG']:
+        np.random.seed(0) # setting seed for refactoring purpose <- NOT MEANT TO STAY
+    #############################################################################
 
     filenames = []  # this will contain paths to saved decoding results for this eid
 
