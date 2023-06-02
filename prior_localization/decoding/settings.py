@@ -210,6 +210,7 @@ fit_metadata = {
     "decode_derivative": DECODE_DERIVATIVE,
     "motor_residual": MOTOR_RESIDUAL,
     "use_native_sklearn_for_hyperparameter_estimation": USE_NATIVE_SKLEARN_FOR_HYPERPARAMETER_ESTIMATION,
+    "set_seed_for_DEBUG": False
 }
 
 if NEURAL_DTYPE == "widefield":
@@ -261,4 +262,5 @@ kwargs = {
     "wfi_average_over_frames": WFI_AVERAGE_OVER_FRAMES,
     "debug": DEBUG,
     "use_native_sklearn_for_hyperparameter_estimation": USE_NATIVE_SKLEARN_FOR_HYPERPARAMETER_ESTIMATION,
+    "set_seed_for_DEBUG": False
 }
