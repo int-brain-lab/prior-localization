@@ -5,6 +5,7 @@ from scipy.stats import wilcoxon
 from scipy.stats import spearmanr
 import numpy
 import torch
+import wfield
 
 def load_wfi_session(path_to_wfi_subject, sessid, hemispheres, path_to_wfi, keep_all_session=False):
     downsampled, behavior, ds_atlas, ds_map, frame_df = load_wfi(path_to_wfi_subject)
@@ -66,28 +67,6 @@ def load_wfi(path_to_wfi, sessid=-1):
     frame_df = numpy.load(path_to_wfi + '/frame_df.npy', allow_pickle=True)
     ds_map = numpy.load(path_to_wfi + '/ds_map.npy', allow_pickle=True)
     return downsampled, behavior, ds_atlas, ds_map, frame_df
-
-
-def load_wfi_session(path_to_wfi, sessid):
-    downsampled, behavior, ds_atlas, ds_map, frame_df = load_wfi(path_to_wfi, sessid)
-    atlas = pd.read_csv('ccf_regions.csv')
-    for k in range(behavior.size):
-        behavior[k]['session_id'] = k
-        behavior[k]['session_to_decode'] = True if k == sessid else False
-    sessiondf = pd.concat(behavior, axis=0).reset_index(drop=True)
-    sessiondf['subject'] = 'wfi%i' % int(path_to_wfi.split('-')[-1])
-    sessiondf = sessiondf[['choice', 'stimOn_times', 'feedbackType', 'feedback_times', 'contrastLeft', 'goCue_times',
-                           'contrastRight', 'probabilityLeft', 'session_to_decode', 'subject', 'signedContrast',
-                           'session_id', 'firstMovement_times']]
-    sessiondf = sessiondf.assign(stim_side=(sessiondf.choice * (sessiondf.feedbackType == 1) -
-                                            sessiondf.choice * (sessiondf.feedbackType == -1)))
-    sessiondf['eid'] = sessiondf['session_id'].apply(lambda x: ('wfi' + str(int(path_to_wfi.split('-')[-1]))
-                                                                + 's' + str(x)))
-    # downsampled = downsampled[sessid]
-    frame_df = frame_df[sessid]
-    wideFieldImaging_dict = {'activity': downsampled, 'timings': frame_df, 'regions': ds_atlas, 'atlas': atlas}
-    return sessiondf, wideFieldImaging_dict
-
 
 
 def format_resultsdf(resultsdf,target="prior",correction='median',additional_df=False):
@@ -250,3 +229,112 @@ def preprocess_widefield_imaging(neural_dict, reg_mask, kwargs):
                     axis=0)
     binned = list(binned.reshape(binned.shape[0], -1)[:, None])
     return binned
+
+# Taken from https://github.com/cskrasniak/wfield/blob/master/wfield/analyses.py
+def downsample_atlas(atlas, pixelSize=20, mask=None):
+    """
+    Downsamples the atlas so that it can be matching to the downsampled images. if mask is not provided
+    then just the atlas is used. pixelSize must be a common divisor of 540 and 640
+    """
+    if not mask:
+        mask = atlas != 0
+    downsampled_atlas = np.zeros((int(atlas.shape[0] / pixelSize), int(atlas.shape[1] / pixelSize)))
+    for top in np.arange(0, 540, pixelSize):
+        for left in np.arange(0, 640, pixelSize):
+            useArea = (np.array([np.arange(top, top + pixelSize)] * pixelSize).flatten(),
+                       np.array([[x] * pixelSize for x in range(left, left + pixelSize)]).flatten())
+            u_areas, u_counts = np.unique(atlas[useArea], return_counts=True)
+            if np.sum(mask[useArea] != 0) < .5:
+                # if more than half of the pixels are outside of the brain, skip this group of pixels
+                continue
+            else:
+                spot_label = u_areas[np.argmax(u_counts)]
+                downsampled_atlas[int(top / pixelSize), int(left / pixelSize)] = spot_label
+    return downsampled_atlas.astype(int)
+
+
+def spatial_down_sample(stack, pixelSize=20):
+    """
+    Downsamples the whole df/f video for a session to a manageable size, best are to do a 10x or
+    20x downsampling, this makes many tasks more manageable on a desktop.
+    """
+    mask = stack.U_warped != 0
+    mask = mask.mean(axis=2)
+    try:
+        downsampled_im = np.zeros((stack.SVT.shape[1],
+                                   int(stack.U_warped.shape[0] / pixelSize),
+                                   int(stack.U_warped.shape[1] / pixelSize)))
+    except:
+        print('Choose a downsampling amount that is a common divisor of 540 and 640')
+    for top in np.arange(0, 540, pixelSize):
+        for left in np.arange(0, 640, pixelSize):
+            useArea = (np.array([np.arange(top, top + pixelSize)] * pixelSize).flatten(),
+                       np.array([[x] * pixelSize for x in range(left, left + pixelSize)]).flatten())
+            if np.sum(mask[useArea] != 0) < .5:
+                # if more than half of the pixels are outside of the brain, skip this group of pixels
+                continue
+            else:
+                spot_activity = stack.get_timecourse(useArea).mean(axis=0)
+                downsampled_im[:, int(top / pixelSize), int(left / pixelSize)] = spot_activity
+    return downsampled_im
+
+def prepare_widefield_data(eid, one, corrected=True):
+    if corrected:
+        SVT = one.load_dataset(eid, 'widefieldSVT.haemoCorrected.npy')
+    else:
+        SVT = one.load_dataset(eid, 'widefieldSVT.uncorrected.npy')
+    U = one.load_dataset(eid, 'widefieldU.images.npy')
+    times = one.load_dataset(eid, 'imaging.times.npy')
+    channels = one.load_dataset(eid, 'imaging.imagingLightSource.npy')
+    channel_info = one.load_dataset(eid, 'imagingLightSource.properties.htsv', download_only=True)
+    channel_info = pd.read_csv(channel_info)
+    lmark_file = one.load_dataset(eid, 'widefieldLandmarks.dorsalCortex.json', download_only=True)
+    landmarks = wfield.load_allen_landmarks(lmark_file)
+    # If haemocorrected need to take timestamps that correspond to functional channel
+    functional_channel = 470
+    functional_chn = channel_info.loc[channel_info['wavelength'] == functional_channel]['channel_id'].values[0]
+    times = times[channels == functional_chn]
+
+    # Align the image stack to Allen reference
+    stack = wfield.SVDStack(U, SVT)
+    stack.set_warped(True, M=landmarks['transform'])
+
+    # Load in the Allen atlas
+    atlas, area_names, mask = wfield.atlas_from_landmarks_file(lmark_file, do_transform=False)
+    ccf_regions, _, _ = wfield.allen_load_reference('dorsal_cortex')
+    ccf_regions = ccf_regions[['acronym', 'name', 'label']]
+
+    # Create a 3d mask of the brain outline
+    mask3d = wfield.mask_to_3d(mask, shape=np.roll(stack.U_warped.shape, 1))
+    # Set pixels outside the brain outline to zero
+    stack.U_warped[~mask3d.transpose([1, 2, 0])] = 0
+    # Do the same to the Allen image
+    atlas[~mask] = 0
+
+    # Downsample the images
+    downsampled_atlas = downsample_atlas(atlas, pixelSize=10)
+    downsampled_stack = spatial_down_sample(stack, pixelSize=10)
+
+
+    trials = one.load_object(eid, 'trials')
+    trials = trials.to_df()
+    frames = pd.DataFrame()
+    for key in trials.keys():
+        if 'times' in key:
+            idx = np.searchsorted(times, trials[key].values).astype(np.float64)
+            idx[np.isnan(trials[key].values)] = np.nan
+            frames[key] = idx
+        else:
+            frames[key] = trials[key].values
+
+    # remove last trial as this is detected wrong
+    frames = frames[:-1]
+
+    neural_activity = {}
+    neural_activity['activity'] = downsampled_stack
+    neural_activity['timings'] = frames
+    neural_activity['regions'] = downsampled_atlas
+    neural_activity['atlas'] = ccf_regions
+
+
+    return neural_activity
