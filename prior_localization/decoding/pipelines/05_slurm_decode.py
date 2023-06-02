@@ -1,6 +1,6 @@
 import sys
 from prior_localization.decoding.settings import kwargs, N_PSEUDO_PER_JOB, N_PSEUDO
-from prior_localization.decoding.functions.decoding import fit_eid
+from prior_localization.decoding.functions.decoding import fit_session
 import numpy as np
 from prior_localization.params import CACHE_PATH
 from prior_localization.decoding.functions.utils import load_metadata
@@ -36,7 +36,7 @@ if (job_id + 1) * N_PSEUDO_PER_JOB <= N_PSEUDO:
     )
     if 1 in pseudo_ids:
         pseudo_ids = np.concatenate((-np.ones(1), pseudo_ids)).astype("int64")
-    results_fit_eid = fit_eid(
+    results_fit_session = fit_session(
         neural_dict=neural_dict,
         trials_df=trials_df,
         metadata=metadata,

@@ -1,7 +1,7 @@
 import pandas as pd
 import sys
 from prior_localization.decoding.settings import kwargs, N_PSEUDO_PER_JOB, N_PSEUDO
-from prior_localization.decoding.functions.decoding import fit_eid
+from prior_localization.decoding.functions.decoding import fit_session
 import numpy as np
 from prior_localization.params import IMPOSTER_SESSION_PATH
 from one.api import ONE
@@ -62,7 +62,7 @@ if (job_id + 1) * N_PSEUDO_PER_JOB <= N_PSEUDO:
     pseudo_ids = np.arange(job_id * N_PSEUDO_PER_JOB, (job_id + 1) * N_PSEUDO_PER_JOB) + 1
     if 1 in pseudo_ids:
         pseudo_ids = np.concatenate((-np.ones(1), pseudo_ids)).astype('int64')
-    results_fit_eid = fit_eid(neural_dict=neural_dict, trials_df=sess_loader.trials, metadata=metadata,
+    results_fit_session = fit_session(neural_dict=neural_dict, trials_df=sess_loader.trials, metadata=metadata,
                               pseudo_ids=pseudo_ids, **kwargs)
 print('Slurm job successful')
 

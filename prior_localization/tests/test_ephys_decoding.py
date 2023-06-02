@@ -6,7 +6,7 @@ import numpy as np
 from one.api import ONE
 
 from prior_localization.decoding.settings import kwargs
-from prior_localization.decoding.functions.decoding import fit_eid
+from prior_localization.decoding.functions.decoding import fit_session
 from prior_localization.pipelines.utils_ephys import load_ephys
 
 
@@ -31,8 +31,8 @@ class TestEphysDecoding(unittest.TestCase):
         kwargs['neuralfit_path'] = Path(self.tmp_dir.name).joinpath('neural')
         kwargs['neural_dtype'] = 'ephys'
 
-    def compare_target_test(self, results_fit_eid, probe):
-        for f in results_fit_eid:
+    def compare_target_test(self, results_fit_session, probe):
+        for f in results_fit_session:
             region = f.name.split('_')[1]
             # This failed for uninteresting regions
             if region == 'VPM':
@@ -48,18 +48,18 @@ class TestEphysDecoding(unittest.TestCase):
         self.metadata['probe_name'] = 'merged_probes'
         regressors = load_ephys(self.eid, self.pids, one=self.one, ret_qc=self.metadata['ret_qc'])
         trials_df, neural_dict = regressors['trials_df'], regressors
-        results_fit_eid = fit_eid(neural_dict=neural_dict, trials_df=trials_df, metadata=self.metadata,
+        results_fit_session = fit_session(neural_dict=neural_dict, trials_df=trials_df, metadata=self.metadata,
                                   pseudo_ids=self.pseudo_ids, **kwargs)
-        self.compare_target_test(results_fit_eid, 'merged')
+        self.compare_target_test(results_fit_session, 'merged')
 
     def test_single_probes(self):
         for (pid, probe_name) in zip(self.pids, self.probe_names):
             self.metadata['probe_name'] = probe_name
             regressors = load_ephys(self.eid, [pid], one=self.one, ret_qc=self.metadata['ret_qc'])
             trials_df, neural_dict = regressors['trials_df'], regressors
-            results_fit_eid = fit_eid(neural_dict=neural_dict, trials_df=trials_df, metadata=self.metadata,
+            results_fit_session = fit_session(neural_dict=neural_dict, trials_df=trials_df, metadata=self.metadata,
                                       pseudo_ids=self.pseudo_ids, **kwargs)
-            self.compare_target_test(results_fit_eid, probe_name)
+            self.compare_target_test(results_fit_session, probe_name)
 
     def tearDown(self) -> None:
         self.tmp_dir.cleanup()

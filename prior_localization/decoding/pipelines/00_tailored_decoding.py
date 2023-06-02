@@ -1,6 +1,6 @@
 import sys
 from prior_localization.decoding.settings import kwargs
-from prior_localization.decoding.functions.decoding import fit_eid
+from prior_localization.decoding.functions.decoding import fit_session
 import numpy as np
 from prior_localization.pipelines.utils_ephys import load_ephys
 from one.api import ONE
@@ -49,25 +49,25 @@ def decode(regressors, metadata, nb_pseudo_sessions=3):
 
     # pseudo_id=-1 decodes the prior of the session, pseudo_id>0 decodes pseudo-priors
     pseudo_ids = np.concatenate((-np.ones(1), np.arange(1, nb_pseudo_sessions))).astype('int64')
-    results_fit_eid = fit_eid(neural_dict=neural_dict, trials_df=trials_df, metadata=metadata,
+    results_fit_session = fit_session(neural_dict=neural_dict, trials_df=trials_df, metadata=metadata,
                             pseudo_ids=pseudo_ids, **kwargs)
-    return results_fit_eid # these are filenames
+    return results_fit_session # these are filenames
 
 # launch decoding
-results_fit_eid = []
+results_fit_session = []
 if MERGE_PROBES:
     regressors = load_ephys(eid, pids, one=one, **{'ret_qc':True})
-    results_fit_eid.extend(decode(regressors, metadata))
+    results_fit_session.extend(decode(regressors, metadata))
 else:
     probe_names = session_df.probe_name.to_list()
     for (pid, probe_name) in zip(pids, probe_names):
         regressors =  load_ephys(eids[i_eid], [pid], one=one, ret_qc=QC)
         metadata['probe_name'] = probe_name
-        results_fit_eid.extend(decode(regressors, metadata))
+        results_fit_session.extend(decode(regressors, metadata))
 
 if kwargs['run_integration_test']:
     import pickle
-    for f in results_fit_eid:        
+    for f in results_fit_session:        
         predicteds = pickle.load(open(f, 'rb'))
         targets = pickle.load(open(f.parent.joinpath(f.name.replace('_to_be_tested', '')), 'rb'))
         for (fit_pred, fit_targ) in zip(predicteds['fit'], targets['fit']):

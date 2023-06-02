@@ -39,7 +39,7 @@ from prior_localization.decoding.functions.process_motors import (
 )
 
 
-def fit_eid(neural_dict, trials_df, metadata, pseudo_ids=[-1], **kwargs):
+def fit_session(neural_dict, trials_df, metadata, pseudo_ids=[-1], **kwargs):
     """High-level function to decode a given target variable from brain regions for a single eid.
 
     Parameters
