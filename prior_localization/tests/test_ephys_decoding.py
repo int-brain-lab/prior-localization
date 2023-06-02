@@ -29,6 +29,7 @@ class TestEphysDecoding(unittest.TestCase):
         self.fixtures_dir = Path(__file__).parent.joinpath('fixtures')
         kwargs['behfit_path'] = Path(self.tmp_dir.name).joinpath('behavior')
         kwargs['neuralfit_path'] = Path(self.tmp_dir.name).joinpath('neural')
+        kwargs['neural_dtype'] = 'ephys'
 
     def compare_target_test(self, results_fit_eid, probe):
         for f in results_fit_eid:
