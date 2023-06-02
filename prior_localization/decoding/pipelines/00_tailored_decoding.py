@@ -20,7 +20,7 @@ kwargs['set_seed_for_DEBUG'] = True
 kwargs['run_integration_test'] = True # if you put False, you will overwrite the existing "groundtruth"
 
 # ONE
-one = ONE()
+one = ONE(mode="local")
 one.alyx.clear_rest_cache()
 bwm_df = bwm_query().set_index(["subject", "eid"])  # freeze="2022_10_update"
 
