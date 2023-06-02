@@ -5,9 +5,9 @@ from pathlib import Path
 import numpy as np
 from one.api import ONE
 
-from prior_pipelines.decoding.settings import kwargs
-from prior_pipelines.decoding.functions.decoding import fit_eid
-from prior_pipelines.pipelines.utils_ephys import load_ephys
+from prior_localization.decoding.settings import kwargs
+from prior_localization.decoding.functions.decoding import fit_eid
+from prior_localization.pipelines.utils_ephys import load_ephys
 
 
 class TestEphysDecoding(unittest.TestCase):

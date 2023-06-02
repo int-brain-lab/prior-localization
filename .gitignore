@@ -1,38 +1,38 @@
+# Charles
 prior_pipelines/utils_root.py
-prior_pipelines/pipelines/utils_motor.py
-prior_pipelines/pipelines/03_cache_behavior.py
-prior_pipelines/pipelines/00_cache_behavior_stand_alone.py
-prior_pipelines/decoding/pipelines/02_run_stand_alone.py
-prior_pipelines/decoding/slurm_format.sh
-prior_pipelines/decoding/logs
-prior_pipelines/decoding/plots
-prior_pipelines/decoding/null_distributions
-prior_pipelines/decoding/results/
-prior_pipelines/decoding/links_widefield/
-cache/
+prior-localization/prior_localization/pipelines/utils_motor.py
+prior-localization/prior_localization/pipelines/03_cache_behavior.py
+prior-localization/prior_localization/pipelines/00_cache_behavior_stand_alone.py
+prior-localization/prior_localization/decoding/pipelines/02_run_stand_alone.py
+prior-localization/prior_localization/decoding/slurm_format.sh
+prior-localization/prior_localization/decoding/logs
+prior-localization/prior_localization/decoding/plots
+prior-localization/prior_localization/decoding/null_distributions
+prior-localization/prior_localization/decoding/results/
+prior-localization/prior_localization/decoding/links_widefield/
+prior-localization/prior_localization/decoding/behavior
 wide_field_imaging/
-prior_pipelines/decoding/behavior
 legacy_decoding/
-legacy
-.gitignore
-dj_local_conf.json
-.DS_Store
-/.vscode/
-/decoding/*pqt
-*.mat
-*.html
-*.png
-*.p
-/data/*_fits/
-*/__pycache__/
-*.ipynb_checkpoints/
-*.pyc
-.one_params
-*dask-worker-space/
 /results/
 /decoding/Data
 /decoding/results/
 /decoding/models/
+legacy
+cache/
+/data/*_fits/
+*dask-worker-space/
+dj_local_conf.json
+.one_params
+
+# Felix
+prior-localization/prior_localization/decoding/investigation/
+
+# Data files
+*.mat
+*.html
+*.png
+*.p
+*.pyc
 *.*lock
 *.parquet
 *.pkl
@@ -61,13 +61,16 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# VS Code
+.vscode/*
+
 # PyCharm
 .idea/
 
 # DS_Store
 **/.DS_Store
 
-# PEP 582; used by e.g. github.com/David-OConnor/pyflow
+# PEP 582
 __pypackages__/
 
 # Celery stuff
@@ -106,8 +109,9 @@ wheels/
 pip-wheel-metadata/
 share/python-wheels/
 *.egg-info/
-.installed.cfg
 *.egg
+*/__pycache__/
+.installed.cfg
 MANIFEST
 
 # PyInstaller
@@ -166,6 +170,3 @@ ipython_config.py
 
 # pyenv
 .python-version
-
-# felix debugging
-prior_pipelines/decoding/investigation/

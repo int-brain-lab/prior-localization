@@ -1,6 +1,6 @@
-filelock
-sobol-seq
-dask-jobqueue
+numpy
+pandas
 ibllib
-git+git@github.com:nicholas-roy/psytrack.git
-pytest
+ONE-api
+torch
+behavior_models @ git+https://github.com/int-brain-lab/behavior_models.git

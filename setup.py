@@ -1,7 +1,3 @@
-#!/usr/bin/env python
-# @File: iblrig-core/setup.py
-# @Author: Niccolo' Bonacchi (@nbonacchi)
-# @Date: Wednesday, February 23rd 2022, 10:46:07 am
 import sys
 from pathlib import Path
 
@@ -48,10 +44,10 @@ def get_version(rel_path):
 
 
 setup(
-    name="prior_pipelines",
-    version=get_version(Path("prior_pipelines").joinpath("__init__.py")),
+    name="prior_localization",
+    version=get_version(Path("prior_localization").joinpath("__init__.py")),
     python_requires=">={}.{}".format(*REQUIRED_PYTHON),
-    description="prior_pipelines package for encoding and decoding brainwide neural activity",
+    description="Prior localization package for encoding and decoding brainwide neural activity",
     license="MIT",
     long_description=long_description,
     long_description_content_type="text/markdown",
