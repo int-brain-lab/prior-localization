@@ -1,208 +1,42 @@
-# Standard library
-import hashlib
 import logging
-import os
-import pickle
-import re
-from datetime import datetime as dt
-from pathlib import Path
-
-# Third party libraries
 import numpy as np
-import pandas as pd
-
-# IBL libraries
-import brainbox.io.one as bbone
-import brainbox.metrics.single_units as bbqc
-from neurodsp.smooth import smooth_interpolate_savgol
-from one.alf.exceptions import ALFObjectNotFound
-
-# prior_pipelines repo imports
-from prior_localization.params import CACHE_PATH
-
-_logger = logging.getLogger("prior_pipelines")
 
 from one.api import ONE
+from brainbox.io.one import SessionLoader
+from neurodsp.smooth import smooth_interpolate_savgol
+from one.alf.exceptions import ALFObjectNotFound
+from brainwidemap.bwm_loading import load_good_units, merge_probes
+
+_logger = logging.getLogger("prior_localization")
 
 
-def load_ephys(
-    session_id,
-    pids,
-    ret_qc,
-    one=None,
-    pnames='',
-):
-    # cache_dir = one_params.get().CACHE_DIR  # Retrieve the default dataset download directory (for the main alyx)
-    # one = ONE(base_url='https://openalyx.internationalbrainlab.org') #, password='international', silent=True)
-    # one_params.cache_dir = cache_dir
-    # one = ONE() #.setup(base_url='https://openalyx.internationalbrainlab.org')
+def load_ephys(one, session_id, probe_names, ret_qc):
+    # Load trials data
+    sess_loader = SessionLoader(one, session_id)
+    sess_loader.load_trials()
 
-    sess_loader = bbone.SessionLoader(one, session_id)
+    if not isinstance(probe_names, list):
+        probe_names = [probe_names]
 
-    if sess_loader.trials.empty:
-        sess_loader.load_trials()
-
-    trialsdf = sess_loader.trials
-
-    spikes, clusters, cludfs = {}, {}, []
-    clumax = 0
-    pnames = [''] * len(pids) if pnames == '' else pnames
-    for (pid, pname) in zip(pids, pnames):
-        ssl = bbone.SpikeSortingLoader(one=one, pid=pid, eid=session_id, pname=pname)
-        spikes[pid], tmpclu, channels = ssl.load_spike_sorting()
-        if "metrics" not in tmpclu:
-            tmpclu["metrics"] = np.ones(tmpclu["channels"].size)
-        clusters[pid] = ssl.merge_clusters(spikes[pid], tmpclu, channels)
-        clusters_df = pd.DataFrame(clusters[pid]).set_index(["cluster_id"])
-        clusters_df.index += clumax
-        clusters_df["pid"] = pid
-        cludfs.append(clusters_df)
-        clumax = clusters_df.index.max()
-    allcludf = pd.concat(cludfs)
-
-    allspikes, allclu, allreg, allamps, alldepths = [], [], [], [], []
-    clumax = 0
-    for pid in pids:
-        allspikes.append(spikes[pid].times)
-        allclu.append(spikes[pid].clusters + clumax)
-        allreg.append(clusters[pid].acronym)
-        allamps.append(spikes[pid].amps)
-        alldepths.append(spikes[pid].depths)
-        clumax += np.max(spikes[pid].clusters) + 1
-
-    allspikes, allclu, allamps, alldepths = [
-        np.hstack(x) for x in (allspikes, allclu, allamps, alldepths)
-    ]
-    sortinds = np.argsort(allspikes)
-    spk_times = allspikes[sortinds]
-    spk_clu = allclu[sortinds]
-    spk_amps = allamps[sortinds]
-    spk_depths = alldepths[sortinds]
-    clu_regions = np.hstack(allreg)
-    if not ret_qc:
-        clu_qc = None
+    # Load spike sorting data, make sure to not load with pid (which doesn't work in local mode), but with probe name
+    if len(probe_names) == 1:
+        spikes, clusters = load_good_units(one, pid=None, eid=session_id, qc=ret_qc, pname=probe_names[0])
     else:
-        clu_qc = bbqc.quick_unit_metrics(
-            spk_clu,
-            spk_times,
-            spk_amps,
-            spk_depths,
-            cluster_ids=np.arange(clu_regions.size),
-        )
+        to_merge = [
+            load_good_units(one, pid=None, eid=session_id, qc=ret_qc, pname=probe_name) for probe_name in probe_names
+        ]
+        spikes, clusters = merge_probes([spikes for spikes, _ in to_merge], [clusters for _, clusters in to_merge])
 
     regressors = {
-        "trials_df": trialsdf,
-        "spk_times": spk_times,
-        "spk_clu": spk_clu,
-        "clu_regions": clu_regions,
-        "clu_qc": clu_qc,
-        "clu_df": allcludf,
+        "trials_df": sess_loader.trials,
+        'spk_times': spikes['times'],
+        'spk_clu': spikes['clusters'],
+        'clu_regions': clusters['acronym'],
+        'clu_qc': {k: np.asarray(v) for k, v in clusters.to_dict('list').items()},
+        'clu_df': clusters
     }
+
     return regressors
-
-
-def cache_regressors(subject, eid, probe_name, params, regressors):
-    """
-    Take outputs of load_ephys() and cache them to disk in the folder defined in the params.py
-    file in this repository, using a nested subject -> session folder structure.
-
-    If an existing file in the directory already contains identical data, will not write a new file
-    and instead return the existing filenames.
-
-    Returns the metadata filename and regressors filename.
-    """
-    sesspath = (
-        Path(CACHE_PATH)
-        .joinpath("ephys")
-        .joinpath(subject)
-        .joinpath(eid)
-        .joinpath(probe_name)
-    )
-    sesspath.mkdir(parents=True, exist_ok=True)
-    curr_t = dt.now()
-    fnbase = str(curr_t.date())
-    metadata_fn = sesspath.joinpath(fnbase + "_%s_metadata.pkl" % params["type"])
-    data_fn = sesspath.joinpath(fnbase + "_%s_regressors.pkl" % params["type"])
-    reghash = _hash_dict(regressors)
-    metadata = {
-        "subject": subject,
-        "eid": eid,
-        "probe_name": probe_name,
-        "regressor_hash": reghash,
-        **params,
-    }
-    prevdata = [
-        sesspath.joinpath(f)
-        for f in os.listdir(sesspath)
-        if re.match(r".*_metadata\.pkl", f)
-    ]
-    matchfile = False
-    for f in prevdata:
-        with open(f, "rb") as fr:
-            frdata = pickle.load(fr)
-            if metadata == frdata:
-                matchfile = True
-        if matchfile:
-            _logger.info(
-                f"Existing cache file found for {subject}: {eid}, " "not writing data."
-            )
-            old_data_fn = sesspath.joinpath(f.name.split("_")[0] + "_regressors.pkl")
-            return f, old_data_fn
-    # If you've reached here, there's no matching file
-    with open(metadata_fn, "wb") as fw:
-        pickle.dump(metadata, fw)
-    with open(data_fn, "wb") as fw:
-        pickle.dump(regressors, fw)
-    return metadata_fn, data_fn
-
-
-def cache_behavior(subject, eid, target, regressors):
-    """
-    Take outputs of load_behavior() and cache them to disk in the folder defined in the params.py
-    file in this repository, using a nested subject -> session folder structure.
-
-    If an existing file in the directory already contains identical data, will not write a new file
-    and instead return the existing filenames.
-
-    Returns the metadata filename and regressors filename.
-    """
-
-    sesspath = Path(CACHE_PATH).joinpath("behavior").joinpath(subject).joinpath(eid)
-    sesspath.mkdir(parents=True, exist_ok=True)
-    curr_t = dt.now()
-    fnbase = str(curr_t.date())
-    metadata_fn = sesspath.joinpath(fnbase + "_%s_metadata.pkl" % target)
-    data_fn = sesspath.joinpath(fnbase + "_%s_regressors.pkl" % target)
-    reghash = _hash_dict(regressors)
-    metadata = {
-        "subject": subject,
-        "eid": eid,
-        "target": target,
-        "regressor_hash": reghash,
-    }
-    prevdata = [
-        sesspath.joinpath(f)
-        for f in os.listdir(sesspath)
-        if re.match(r".*_metadata\.pkl", f)
-    ]
-    matchfile = False
-    for f in prevdata:
-        with open(f, "rb") as fr:
-            frdata = pickle.load(fr)
-            if metadata == frdata:
-                matchfile = True
-        if matchfile:
-            _logger.info(
-                f"Existing cache file found for {subject}: {eid}, " "not writing data."
-            )
-            old_data_fn = sesspath.joinpath(f.name.split("_")[0] + "_regressors.pkl")
-            return f, old_data_fn
-    # If you've reached here, there's no matching file
-    with open(metadata_fn, "wb") as fw:
-        pickle.dump(metadata, fw)
-    with open(data_fn, "wb") as fw:
-        pickle.dump(regressors, fw)
-    return metadata_fn, data_fn
 
 
 def load_behavior(eid, target, one=None):
@@ -485,23 +319,3 @@ class QCError(Exception):
 
 class TimestampError(Exception):
     pass
-
-
-def _hash_dict(d):
-    hasher = hashlib.md5()
-    sortkeys = sorted(d.keys())
-    for k in sortkeys:
-        v = d[k]
-        if type(v) == np.ndarray:
-            hasher.update(v)
-        elif isinstance(v, (pd.DataFrame, pd.Series)):
-            hasher.update(v.to_string().encode())
-        else:
-            try:
-                hasher.update(v)
-            except Exception:
-                _logger.warning(
-                    f"Key {k} was not able to be hashed. May lead to failure to update"
-                    " in cached files if something was changed."
-                )
-    return hasher.hexdigest()

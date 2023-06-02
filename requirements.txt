@@ -1,6 +1,8 @@
 numpy
 pandas
+torch
 ibllib
 ONE-api
-torch
+ibl-neuropixel
 behavior_models @ git+https://github.com/int-brain-lab/behavior_models.git
+brainwidemap @ git+https://github.com/int-brain-lab/paper-brain-wide-map.git

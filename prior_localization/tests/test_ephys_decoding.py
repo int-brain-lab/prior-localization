@@ -18,11 +18,11 @@ class TestEphysDecoding(unittest.TestCase):
     def setUp(self) -> None:
         self.one = ONE()
         self.eid = '56956777-dca5-468c-87cb-78150432cc57'
-        self.pids, self.probe_names = self.one.eid2pid(self.eid)
+        _, self.probe_names = self.one.eid2pid(self.eid)
         self.metadata = {
             "subject": self.one.eid2ref(self.eid)['subject'],
             "eid": self.eid,
-            "ret_qc": True
+            "ret_qc": 1
         }
         self.pseudo_ids = np.concatenate((-np.ones(1), np.arange(1, 3))).astype('int64')
         self.tmp_dir = tempfile.TemporaryDirectory()
@@ -46,19 +46,19 @@ class TestEphysDecoding(unittest.TestCase):
 
     def test_merged_probes(self):
         self.metadata['probe_name'] = 'merged_probes'
-        regressors = load_ephys(self.eid, self.pids, one=self.one, ret_qc=self.metadata['ret_qc'])
+        regressors = load_ephys(self.one, self.eid, self.probe_names, ret_qc=self.metadata['ret_qc'])
         trials_df, neural_dict = regressors['trials_df'], regressors
         results_fit_session = fit_session(neural_dict=neural_dict, trials_df=trials_df, metadata=self.metadata,
-                                  pseudo_ids=self.pseudo_ids, **kwargs)
+                                          pseudo_ids=self.pseudo_ids, **kwargs)
         self.compare_target_test(results_fit_session, 'merged')
 
     def test_single_probes(self):
-        for (pid, probe_name) in zip(self.pids, self.probe_names):
+        for probe_name in self.probe_names:
             self.metadata['probe_name'] = probe_name
-            regressors = load_ephys(self.eid, [pid], one=self.one, ret_qc=self.metadata['ret_qc'])
+            regressors = load_ephys(self.one, self.eid, probe_name, ret_qc=self.metadata['ret_qc'])
             trials_df, neural_dict = regressors['trials_df'], regressors
             results_fit_session = fit_session(neural_dict=neural_dict, trials_df=trials_df, metadata=self.metadata,
-                                      pseudo_ids=self.pseudo_ids, **kwargs)
+                                              pseudo_ids=self.pseudo_ids, **kwargs)
             self.compare_target_test(results_fit_session, probe_name)
 
     def tearDown(self) -> None:
