@@ -19,6 +19,9 @@ from brainwidemap.bwm_loading import bwm_units
 sns.set(font_scale=1.5)
 sns.set_style('ticks')
 
+MIN_BALACC = 0.45
+MIN_R2 = -0.05
+
 # get reference cluster dataframe
 julias_clusters = bwm_units(ONE(base_url='https://openalyx.internationalbrainlab.org',
                                 password='international'))
@@ -49,7 +52,7 @@ def bar_results(acronyms_unordered,
                 filename='test.png', 
                 ylab='',
                 ticks=None,
-                FILE_PATH='/home/bensonb/IntBrainLab/prior-localization/braindelphi/decoding_figures/',
+                FILE_PATH='/home/bensonb/IntBrainLab/prior-localization/braindelphi/decoding_figures/SI/',
                 YMIN=None,
                 YMAX=None,
                 TOP_N=np.nan,
@@ -200,7 +203,11 @@ def bar_results(acronyms_unordered,
         plt.ylim(YMIN, YMAX)
         
     plt.xlim(np.min(inds)-1, np.max(inds)+1)
-    plt.gca().spines[['right', 'top']].set_visible(False)
+    left, bottom, width, height = 0.1, 0.1, 0.8, 0.8  # Adjust these values as desired
+    ax = plt.gca()
+    ax.set_position([left, bottom, width, height],
+                    which = 'both')
+    ax.spines[['right', 'top']].set_visible(False)
     plt.tight_layout()
     plt.savefig(SAVE_PATH, dpi=600)
     plt.show()
@@ -223,6 +230,7 @@ regions_FDRsig = np.array(regs_table.loc[regs_table['combined_sig_corr'],'region
 
 get_vals = lambda reg: np.array(res_table.loc[res_table['region']==reg,'score'])
 values = np.array([get_vals(reg) for reg in regions])
+assert MIN_BALACC < np.min([np.min(v) for v in values])
 
 get_pvals = lambda reg: np.array(res_table.loc[res_table['region']==reg,'p-value'])
 values_sig = np.array([(get_pvals(reg)<0.05)+0 for reg in regions])
@@ -235,7 +243,8 @@ acr_plotted = bar_results(regions,
                             comb_nulls,
                             fillcircle_eids_unordered=values_sig,
                             filename='stimside_bars.svg', 
-                            YMIN=np.min([np.min(v) for v in values]),
+                            YMIN=MIN_BALACC,
+                            YMAX=1.0,
                             ylab='Bal. Acc.',
                             ticks=([0.5,0.6,0.7,0.8,0.9,1.0], [0.5,0.6,0.7,0.8,0.9,1.0]),
                             sort_args=None, 
@@ -256,19 +265,21 @@ regions_FDRsig = np.array(regs_table.loc[regs_table['combined_sig_corr'],'region
 
 get_vals = lambda reg: np.array(res_table.loc[res_table['region']==reg,'score'])
 values = np.array([get_vals(reg) for reg in regions])
+assert MIN_BALACC < np.min([np.min(v) for v in values])
 
 get_pvals = lambda reg: np.array(res_table.loc[res_table['region']==reg,'p-value'])
 values_sig = np.array([(get_pvals(reg)<0.05)+0 for reg in regions])
 
 comb_vals = np.array([np.median(v) for v in values])
 comb_nulls = np.array(regs_table.null_median_of_medians)
+
 acr_plotted = bar_results(regions, 
                             values,
                             comb_vals,
                             comb_nulls,
                             fillcircle_eids_unordered=values_sig,
                             filename='choice_bars.svg', 
-                            YMIN=np.min([np.min(v) for v in values]),
+                            YMIN=MIN_BALACC,
                             YMAX=1.0,
                             ylab='Bal. Acc.',
                             ticks=([0.5,0.6,0.7,0.8,0.9,1.0], [0.5,0.6,0.7,0.8,0.9,1.0]),
@@ -291,6 +302,7 @@ regions_FDRsig = np.array(regs_table.loc[regs_table['combined_sig_corr'],'region
 
 get_vals = lambda reg: np.array(res_table.loc[res_table['region']==reg,'score'])
 values = np.array([get_vals(reg) for reg in regions])
+assert MIN_BALACC < np.min([np.min(v) for v in values])
 
 get_pvals = lambda reg: np.array(res_table.loc[res_table['region']==reg,'p-value'])
 values_sig = np.array([(get_pvals(reg)<0.05)+0 for reg in regions])
@@ -303,7 +315,7 @@ acr_plotted = bar_results(regions,
                             comb_nulls,
                             fillcircle_eids_unordered=values_sig,
                             filename='feedback_bars.svg', 
-                            YMIN=np.min([np.min(v) for v in values]),
+                            YMIN=MIN_BALACC,
                             YMAX=1.0,
                             ylab='Bal. Acc.',
                             ticks=([0.5,0.6,0.7,0.8,0.9,1.0], [0.5,0.6,0.7,0.8,0.9,1.0]),
@@ -325,6 +337,7 @@ regions_FDRsig = np.array(regs_table.loc[regs_table['combined_sig_corr'],'region
 
 get_vals = lambda reg: np.array(res_table.loc[res_table['region']==reg,'score'])
 values = np.array([get_vals(reg) for reg in regions])
+assert MIN_BALACC < np.min([np.min(v) for v in values])
 
 get_pvals = lambda reg: np.array(res_table.loc[res_table['region']==reg,'p-value'])
 values_sig = np.array([(get_pvals(reg)<0.05)+0 for reg in regions])
@@ -337,7 +350,7 @@ acr_plotted = bar_results(regions,
                             comb_nulls,
                             fillcircle_eids_unordered=values_sig,
                             filename='block_bars.svg', 
-                            YMIN=np.min([np.min(v) for v in values]),
+                            YMIN=MIN_BALACC,
                             YMAX=1.0,
                             ylab='Bal. Acc.',
                             ticks=([0.5,0.6,0.7,0.8,0.9,1.0], [0.5,0.6,0.7,0.8,0.9,1.0]),
@@ -359,6 +372,7 @@ regions_FDRsig = np.array(regs_table.loc[regs_table['combined_sig_corr'],'region
 
 get_vals = lambda reg: np.array(res_table.loc[res_table['region']==reg,'score'])
 values = np.array([get_vals(reg) for reg in regions])
+assert MIN_R2 < np.min([np.min(v) for v in values])
 
 get_pvals = lambda reg: np.array(res_table.loc[res_table['region']==reg,'p-value'])
 values_sig = np.array([(get_pvals(reg)<0.05)+0 for reg in regions])
@@ -371,7 +385,8 @@ acr_plotted = bar_results(regions,
                             comb_nulls,
                             fillcircle_eids_unordered=values_sig,
                             filename='wheelspeed_bars.svg', 
-                            YMIN=np.min([np.min(v) for v in values]),
+                            YMIN=MIN_R2,
+                            YMAX=1.0,
                             ylab='$R^2$',
                             # ticks=([0.5,0.6,0.7,0.8], [0.5,0.6,0.7,0.8]),
                             sort_args=None, 
@@ -392,6 +407,7 @@ regions_FDRsig = np.array(regs_table.loc[regs_table['combined_sig_corr'],'region
 
 get_vals = lambda reg: np.array(res_table.loc[res_table['region']==reg,'score'])
 values = np.array([get_vals(reg) for reg in regions])
+assert MIN_R2 < np.min([np.min(v) for v in values])
 
 get_pvals = lambda reg: np.array(res_table.loc[res_table['region']==reg,'p-value'])
 values_sig = np.array([(get_pvals(reg)<0.05)+0 for reg in regions])
@@ -404,7 +420,8 @@ acr_plotted = bar_results(regions,
                             comb_nulls,
                             fillcircle_eids_unordered=values_sig,
                             filename='wheelvel_bars.svg', 
-                            YMIN=np.min([np.min(v) for v in values]),
+                            YMIN=MIN_R2,
+                            YMAX=1.0,
                             ylab='$R^2$',
                             # ticks=([0.5,0.6,0.7,0.8], [0.5,0.6,0.7,0.8]),
                             sort_args=None, 
