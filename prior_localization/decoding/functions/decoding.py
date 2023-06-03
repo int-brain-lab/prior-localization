@@ -99,9 +99,9 @@ def fit_session(neural_dict, trials_df, metadata, pseudo_ids=[-1], **kwargs):
         add_to_saving_path : str
             additional string to append to filenames
     """
-    #############################################################################
-    np.random.seed(0) # setting seed for refactoring purpose <- NOT MEANT TO STAY
-    #############################################################################
+    if kwargs.pop('integration_test', None):
+        # we need a seed for the integration test to be reproducible
+        np.random.seed(0)
 
     print(f"Working on eid : %s" % metadata["eid"])
     filenames = []  # this will contain paths to saved decoding results for this eid

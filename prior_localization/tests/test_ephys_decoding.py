@@ -30,6 +30,7 @@ class TestEphysDecoding(unittest.TestCase):
         kwargs['behfit_path'] = Path(self.tmp_dir.name).joinpath('behavior')
         kwargs['neuralfit_path'] = Path(self.tmp_dir.name).joinpath('neural')
         kwargs['neural_dtype'] = 'ephys'
+        kwargs['integration_test'] = True
 
     def compare_target_test(self, results_fit_session, probe):
         for f in results_fit_session:
