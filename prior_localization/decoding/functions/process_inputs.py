@@ -5,15 +5,15 @@ from brainbox.population.decode import get_spike_counts_in_bins
 from brainbox.processing import bincount2D
 
 
-def preprocess_ephys(reg_clu_ids, neural_df, trials_df, **kwargs):
+def preprocess_ephys(reg_clu_ids, neural_dict, trials_df, **kwargs):
     """Format a single session-wide array of spikes into a list of trial-based arrays.
 
     Parameters
     ----------
     reg_clu_ids : array-like
         array of cluster ids for each spike
-    neural_df : pd.DataFrame
-        keys: 'spk_times', 'spk_clu', 'clu_regions', 'clu_qc', 'clu_df'
+    neural_dict : pd.DataFrame
+        keys: 'spikes', 'clusters'
     trials_df : pd.DataFrame
         columns: 'choice', 'feedback', 'pLeft', 'firstMovement_times', 'stimOn_times',
         'feedback_times'
@@ -42,9 +42,9 @@ def preprocess_ephys(reg_clu_ids, neural_df, trials_df, **kwargs):
     ]).T
 
     # subselect spikes for this region
-    spikemask = np.isin(neural_df['spk_clu'], reg_clu_ids)
-    regspikes = neural_df['spk_times'][spikemask]
-    regclu = neural_df['spk_clu'][spikemask]
+    spikemask = np.isin(neural_dict['spikes']['clusters'], reg_clu_ids)
+    regspikes = neural_dict['spikes']['times'][spikemask]
+    regclu = neural_dict['spikes']['clusters'][spikemask]
 
     # for each trial, put spiking data into a 2D array; collect trials in a list
     trial_len = kwargs['time_window'][1] - kwargs['time_window'][0]
@@ -168,9 +168,9 @@ def preprocess_widefield_imaging(neural_dict, reg_mask, **kwargs):
     return binned
 
 
-def select_ephys_regions(regressors, beryl_reg, region, **kwargs):
+def select_ephys_regions(neural_dict, beryl_reg, region, **kwargs):
     """Select units based on QC criteria and brain region."""
-    qc_pass = (regressors['clu_qc']['label'] >= kwargs['qc_criteria'])
+    qc_pass = np.asarray(neural_dict['clusters']['label'] >= kwargs['qc_criteria'])
     reg_mask = np.isin(beryl_reg, region)
     reg_clu_ids = np.argwhere(reg_mask & qc_pass).flatten()
     return reg_clu_ids

@@ -45,7 +45,7 @@ def fit_session(neural_dict, trials_df, metadata, pseudo_ids=[-1], **kwargs):
     Parameters
     ----------
     neural_dict : dict
-        keys: 'spk_times', 'spk_clu', 'clu_regions', 'clu_qc', 'clu_df'
+        keys for ephys: 'spikes', 'clusters'
     trials_df : dict
         columns: 'choice', 'feedback', 'pLeft', 'firstMovement_times', 'stimOn_times',
         'feedback_times'

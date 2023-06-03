@@ -6,10 +6,10 @@ import numpy as np
 
 from one.api import ONE
 from brainbox.io.one import SessionLoader
+from brainwidemap.bwm_loading import load_good_units, merge_probes
 
 from prior_localization.decoding.settings import kwargs
 from prior_localization.decoding.functions.decoding import fit_session
-from prior_localization.pipelines.utils_ephys import load_ephys
 
 
 class TestEphysDecoding(unittest.TestCase):
@@ -21,10 +21,11 @@ class TestEphysDecoding(unittest.TestCase):
         self.one = ONE()
         self.eid = '56956777-dca5-468c-87cb-78150432cc57'
         _, self.probe_names = self.one.eid2pid(self.eid)
+        self.qc = 1
         self.metadata = {
             "subject": self.one.eid2ref(self.eid)['subject'],
             "eid": self.eid,
-            "ret_qc": 1
+            "ret_qc": self.qc
         }
         self.pseudo_ids = np.concatenate((-np.ones(1), np.arange(1, 3))).astype('int64')
         self.tmp_dir = tempfile.TemporaryDirectory()
@@ -53,16 +54,22 @@ class TestEphysDecoding(unittest.TestCase):
 
     def test_merged_probes(self):
         self.metadata['probe_name'] = 'merged_probes'
-        neural_dict = load_ephys(self.one, self.eid, self.probe_names, ret_qc=self.metadata['ret_qc'])
-        results_fit_session = fit_session(neural_dict=neural_dict, trials_df=self.trials_df, metadata=self.metadata,
+        to_merge = [
+            load_good_units(self.one, pid=None, eid=self.eid, qc=self.qc, pname=probe_name) for probe_name in
+            self.probe_names
+        ]
+        spikes, clusters = merge_probes([spikes for spikes, _ in to_merge], [clusters for _, clusters in to_merge])
+        results_fit_session = fit_session(neural_dict={'spikes': spikes, 'clusters': clusters},
+                                          trials_df=self.trials_df, metadata=self.metadata,
                                           pseudo_ids=self.pseudo_ids, **kwargs)
         self.compare_target_test(results_fit_session, 'merged')
 
     def test_single_probes(self):
         for probe_name in self.probe_names:
             self.metadata['probe_name'] = probe_name
-            neural_dict = load_ephys(self.one, self.eid, probe_name, ret_qc=self.metadata['ret_qc'])
-            results_fit_session = fit_session(neural_dict=neural_dict, trials_df=self.trials_df, metadata=self.metadata,
+            spikes, clusters = load_good_units(self.one, pid=None, eid=self.eid, qc=self.qc, pname=probe_name)
+            results_fit_session = fit_session(neural_dict={'spikes': spikes, 'clusters': clusters},
+                                              trials_df=self.trials_df, metadata=self.metadata,
                                               pseudo_ids=self.pseudo_ids, **kwargs)
             self.compare_target_test(results_fit_session, probe_name)
 

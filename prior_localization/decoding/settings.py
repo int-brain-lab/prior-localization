@@ -6,16 +6,13 @@ from prior_localization.params import FIT_PATH as NEURAL_MOD_PATH
 from prior_localization.params import BEH_MOD_PATH as BEHAVIOR_MOD_PATH
 import sklearn.linear_model as sklm
 
-# expSmoothing_prevAction -- ActionKernel
-# expSmoothing_stimside -- StimulusKernel
-
 NEURAL_MOD_PATH.mkdir(parents=True, exist_ok=True)
 BEHAVIOR_MOD_PATH.mkdir(parents=True, exist_ok=True)
 
 logger = logging.getLogger("ibllib")
 logger.disabled = True
 
-NEURAL_DTYPE = "ephys" #"widefield"  # 'ephys' or 'widefield'
+NEURAL_DTYPE = "ephys"  # "widefield"  # 'ephys' or 'widefield'
 DATE = "30-01-2023"  # date 12 prev, 13 next, 14 prev
 
 # aligned -> histology was performed by one experimenter

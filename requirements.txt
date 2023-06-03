@@ -1,5 +1,7 @@
+tqdm
 numpy
 pandas
+sklearn
 torch
 ibllib
 ONE-api

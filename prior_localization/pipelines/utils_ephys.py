@@ -9,31 +9,6 @@ from brainwidemap.bwm_loading import load_good_units, merge_probes
 _logger = logging.getLogger("prior_localization")
 
 
-def load_ephys(one, session_id, probe_names, ret_qc):
-    """Load ephys data for a given session and probe."""
-    if not isinstance(probe_names, list):
-        probe_names = [probe_names]
-
-    # Load spike sorting data, make sure to not load with pid (which doesn't work in local mode), but with probe name
-    if len(probe_names) == 1:
-        spikes, clusters = load_good_units(one, pid=None, eid=session_id, qc=ret_qc, pname=probe_names[0])
-    else:
-        to_merge = [
-            load_good_units(one, pid=None, eid=session_id, qc=ret_qc, pname=probe_name) for probe_name in probe_names
-        ]
-        spikes, clusters = merge_probes([spikes for spikes, _ in to_merge], [clusters for _, clusters in to_merge])
-
-    regressors = {
-        'spk_times': spikes['times'],
-        'spk_clu': spikes['clusters'],
-        'clu_regions': clusters['acronym'],
-        'clu_qc': {k: np.asarray(v) for k, v in clusters.to_dict('list').items()},
-        'clu_df': clusters
-    }
-
-    return regressors
-
-
 def load_behavior(eid, target, one=None):
     """Load raw behavior traces and their timestamps.
 
