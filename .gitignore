@@ -1,4 +1,5 @@
 # Charles
+prior_pipelines
 prior_pipelines/utils_root.py
 prior-localization/prior_localization/pipelines/utils_motor.py
 prior-localization/prior_localization/pipelines/03_cache_behavior.py
