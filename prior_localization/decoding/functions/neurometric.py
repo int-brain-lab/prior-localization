@@ -4,11 +4,10 @@ import brainbox.behavior.pyschofit as pfit
 from prior_localization.decoding.functions.process_targets import compute_beh_target
 
 
-def compute_neurometric_prior(trialsdf_neurometric, metadata, **kwargs):
+def compute_neurometric_prior(trialsdf_neurometric, session_id, subject, **kwargs):
     if kwargs["model"] is not None:
         blockprob_neurometric = compute_beh_target(
-            trialsdf_neurometric,
-            metadata,
+            trialsdf_neurometric, session_id, subject
             **{**kwargs, "target": "pLeft"},
         )
         trialsdf_neurometric["target_neurometric"] = blockprob_neurometric

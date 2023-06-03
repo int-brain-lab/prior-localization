@@ -7,7 +7,7 @@ from prior_localization.decoding.functions.process_targets import (
 )
 
 
-def generate_null_distribution_session(trials_df, metadata, **kwargs):
+def generate_null_distribution_session(trials_df, session_id, subject, **kwargs):
     sess_abs_contrast = trials_df.contrastLeft.abs().fillna(
         value=0
     ) + trials_df.contrastRight.abs().fillna(value=0)
@@ -30,7 +30,8 @@ def generate_null_distribution_session(trials_df, metadata, **kwargs):
         and kwargs["model"].name == "actKernel"
     ):
         subjModel = {
-            **metadata,
+            "eid": session_id,
+            "subject": subject,
             "modeltype": kwargs["model"],
             "behfit_path": kwargs["behfit_path"],
         }

@@ -80,22 +80,22 @@ def optimal_Bayesian(act, side):
     return 1 - Pis
 
 
-def compute_beh_target(trials_df, metadata, remove_old=False, **kwargs):
+def compute_beh_target(trials_df, session_id, subject, remove_old=False, **kwargs):
     """
     Computes regression target for use with regress_target, using subject, eid, and a string
     identifying the target parameter to output a vector of N_trials length containing the target
 
     Parameters
     ----------
+    trials_df : pandas.DataFrame
+        Pandas dataframe containing trial information
+    subject : str
+        Subject identity in the IBL database, e.g. KS022
+    session_id : str
+        UUID of the session to compute the target for
     target : str
         String in ['prior', 'prederr', 'signcont'], indication model-based prior, prediction error,
         or simple signed contrast per trial
-    subject : str
-        Subject identity in the IBL database, e.g. KS022
-    eids_train : list of str
-        list of UUID identifying sessions on which the model is trained.
-    eids_test : str
-        UUID identifying sessions on which the target signal is computed
     savepath : str
         where the beh model outputs are saved
     behmodel : str
@@ -116,8 +116,6 @@ def compute_beh_target(trials_df, metadata, remove_old=False, **kwargs):
     '''
     load/fit a behavioral model to compute target on a single session
     Params:
-        eids_train: list of eids on which we train the network
-        eid_test: eid on which we want to compute the target signals, only one string
         beh_data_test: if you have to launch the model on beh_data_test.
                        if beh_data_test is explicited, the eid_test will not be considered
         target can be pLeft or signcont. If target=pLeft, it will return the prior predicted by modeltype
@@ -125,7 +123,7 @@ def compute_beh_target(trials_df, metadata, remove_old=False, **kwargs):
     '''
 
     istrained, fullpath = check_bhv_fit_exists(
-        metadata['subject'], kwargs['model'], metadata['eids_train'], kwargs['behfit_path'],
+        subject, kwargs['model'], session_id, kwargs['behfit_path'],
         modeldispatcher=kwargs['modeldispatcher'], single_zeta=True)
 
     if kwargs['target'] in ['signcont', 'strengthcont']:
@@ -150,22 +148,15 @@ def compute_beh_target(trials_df, metadata, remove_old=False, **kwargs):
 
     if ((not istrained) and (kwargs['target'] != 'signcont') and
             (kwargs['model'] is not None) and kwargs['model_parameters'] is None):
-        datadict = {'stim_side': [], 'actions': [], 'stimuli': []}
-        if 'eids_train' in kwargs.keys() or len(metadata['eids_train']) >= 2:
-            raise NotImplementedError('Sorry, this features is not implemented yet')
-        for _ in metadata['eids_train']:  # this seems superfluous but this is a relevant structure for when eids_train != [eid]
-            side, stim, act, _ = format_data_mut(trials_df)
-            datadict['stim_side'].append(side)
-            datadict['stimuli'].append(stim)
-            datadict['actions'].append(act)
-        stimuli, actions, stim_side = format_input_mut(datadict['stimuli'], datadict['actions'], datadict['stim_side'])
-        model = kwargs['model'](kwargs['behfit_path'], np.array(metadata['eids_train']), metadata['subject'],
+        side, stim, act, _ = format_data_mut(trials_df)
+        stimuli, actions, stim_side = format_input_mut(stim, act, side)
+        model = kwargs['model'](kwargs['behfit_path'], session_id, subject,
                                 actions, stimuli, stim_side, single_zeta=True)
         model.load_or_train(remove_old=remove_old)
     elif (kwargs['target'] != 'signcont') and (kwargs['model'] is not None):
         model = kwargs['model'](kwargs['behfit_path'],
-                                metadata['eids_train'],
-                                metadata['subject'],
+                                session_id,
+                                subject,
                                 actions=None,
                                 stimuli=None,
                                 stim_side=None, single_zeta=True)

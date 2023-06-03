@@ -39,7 +39,7 @@ from prior_localization.decoding.functions.process_motors import (
 )
 
 
-def fit_session(neural_dict, trials_df, metadata, pseudo_ids=[-1], **kwargs):
+def fit_session(neural_dict, trials_df, session_id, subject, neural_dtype='ephys', pseudo_ids=[-1], **kwargs):
     """High-level function to decode a given target variable from brain regions for a single eid.
 
     Parameters
@@ -47,10 +47,13 @@ def fit_session(neural_dict, trials_df, metadata, pseudo_ids=[-1], **kwargs):
     neural_dict : dict
         keys for ephys: 'spikes', 'clusters'
     trials_df : dict
-        columns: 'choice', 'feedback', 'pLeft', 'firstMovement_times', 'stimOn_times',
-        'feedback_times'
-    metadata : dict
-        'eid', 'eid_train', 'subject', 'probes'
+        columns: 'choice', 'feedback', 'pLeft', 'firstMovement_times', 'stimOn_times', 'feedback_times'
+    session_id : str
+        Session UUID
+    subject : str
+        Subject nickname
+    neural_dtype : str
+        'ephys' or 'widefield', default is 'ephys'
     pseudo_ids : array-like
         whether to compute a pseudosession or not. if pseudo_id=-1, the true session is considered.
         if pseudo_id>0, a pseudo session is used. cannot be 0.
@@ -90,8 +93,6 @@ def fit_session(neural_dict, trials_df, metadata, pseudo_ids=[-1], **kwargs):
             reaction times
         no_unbias : bool
             True to remove unbiased trials; False to keep
-        neural_dtype : str
-            'ephys' | 'widefield'
         today : str
             date string for specifying filenames
         output_path : str
@@ -103,7 +104,16 @@ def fit_session(neural_dict, trials_df, metadata, pseudo_ids=[-1], **kwargs):
     if kwargs.pop('integration_test', None):
         np.random.seed(0)
 
-    print(f"Working on eid : %s" % metadata["eid"])
+    if neural_dtype == 'ephys':
+        probe = kwargs.pop('probe_name', None)
+        if probe is None:
+            raise ValueError("Must specify probe_name for ephys decoding")
+    elif neural_dtype == 'widefield':
+        probe = kwargs.pop('hemisphere', None)
+        if probe is None:
+            raise ValueError("Must specify hemisphere for widefield decoding")
+
+    print(f"Working on eid : {session_id}")
     filenames = []  # this will contain paths to saved decoding results for this eid
 
     if 0 in pseudo_ids:
@@ -113,10 +123,6 @@ def fit_session(neural_dict, trials_df, metadata, pseudo_ids=[-1], **kwargs):
 
     if not np.all(np.sort(pseudo_ids) == pseudo_ids):
         raise ValueError("pseudo_ids must be sorted")
-
-    # if you want to train the model on one session or all sessions
-    if "eids_train" not in metadata.keys():
-        metadata["eids_train"] = [metadata["eid"]]
     
     # train model if not trained already
     if kwargs["model"] != optimal_Bayesian and kwargs["model"] is not None:
@@ -124,17 +130,17 @@ def fit_session(neural_dict, trials_df, metadata, pseudo_ids=[-1], **kwargs):
         stimuli, actions, stim_side = format_input_mut([stim], [act], [side])
         behmodel = kwargs["model"](
             kwargs["behfit_path"],
-            np.array(metadata["eids_train"]),
-            metadata["subject"],
+            session_id,
+            subject,
             actions,
             stimuli,
             stim_side,
             single_zeta=True,
         )
         istrained, _ = check_bhv_fit_exists(
-            metadata["subject"],
+            subject,
             kwargs["model"],
-            metadata["eids_train"],
+            session_id,
             kwargs["behfit_path"],
             modeldispatcher=kwargs["modeldispatcher"],
             single_zeta=True,
@@ -143,7 +149,7 @@ def fit_session(neural_dict, trials_df, metadata, pseudo_ids=[-1], **kwargs):
             behmodel.load_or_train(remove_old=False)
 
     if kwargs["target"] in ["pLeft", "signcont", "strengthcont", "choice", "feedback"]:
-        target_vals_list = compute_beh_target(trials_df, metadata, **kwargs)
+        target_vals_list = compute_beh_target(trials_df, session_id, subject, **kwargs)
         mask_target = np.ones(len(target_vals_list), dtype=bool)
     else:
         raise NotImplementedError('this case is not implemented')
@@ -162,7 +168,7 @@ def fit_session(neural_dict, trials_df, metadata, pseudo_ids=[-1], **kwargs):
     brainreg = BrainRegions()
     beryl_reg = (
         brainreg.acronym2acronym(neural_dict['clusters']['acronym'], mapping="Beryl")
-        if kwargs["neural_dtype"] == "ephys"
+        if neural_dtype == "ephys"
         else get_bery_reg_wfi(neural_dict, **kwargs)
     )
 
@@ -222,23 +228,23 @@ def fit_session(neural_dict, trials_df, metadata, pseudo_ids=[-1], **kwargs):
 
     for region in tqdm(regions, desc="Region: ", leave=False):
 
-        if kwargs["neural_dtype"] == "ephys":
+        if neural_dtype == "ephys":
             reg_clu_ids = select_ephys_regions(neural_dict, beryl_reg, region, **kwargs)
-        elif kwargs["neural_dtype"] == "widefield":
+        elif neural_dtype == "widefield":
             reg_mask = select_widefield_imaging_regions(neural_dict, region, **kwargs)
         else:
             raise NotImplementedError
 
-        if kwargs["neural_dtype"] == "ephys" and len(reg_clu_ids) < kwargs["min_units"]:
+        if neural_dtype == "ephys" and len(reg_clu_ids) < kwargs["min_units"]:
             print(region, "below min units threshold :", len(reg_clu_ids))
             continue
 
-        if kwargs["neural_dtype"] == "ephys":
+        if neural_dtype == "ephys":
             msub_binned = preprocess_ephys(
                 reg_clu_ids, neural_dict, trials_df, **kwargs
             )
             n_units = len(reg_clu_ids)
-        elif kwargs["neural_dtype"] == "widefield":
+        elif neural_dtype == "widefield":
             msub_binned = preprocess_widefield_imaging(neural_dict, reg_mask, **kwargs)
             n_units = np.sum(reg_mask)
         else:
@@ -248,9 +254,8 @@ def fit_session(neural_dict, trials_df, metadata, pseudo_ids=[-1], **kwargs):
 
         if kwargs.get("motor_regressors", None):
             print("motor regressors")
-            motor_binned = preprocess_motors(
-                metadata["eid"], kwargs
-            )  # size (nb_trials,nb_motor_regressors) => one bin per trial
+            motor_binned = preprocess_motors(session_id, kwargs)
+            # size (nb_trials,nb_motor_regressors) => one bin per trial
 
             if kwargs["motor_regressors_only"]:
                 msub_binned = motor_binned
@@ -270,10 +275,10 @@ def fit_session(neural_dict, trials_df, metadata, pseudo_ids=[-1], **kwargs):
             # create pseudo session when necessary
             if pseudo_id > 0:
                 controlsess_df = generate_null_distribution_session(
-                    trials_df, metadata, **kwargs
+                    trials_df, session_id, subject, **kwargs
                 )
                 controltarget_vals_list = compute_beh_target(
-                    controlsess_df, metadata, **kwargs
+                    controlsess_df, session_id, subject, **kwargs
                 )
                 save_predictions = kwargs.get(
                     "save_predictions_pseudo", kwargs["save_predictions"]
@@ -288,7 +293,7 @@ def fit_session(neural_dict, trials_df, metadata, pseudo_ids=[-1], **kwargs):
                     else controlsess_df.reset_index()
                 )
                 trialsdf_neurometric = compute_neurometric_prior(
-                    trialsdf_neurometric, metadata, **kwargs
+                    trialsdf_neurometric, session_id, subject, **kwargs
                 )
 
             ### derivative of target signal before mask application ###
@@ -302,12 +307,12 @@ def fit_session(neural_dict, trials_df, metadata, pseudo_ids=[-1], **kwargs):
             if kwargs["motor_residual"]:
                 if pseudo_id == -1:
                     motor_prediction = compute_motor_prediction(
-                        metadata["eid"], target_vals_list, kwargs
+                        session_id, target_vals_list, kwargs
                     )
                     target_vals_list = target_vals_list - motor_prediction
                 else:
                     motor_prediction = compute_motor_prediction(
-                        metadata["eid"], controltarget_vals_list, kwargs
+                        session_id, controltarget_vals_list, kwargs
                     )
                     controltarget_vals_list = controltarget_vals_list - motor_prediction
 
@@ -366,16 +371,11 @@ def fit_session(neural_dict, trials_df, metadata, pseudo_ids=[-1], **kwargs):
                 fit_results.append(fit_result)
 
         # save out decoding results
-        if kwargs["neural_dtype"] == "ephys":
-            probe = metadata["probe_name"]
-        elif kwargs["neural_dtype"] == "widefield":
-            probe = metadata["hemispheres"]
-
         save_path = get_save_path(
             pseudo_ids,
-            metadata["subject"],
-            metadata["eid"],
-            kwargs["neural_dtype"],
+            subject,
+            session_id,
+            neural_dtype,
             probe=probe,
             region=str(np.squeeze(region)) if kwargs["single_region"] else "allRegions",
             output_path=kwargs["neuralfit_path"],
@@ -388,14 +388,13 @@ def fit_session(neural_dict, trials_df, metadata, pseudo_ids=[-1], **kwargs):
         filename = save_region_results(
             fit_result=fit_results,
             pseudo_id=pseudo_ids,
-            subject=metadata["subject"],
-            eid=metadata["eid"],
+            subject=subject,
+            eid=session_id,
             probe=probe,
             region=region,
             n_units=n_units,
             save_path=save_path,
         )
-        
 
         filenames.append(filename)
 
