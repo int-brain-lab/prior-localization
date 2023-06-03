@@ -4,22 +4,15 @@ import pandas as pd
 from sklearn import linear_model as sklm
 from sklearn.metrics import accuracy_score, balanced_accuracy_score, r2_score
 from sklearn.model_selection import KFold, train_test_split
-from tqdm import tqdm
 from behavior_models.utils import format_data as format_data_mut
 from behavior_models.utils import format_input as format_input_mut
 from sklearn.linear_model import RidgeCV, Ridge, Lasso, LassoCV
 from sklearn.utils.class_weight import compute_sample_weight
 
-from ibllib.atlas import BrainRegions
+from one.api import ONE
 
-from prior_localization.decoding.functions.process_inputs import select_ephys_regions
-from prior_localization.decoding.functions.process_inputs import get_bery_reg_wfi
-from prior_localization.decoding.functions.process_inputs import (
-    select_widefield_imaging_regions,
-)
+from prior_localization.decoding.prepare_neural import prepare_ephys
 from prior_localization.decoding.functions.neurometric import compute_neurometric_prior
-from prior_localization.decoding.functions.process_inputs import preprocess_ephys
-from prior_localization.decoding.functions.process_inputs import preprocess_widefield_imaging
 from prior_localization.decoding.functions.process_targets import compute_beh_target
 
 from prior_localization.decoding.functions.utils import compute_mask
@@ -39,7 +32,7 @@ from prior_localization.decoding.functions.process_motors import (
 )
 
 
-def fit_session(neural_dict, trials_df, session_id, subject, neural_dtype='ephys', pseudo_ids=[-1], **kwargs):
+def fit_session(probe_name, trials_df, session_id, subject, neural_dtype='ephys', pseudo_ids=[-1], **kwargs):
     """High-level function to decode a given target variable from brain regions for a single eid.
 
     Parameters
@@ -104,16 +97,6 @@ def fit_session(neural_dict, trials_df, session_id, subject, neural_dtype='ephys
     if kwargs.pop('integration_test', None):
         np.random.seed(0)
 
-    if neural_dtype == 'ephys':
-        probe = kwargs.pop('probe_name', None)
-        if probe is None:
-            raise ValueError("Must specify probe_name for ephys decoding")
-    elif neural_dtype == 'widefield':
-        probe = kwargs.pop('hemisphere', None)
-        if probe is None:
-            raise ValueError("Must specify hemisphere for widefield decoding")
-
-    print(f"Working on eid : {session_id}")
     filenames = []  # this will contain paths to saved decoding results for this eid
 
     if 0 in pseudo_ids:
@@ -164,109 +147,31 @@ def fit_session(neural_dict, trials_df, session_id, subject, neural_dtype='ephys
         logging.exception(msg)
         return filenames
 
-    # select brain regions from beryl atlas to loop over
-    brainreg = BrainRegions()
-    beryl_reg = (
-        brainreg.acronym2acronym(neural_dict['clusters']['acronym'], mapping="Beryl")
-        if neural_dtype == "ephys"
-        else get_bery_reg_wfi(neural_dict, **kwargs)
-    )
+    # get bin neural data for desired set of regions
+    intervals = np.vstack([
+        trials_df[kwargs['align_time']] + kwargs['time_window'][0],
+        trials_df[kwargs['align_time']] + kwargs['time_window'][1]
+    ]).T
 
-    if isinstance(kwargs["single_region"], bool):
-        regions = (
-            [[k] for k in np.unique(beryl_reg) if k not in ['root', 'void']]
-            if kwargs["single_region"]
-            else [np.unique(beryl_reg)]
-        )
-    else:
-        if kwargs["single_region"] == "Custom":
-            regions = [["VISp"], ["MOs"]]
-        elif kwargs["single_region"] == "Widefield":
-            regions = [
-                ["ACAd"],
-                ["AUDd"],
-                ["AUDp"],
-                ["AUDpo"],
-                ["AUDv"],
-                ["FRP"],
-                ["MOB"],
-                ["MOp"],
-                ["MOs"],
-                ["PL"],
-                ["RSPagl"],
-                ["RSPd"],
-                ["RSPv"],
-                ["SSp-bfd"],
-                ["SSp-ll"],
-                ["SSp-m"],
-                ["SSp-n"],
-                ["SSp-tr"],
-                ["SSp-ul"],
-                ["SSp-un"],
-                ["SSs"],
-                ["TEa"],
-                ["VISa"],
-                ["VISal"],
-                ["VISam"],
-                ["VISl"],
-                ["VISli"],
-                ["VISp"],
-                ["VISpl"],
-                ["VISpm"],
-                ["VISpor"],
-                ["VISrl"],
-            ]
-        else:
-            regions = (
-                [[kwargs["single_region"]]]
-                if isinstance(kwargs["single_region"], str)
-                else [kwargs["single_region"]]
-            )
-
-        if np.all([reg not in np.unique(beryl_reg) for reg in regions]):
-            return filenames
-
-    for region in tqdm(regions, desc="Region: ", leave=False):
-
-        if neural_dtype == "ephys":
-            reg_clu_ids = select_ephys_regions(neural_dict, beryl_reg, region, **kwargs)
-        elif neural_dtype == "widefield":
-            reg_mask = select_widefield_imaging_regions(neural_dict, region, **kwargs)
-        else:
-            raise NotImplementedError
-
-        if neural_dtype == "ephys" and len(reg_clu_ids) < kwargs["min_units"]:
-            print(region, "below min units threshold :", len(reg_clu_ids))
-            continue
-
-        if neural_dtype == "ephys":
-            msub_binned = preprocess_ephys(
-                reg_clu_ids, neural_dict, trials_df, **kwargs
-            )
-            n_units = len(reg_clu_ids)
-        elif neural_dtype == "widefield":
-            msub_binned = preprocess_widefield_imaging(neural_dict, reg_mask, **kwargs)
-            n_units = np.sum(reg_mask)
-        else:
-            raise NotImplementedError
-
+    one = ONE()
+    neural_binned, regions, n_unitss = prepare_ephys(one, session_id, probe_name, intervals)
+    for region_binned, region, n_units in zip(neural_binned, regions, n_unitss):
         ##### motor signal regressors #####
-
         if kwargs.get("motor_regressors", None):
             print("motor regressors")
             motor_binned = preprocess_motors(session_id, kwargs)
             # size (nb_trials,nb_motor_regressors) => one bin per trial
 
             if kwargs["motor_regressors_only"]:
-                msub_binned = motor_binned
+                region_binned = motor_binned
             else:
-                msub_binned = np.concatenate([msub_binned, motor_binned], axis=2)
+                region_binned = np.concatenate([region_binned, motor_binned], axis=2)
 
         ##################################
 
         # make feature matrix
-        Xs = msub_binned
-        if msub_binned[0].shape[0] != 1:
+        Xs = region_binned
+        if region_binned[0].shape[0] != 1:
             raise AssertionError('Decoding is only supported when the target is one dimensional')
 
         fit_results = []
@@ -371,6 +276,12 @@ def fit_session(neural_dict, trials_df, session_id, subject, neural_dtype='ephys
                 fit_results.append(fit_result)
 
         # save out decoding results
+        if neural_dtype == 'ephys':
+            probe = 'merged_probes' if isinstance(probe_name, list) else probe_name
+        elif neural_dtype == 'widefield':
+            pass
+            #probe = hemisphere
+
         save_path = get_save_path(
             pseudo_ids,
             subject,

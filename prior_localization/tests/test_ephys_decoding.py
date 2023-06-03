@@ -49,22 +49,14 @@ class TestEphysDecoding(unittest.TestCase):
                 self.assertTrue(np.allclose(test, target, rtol=1e-05))
 
     def test_merged_probes(self):
-        to_merge = [
-            load_good_units(self.one, pid=None, eid=self.eid, qc=self.qc, pname=probe_name) for probe_name in
-            self.probe_names
-        ]
-        spikes, clusters = merge_probes([spikes for spikes, _ in to_merge], [clusters for _, clusters in to_merge])
-        results_fit_session = fit_session(neural_dict={'spikes': spikes, 'clusters': clusters},
-                                          trials_df=self.trials_df, session_id=self.eid, subject=self.subject,
-                                          probe_name='merged_probes', pseudo_ids=self.pseudo_ids, **kwargs)
+        results_fit_session = fit_session(probe_name=self.probe_names, trials_df=self.trials_df, session_id=self.eid, subject=self.subject,
+                                          pseudo_ids=self.pseudo_ids, **kwargs)
         self.compare_target_test(results_fit_session, 'merged')
 
     def test_single_probes(self):
         for probe_name in self.probe_names:
-            spikes, clusters = load_good_units(self.one, pid=None, eid=self.eid, qc=self.qc, pname=probe_name)
-            results_fit_session = fit_session(neural_dict={'spikes': spikes, 'clusters': clusters},
-                                              trials_df=self.trials_df, session_id=self.eid, subject=self.subject,
-                                              probe_name=probe_name, pseudo_ids=self.pseudo_ids, **kwargs)
+            results_fit_session = fit_session(probe_name=probe_name, trials_df=self.trials_df, session_id=self.eid, subject=self.subject,
+                                              pseudo_ids=self.pseudo_ids, **kwargs)
             self.compare_target_test(results_fit_session, probe_name)
 
     def tearDown(self) -> None:

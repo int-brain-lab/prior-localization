@@ -1,11 +1,11 @@
 import numpy as np
-import scipy
 
 from brainbox.population.decode import get_spike_counts_in_bins
 from brainbox.processing import bincount2D
+from brainbox.singlecell import bin_spikes2D
 
 
-def preprocess_ephys(reg_clu_ids, neural_dict, trials_df, **kwargs):
+def preprocess_ephys(regclu, regspikes, trials_df, **kwargs):
     """Format a single session-wide array of spikes into a list of trial-based arrays.
 
     Parameters
@@ -41,11 +41,6 @@ def preprocess_ephys(reg_clu_ids, neural_dict, trials_df, **kwargs):
         trials_df[kwargs['align_time']] + kwargs['time_window'][1]
     ]).T
 
-    # subselect spikes for this region
-    spikemask = np.isin(neural_dict['spikes']['clusters'], reg_clu_ids)
-    regspikes = neural_dict['spikes']['times'][spikemask]
-    regclu = neural_dict['spikes']['clusters'][spikemask]
-
     # for each trial, put spiking data into a 2D array; collect trials in a list
     trial_len = kwargs['time_window'][1] - kwargs['time_window'][0]
     binsize = kwargs.get('binsize', trial_len)
@@ -64,7 +59,10 @@ def preprocess_ephys(reg_clu_ids, neural_dict, trials_df, **kwargs):
             binsize=kwargs['binsize'])
         binned_list = [x.T for x in binned_array]
 
-    return binned_list
+    binned_spikes = bin_spikes2D(regspikes, regclu, regclu, trials_df[kwargs['align_time']],
+                 pre_time=kwargs['time_window'][0], post_time=kwargs['time_window'][1], bin_size=binsize)
+
+    return binned_spikes
 
 
 def get_spike_data_per_trial(times, clusters, interval_begs, interval_ends, binsize):
