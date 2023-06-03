@@ -2,7 +2,6 @@ import logging
 import numpy as np
 
 from one.api import ONE
-from brainbox.io.one import SessionLoader
 from neurodsp.smooth import smooth_interpolate_savgol
 from one.alf.exceptions import ALFObjectNotFound
 from brainwidemap.bwm_loading import load_good_units, merge_probes
@@ -11,10 +10,7 @@ _logger = logging.getLogger("prior_localization")
 
 
 def load_ephys(one, session_id, probe_names, ret_qc):
-    # Load trials data
-    sess_loader = SessionLoader(one, session_id)
-    sess_loader.load_trials()
-
+    """Load ephys data for a given session and probe."""
     if not isinstance(probe_names, list):
         probe_names = [probe_names]
 
@@ -28,7 +24,6 @@ def load_ephys(one, session_id, probe_names, ret_qc):
         spikes, clusters = merge_probes([spikes for spikes, _ in to_merge], [clusters for _, clusters in to_merge])
 
     regressors = {
-        "trials_df": sess_loader.trials,
         'spk_times': spikes['times'],
         'spk_clu': spikes['clusters'],
         'clu_regions': clusters['acronym'],

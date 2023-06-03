@@ -3,7 +3,9 @@ import pickle
 import tempfile
 from pathlib import Path
 import numpy as np
+
 from one.api import ONE
+from brainbox.io.one import SessionLoader
 
 from prior_localization.decoding.settings import kwargs
 from prior_localization.decoding.functions.decoding import fit_session
@@ -32,6 +34,10 @@ class TestEphysDecoding(unittest.TestCase):
         kwargs['neural_dtype'] = 'ephys'
         kwargs['integration_test'] = True
 
+        sl = SessionLoader(self.one, self.eid)
+        sl.load_trials()
+        self.trials_df = sl.trials
+
     def compare_target_test(self, results_fit_session, probe):
         for f in results_fit_session:
             region = f.name.split('_')[1]
@@ -47,18 +53,16 @@ class TestEphysDecoding(unittest.TestCase):
 
     def test_merged_probes(self):
         self.metadata['probe_name'] = 'merged_probes'
-        regressors = load_ephys(self.one, self.eid, self.probe_names, ret_qc=self.metadata['ret_qc'])
-        trials_df, neural_dict = regressors['trials_df'], regressors
-        results_fit_session = fit_session(neural_dict=neural_dict, trials_df=trials_df, metadata=self.metadata,
+        neural_dict = load_ephys(self.one, self.eid, self.probe_names, ret_qc=self.metadata['ret_qc'])
+        results_fit_session = fit_session(neural_dict=neural_dict, trials_df=self.trials_df, metadata=self.metadata,
                                           pseudo_ids=self.pseudo_ids, **kwargs)
         self.compare_target_test(results_fit_session, 'merged')
 
     def test_single_probes(self):
         for probe_name in self.probe_names:
             self.metadata['probe_name'] = probe_name
-            regressors = load_ephys(self.one, self.eid, probe_name, ret_qc=self.metadata['ret_qc'])
-            trials_df, neural_dict = regressors['trials_df'], regressors
-            results_fit_session = fit_session(neural_dict=neural_dict, trials_df=trials_df, metadata=self.metadata,
+            neural_dict = load_ephys(self.one, self.eid, probe_name, ret_qc=self.metadata['ret_qc'])
+            results_fit_session = fit_session(neural_dict=neural_dict, trials_df=self.trials_df, metadata=self.metadata,
                                               pseudo_ids=self.pseudo_ids, **kwargs)
             self.compare_target_test(results_fit_session, probe_name)
 

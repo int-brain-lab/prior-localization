@@ -99,8 +99,8 @@ def fit_session(neural_dict, trials_df, metadata, pseudo_ids=[-1], **kwargs):
         add_to_saving_path : str
             additional string to append to filenames
     """
+    # We need a seed for the integration test to be reproducible
     if kwargs.pop('integration_test', None):
-        # we need a seed for the integration test to be reproducible
         np.random.seed(0)
 
     print(f"Working on eid : %s" % metadata["eid"])
@@ -108,7 +108,7 @@ def fit_session(neural_dict, trials_df, metadata, pseudo_ids=[-1], **kwargs):
 
     if 0 in pseudo_ids:
         raise ValueError(
-            "pseudo id can be -1 (actual session) or strictly greater than 0 (pseudo session)"
+            "pseudo id can only be -1 (actual session) or strictly greater than 0 (pseudo session)"
         )
 
     if not np.all(np.sort(pseudo_ids) == pseudo_ids):
@@ -161,7 +161,7 @@ def fit_session(neural_dict, trials_df, metadata, pseudo_ids=[-1], **kwargs):
     # select brain regions from beryl atlas to loop over
     brainreg = BrainRegions()
     beryl_reg = (
-        brainreg.acronym2acronym(neural_dict["clu_regions"], mapping="Beryl")
+        brainreg.acronym2acronym(neural_dict['clusters']['acronym'], mapping="Beryl")
         if kwargs["neural_dtype"] == "ephys"
         else get_bery_reg_wfi(neural_dict, **kwargs)
     )
