@@ -344,7 +344,7 @@ def fit_session(neural_dict, trials_df, metadata, pseudo_ids=[-1], **kwargs):
                     ],
                 )
                 fit_result["mask"] = mask if save_predictions else None
-                fit_result["df"] = trials_df if pseudo_id == -1 else controlsess_df
+                fit_result["trials_df"] = trials_df if pseudo_id == -1 else controlsess_df
                 fit_result["pseudo_id"] = pseudo_id
                 fit_result["run_id"] = i_run
 
