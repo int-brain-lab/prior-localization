@@ -319,80 +319,81 @@ def delayed_save(subject, eid, outputs):
     return cache_motor(subject, eid, outputs)
 
 
-# Parameters
-ALGN_RESOLVED = True
-DATE = str(dt.today())
-MAX_LEN = None
-T_BEF = 0.6
-T_AFT = 0.6
-BINWIDTH = 0.02
-ABSWHEEL = False
-WHEEL = False
-QC = True
-TYPE = 'primaries'
-MERGE_PROBES = True
-# End parameters
+if __name__ == '__main__':
+    # Parameters
+    ALGN_RESOLVED = True
+    DATE = str(dt.today())
+    MAX_LEN = None
+    T_BEF = 0.6
+    T_AFT = 0.6
+    BINWIDTH = 0.02
+    ABSWHEEL = False
+    WHEEL = False
+    QC = True
+    TYPE = 'primaries'
+    MERGE_PROBES = True
+    # End parameters
 
-# Construct params dict from above
-params = {
-    'max_len': MAX_LEN,
-    't_before': T_BEF,
-    't_after': T_AFT,
-    'binwidth': BINWIDTH,
-    'abswheel': ABSWHEEL,
-    'ret_qc': QC,
-    'wheel': WHEEL,
-}
-
-
-bwm_df = bwm_query(freeze="2022_10_initial").set_index(["subject", "eid"]) # frozen dataset
-
-dataset_futures = []
-
-for eid in bwm_df.index.unique(level='eid'):
-
-    session_df = bwm_df.xs(eid, level='eid')
-    subject = session_df.index[0]
-    load_outputs = delayed_load(eid)
-    save_future = delayed_save(subject, eid, load_outputs)
-    dataset_futures.append([subject, eid, save_future])
+    # Construct params dict from above
+    params = {
+        'max_len': MAX_LEN,
+        't_before': T_BEF,
+        't_after': T_AFT,
+        'binwidth': BINWIDTH,
+        'abswheel': ABSWHEEL,
+        'ret_qc': QC,
+        'wheel': WHEEL,
+    }
 
 
-N_CORES = 4
+    bwm_df = bwm_query(freeze="2022_10_initial").set_index(["subject", "eid"]) # frozen dataset
 
-cluster = SLURMCluster(cores=N_CORES,
-                       memory='32GB',
-                       processes=1,
-                       queue="shared-cpu",
-                       walltime="01:15:00",
-                       log_directory='/srv/beegfs/scratch/users/h/hubertf/dask-worker-logs',
-                       interface='ib0',
-                       extra=["--lifetime", "60m", "--lifetime-stagger", "10m"],
-                       job_cpu=N_CORES,
-                       env_extra=[
-                           f'export OMP_NUM_THREADS={N_CORES}',
-                           f'export MKL_NUM_THREADS={N_CORES}',
-                           f'export OPENBLAS_NUM_THREADS={N_CORES}'
-                       ])
+    dataset_futures = []
 
-# cluster = LocalCluster()
-cluster.scale(20)
+    for eid in bwm_df.index.unique(level='eid'):
 
-client = Client(cluster)
-
-tmp_futures = [client.compute(future[2]) for future in dataset_futures]
+        session_df = bwm_df.xs(eid, level='eid')
+        subject = session_df.index[0]
+        load_outputs = delayed_load(eid)
+        save_future = delayed_save(subject, eid, load_outputs)
+        dataset_futures.append([subject, eid, save_future])
 
 
-# Run below code AFTER futures have finished!
-dataset = [{
-    'subject': x[0],
-    'eid': x[1],
-    'meta_file': tmp_futures[i].result()[0],
-    'reg_file': tmp_futures[i].result()[1]
-} for i, x in enumerate(dataset_futures) if tmp_futures[i].status == 'finished']
-dataset = pd.DataFrame(dataset)
+    N_CORES = 4
 
-outdict = {'params': params, 'dataset_filenames': dataset}
-with open(Path(CACHE_PATH).joinpath(DATE + '_motor_metadata.pkl'), 'wb') as fw:
-    pickle.dump(outdict, fw)
+    cluster = SLURMCluster(cores=N_CORES,
+                        memory='32GB',
+                        processes=1,
+                        queue="shared-cpu",
+                        walltime="01:15:00",
+                        log_directory='/srv/beegfs/scratch/users/h/hubertf/dask-worker-logs',
+                        interface='ib0',
+                        extra=["--lifetime", "60m", "--lifetime-stagger", "10m"],
+                        job_cpu=N_CORES,
+                        env_extra=[
+                            f'export OMP_NUM_THREADS={N_CORES}',
+                            f'export MKL_NUM_THREADS={N_CORES}',
+                            f'export OPENBLAS_NUM_THREADS={N_CORES}'
+                        ])
+
+    # cluster = LocalCluster()
+    cluster.scale(20)
+
+    client = Client(cluster)
+
+    tmp_futures = [client.compute(future[2]) for future in dataset_futures]
+
+
+    # Run below code AFTER futures have finished!
+    dataset = [{
+        'subject': x[0],
+        'eid': x[1],
+        'meta_file': x[-1][0],
+        'reg_file': x[-1][1]
+    } for i, x in enumerate(dataset_futures)]
+    dataset = pd.DataFrame(dataset)
+
+    outdict = {'params': params, 'dataset_filenames': dataset}
+    with open(Path(CACHE_PATH).joinpath(DATE + '_motor_metadata.pkl'), 'wb') as fw:
+        pickle.dump(outdict, fw)
 

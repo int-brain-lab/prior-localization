@@ -20,7 +20,7 @@ kwargs['set_seed_for_DEBUG'] = True
 kwargs['neural_dtype'] = 'widefield'
 kwargs['nb_runs'] = 2
 kwargs["single_region"] = True
-build_test = True
+build_test = False
 
 # decoding function
 def decode(regressors, metadata, nb_pseudo_sessions=3):
@@ -93,5 +93,5 @@ else:
         fit_file.unlink() # remove predicted path
 
 
-from matplotlib import pyplot as plt
-plt.imshow(neural_dict['regions'] - wideFieldImaging_dict['regions'])
+#from matplotlib import pyplot as plt
+#plt.imshow(neural_dict['regions'] - wideFieldImaging_dict['regions'])
