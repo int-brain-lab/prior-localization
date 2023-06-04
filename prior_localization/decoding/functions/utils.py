@@ -3,36 +3,8 @@ from datetime import date
 import numpy as np
 import os
 import pandas as pd
-from pathlib import Path
-import pickle
 import sklearn.linear_model as sklm
-import glob
-from datetime import datetime
 import yaml
-
-
-def load_metadata(neural_dtype_path_regex, date=None):
-    """
-    Parameters
-    ----------
-    neural_dtype_path_regex
-    date
-    Returns
-    -------
-    the metadata neural_dtype from date if specified, else most recent
-    """
-    neural_dtype_paths = glob.glob(neural_dtype_path_regex)
-    neural_dtype_dates = [
-        datetime.strptime(p.split("/")[-1].split("_")[0], "%Y-%m-%d %H:%M:%S.%f")
-        for p in neural_dtype_paths
-    ]
-    if date is None:
-        path_id = np.argmax(neural_dtype_dates)
-    else:
-        path_id = np.argmax(np.array(neural_dtype_dates) == date)
-    return pickle.load(open(neural_dtype_paths[path_id], "rb")), neural_dtype_dates[
-        path_id
-    ].strftime("%m-%d-%Y_%H:%M:%S")
 
 
 def compute_mask(
@@ -121,69 +93,6 @@ def compute_mask(
         mask[-int(kwargs["nb_trials_takeout_end"]) :] = False
 
     return mask
-
-
-def get_save_path(
-    pseudo_id,
-    subject,
-    eid,
-    neural_dtype,
-    probe,
-    region,
-    output_path,
-    time_window,
-    today,
-    target,
-    add_to_saving_path,
-):
-    subjectfolder = Path(output_path).joinpath(neural_dtype, subject)
-    eidfolder = subjectfolder.joinpath(eid)
-    probefolder = eidfolder.joinpath(probe)
-    start_tw, end_tw = time_window
-    pseudo_path = (
-        "%i_%i" % (pseudo_id[0], pseudo_id[-1])
-        if isinstance(pseudo_id, np.ndarray)
-        else str(pseudo_id)
-    )
-    fn = (
-        "_".join(
-            [
-                today,
-                region,
-                "target",
-                target,
-                "timeWindow",
-                str(start_tw).replace(".", "_"),
-                str(end_tw).replace(".", "_"),
-                "pseudo_id",
-                pseudo_path,
-                add_to_saving_path,
-            ]
-        )
-        + ".pkl"
-    )
-    save_path = probefolder.joinpath(fn)
-    return save_path
-
-
-def save_region_results(
-    fit_result, pseudo_id, subject, eid, probe, region, n_units, save_path
-):
-    save_dir = os.path.dirname(save_path)
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
-    outdict = {
-        "fit": fit_result,
-        "subject": subject,
-        "eid": eid,
-        "probe": probe,
-        "region": region,
-        "N_units": n_units,
-    }
-    fw = open(save_path, "wb")
-    pickle.dump(outdict, fw)
-    fw.close()
-    return save_path
 
 
 def check_settings(settings):

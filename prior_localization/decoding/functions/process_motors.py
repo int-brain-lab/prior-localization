@@ -7,7 +7,7 @@ import pickle
 
 from sklearn.linear_model import RidgeCV
 
-def preprocess_motors(eid,kwargs):
+def preprocess_motors(eid, time_window):
 
     neural_dtype_paths = glob.glob(CACHE_PATH.joinpath('*_motor_metadata.pkl').as_posix())
 
@@ -32,8 +32,8 @@ def preprocess_motors(eid,kwargs):
 
     # the cache contain 100 values for each regressors : t_bins=0.02s & t-min= -1s , t_max= +1s
     # we select the bins inside the decoding interval
-    t_min = kwargs['time_window'][0]
-    t_max = kwargs['time_window'][1]
+    t_min = time_window[0]
+    t_max = time_window[1]
     T_bin = 0.02
     i_min = int((t_min + 1)/T_bin)
     i_max =  int((t_max + 1)/T_bin)
@@ -56,9 +56,9 @@ def preprocess_motors(eid,kwargs):
     return list(motor_signals)
 
 
-def compute_motor_prediction(eid,target,kwargs):
+def compute_motor_prediction(eid, target, time_window):
 
-    motor_signals = preprocess_motors(eid,kwargs)
+    motor_signals = preprocess_motors(eid, time_window)
     motor_signals_arr = np.squeeze(np.array(motor_signals))
     clf = RidgeCV(alphas=[1e-3, 1e-2, 1e-1]).fit(motor_signals_arr, target)
     print(clf.score(motor_signals_arr, target))

@@ -1,7 +1,8 @@
 import os
 from pathlib import Path
 
-out_dir = Path(os.environ["PRIOR_DECODING_OUT_DIRECTORY"])
+#out_dir = Path(os.environ["PRIOR_DECODING_OUT_DIRECTORY"])
+out_dir = Path('/home/julia/data/prior_review')
 
 # widefield imaging path
 WIDE_FIELD_PATH = out_dir.joinpath('wide_field_imaging/')

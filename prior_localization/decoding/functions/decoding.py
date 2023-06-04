@@ -1,315 +1,138 @@
 import logging
+import pickle
 import numpy as np
 import pandas as pd
+
 from sklearn import linear_model as sklm
 from sklearn.metrics import accuracy_score, balanced_accuracy_score, r2_score
 from sklearn.model_selection import KFold, train_test_split
-from behavior_models.utils import format_data as format_data_mut
-from behavior_models.utils import format_input as format_input_mut
 from sklearn.linear_model import RidgeCV, Ridge, Lasso, LassoCV
 from sklearn.utils.class_weight import compute_sample_weight
 
-from one.api import ONE
-
-from prior_localization.decoding.prepare_neural import prepare_ephys
-from prior_localization.decoding.functions.neurometric import compute_neurometric_prior
-from prior_localization.decoding.functions.process_targets import compute_beh_target
-
-from prior_localization.decoding.functions.utils import compute_mask
-from prior_localization.decoding.functions.utils import save_region_results
-from prior_localization.decoding.functions.utils import get_save_path
-from prior_localization.decoding.functions.nulldistributions import (
-    generate_null_distribution_session,
-)
-from prior_localization.decoding.functions.process_targets import check_bhv_fit_exists
-from prior_localization.decoding.functions.process_targets import optimal_Bayesian
+from prior_localization.decoding.prepare_data import prepare_ephys, prepare_behavior
 from prior_localization.decoding.functions.neurometric import get_neurometric_parameters
-from prior_localization.decoding.functions.utils import derivative
-
-from prior_localization.decoding.functions.process_motors import (
-    preprocess_motors,
-    compute_motor_prediction,
+from prior_localization.decoding.functions.process_motors import preprocess_motors
+from prior_localization.decoding.utils import create_neural_path
+from prior_localization.decoding.settings import (
+    N_RUNS, QUASI_RANDOM, ESTIMATOR, ESTIMATOR_KWARGS, HPARAM_GRID, SAVE_BINNED, SAVE_PREDICTIONS, SHUFFLE,
+    BALANCED_WEIGHT, USE_NATIVE_SKLEARN_FOR_HYPERPARAMETER_ESTIMATION, COMPUTE_NEUROMETRIC, COMPUTE_NEURO_ON_EACH_FOLD,
+    MIN_BEHAV_TRIALS, DATE, ADD_TO_PATH, region_defaults
 )
 
+def fit_session_ephys(
+        one, session_id, subject, probe_name, model, pseudo_ids, target, align_event, time_window, output_path,
+        regions='single_regions', integration_test=False
+):
+    """Fit a single session for ephys data."""
 
-def fit_session(probe_name, trials_df, session_id, subject, neural_dtype='ephys', pseudo_ids=[-1], **kwargs):
-    """High-level function to decode a given target variable from brain regions for a single eid.
-
-    Parameters
-    ----------
-    neural_dict : dict
-        keys for ephys: 'spikes', 'clusters'
-    trials_df : dict
-        columns: 'choice', 'feedback', 'pLeft', 'firstMovement_times', 'stimOn_times', 'feedback_times'
-    session_id : str
-        Session UUID
-    subject : str
-        Subject nickname
-    neural_dtype : str
-        'ephys' or 'widefield', default is 'ephys'
-    pseudo_ids : array-like
-        whether to compute a pseudosession or not. if pseudo_id=-1, the true session is considered.
-        if pseudo_id>0, a pseudo session is used. cannot be 0.
-    kwargs
-        target : str
-            single-bin targets: 'pLeft' | 'signcont' | 'choice' | 'feedback'
-            multi-bin targets: 'wheel-vel' | 'wheel-speed' | 'pupil' | '[l/r]-paw-pos'
-                | '[l/r]-paw-vel' | '[l/r]-paw-speed' | '[l/r]-whisker-me'
-        align_time : str
-            event in trial on which to align intervals
-            'firstMovement_times' | 'stimOn_times' | 'feedback_times'
-        time_window : tuple
-            (window_start, window_end), relative to align_time
-        binsize : float
-            size of bins in seconds for multi-bin decoding
-        n_bins_lag : int
-            number of lagged bins to use for predictors for multi-bin decoding
-        estimator : sklearn.linear_model object
-            sklm.Lasso | sklm.Ridge | sklm.LinearRegression | sklm.LogisticRegression
-        hyperparam_grid : dict
-            regularization values to search over
-        n_runs : int
-            number of independent runs performed. this was added after variability was observed
-            across runs.
-        shuffle : bool
-            True for interleaved cross-validation, False for contiguous blocks
-        min_units : int
-            minimum units per region to use for decoding
-        qc_criteria : float
-            fraction between 0 and 1 that describes the number of qc tests that need to be passed
-            in order to use each unit. 0 means all units are used; 1 means a unit has to pass
-            every qc test in order to be used
-        min_behav_trials : int
-            minimum number of trials (after filtering) that must be present to proceed with fits
-        min_rt : float
-            minimum reaction time per trial; can be used to filter out trials with negative
-            reaction times
-        no_unbias : bool
-            True to remove unbiased trials; False to keep
-        today : str
-            date string for specifying filenames
-        output_path : str
-            absolute path where decoding fits are saved
-        add_to_saving_path : str
-            additional string to append to filenames
-    """
-    # We need a seed for the integration test to be reproducible
-    if kwargs.pop('integration_test', None):
+    # If we run integration tests, we want to have reproducible results
+    if integration_test:
         np.random.seed(0)
 
-    filenames = []  # this will contain paths to saved decoding results for this eid
+    # Collect filenames as outputs
+    filenames = []
 
-    if 0 in pseudo_ids:
-        raise ValueError(
-            "pseudo id can only be -1 (actual session) or strictly greater than 0 (pseudo session)"
-        )
-
-    if not np.all(np.sort(pseudo_ids) == pseudo_ids):
-        raise ValueError("pseudo_ids must be sorted")
-    
-    # train model if not trained already
-    if kwargs["model"] != optimal_Bayesian and kwargs["model"] is not None:
-        side, stim, act, _ = format_data_mut(trials_df)
-        stimuli, actions, stim_side = format_input_mut([stim], [act], [side])
-        behmodel = kwargs["model"](
-            kwargs["behfit_path"],
-            session_id,
-            subject,
-            actions,
-            stimuli,
-            stim_side,
-            single_zeta=True,
-        )
-        istrained, _ = check_bhv_fit_exists(
-            subject,
-            kwargs["model"],
-            session_id,
-            kwargs["behfit_path"],
-            modeldispatcher=kwargs["modeldispatcher"],
-            single_zeta=True,
-        )
-        if not istrained:
-            behmodel.load_or_train(remove_old=False)
-
-    if kwargs["target"] in ["pLeft", "signcont", "strengthcont", "choice", "feedback"]:
-        target_vals_list = compute_beh_target(trials_df, session_id, subject, **kwargs)
-        mask_target = np.ones(len(target_vals_list), dtype=bool)
-    else:
-        raise NotImplementedError('this case is not implemented')
-    
-    mask = compute_mask(trials_df, **kwargs) & mask_target
-
-    if sum(mask) <= kwargs["min_behav_trials"]:
-        msg = "session contains %i trials, below the threshold of %i" % (
-            sum(mask),
-            kwargs["min_behav_trials"],
-        )
-        logging.exception(msg)
+    # Prepare trials data for actual and/or pseudo sessions
+    all_trials, all_targets, all_neurometrics, mask, intervals = prepare_behavior(one, session_id, subject, output_path, model, pseudo_ids,
+        target, align_event, time_window, stage_only=False)
+    if sum(mask) <= MIN_BEHAV_TRIALS:
+        logging.exception(f"Session contains {sum(mask)} trials, below the threshold of {MIN_BEHAV_TRIALS}. Skipping.")
         return filenames
 
-    # get bin neural data for desired set of regions
-    intervals = np.vstack([
-        trials_df[kwargs['align_time']] + kwargs['time_window'][0],
-        trials_df[kwargs['align_time']] + kwargs['time_window'][1]
-    ]).T
+    # Prepare ephys data
+    neural_binned, actual_regions, n_unitss = prepare_ephys(one, session_id, probe_name, regions, intervals)
+    probe_name = 'merged_probes' if isinstance(probe_name, list) else probe_name
 
-    one = ONE()
-    neural_binned, regions, n_unitss = prepare_ephys(one, session_id, probe_name, intervals)
-    for region_binned, region, n_units in zip(neural_binned, regions, n_unitss):
-        ##### motor signal regressors #####
-        if kwargs.get("motor_regressors", None):
-            print("motor regressors")
-            motor_binned = preprocess_motors(session_id, kwargs)
-            # size (nb_trials,nb_motor_regressors) => one bin per trial
+    # Fit and save
+    for region_binned, region, n_units in zip(neural_binned, actual_regions, n_unitss):
+        if (regions =='all_regions') or (regions in region_defaults.keys()):
+            region_str = regions
+        else:
+            region_str = '_'.join(region)
 
-            if kwargs["motor_regressors_only"]:
-                region_binned = motor_binned
-            else:
-                region_binned = np.concatenate([region_binned, motor_binned], axis=2)
+        fit_results = fit_region(region_binned, mask, pseudo_ids, all_targets, all_trials, neurometrics)
 
-        ##################################
+        # Create output paths and save
+        filename = create_neural_path(output_path, DATE, 'ephys', subject, session_id, probe_name,
+                                      region_str, target, time_window, pseudo_ids, ADD_TO_PATH)
+        outdict = {
+            "fit": fit_results,
+            "subject": subject,
+            "eid": session_id,
+            "probe": probe_name,
+            "region": region,
+            "N_units": n_units,
+        }
+        with open(filename, "wb") as fw:
+            pickle.dump(outdict, fw)
+        filenames.append(filename)
+    return filenames
 
-        # make feature matrix
-        Xs = region_binned
-        if region_binned[0].shape[0] != 1:
-            raise AssertionError('Decoding is only supported when the target is one dimensional')
 
-        fit_results = []
-        for pseudo_id in pseudo_ids:
+def fit_session_widefield(hemisphere):
+    """Fit a single session for widefield data."""
+    probe = hemisphere
+    pass
 
-            # create pseudo session when necessary
-            if pseudo_id > 0:
-                controlsess_df = generate_null_distribution_session(
-                    trials_df, session_id, subject, **kwargs
-                )
-                controltarget_vals_list = compute_beh_target(
-                    controlsess_df, session_id, subject, **kwargs
-                )
-                save_predictions = kwargs.get(
-                    "save_predictions_pseudo", kwargs["save_predictions"]
-                )
-            else:
-                save_predictions = kwargs["save_predictions"]
 
-            if kwargs["compute_neurometric"]:  # compute prior for neurometric curve
-                trialsdf_neurometric = (
-                    trials_df.reset_index()
-                    if (pseudo_id == -1)
-                    else controlsess_df.reset_index()
-                )
-                trialsdf_neurometric = compute_neurometric_prior(
-                    trialsdf_neurometric, session_id, subject, **kwargs
-                )
+def fit_region(region_binned, mask, pseudo_ids, all_targets, all_trials, all_neurometrics):
 
-            ### derivative of target signal before mask application ###
-            if kwargs["decode_derivative"]:
+    ##### motor signal regressors #####
+    if kwargs.get("motor_regressors", None):
+        print("motor regressors")
+        motor_binned = preprocess_motors(session_id, kwargs)
+        # size (nb_trials,nb_motor_regressors) => one bin per trial
+
+        if kwargs["motor_regressors_only"]:
+            region_binned = motor_binned
+        else:
+            region_binned = np.concatenate([region_binned, motor_binned], axis=2)
+    ##################################
+
+    # make feature matrix
+    fit_results = []
+    for pseudo_id, behavior_targets, trials_df, neurometrics in zip(pseudo_ids, all_targets, all_trials, all_neurometrics):
+        # run decoders
+        for i_run in range(N_RUNS):
+            if QUASI_RANDOM:
                 if pseudo_id == -1:
-                    target_vals_list = derivative(target_vals_list)
+                    rng_seed = i_run
                 else:
-                    controltarget_vals_list = derivative(controltarget_vals_list)
+                    rng_seed = pseudo_id * N_RUNS + i_run
+            else:
+                rng_seed = None
 
-            ### replace target signal by residual of motor prediction ###
-            if kwargs["motor_residual"]:
-                if pseudo_id == -1:
-                    motor_prediction = compute_motor_prediction(
-                        session_id, target_vals_list, kwargs
-                    )
-                    target_vals_list = target_vals_list - motor_prediction
-                else:
-                    motor_prediction = compute_motor_prediction(
-                        session_id, controltarget_vals_list, kwargs
-                    )
-                    controltarget_vals_list = controltarget_vals_list - motor_prediction
-
-            y_decoding = (
-                [target_vals_list[m] for m in np.squeeze(np.where(mask))]
-                if pseudo_id == -1
-                else [controltarget_vals_list[m] for m in np.squeeze(np.where(mask))]
+            fit_result = decode_cv(
+                ys=[behavior_targets[m] for m in np.squeeze(np.where(mask))],
+                Xs=[region_binned[m] for m in np.squeeze(np.where(mask))],
+                estimator=ESTIMATOR,
+                estimator_kwargs=ESTIMATOR_KWARGS,
+                hyperparam_grid=HPARAM_GRID,
+                save_binned=SAVE_BINNED,
+                save_predictions=SAVE_PREDICTIONS,
+                shuffle=SHUFFLE,
+                balanced_weight=BALANCED_WEIGHT,
+                rng_seed=rng_seed,
+                use_cv_sklearn_method=USE_NATIVE_SKLEARN_FOR_HYPERPARAMETER_ESTIMATION,
             )
 
-            # run decoders
-            for i_run in range(kwargs["nb_runs"]):
+            fit_results["trials_df"] = trials_df
+            fit_result["mask"] = mask if SAVE_PREDICTIONS else None
+            fit_result["pseudo_id"] = pseudo_id
+            fit_result["run_id"] = i_run
 
-                if kwargs["quasi_random"]:
-                    if pseudo_id == -1:
-                        rng_seed = i_run
-                    else:
-                        rng_seed = pseudo_id * kwargs["nb_runs"] + i_run
-                else:
-                    rng_seed = None
-
-                fit_result = decode_cv(
-                    ys=y_decoding,
-                    Xs=[Xs[m] for m in np.squeeze(np.where(mask))],
-                    estimator=kwargs["estimator"],
-                    estimator_kwargs=kwargs["estimator_kwargs"],
-                    hyperparam_grid=kwargs["hyperparam_grid"],
-                    save_binned=kwargs["save_binned"],
-                    save_predictions=save_predictions,
-                    shuffle=kwargs["shuffle"],
-                    balanced_weight=kwargs["balanced_weight"],
-                    rng_seed=rng_seed,
-                    use_cv_sklearn_method=kwargs[
-                        "use_native_sklearn_for_hyperparameter_estimation"
-                    ],
+            if COMPUTE_NEUROMETRIC:
+                fit_results["full_neurometric"], fit_results["fold_neurometric"] = get_neurometric_parameters(
+                    fit_results, trialsdf=neurometrics[mask.values].reset_index().drop("index", axis=1),
+                    compute_on_each_fold=COMPUTE_NEURO_ON_EACH_FOLD
                 )
-                fit_result["mask"] = mask if save_predictions else None
-                fit_result["trials_df"] = trials_df if pseudo_id == -1 else controlsess_df
-                fit_result["pseudo_id"] = pseudo_id
-                fit_result["run_id"] = i_run
+            else:
+                fit_results["full_neurometric"] = None
+                fit_results["fold_neurometric"] = None
 
-                # compute neurometric curves
-                if kwargs["compute_neurometric"]:
-                    (
-                        fit_result["full_neurometric"],
-                        fit_result["fold_neurometric"],
-                    ) = get_neurometric_parameters(
-                        fit_result,
-                        trialsdf=trialsdf_neurometric[mask.values]
-                        .reset_index()
-                        .drop("index", axis=1),
-                        compute_on_each_fold=kwargs["compute_on_each_fold"],
-                    )
-                else:
-                    fit_result["full_neurometric"] = None
-                    fit_result["fold_neurometric"] = None
-                fit_results.append(fit_result)
+            fit_results.append(fit_result)
 
-        # save out decoding results
-        if neural_dtype == 'ephys':
-            probe = 'merged_probes' if isinstance(probe_name, list) else probe_name
-        elif neural_dtype == 'widefield':
-            pass
-            #probe = hemisphere
-
-        save_path = get_save_path(
-            pseudo_ids,
-            subject,
-            session_id,
-            neural_dtype,
-            probe=probe,
-            region=str(np.squeeze(region)) if kwargs["single_region"] else "allRegions",
-            output_path=kwargs["neuralfit_path"],
-            time_window=kwargs["time_window"],
-            today=kwargs["date"],
-            target=kwargs["target"],
-            add_to_saving_path=kwargs["add_to_saving_path"],
-        )
-
-        filename = save_region_results(
-            fit_result=fit_results,
-            pseudo_id=pseudo_ids,
-            subject=subject,
-            eid=session_id,
-            probe=probe,
-            region=region,
-            n_units=n_units,
-            save_path=save_path,
-        )
-
-        filenames.append(filename)
-
-    return filenames
+    return fit_results
 
 
 def decode_cv(

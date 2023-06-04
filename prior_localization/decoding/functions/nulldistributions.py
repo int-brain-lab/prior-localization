@@ -5,19 +5,10 @@ from prior_localization.decoding.functions.process_targets import (
     optimal_Bayesian,
     check_bhv_fit_exists,
 )
+from prior_localization.decoding.settings import modeldispatcher
 
 
-def generate_null_distribution_session(trials_df, session_id, subject, **kwargs):
-    sess_abs_contrast = trials_df.contrastLeft.abs().fillna(
-        value=0
-    ) + trials_df.contrastRight.abs().fillna(value=0)
-    sess_abs_contrast = (
-        sess_abs_contrast.replace(1, 4)
-        .replace(0.0625, 1)
-        .replace(0.125, 2)
-        .replace(0.25, 3)
-        .values
-    )
+def generate_null_distribution_session(trials_df, session_id, subject, model, behavior_path):
     if "signedContrast" in trials_df.columns:
         out = np.nan_to_num(trials_df.contrastLeft.values) - np.nan_to_num(
             trials_df.contrastRight.values
@@ -25,21 +16,21 @@ def generate_null_distribution_session(trials_df, session_id, subject, **kwargs)
         assert np.all(np.nan_to_num(trials_df.signedContrast.values) == out)
     pseudosess = generate_pseudo_session(trials_df, generate_choices=False)
     if (
-        kwargs["model"] is not None
-        and kwargs["model"] != optimal_Bayesian
-        and kwargs["model"].name == "actKernel"
+        model is not None
+        and model != optimal_Bayesian
+        and model.name == "actKernel"
     ):
         subjModel = {
             "eid": session_id,
             "subject": subject,
-            "modeltype": kwargs["model"],
-            "behfit_path": kwargs["behfit_path"],
+            "modeltype": model,
+            "behfit_path": behavior_path,
         }
         pseudosess["choice"] = generate_choices(
             pseudosess,
             trials_df,
             subjModel,
-            kwargs["modeldispatcher"],
+            modeldispatcher,
         )
         pseudosess["feedbackType"] = np.where(
             pseudosess["choice"] == pseudosess["stim_side"], 1, -1
