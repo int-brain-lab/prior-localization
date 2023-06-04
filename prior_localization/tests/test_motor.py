@@ -21,7 +21,7 @@ np.testing.assert_equal(expected_motor_signals, np.array(predicted_motor_signals
 np.testing.assert_(type(predicted_motor_signals) == list)
 np.testing.assert_(len(np.array(predicted_motor_signals).shape) == 3)
 
-# generating without caching
+# generating without pre-generated caching <- this approach should be the one implemented in the fit_session method
 cache_motor_functions = __import__('prior_localization.pipelines.04_cache_motor', fromlist=('prior_localization.pipelines'))
 regressors = cache_motor_functions.load_motor(eid)
 motor_signals_of_interest = ['licking', 'whisking_l', 'whisking_r', 'wheeling', 'nose_pos', 'paw_pos_r', 'paw_pos_l']
