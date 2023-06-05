@@ -9,12 +9,12 @@ from behavior_models.utils import format_data, format_input
 
 from prior_localization.settings import region_defaults, modeldispatcher
 from prior_localization.functions.process_targets import optimal_Bayesian, compute_beh_target
-from prior_localization.functions import compute_motor_prediction
-from prior_localization.functions import compute_mask, derivative
+from prior_localization.functions.process_motors import compute_motor_prediction
+from prior_localization.functions.utils import compute_mask, derivative
 from prior_localization.utils import check_bhv_fit_exists
-from prior_localization.functions import generate_null_distribution_session
+from prior_localization.functions.nulldistributions import generate_null_distribution_session
 from prior_localization.settings import COMPUTE_NEUROMETRIC, DECODE_DERIVATIVE, MOTOR_RESIDUAL, MIN_LEN, MAX_LEN, MIN_RT, MAX_RT, NO_UNBIAS
-from prior_localization.functions import compute_neurometric_prior
+from prior_localization.functions.neurometric import compute_neurometric_prior
 
 
 def prepare_behavior(
@@ -124,21 +124,21 @@ def prepare_ephys(one, session_id, probe_name, regions, intervals, qc=1, min_uni
 
     binned_spikes = []
     n_units = []
+    actual_regions = []
     for region in regions:
         # find all clusters in region (where region can be a list of regions)
         region_mask = np.isin(beryl_regions, region)
         if sum(region_mask) < min_units:
-            print(region, f"{region} below min units threshold : {sum(region_mask)}, not decoding")
-            continue
-        # find all spikes in those clusters
-        spike_mask = pd.Series(spikes['clusters']).isin(clusters[region_mask]['cluster_id'])
-        spikes['times'][spike_mask]
-        spikes['clusters'][spike_mask]
-        n_units.append(sum(region_mask))
-        binned, _ = get_spike_counts_in_bins(spikes['times'], spikes['clusters'], intervals)
-        binned = binned.T  # binned is a 2D array
-        binned_spikes.append([x[None, :] for x in binned])
-    return binned_spikes, regions, n_units
+            print(f"{'_'.join(region)} below min units threshold ({min_units}) : {sum(region_mask)}, not decoding")
+        else:
+            # find all spikes in those clusters
+            spike_mask = np.isin(spikes['clusters'], clusters[region_mask]['cluster_id'])
+            n_units.append(sum(region_mask))
+            binned, _ = get_spike_counts_in_bins(spikes['times'][spike_mask], spikes['clusters'][spike_mask], intervals)
+            binned = binned.T  # binned is a 2D array
+            binned_spikes.append([x[None, :] for x in binned])
+            actual_regions.append(region)
+    return binned_spikes, actual_regions, n_units
 
 
 def prepare_motor():

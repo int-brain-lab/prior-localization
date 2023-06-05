@@ -16,7 +16,8 @@ from prior_localization.utils import create_neural_path
 from prior_localization.settings import (
     N_RUNS, QUASI_RANDOM, ESTIMATOR, ESTIMATOR_KWARGS, HPARAM_GRID, SAVE_BINNED, SAVE_PREDICTIONS, SHUFFLE,
     BALANCED_WEIGHT, USE_NATIVE_SKLEARN_FOR_HYPERPARAMETER_ESTIMATION, COMPUTE_NEUROMETRIC, COMPUTE_NEURO_ON_EACH_FOLD,
-    MIN_BEHAV_TRIALS, DATE, ADD_TO_PATH, MOTOR_REGRESSORS, MOTOR_REGRESSORS_ONLY, QC_CRITERIA, region_defaults
+    MIN_BEHAV_TRIALS, DATE, ADD_TO_PATH, MOTOR_REGRESSORS, MOTOR_REGRESSORS_ONLY, QC_CRITERIA, MIN_UNITS,
+    region_defaults
 )
 
 
@@ -24,6 +25,8 @@ def fit_session_ephys(
         one, session_id, subject, probe_name, model, pseudo_ids, target, align_event, time_window, output_path,
         regions='single_regions', integration_test=False
 ):
+
+    # Add stage only param
     """Fit a single session for ephys data."""
     # If we run integration tests, we want to have reproducible results
     if integration_test:
@@ -33,15 +36,16 @@ def fit_session_ephys(
     filenames = []
 
     # Prepare trials data for actual and/or pseudo sessions
-    all_trials, all_targets, all_neurometrics, mask, intervals = prepare_behavior(one, session_id, subject, output_path, model, pseudo_ids,
-        target, align_event, time_window, stage_only=False)
+    all_trials, all_targets, all_neurometrics, mask, intervals = prepare_behavior(
+        one, session_id, subject, output_path, model, pseudo_ids, target, align_event, time_window, stage_only=False
+    )
     if sum(mask) <= MIN_BEHAV_TRIALS:
         logging.exception(f"Session contains {sum(mask)} trials, below the threshold of {MIN_BEHAV_TRIALS}. Skipping.")
         return filenames
 
     # Prepare ephys data
     neural_binned, actual_regions, n_unitss = prepare_ephys(one, session_id, probe_name, regions, intervals,
-                                                            qc=QC_CRITERIA)
+                                                            qc=QC_CRITERIA, min_units=MIN_UNITS)
     probe_name = 'merged_probes' if isinstance(probe_name, list) else probe_name
 
     # Optionally add motor regressors
