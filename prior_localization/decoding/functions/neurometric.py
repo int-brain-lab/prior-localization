@@ -2,30 +2,26 @@ import numpy as np
 import pandas as pd
 import brainbox.behavior.pyschofit as pfit
 from prior_localization.decoding.functions.process_targets import compute_beh_target
+from prior_localization.decoding.settings import BORDER_QUANTILES_NEUROMETRIC
 
 
-def compute_neurometric_prior(trialsdf_neurometric, session_id, subject, **kwargs):
-    if kwargs["model"] is not None:
-        blockprob_neurometric = compute_beh_target(
-            trialsdf_neurometric, session_id, subject
-            **{**kwargs, "target": "pLeft"},
-        )
-        trialsdf_neurometric["target_neurometric"] = blockprob_neurometric
-        trialsdf_neurometric["blockprob_neurometric"] = np.stack(
+def compute_neurometric_prior(trials_df, session_id, subject, model, behavior_path):
+    if model is not None:
+        blockprob_neurometric = compute_beh_target(trials_df, session_id, subject, model, 'pLeft', behavior_path)
+        trials_df["target_neurometric"] = blockprob_neurometric
+        trials_df["blockprob_neurometric"] = np.stack(
             [
                 np.greater_equal(
                     blockprob_neurometric,
                     border,
                 ).astype(int)
-                for border in kwargs["border_quantiles_neurometric"]
+                for border in BORDER_QUANTILES_NEUROMETRIC
             ]
         ).sum(0)
     else:
-        blockprob_neurometric = (
-            trialsdf_neurometric["probabilityLeft"].replace(0.2, 0).replace(0.8, 1)
-        )
-        trialsdf_neurometric["blockprob_neurometric"] = blockprob_neurometric
-    return trialsdf_neurometric
+        blockprob_neurometric = (trials_df["probabilityLeft"].replace(0.2, 0).replace(0.8, 1))
+        trials_df["blockprob_neurometric"] = blockprob_neurometric
+    return trials_df
 
 
 def get_target_df(target, pred, test_idxs, trialsdf):

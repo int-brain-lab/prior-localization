@@ -7,10 +7,11 @@ import pickle
 
 from sklearn.linear_model import RidgeCV
 
-def aggregate_on_timeWindow(regressors, kwargs, motor_signals_of_interest):
+
+def aggregate_on_timeWindow(regressors, motor_signals_of_interest, time_window):
     # format the signals
-    t_min = kwargs['time_window'][0]
-    t_max = kwargs['time_window'][1]
+    t_min = time_window[0]
+    t_max = time_window[1]
     T_bin = 0.02
     i_min = int((t_min + 1)/T_bin)
     i_max =  int((t_max + 1)/T_bin)
@@ -31,7 +32,7 @@ def aggregate_on_timeWindow(regressors, kwargs, motor_signals_of_interest):
     return list(motor_signals)
 
 
-def preprocess_motors(eid, kwargs, cache_path=None):
+def preprocess_motors(eid, time_window, cache_path=None):
     # the cache_path argment was added to enable to test this function
     # this cache was generated use the pipelines/04_cache_motor.py script
     if cache_path is None:
@@ -60,14 +61,14 @@ def preprocess_motors(eid, kwargs, cache_path=None):
     regressors = pickle.load(open(regressor_path, 'rb'))
 
     motor_signals_of_interest = ['licking', 'whisking_l', 'whisking_r', 'wheeling', 'nose_pos', 'paw_pos_r', 'paw_pos_l']
-    motor_signals = aggregate_on_timeWindow(regressors, kwargs, motor_signals_of_interest)
+    motor_signals = aggregate_on_timeWindow(regressors, motor_signals_of_interest, time_window)
 
     return motor_signals
 
 
-def compute_motor_prediction(eid,target,kwargs):
+def compute_motor_prediction(eid, target, time_window):
 
-    motor_signals = preprocess_motors(eid,kwargs)
+    motor_signals = preprocess_motors(eid, time_window)
     motor_signals_arr = np.squeeze(np.array(motor_signals))
     clf = RidgeCV(alphas=[1e-3, 1e-2, 1e-1]).fit(motor_signals_arr, target)
     print(clf.score(motor_signals_arr, target))

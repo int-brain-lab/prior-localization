@@ -40,7 +40,7 @@ N_JOBS_PER_SESSION = N_PSEUDO // N_PSEUDO_PER_JOB
 N_RUNS = 2
 MIN_UNITS = 10
 NB_TRIALS_TAKEOUT_END = 0
-MIN_BEHAV_TRIAS = (
+MIN_BEHAV_TRIALS = (
     150 if NEURAL_DTYPE == "ephys" else 150
 )  # default BWM setting is 400. 200 must remain after filtering
 MIN_RT = 0.08  # 0.08  # Float (s) or None
@@ -79,14 +79,6 @@ HPARAM_GRID = (
 DEBUG = False  # in debugging/unit testing mode
 SAVE_BINNED = False  # Debugging parameter, not usually necessary
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
-ADD_TO_SAVING_PATH = (
-    "balancedWeight_%i_RegionLevel_%s_mergedProbes_%i"
-    % (
-        BALANCED_WEIGHT,
-        str(SINGLE_REGION),
-        MERGED_PROBES,
-    )
-)
 
 # WIDE FIELD IMAGING
 WFI_HEMISPHERES = ["left", "right"]  # 'left' and/or 'right'
@@ -126,13 +118,6 @@ excludes = [
     "56b57c38-2699-4091-90a8-aba35103155e",  # load object pickle error
     "09394481-8dd2-4d5c-9327-f2753ede92d7",  # same same
 ]
-
-modeldispatcher = {
-    ActionKernel: ActionKernel.name,
-    StimulusKernel: StimulusKernel.name,
-    optimal_Bayesian: "optBay",
-    None: "oracle",
-}
 
 strlut = {
     sklm.Lasso: "Lasso",
@@ -263,4 +248,49 @@ kwargs = {
     "debug": DEBUG,
     "use_native_sklearn_for_hyperparameter_estimation": USE_NATIVE_SKLEARN_FOR_HYPERPARAMETER_ESTIMATION,
     "set_seed_for_DEBUG": False
+}
+
+
+region_defaults = {
+    'widefield': [
+            ["ACAd"],
+            ["AUDd"],
+            ["AUDp"],
+            ["AUDpo"],
+            ["AUDv"],
+            ["FRP"],
+            ["MOB"],
+            ["MOp"],
+            ["MOs"],
+            ["PL"],
+            ["RSPagl"],
+            ["RSPd"],
+            ["RSPv"],
+            ["SSp-bfd"],
+            ["SSp-ll"],
+            ["SSp-m"],
+            ["SSp-n"],
+            ["SSp-tr"],
+            ["SSp-ul"],
+            ["SSp-un"],
+            ["SSs"],
+            ["TEa"],
+            ["VISa"],
+            ["VISal"],
+            ["VISam"],
+            ["VISl"],
+            ["VISli"],
+            ["VISp"],
+            ["VISpl"],
+            ["VISpm"],
+            ["VISpor"],
+            ["VISrl"],
+        ]
+}
+
+modeldispatcher = {
+    ActionKernel: ActionKernel.name,
+    StimulusKernel: StimulusKernel.name,
+    optimal_Bayesian: "optBay",
+    None: "oracle",
 }
