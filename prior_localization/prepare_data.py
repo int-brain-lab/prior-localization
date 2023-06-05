@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 from ibllib.atlas import BrainRegions
 from brainbox.population.decode import get_spike_counts_in_bins
@@ -6,14 +7,14 @@ from brainbox.io.one import SessionLoader
 from brainwidemap.bwm_loading import load_good_units, merge_probes
 from behavior_models.utils import format_data, format_input
 
-from prior_localization.decoding.settings import region_defaults, modeldispatcher
-from prior_localization.decoding.functions.process_targets import optimal_Bayesian, compute_beh_target
-from prior_localization.decoding.functions.process_motors import compute_motor_prediction
-from prior_localization.decoding.functions.utils import compute_mask, derivative
-from prior_localization.decoding.utils import check_bhv_fit_exists
-from prior_localization.decoding.functions.nulldistributions import generate_null_distribution_session
-from prior_localization.decoding.settings import COMPUTE_NEUROMETRIC, DECODE_DERIVATIVE, MOTOR_RESIDUAL
-from prior_localization.decoding.functions.neurometric import compute_neurometric_prior
+from prior_localization.settings import region_defaults, modeldispatcher
+from prior_localization.functions.process_targets import optimal_Bayesian, compute_beh_target
+from prior_localization.functions import compute_motor_prediction
+from prior_localization.functions import compute_mask, derivative
+from prior_localization.utils import check_bhv_fit_exists
+from prior_localization.functions import generate_null_distribution_session
+from prior_localization.settings import COMPUTE_NEUROMETRIC, DECODE_DERIVATIVE, MOTOR_RESIDUAL, MIN_LEN, MAX_LEN, MIN_RT, MAX_RT, NO_UNBIAS
+from prior_localization.functions import compute_neurometric_prior
 
 
 def prepare_behavior(
@@ -46,7 +47,8 @@ def prepare_behavior(
 
     behavior_targets = compute_beh_target(sl.trials, session_id, subject, model, target, behavior_path)
     mask_target = np.ones(len(behavior_targets), dtype=bool)
-    mask = compute_mask(sl.trials) & mask_target
+    mask = compute_mask(sl.trials, align_event, time_window, min_len=MIN_LEN,
+                        max_len=MAX_LEN, no_unbias=NO_UNBIAS, min_rt=MIN_RT, max_rt=MAX_RT) & mask_target
 
     # get bin neural data for desired set of regions
     intervals = np.vstack([
@@ -76,7 +78,7 @@ def prepare_behavior(
                 compute_neurometric_prior(trials_df.reset_index(), session_id, subject, model, behavior_path)
             )
     else:
-        all_neurometrics = None
+        all_neurometrics = [None] * len(all_trials)
 
     # Derivative of target signal if indicated
     if DECODE_DERIVATIVE:
@@ -129,15 +131,23 @@ def prepare_ephys(one, session_id, probe_name, regions, intervals, qc=1, min_uni
             print(region, f"{region} below min units threshold : {sum(region_mask)}, not decoding")
             continue
         # find all spikes in those clusters
-        spike_mask = spikes['clusters'].isin(clusters[region_mask]['cluster_id'])
+        spike_mask = pd.Series(spikes['clusters']).isin(clusters[region_mask]['cluster_id'])
         spikes['times'][spike_mask]
         spikes['clusters'][spike_mask]
         n_units.append(sum(region_mask))
         binned, _ = get_spike_counts_in_bins(spikes['times'], spikes['clusters'], intervals)
         binned = binned.T  # binned is a 2D array
         binned_spikes.append([x[None, :] for x in binned])
-    return binned_spikes, regions, n_units, region_str
+    return binned_spikes, regions, n_units
 
+
+def prepare_motor():
+    # account for sessions without motor
+
+    motor_regressors = cut_behavior(eid,duration =2, lag = -1,query_type='auto') # very large interval
+    motor_signals_of_interest = ['licking', 'whisking_l', 'whisking_r', 'wheeling', 'nose_pos', 'paw_pos_r', 'paw_pos_l']
+    regressors = dict(filter(lambda i:i[0] in motor_signals_of_interest, motor_regressors.items()))
+    return regressors
 
 #
 # def prepare_widefield():

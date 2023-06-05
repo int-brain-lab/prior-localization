@@ -6,10 +6,8 @@ import numpy as np
 
 from one.api import ONE
 from brainbox.io.one import SessionLoader
-from brainwidemap.bwm_loading import load_good_units, merge_probes
-
-from prior_localization.decoding.settings import kwargs
-from prior_localization.decoding.functions.decoding import fit_session
+from prior_localization.functions.process_targets import optimal_Bayesian
+from prior_localization.functions.decoding import fit_session_ephys
 
 
 class TestEphysDecoding(unittest.TestCase):
@@ -23,13 +21,10 @@ class TestEphysDecoding(unittest.TestCase):
         _, self.probe_names = self.one.eid2pid(self.eid)
         self.qc = 1
         self.subject = self.one.eid2ref(self.eid)['subject']
+        self.model = optimal_Bayesian
         self.pseudo_ids = np.concatenate((-np.ones(1), np.arange(1, 3))).astype('int64')
         self.tmp_dir = tempfile.TemporaryDirectory()
         self.fixtures_dir = Path(__file__).parent.joinpath('fixtures')
-        kwargs['behfit_path'] = Path(self.tmp_dir.name).joinpath('behavior')
-        kwargs['neuralfit_path'] = Path(self.tmp_dir.name).joinpath('neural')
-        kwargs['neural_dtype'] = 'ephys'
-        kwargs['integration_test'] = True
 
         sl = SessionLoader(self.one, self.eid)
         sl.load_trials()
@@ -37,7 +32,7 @@ class TestEphysDecoding(unittest.TestCase):
 
     def compare_target_test(self, results_fit_session, probe):
         for f in results_fit_session:
-            region = f.name.split('_')[1]
+            region = f.name.split('_')[0]
             # This failed for uninteresting regions
             if region == 'VPM':
                 continue
@@ -49,14 +44,18 @@ class TestEphysDecoding(unittest.TestCase):
                 self.assertTrue(np.allclose(test, target, rtol=1e-05))
 
     def test_merged_probes(self):
-        results_fit_session = fit_session(probe_name=self.probe_names, trials_df=self.trials_df, session_id=self.eid, subject=self.subject,
-                                          pseudo_ids=self.pseudo_ids, **kwargs)
+        results_fit_session = fit_session_ephys(self.one, self.eid,  self.subject, self.probe_names, self.model,
+                                                self.pseudo_ids, 'pLeft', 'stimOn_times', [-0.6, -0.1],
+                                                Path(self.tmp_dir.name), 'single_regions', integration_test=True
+                                                )
         self.compare_target_test(results_fit_session, 'merged')
 
     def test_single_probes(self):
         for probe_name in self.probe_names:
-            results_fit_session = fit_session(probe_name=probe_name, trials_df=self.trials_df, session_id=self.eid, subject=self.subject,
-                                              pseudo_ids=self.pseudo_ids, **kwargs)
+            results_fit_session = fit_session_ephys(self.one, self.eid, self.subject, self.probe_names, self.model,
+                                                    self.pseudo_ids, 'pLeft', 'stimOn_times', [-0.6, -0.1],
+                                                    Path(self.tmp_dir.name), 'single_regions', integration_test=True
+                                                    )
             self.compare_target_test(results_fit_session, probe_name)
 
     def tearDown(self) -> None:

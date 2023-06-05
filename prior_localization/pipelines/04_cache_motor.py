@@ -29,6 +29,7 @@ import numpy as np
 import math
 import brainbox.behavior.wheel as wh
 from brainbox.processing import bincount2D
+from brainbox.io.one import SessionLoader
 
 _logger = logging.getLogger('prior_pipelines')
 
@@ -51,11 +52,8 @@ sr = {'licking':'T_BIN','whisking_l':'T_BIN', 'whisking_r':'T_BIN',
 blue_left = [0.13850039, 0.41331206, 0.74052025]
 red_right = [0.66080672, 0.21526712, 0.23069468]
 cdi = {0.8:blue_left,0.2:red_right,0.5:'g',-1:'cyan',1:'orange'}
-def blockPrint():
-    sys.stdout = open(os.devnull, 'w')
-# Restore
-def enablePrint():
-    sys.stdout = sys.__stdout__
+
+
 
 def get_all_sess_with_ME():
     # get all bwm sessions with dlc
@@ -90,14 +88,7 @@ def get_licks(XYs):
            thr = np.nanstd(np.diff(c))/4
            licks.append(set(np.where(abs(np.diff(c))>thr)[0]))
     return sorted(list(set.union(*licks))) 
-            
-def get_ME(eid, video_type, query_type='remote'):
-    #video_type = 'left'           
-    Times = one.load_dataset(eid,f'alf/_ibl_{video_type}Camera.times.npy',
-                             query_type=query_type) 
-    ME = one.load_dataset(eid,f'alf/{video_type}Camera.ROIMotionEnergy.npy', 
-                          query_type=query_type)
-    return Times, ME  
+
 
 def get_dlc_XYs(eid, video_type, query_type='remote'):
     #video_type = 'left'    
@@ -119,7 +110,7 @@ def get_dlc_XYs(eid, video_type, query_type='remote'):
             [x, y])    
     return Times, XYs   
 
-def cut_behavior(eid, duration =0.4, lag = -0.6, 
+def cut_behavior(one, eid, duration =0.4, lag = -0.6,
                  align='stimOn_times', stim_to_stim=False, 
                  endTrial=False, query_type='remote',pawex=False):
     '''get_dlc_XYsdlc
@@ -137,15 +128,24 @@ def cut_behavior(eid, duration =0.4, lag = -0.6,
     v = np.append(np.diff(pos),np.diff(pos)[-1]) 
     v = abs(v) 
     v = v/max(v)  # else the units are very small
-    
+
+    sl = SessionLoader(one, eid)
+    sl.load_motion_energy(views=['left', 'right'])
+    sl.load_pose(views=['left', 'right'], likelihood_thr=0.9)
+
     # load whisker motion energy, separate for both cams
-    times_me_l, whisking_l0 = get_ME(eid, 'left', query_type=query_type)
-    times_me_r, whisking_r0 = get_ME(eid, 'right', query_type=query_type)    
-    
-    times_l, XYs_l = get_dlc_XYs(eid, 'left')
-    times_r, XYs_r = get_dlc_XYs(eid, 'right')    
-    
-    DLC = {'left':[times_l, XYs_l], 'right':[times_r, XYs_r]}
+    times_me_l, whisking_l0 = sl.motion_energy['leftCamera']['times'], sl.motion_energy['leftCamera']['whiskerMotionEnergy']
+    times_me_r, whisking_r0 = sl.motion_energy['rightCamera']['times'], sl.motion_energy['rightCamera']['whiskerMotionEnergy']
+
+    points = np.unique(['_'.join(x.split('_')[:-1]) for x in sl.pose['leftCamera'].columns])
+    times_l, XYs_l = sl.pose['leftCamera']['times'], {point: np.array([sl.pose['leftCamera'][f'{point}_x'],
+                                                                       sl.pose['leftCamera'][f'{point}_y']])
+                                                      for point in points if point != ''}
+    times_r, XYs_r = sl.pose['rightCamera']['times'], {point: np.array([sl.pose['rightCamera'][f'{point}_x'],
+                                                                       sl.pose['rightCamera'][f'{point}_y']])
+                                                       for point in points if point != ''}
+
+    DLC = {'left': [times_l, XYs_l], 'right': [times_r, XYs_r]}
     
     # get licks using both cameras    
     lick_times = []
@@ -272,14 +272,14 @@ def cut_behavior(eid, duration =0.4, lag = -0.6,
     return(D)
 
 
-def load_motor(eid):
+def load_motor(one, eid):
 
     assert eid in motor_eids, "no motor signals for this session"
-    motor_regressors = cut_behavior(eid,duration =2, lag = -1,query_type='auto') # very large interval
+    motor_regressors = cut_behavior(one, eid,duration =2, lag = -1,query_type='auto') # very large interval
     motor_signals_of_interest = ['licking', 'whisking_l', 'whisking_r', 'wheeling', 'nose_pos', 'paw_pos_r', 'paw_pos_l']
     regressors = dict(filter(lambda i:i[0] in motor_signals_of_interest, motor_regressors.items()))
     return regressors
-    
+
 
 def cache_motor(subject, eid, regressors):
     """
@@ -305,7 +305,7 @@ def cache_motor(subject, eid, regressors):
     with open(data_fn, 'wb') as fw:
         pickle.dump(regressors, fw)
 
-    del regressors 
+    del regressors
     return metadata_fn, data_fn
 
 

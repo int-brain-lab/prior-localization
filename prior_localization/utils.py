@@ -9,14 +9,13 @@ def create_neural_path(output_path, date, neural_dtype, subject, session_id, pro
     full_path = Path(output_path).joinpath('neural', date, neural_dtype, subject, session_id, probe)
     full_path.mkdir(exist_ok=True, parents=True)
 
-    pseudo_str = f'{pseudo_ids[0]}_{pseudo_ids[-1]}' if isinstance(pseudo_ids, np.ndarray) else str(pseudo_id)
+    pseudo_str = f'{pseudo_ids[0]}_{pseudo_ids[-1]}' if isinstance(pseudo_ids, np.ndarray) else str(pseudo_ids)
     time_str = f'{time_window[0]}_{time_window[1]}'.replace('.', '_')
     file_name = f'{region_str}_target_{target}_timeWindow_{time_str}_pseudo_id_{pseudo_str}'
     if add_to_path:
         for k, v in add_to_path.items():
             file_name = f'{file_name}_{k}_{v}'
-    full_path.joinpath(f'{file_name}.pkl')
-    return full_path
+    return full_path.joinpath(f'{file_name}.pkl')
 
 
 def check_bhv_fit_exists(subject, model, eids, resultpath, modeldispatcher, single_zeta):

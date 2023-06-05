@@ -1,6 +1,6 @@
 import logging
 import numpy as np
-from prior_localization.decoding.functions.process_targets import optimal_Bayesian
+from prior_localization.functions.process_targets import optimal_Bayesian
 from behavior_models.models import ActionKernel, StimulusKernel
 from prior_localization.params import FIT_PATH as NEURAL_MOD_PATH
 from prior_localization.params import BEH_MOD_PATH as BEHAVIOR_MOD_PATH
@@ -14,6 +14,16 @@ logger.disabled = True
 
 NEURAL_DTYPE = "ephys"  # "widefield"  # 'ephys' or 'widefield'
 DATE = "30-01-2023"  # date 12 prev, 13 next, 14 prev
+
+modeldispatcher = {
+    ActionKernel: ActionKernel.name,
+    StimulusKernel: StimulusKernel.name,
+    optimal_Bayesian: "optBay",
+    None: "oracle",
+}
+
+
+
 
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
@@ -110,6 +120,8 @@ MOTOR_RESIDUAL = False
 DECODE_DERIVATIVE = False
 
 
+ADD_TO_PATH = {'balanced_weighting': BALANCED_WEIGHT}
+
 # session to be excluded (by Olivier Winter)
 excludes = [
     "bb6a5aae-2431-401d-8f6a-9fdd6de655a9",  # inconsistent trials object: relaunched task on 31-12-2021
@@ -166,7 +178,7 @@ fit_metadata = {
     "nb_runs": N_RUNS,
     "n_pseudo": N_PSEUDO,
     "min_units": MIN_UNITS,
-    "min_behav_trials": MIN_BEHAV_TRIAS,
+    "min_behav_trials": MIN_BEHAV_TRIALS,
     "min_rt": MIN_RT,
     "qc_criteria": QC_CRITERIA,
     "shuffle": SHUFFLE,
@@ -183,7 +195,7 @@ fit_metadata = {
     "neuralfit_path": NEURAL_MOD_PATH,
     "estimator_kwargs": ESTIMATOR_KWARGS,
     "hyperparam_grid": HPARAM_GRID,
-    "add_to_saving_path": ADD_TO_SAVING_PATH,
+    "add_to_saving_path": ADD_TO_PATH,
     "min_len": MIN_LEN,
     "max_len": MAX_LEN,
     "save_predictions": SAVE_PREDICTIONS,
@@ -223,13 +235,13 @@ kwargs = {
     "no_unbias": NO_UNBIAS,
     "min_rt": MIN_RT,
     "max_rt": MAX_RT,
-    "min_behav_trials": MIN_BEHAV_TRIAS,
+    "min_behav_trials": MIN_BEHAV_TRIALS,
     "qc_criteria": QC_CRITERIA,
     "min_units": MIN_UNITS,
     "time_window": TIME_WINDOW,
     "compute_neurometric": COMPUTE_NEUROMETRIC,
     "border_quantiles_neurometric": BORDER_QUANTILES_NEUROMETRIC,
-    "add_to_saving_path": ADD_TO_SAVING_PATH,
+    "add_to_saving_path": ADD_TO_PATH,
     "neural_dtype": NEURAL_DTYPE,
     "wfi_hemispheres": WFI_HEMISPHERES,
     "binarization_value": BINARIZATION_VALUE,
@@ -288,9 +300,3 @@ region_defaults = {
         ]
 }
 
-modeldispatcher = {
-    ActionKernel: ActionKernel.name,
-    StimulusKernel: StimulusKernel.name,
-    optimal_Bayesian: "optBay",
-    None: "oracle",
-}

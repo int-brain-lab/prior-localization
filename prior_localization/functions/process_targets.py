@@ -4,8 +4,8 @@ import torch
 from behavior_models.utils import format_data
 from behavior_models.utils import format_input
 
-from prior_localization.decoding.utils import check_bhv_fit_exists
-from prior_localization.decoding.settings import modeldispatcher
+from prior_localization.utils import check_bhv_fit_exists
+from behavior_models.models import ActionKernel, StimulusKernel
 
 
 def optimal_Bayesian(act, side):
@@ -74,6 +74,14 @@ def optimal_Bayesian(act, side):
     Pis = predictive[:, 0] * gamma + predictive[:, 1] * 0.5 + predictive[:, 2] * (1 - gamma)
 
     return 1 - Pis
+
+
+modeldispatcher = {
+    ActionKernel: ActionKernel.name,
+    StimulusKernel: StimulusKernel.name,
+    optimal_Bayesian: "optBay",
+    None: "oracle",
+}
 
 
 def compute_beh_target(trials_df, session_id, subject, model, target, behavior_path, remove_old=False, **kwargs):
@@ -158,8 +166,8 @@ def compute_beh_target(trials_df, session_id, subject, model, target, behavior_p
         model.load_or_train(loadpath=str(fullpath))
 
     # compute signal
-    stim_side, stimuli, actions, _ = format_data_mut(trials_df)
-    stimuli, actions, stim_side = format_input_mut([stimuli], [actions], [stim_side])
+    stim_side, stimuli, actions, _ = format_data(trials_df)
+    stimuli, actions, stim_side = format_input([stimuli], [actions], [stim_side])
     signal = model.compute_signal(signal='prior' if kwargs['target'] == 'pLeft' else kwargs['target'],
                                   act=actions,
                                   stim=stimuli,

@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
 import brainbox.behavior.pyschofit as pfit
-from prior_localization.decoding.functions.process_targets import compute_beh_target
-from prior_localization.decoding.settings import BORDER_QUANTILES_NEUROMETRIC
+from prior_localization.functions.process_targets import compute_beh_target
+from prior_localization.settings import BORDER_QUANTILES_NEUROMETRIC
 
 
 def compute_neurometric_prior(trials_df, session_id, subject, model, behavior_path):

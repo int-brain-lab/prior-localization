@@ -6,6 +6,8 @@ import pandas as pd
 import sklearn.linear_model as sklm
 import yaml
 
+from prior_localization.settings import NB_TRIALS_TAKEOUT_END
+
 
 def compute_mask(
     trials_df,
@@ -16,7 +18,6 @@ def compute_mask(
     no_unbias,
     min_rt,
     max_rt,
-    **kwargs,
 ):
     """Create a mask that denotes "good" trials which will be used for further analysis.
 
@@ -89,8 +90,8 @@ def compute_mask(
     # get rid of trials where animal does not respond
     mask = mask & (trials_df.choice != 0)
 
-    if kwargs["nb_trials_takeout_end"] > 0:
-        mask[-int(kwargs["nb_trials_takeout_end"]) :] = False
+    if NB_TRIALS_TAKEOUT_END > 0:
+        mask[-int(NB_TRIALS_TAKEOUT_END) :] = False
 
     return mask
 
@@ -109,7 +110,7 @@ def check_settings(settings):
     """
 
     from behavior_models.models import ActionKernel
-    from prior_localization.decoding.functions.process_targets import optimal_Bayesian
+    from prior_localization.functions.process_targets import optimal_Bayesian
 
     # options for decoding targets
     target_options_singlebin = [

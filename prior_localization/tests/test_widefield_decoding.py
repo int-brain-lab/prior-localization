@@ -1,9 +1,7 @@
-import pandas as pd
-import sys
 import pickle
-from prior_localization.decoding.functions.decoding import fit_session
+from prior_localization.functions.decoding import fit_session
 import numpy as np
-from prior_localization.pipelines.wfi_utils import prepare_widefield_data
+from prior_localization.functions.wfi_utils import prepare_widefield_data
 from one.api import ONE
 import brainbox.io.one as bbone
 
@@ -15,7 +13,7 @@ def extract_tested_variables(fit_content):
     return predictions, Rsquareds
 
 # settings and metadata
-from prior_localization.decoding.settings import kwargs
+from prior_localization.settings import kwargs
 kwargs['set_seed_for_DEBUG'] = True
 kwargs['neural_dtype'] = 'widefield'
 kwargs['nb_runs'] = 2
@@ -39,7 +37,7 @@ if build_test:
     # using the source files from Chris caching function for ground truth
     from pathlib import Path
     import glob
-    from prior_localization.pipelines.wfi_utils import load_wfi_session
+    from prior_localization.functions.wfi_utils import load_wfi_session
     WIDE_FIELD_PATH = Path('/Users/csmfindling/Documents/Postdoc-Geneva/IBL/code/prior-localization/prior_pipelines/wide_field_imaging/')
     i_eid = 0
     HEMISPHERES = ['left', 'right']

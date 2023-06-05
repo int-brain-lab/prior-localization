@@ -3,12 +3,14 @@ import tempfile
 import numpy as np
 from pathlib import Path
 
-from prior_localization.decoding.functions.process_motors import preprocess_motors, aggregate_on_timeWindow
+from one.api import ONE
+from prior_localization.functions import preprocess_motors, aggregate_on_timeWindow
 cache_motor_functions = __import__('prior_localization.pipelines.04_cache_motor', fromlist=('prior_localization.pipelines'))
 
 
 class TestMotor(unittest.TestCase):
     def setUp(self) -> None:
+        self.one = ONE()
         self.eid = '56956777-dca5-468c-87cb-78150432cc57'
         self.time_window = [-0.6, -0.1]
         self.fixtures = Path(__file__).parent.joinpath('fixtures')
@@ -23,7 +25,7 @@ class TestMotor(unittest.TestCase):
         self.assertEqual(len(np.array(predicted).shape), 3)
 
     def test_standalone_preprocess(self):
-        regressors = cache_motor_functions.load_motor(self.eid)
+        regressors = cache_motor_functions.load_motor(self.one, self.eid)
         motor_signals_of_interest = ['licking', 'whisking_l', 'whisking_r', 'wheeling', 'nose_pos', 'paw_pos_r', 'paw_pos_l']
         predicted = aggregate_on_timeWindow(regressors, motor_signals_of_interest, self.time_window)
         self.assertIsNone(np.testing.assert_equal(np.array(predicted).squeeze(), self.expected))

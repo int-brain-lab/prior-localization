@@ -1,9 +1,9 @@
 import sys
-from prior_localization.decoding.settings import kwargs, N_PSEUDO_PER_JOB, N_PSEUDO
-from prior_localization.decoding.functions.decoding import fit_session
+from prior_localization.settings import kwargs, N_PSEUDO_PER_JOB, N_PSEUDO
+from prior_localization.functions.decoding import fit_session
 import numpy as np
 from prior_localization.params import CACHE_PATH
-from prior_localization.decoding.functions.utils import load_metadata
+from prior_localization.functions import load_metadata
 import pickle
 
 try:

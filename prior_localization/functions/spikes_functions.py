@@ -4,7 +4,7 @@ from pathlib import Path
 from brainbox.population.decode import get_spike_counts_in_bins
 import one.alf.io as alfio
 from tqdm import tqdm
-from prior_localization.decoding.functions import utils as dut
+from prior_localization.functions import utils as dut
 import brainbox.io.one as bbone
 
 

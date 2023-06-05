@@ -9,14 +9,14 @@ from sklearn.model_selection import KFold, train_test_split
 from sklearn.linear_model import RidgeCV, Ridge, Lasso, LassoCV
 from sklearn.utils.class_weight import compute_sample_weight
 
-from prior_localization.decoding.prepare_data import prepare_ephys, prepare_behavior
-from prior_localization.decoding.functions.neurometric import get_neurometric_parameters
-from prior_localization.decoding.functions.process_motors import preprocess_motors
-from prior_localization.decoding.utils import create_neural_path
-from prior_localization.decoding.settings import (
+from prior_localization.prepare_data import prepare_ephys, prepare_behavior
+from prior_localization.functions.neurometric import get_neurometric_parameters
+from prior_localization.functions.process_motors import preprocess_motors
+from prior_localization.utils import create_neural_path
+from prior_localization.settings import (
     N_RUNS, QUASI_RANDOM, ESTIMATOR, ESTIMATOR_KWARGS, HPARAM_GRID, SAVE_BINNED, SAVE_PREDICTIONS, SHUFFLE,
     BALANCED_WEIGHT, USE_NATIVE_SKLEARN_FOR_HYPERPARAMETER_ESTIMATION, COMPUTE_NEUROMETRIC, COMPUTE_NEURO_ON_EACH_FOLD,
-    MIN_BEHAV_TRIALS, DATE, ADD_TO_PATH, region_defaults
+    MIN_BEHAV_TRIALS, DATE, ADD_TO_PATH, MOTOR_REGRESSORS, MOTOR_REGRESSORS_ONLY, QC_CRITERIA, region_defaults
 )
 
 
@@ -40,17 +40,26 @@ def fit_session_ephys(
         return filenames
 
     # Prepare ephys data
-    neural_binned, actual_regions, n_unitss = prepare_ephys(one, session_id, probe_name, regions, intervals)
+    neural_binned, actual_regions, n_unitss = prepare_ephys(one, session_id, probe_name, regions, intervals,
+                                                            qc=QC_CRITERIA)
     probe_name = 'merged_probes' if isinstance(probe_name, list) else probe_name
+
+    # Optionally add motor regressors
+    if MOTOR_REGRESSORS:
+        motor_binned = preprocess_motors(session_id, time_window)
+        if MOTOR_REGRESSORS_ONLY:
+            neural_binned = motor_binned
+        else:
+            neural_binned = [np.concatenate([n, m], axis=2) for n, m in zip(neural_binned, motor_binned)]
 
     # Fit and save
     for region_binned, region, n_units in zip(neural_binned, actual_regions, n_unitss):
-        if (regions =='all_regions') or (regions in region_defaults.keys()):
+        if (regions == 'all_regions') or (regions in region_defaults.keys()):
             region_str = regions
         else:
             region_str = '_'.join(region)
 
-        fit_results = fit_region(region_binned, mask, pseudo_ids, all_targets, all_trials, neurometrics)
+        fit_results = fit_region(region_binned, mask, pseudo_ids, all_targets, all_trials, all_neurometrics)
 
         # Create output paths and save
         filename = create_neural_path(output_path, DATE, 'ephys', subject, session_id, probe_name,
@@ -76,18 +85,6 @@ def fit_session_widefield(hemisphere):
 
 
 def fit_region(region_binned, mask, pseudo_ids, all_targets, all_trials, all_neurometrics):
-
-    ##### motor signal regressors #####
-    if kwargs.get("motor_regressors", None):
-        print("motor regressors")
-        motor_binned = preprocess_motors(session_id, kwargs)
-        # size (nb_trials,nb_motor_regressors) => one bin per trial
-
-        if kwargs["motor_regressors_only"]:
-            region_binned = motor_binned
-        else:
-            region_binned = np.concatenate([region_binned, motor_binned], axis=2)
-    ##################################
 
     # make feature matrix
     fit_results = []
@@ -116,19 +113,19 @@ def fit_region(region_binned, mask, pseudo_ids, all_targets, all_trials, all_neu
                 use_cv_sklearn_method=USE_NATIVE_SKLEARN_FOR_HYPERPARAMETER_ESTIMATION,
             )
 
-            fit_results["trials_df"] = trials_df
+            fit_result["trials_df"] = trials_df
             fit_result["mask"] = mask if SAVE_PREDICTIONS else None
             fit_result["pseudo_id"] = pseudo_id
             fit_result["run_id"] = i_run
 
             if COMPUTE_NEUROMETRIC:
-                fit_results["full_neurometric"], fit_results["fold_neurometric"] = get_neurometric_parameters(
-                    fit_results, trialsdf=neurometrics[mask.values].reset_index().drop("index", axis=1),
+                fit_result["full_neurometric"], fit_result["fold_neurometric"] = get_neurometric_parameters(
+                    fit_result, trialsdf=neurometrics[mask.values].reset_index().drop("index", axis=1),
                     compute_on_each_fold=COMPUTE_NEURO_ON_EACH_FOLD
                 )
             else:
-                fit_results["full_neurometric"] = None
-                fit_results["fold_neurometric"] = None
+                fit_result["full_neurometric"] = None
+                fit_result["fold_neurometric"] = None
 
             fit_results.append(fit_result)
 
