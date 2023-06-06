@@ -52,7 +52,7 @@ class TestEphysDecoding(unittest.TestCase):
 
     def test_single_probes(self):
         for probe_name in self.probe_names:
-            results_fit_session = fit_session_ephys(self.one, self.eid, self.subject, self.probe_names, self.model,
+            results_fit_session = fit_session_ephys(self.one, self.eid, self.subject, probe_name, self.model,
                                                     self.pseudo_ids, 'pLeft', 'stimOn_times', [-0.6, -0.1],
                                                     Path(self.tmp_dir.name), 'single_regions', integration_test=True
                                                     )

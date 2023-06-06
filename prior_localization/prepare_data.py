@@ -132,12 +132,12 @@ def prepare_ephys(one, session_id, probe_name, regions, intervals, qc=1, min_uni
             print(f"{'_'.join(region)} below min units threshold ({min_units}) : {sum(region_mask)}, not decoding")
         else:
             # find all spikes in those clusters
-            spike_mask = np.isin(spikes['clusters'], clusters[region_mask]['cluster_id'])
-            n_units.append(sum(region_mask))
+            spike_mask = np.isin(spikes['clusters'], clusters[region_mask].index)
             binned, _ = get_spike_counts_in_bins(spikes['times'][spike_mask], spikes['clusters'][spike_mask], intervals)
             binned = binned.T  # binned is a 2D array
             binned_spikes.append([x[None, :] for x in binned])
             actual_regions.append(region)
+            n_units.append(sum(region_mask))
     return binned_spikes, actual_regions, n_units
 
 
