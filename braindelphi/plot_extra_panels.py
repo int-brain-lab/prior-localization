@@ -253,14 +253,14 @@ targs_alltrials = np.squeeze(xy_vals['targets'])
 assert targs_alltrials.shape[0] == len(movetimes)
 trials = np.arange(len(mask))[[m==1 for m in mask]]
 
-fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4, figsize=(16,6))
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(9,6))
 fig.suptitle(f"session: {eid} \n region: {acronym2name(region)} ({region}) \n $R^2$ = {er_vals['score']:.3f} (average across 2 models)")
 LW = 3
-YMIN, YMAX = -0.9, 8.75
+YMIN, YMAX = -1, 8.1
 
-t = 0
+t = 113
 targs, preds, movetime, trial = targs_alltrials[t,:], preds_alltrials[t,:], movetimes[t], trials[t]
-ax1.set_title(f'Trial {trial}')
+ax1.set_title(f'Trial {trial+1}')
 ax1.plot((np.arange(len(targs))-10)*0.02 + movetime, targs, 'k', lw=LW)
 ax1.plot((np.arange(len(targs))-10)*0.02 + movetime, preds, 'r', lw=LW)
 ax1.plot(np.zeros(50)+movetime, np.linspace(YMIN, YMAX), 'k--', lw=LW*0.5)
@@ -272,9 +272,9 @@ ax1.set_xticks([movetime, movetime+0.7],
 ax1.set_xlabel(' ')
 ax1.spines[['top','right']].set_visible(False)
 
-t = 173
+t = 216
 targs, preds, movetime, trial = targs_alltrials[t,:], preds_alltrials[t,:], movetimes[t], trials[t]
-ax2.set_title(f'Trial {trial}')
+ax2.set_title(f'Trial {trial+1}')
 ax2.plot((np.arange(len(targs))-10)*0.02 + movetime, targs, 'k', lw=LW)
 ax2.plot((np.arange(len(targs))-10)*0.02 + movetime, preds, 'r', lw=LW)
 ax2.plot(np.zeros(50)+movetime, np.linspace(YMIN, YMAX), 'k--',lw=LW*0.5)
@@ -283,30 +283,6 @@ ax2.set_yticklabels([])
 ax2.set_xticks([movetime, movetime+0.7],
                [f'{movetime:.2f}', f'{movetime+0.7:.2f}'])
 ax2.spines[['top','right']].set_visible(False)
-
-t = 342
-targs, preds, movetime, trial = targs_alltrials[t,:], preds_alltrials[t,:], movetimes[t], trials[t]
-ax3.set_title(f'Trial {trial}')
-ax3.plot((np.arange(len(targs))-10)*0.02 + movetime, targs, 'k', lw=LW)
-ax3.plot((np.arange(len(targs))-10)*0.02 + movetime, preds, 'r', lw=LW)
-ax3.plot(np.zeros(50)+movetime, np.linspace(YMIN, YMAX), 'k--', lw=LW*0.5)
-ax3.set_ylim(YMIN,YMAX)
-ax3.set_yticklabels([])
-ax3.set_xticks([movetime, movetime+0.7],
-               [f'{movetime:.2f}', f'{movetime+0.7:.2f}'])
-ax3.spines[['top','right']].set_visible(False)
-
-t = 506
-targs, preds, movetime, trial = targs_alltrials[t,:], preds_alltrials[t,:], movetimes[t], trials[t]
-ax4.set_title(f'Trial {trial}')
-ax4.plot((np.arange(len(targs))-10)*0.02 + movetime, targs, 'k', lw=LW)
-ax4.plot((np.arange(len(targs))-10)*0.02 + movetime, preds, 'r', lw=LW)
-ax4.plot(np.zeros(50)+movetime, np.linspace(YMIN, YMAX), 'k--', lw=LW*0.5)
-ax4.set_ylim(YMIN,YMAX)
-ax4.set_yticklabels([])
-ax4.set_xticks([movetime, movetime+0.7],
-               [f'{movetime:.2f}', f'{movetime+0.7:.2f}'])
-ax4.spines[['top','right']].set_visible(False)
 
 fig.text(.5, 0.04, 'Time (s)', ha='center')
 fig.legend(['Actual wheel-speed', 'Predicted wheel-speed \n(average across 2 models)', 'Movement onset'],
@@ -338,14 +314,14 @@ targs_alltrials = np.squeeze(xy_vals['targets'])
 assert targs_alltrials.shape[0] == len(movetimes)
 trials = np.arange(len(mask))[[m==1 for m in mask]]
 
-fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4, figsize=(16,6))
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(9,6))
 fig.suptitle(f"session: {eid} \n region: {acronym2name(region)} ({region}) \n $R^2$ = {er_vals['score']:.3f} (average across 2 models)")
 LW = 3
-YMIN, YMAX = -4.1, 4.1
+YMIN, YMAX = -8.1, 8.1
 
-t = 0
+t = 113
 targs, preds, movetime, trial = targs_alltrials[t,:], preds_alltrials[t,:], movetimes[t], trials[t]
-ax1.set_title(f'Trial {trial}')
+ax1.set_title(f'Trial {trial+1}')
 ax1.plot((np.arange(len(targs))-10)*0.02 + movetime, targs, 'k', lw=LW)
 ax1.plot((np.arange(len(targs))-10)*0.02 + movetime, preds, 'r', lw=LW)
 ax1.plot(np.zeros(50)+movetime, np.linspace(YMIN, YMAX), 'k--', lw=LW*0.5)
@@ -357,9 +333,9 @@ ax1.set_xticks([movetime, movetime+0.7],
 ax1.set_xlabel(' ')
 ax1.spines[['top','right']].set_visible(False)
 
-t = 173
+t = 216
 targs, preds, movetime, trial = targs_alltrials[t,:], preds_alltrials[t,:], movetimes[t], trials[t]
-ax2.set_title(f'Trial {trial}')
+ax2.set_title(f'Trial {trial+1}')
 ax2.plot((np.arange(len(targs))-10)*0.02 + movetime, targs, 'k', lw=LW)
 ax2.plot((np.arange(len(targs))-10)*0.02 + movetime, preds, 'r', lw=LW)
 ax2.plot(np.zeros(50)+movetime, np.linspace(YMIN, YMAX), 'k--',lw=LW*0.5)
@@ -369,29 +345,6 @@ ax2.set_xticks([movetime, movetime+0.7],
                [f'{movetime:.2f}', f'{movetime+0.7:.2f}'])
 ax2.spines[['top','right']].set_visible(False)
 
-t = 342
-targs, preds, movetime, trial = targs_alltrials[t,:], preds_alltrials[t,:], movetimes[t], trials[t]
-ax3.set_title(f'Trial {trial}')
-ax3.plot((np.arange(len(targs))-10)*0.02 + movetime, targs, 'k', lw=LW)
-ax3.plot((np.arange(len(targs))-10)*0.02 + movetime, preds, 'r', lw=LW)
-ax3.plot(np.zeros(50)+movetime, np.linspace(YMIN, YMAX), 'k--', lw=LW*0.5)
-ax3.set_ylim(YMIN,YMAX)
-ax3.set_yticklabels([])
-ax3.set_xticks([movetime, movetime+0.7],
-               [f'{movetime:.2f}', f'{movetime+0.7:.2f}'])
-ax3.spines[['top','right']].set_visible(False)
-
-t = 506
-targs, preds, movetime, trial = targs_alltrials[t,:], preds_alltrials[t,:], movetimes[t], trials[t]
-ax4.set_title(f'Trial {trial}')
-ax4.plot((np.arange(len(targs))-10)*0.02 + movetime, targs, 'k', lw=LW)
-ax4.plot((np.arange(len(targs))-10)*0.02 + movetime, preds, 'r', lw=LW)
-ax4.plot(np.zeros(50)+movetime, np.linspace(YMIN, YMAX), 'k--', lw=LW*0.5)
-ax4.set_ylim(YMIN,YMAX)
-ax4.set_yticklabels([])
-ax4.set_xticks([movetime, movetime+0.7],
-               [f'{movetime:.2f}', f'{movetime+0.7:.2f}'])
-ax4.spines[['top','right']].set_visible(False)
 
 fig.text(.5, 0.04, 'Time (s)', ha='center')
 fig.legend(['Actual wheel velocity', 'Predicted wheel velocity \n(average across 2 models)', 'Movement onset'],
