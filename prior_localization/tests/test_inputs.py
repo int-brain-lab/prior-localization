@@ -26,7 +26,7 @@ class TestEphysInput(unittest.TestCase):
             if region[0] == 'VPM':
                 continue
             expected = np.load(self.fixtures_dir.joinpath(f'merged_{region[0]}_ephys_in.npy'))
-            np.all(np.asarray(spikes).squeeze() == expected)
+            self.assertTrue(np.all(np.asarray(spikes).squeeze() == expected))
 
     def test_prepare_ephys_single(self):
         for probe_name in self.probe_names:
@@ -36,7 +36,7 @@ class TestEphysInput(unittest.TestCase):
                 if region[0] == 'VPM':
                     continue
                 expected = np.load(self.fixtures_dir.joinpath(f'{probe_name}_{region[0]}_ephys_in.npy'))
-                np.all(np.asarray(spikes).squeeze() == expected)
+                self.assertTrue(np.all(np.asarray(spikes).squeeze() == expected))
 
 
 class TestBehaviorInputs(unittest.TestCase):
@@ -48,7 +48,14 @@ class TestBehaviorInputs(unittest.TestCase):
         self.temp_dir = tempfile.TemporaryDirectory()
 
     def test_with_pseudo(self):
-        all_trials, all_targets, all_neurometrics, mask, intervals = prepare_behavior(
+        _, all_targets, _, _, _ = prepare_behavior(
             self.one, self.eid, self.subject, Path(self.temp_dir.name), model=optimal_Bayesian,
             pseudo_ids=np.concatenate((-np.ones(1), np.arange(1, 3))).astype('int64'),
             target='pLeft', align_event='stimOn_times', time_window=(-0.6, -0.1))
+        expected_orig = np.load(Path(__file__).parent.joinpath('fixtures', 'behav_target.npy'))
+        expected_1 = np.load(Path(__file__).parent.joinpath('fixtures', 'behav_target_pseudo_merged_BMA_1.npy'))
+        expected_2 = np.load(Path(__file__).parent.joinpath('fixtures', 'behav_target_pseudo_merged_BMA_2.npy'))
+
+        self.assertTrue(np.all(all_targets[0] == expected_orig))
+        self.AssertTrue(np.all(all_targets[1] == expected_1))
+        self.AssertTrue(np.all(all_targets[2] == expected_2))
