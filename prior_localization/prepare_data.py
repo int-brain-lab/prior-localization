@@ -50,7 +50,7 @@ def prepare_behavior(
     mask = compute_mask(sl.trials, align_event, time_window, min_len=MIN_LEN,
                         max_len=MAX_LEN, no_unbias=NO_UNBIAS, min_rt=MIN_RT, max_rt=MAX_RT) & mask_target
 
-    # get bin neural data for desired set of regions
+    # get intervals
     intervals = np.vstack([
         sl.trials[align_event] + time_window[0],
         sl.trials[align_event] + time_window[1]
