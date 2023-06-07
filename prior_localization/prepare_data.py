@@ -19,8 +19,12 @@ from prior_localization.functions.neurometric import compute_neurometric_prior
 
 def prepare_behavior(
         one, session_id, subject, output_path, model=None, pseudo_ids=-1,
-        target='pLeft', align_event='stimOn_times', time_window=(-0.6, -0.1), stage_only=False
+        target='pLeft', align_event='stimOn_times', time_window=(-0.6, -0.1), stage_only=False, integration_test=False
 ):
+    # If we run integration tests, we want to have reproducible results
+    if integration_test:
+        np.random.seed(0)
+
     # Checks on pseudo ids
     if 0 in pseudo_ids:
         raise ValueError("pseudo id can only be -1 (actual session) or strictly greater than 0 (pseudo session)")
