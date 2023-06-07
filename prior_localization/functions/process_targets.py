@@ -150,7 +150,7 @@ def compute_beh_target(trials_df, session_id, subject, model, target, behavior_p
         signal = optimal_Bayesian(act, side)
         return signal.numpy().squeeze()
 
-    if ((not istrained) and (target != 'signcont') and (model is not None)):
+    if (not istrained) and (target != 'signcont') and (model is not None):
         side, stim, act, _ = format_data(trials_df)
         stimuli, actions, stim_side = format_input(stim, act, side)
         model = kwargs['model'](kwargs['behfit_path'], session_id, subject,

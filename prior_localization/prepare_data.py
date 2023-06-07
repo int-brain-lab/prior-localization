@@ -19,11 +19,8 @@ from prior_localization.functions.neurometric import compute_neurometric_prior
 
 def prepare_behavior(
         one, session_id, subject, output_path, model=None, pseudo_ids=-1,
-        target='pLeft', align_event='stimOn_times', time_window=(-0.6, -0.1), stage_only=False, integration_test=False
+        target='pLeft', align_event='stimOn_times', time_window=(-0.6, -0.1), stage_only=False,
 ):
-    # If we run integration tests, we want to have reproducible results
-    if integration_test:
-        np.random.seed(0)
 
     # Checks on pseudo ids
     if 0 in pseudo_ids:
@@ -54,6 +51,7 @@ def prepare_behavior(
     mask = compute_mask(sl.trials, align_event, time_window, min_len=MIN_LEN,
                         max_len=MAX_LEN, no_unbias=NO_UNBIAS, min_rt=MIN_RT, max_rt=MAX_RT) & mask_target
 
+    # TODO: skip sessions from here if there are not enough trials in the mask
     # get intervals
     intervals = np.vstack([
         sl.trials[align_event] + time_window[0],

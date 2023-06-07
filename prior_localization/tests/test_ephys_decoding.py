@@ -22,7 +22,7 @@ class TestEphysDecoding(unittest.TestCase):
         self.qc = 1
         self.subject = self.one.eid2ref(self.eid)['subject']
         self.model = optimal_Bayesian
-        self.pseudo_ids = np.concatenate((-np.ones(1), np.arange(1, 3))).astype('int64')
+        self.pseudo_ids = [-1, 1, 2]
         self.tmp_dir = tempfile.TemporaryDirectory()
         self.fixtures_dir = Path(__file__).parent.joinpath('fixtures')
 
