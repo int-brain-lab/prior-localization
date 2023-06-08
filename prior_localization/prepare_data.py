@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 
 from ibllib.atlas import BrainRegions
 from brainbox.population.decode import get_spike_counts_in_bins
@@ -13,21 +12,15 @@ from prior_localization.functions.process_motors import compute_motor_prediction
 from prior_localization.functions.utils import compute_mask, derivative
 from prior_localization.utils import check_bhv_fit_exists
 from prior_localization.functions.nulldistributions import generate_null_distribution_session
-from prior_localization.settings import COMPUTE_NEUROMETRIC, DECODE_DERIVATIVE, MOTOR_RESIDUAL, MIN_LEN, MAX_LEN, MIN_RT, MAX_RT, NO_UNBIAS
+from prior_localization.settings import COMPUTE_NEUROMETRIC, DECODE_DERIVATIVE, MOTOR_RESIDUAL, MIN_LEN, \
+    MAX_LEN, MIN_RT, MAX_RT, NO_UNBIAS, MIN_BEHAV_TRIALS
 from prior_localization.functions.neurometric import compute_neurometric_prior
 
 
 def prepare_behavior(
-        one, session_id, subject, output_path, model=None, pseudo_ids=-1,
-        target='pLeft', align_event='stimOn_times', time_window=(-0.6, -0.1), stage_only=False,
+        one, session_id, subject, output_path, model=None, target='pLeft', align_event='stimOn_times',
+        time_window=(-0.6, -0.1), stage_only=False,
 ):
-
-    # Checks on pseudo ids
-    if 0 in pseudo_ids:
-        raise ValueError("pseudo id can only be -1 (actual session) or strictly greater than 0 (pseudo session)")
-    if not np.all(np.sort(pseudo_ids) == pseudo_ids):
-        raise ValueError("pseudo_ids must be sorted")
-
     # Load trials
     sl = SessionLoader(one, session_id)
     sl.load_trials()
@@ -50,49 +43,68 @@ def prepare_behavior(
     mask_target = np.ones(len(behavior_targets), dtype=bool)
     mask = compute_mask(sl.trials, align_event, time_window, min_len=MIN_LEN,
                         max_len=MAX_LEN, no_unbias=NO_UNBIAS, min_rt=MIN_RT, max_rt=MAX_RT) & mask_target
+    if sum(mask) <= MIN_BEHAV_TRIALS:
+        print(f"Session contains {sum(mask)} trials, below the threshold of {MIN_BEHAV_TRIALS}. Skipping.")
+        return None, None, None, None, None
 
-    # TODO: skip sessions from here if there are not enough trials in the mask
-    # get intervals
     intervals = np.vstack([
         sl.trials[align_event] + time_window[0],
         sl.trials[align_event] + time_window[1]
     ]).T
-
-    all_trials = []
-    all_targets = []
-    # Prepare pseudo sessions if necessary
-    for pseudo_id in pseudo_ids:
-        # This is the actual session
-        if pseudo_id == -1:
-            all_trials.append(sl.trials)
-            all_targets.append(behavior_targets)
-        else:
-            control_trials = generate_null_distribution_session(sl.trials, session_id, subject, model, behavior_path)
-            control_targets = compute_beh_target(control_trials, session_id, subject, model, target, behavior_path)
-            all_trials.append(control_trials)
-            all_targets.append(control_targets)
-
-    # Compute prior for neurometric if indicated
-    if COMPUTE_NEUROMETRIC:
-        all_neurometrics = []
-        for trials_df in all_trials:
-            all_neurometrics.append(
-                compute_neurometric_prior(trials_df.reset_index(), session_id, subject, model, behavior_path)
-            )
-    else:
-        all_neurometrics = [None] * len(all_trials)
-
-    # Derivative of target signal if indicated
     if DECODE_DERIVATIVE:
-        all_targets = [derivative(behavior_targets) for behavior_targets in all_targets]
-
-    # Replace target signal by residual of motor prediction if indicated
+        behavior_targets = derivative(behavior_targets)
     if MOTOR_RESIDUAL:
-        motor_predictions = [compute_motor_prediction(session_id, behavior_targets, time_window)
-                             for behavior_targets in all_targets]
-        all_targets = [b - m for b, m in zip(all_targets, motor_predictions)]
+        motor_predictions = compute_motor_prediction(session_id, behavior_targets, time_window)
+        behavior_targets = behavior_targets - motor_predictions
 
-    return all_trials, all_targets, all_neurometrics, mask, intervals
+    if COMPUTE_NEUROMETRIC:
+        neurometrics = compute_neurometric_prior(sl.trials.reset_index(), session_id, subject, model, behavior_path)
+        neurometrics = neurometrics[mask.values].reset_index().drop("index", axis=1)
+        return sl.trials, behavior_targets[mask], mask, intervals, neurometrics
+    else:
+        return sl.trials, behavior_targets[mask], mask, intervals, None
+
+#def prepare_pseudo_sessions():
+    # # Checks on pseudo ids
+    # if 0 in pseudo_ids:
+    #     raise ValueError("pseudo id can only be -1 (actual session) or strictly greater than 0 (pseudo session)")
+    # if not np.all(np.sort(pseudo_ids) == pseudo_ids):
+    #     raise ValueError("pseudo_ids must be sorted")
+    # all_trials = []
+    # all_targets = []
+    # # Prepare pseudo sessions if necessary
+    # for pseudo_id in pseudo_ids:
+    #     # This is the actual session
+    #     if pseudo_id == -1:
+    #         all_trials.append(sl.trials)
+    #         all_targets.append(behavior_targets)
+    #     else:
+    #         control_trials = generate_null_distribution_session(sl.trials, session_id, subject, model, behavior_path)
+    #         control_targets = compute_beh_target(control_trials, session_id, subject, model, target, behavior_path)
+    #         all_trials.append(control_trials)
+    #         all_targets.append(control_targets)
+    #
+    # # Compute prior for neurometric if indicated
+    # if COMPUTE_NEUROMETRIC:
+    #     all_neurometrics = []
+    #     for trials_df in all_trials:
+    #         all_neurometrics.append(
+    #             compute_neurometric_prior(trials_df.reset_index(), session_id, subject, model, behavior_path)
+    #         )
+    # else:
+    #     all_neurometrics = [None] * len(all_trials)
+    #
+    # # Derivative of target signal if indicated
+    # if DECODE_DERIVATIVE:
+    #     all_targets = [derivative(behavior_targets) for behavior_targets in all_targets]
+    #
+    # # Replace target signal by residual of motor prediction if indicated
+    # if MOTOR_RESIDUAL:
+    #     motor_predictions = [compute_motor_prediction(session_id, behavior_targets, time_window)
+    #                          for behavior_targets in all_targets]
+    #     all_targets = [b - m for b, m in zip(all_targets, motor_predictions)]
+    #
+    # return all_trials, all_targets, all_neurometrics, mask, intervals
 
 
 def prepare_ephys(one, session_id, probe_name, regions, intervals, qc=1, min_units=10, stage_only=False):
@@ -125,7 +137,6 @@ def prepare_ephys(one, session_id, probe_name, regions, intervals, qc=1, min_uni
         pass
 
     binned_spikes = []
-    n_units = []
     actual_regions = []
     for region in regions:
         # find all clusters in region (where region can be a list of regions)
@@ -136,11 +147,9 @@ def prepare_ephys(one, session_id, probe_name, regions, intervals, qc=1, min_uni
             # find all spikes in those clusters
             spike_mask = np.isin(spikes['clusters'], clusters[region_mask].index)
             binned, _ = get_spike_counts_in_bins(spikes['times'][spike_mask], spikes['clusters'][spike_mask], intervals)
-            binned = binned.T  # binned is a 2D array
-            binned_spikes.append([x[None, :] for x in binned])
+            binned_spikes.append(binned.T)
             actual_regions.append(region)
-            n_units.append(sum(region_mask))
-    return binned_spikes, actual_regions, n_units
+    return binned_spikes, actual_regions
 
 
 def prepare_motor():
