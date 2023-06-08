@@ -100,10 +100,6 @@ def fit_eid(neural_dict, trials_df, metadata, pseudo_ids=[-1], **kwargs):
         add_to_saving_path : str
             additional string to append to filenames
     """
-    #############################################################################
-    if kwargs['set_seed_for_DEBUG']:
-        np.random.seed(0) # setting seed for refactoring purpose <- NOT MEANT TO STAY
-    #############################################################################
 
     print(f"Working on eid : %s" % metadata["eid"])
     filenames = []  # this will contain paths to saved decoding results for this eid
@@ -271,6 +267,8 @@ def fit_eid(neural_dict, trials_df, metadata, pseudo_ids=[-1], **kwargs):
 
             # create pseudo session when necessary
             if pseudo_id > 0:
+                if kwargs['set_seed_for_DEBUG']:
+                    np.random.seed(pseudo_id)
                 controlsess_df = generate_null_distribution_session(
                     trials_df, metadata, **kwargs
                 )
@@ -322,11 +320,8 @@ def fit_eid(neural_dict, trials_df, metadata, pseudo_ids=[-1], **kwargs):
             # run decoders
             for i_run in range(kwargs["nb_runs"]):
 
-                if kwargs["quasi_random"]:
-                    if pseudo_id == -1:
-                        rng_seed = i_run
-                    else:
-                        rng_seed = pseudo_id * kwargs["nb_runs"] + i_run
+                if kwargs["set_seed_for_DEBUG"]:
+                    rng_seed = i_run
                 else:
                     rng_seed = None
 
