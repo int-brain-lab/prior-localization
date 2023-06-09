@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 from pathlib import Path
 
@@ -8,13 +9,15 @@ from brainwidemap.bwm_loading import load_good_units, merge_probes
 from behavior_models.utils import format_data, format_input
 
 from prior_localization.settings import region_defaults, modeldispatcher
-from prior_localization.functions.process_targets import optimal_Bayesian, compute_beh_target
+from prior_localization.functions.behavior_targets import optimal_Bayesian, compute_beh_target
 from prior_localization.functions.process_motors import compute_motor_prediction
-from prior_localization.functions.utils import compute_mask, derivative
-from prior_localization.utils import check_bhv_fit_exists
+from prior_localization.functions.utils import compute_mask, derivative, check_bhv_fit_exists
 from prior_localization.functions.nulldistributions import generate_null_distribution_session
-from prior_localization.settings import COMPUTE_NEUROMETRIC, DECODE_DERIVATIVE, MOTOR_RESIDUAL, MIN_BEHAV_TRIALS
 from prior_localization.functions.neurometric import compute_neurometric_prior
+
+from prior_localization.settings import COMPUTE_NEUROMETRIC, DECODE_DERIVATIVE, MOTOR_RESIDUAL, MIN_BEHAV_TRIALS
+
+logger = logging.getLogger('prior_localization')
 
 
 def prepare_behavior(
@@ -27,8 +30,14 @@ def prepare_behavior(
     # Load trials
     sl = SessionLoader(one, session_id)
     sl.load_trials()
+
+    # Compute trials mask and intervals from original trials
+    trials_mask = compute_mask(sl.trials, align_time=align_event, time_window=time_window)
+    intervals = np.vstack([sl.trials[align_event] + time_window[0], sl.trials[align_event] + time_window[1]]).T
+    if sum(trials_mask) <= MIN_BEHAV_TRIALS:
+        raise ValueError(f"Session {session_id} has {sum(trials_mask)} good trials, less than {MIN_BEHAV_TRIALS}.")
     if stage_only:
-        return
+        return None, None, trials_mask, intervals, None
 
     behavior_path = output_dir.joinpath('behavior') if output_dir else Path.cwd().joinpath('behavior')
     # Train model if not trained already, optimal Bayesian and oracle (None) don't need to be trained
@@ -41,12 +50,6 @@ def prepare_behavior(
         )
         if not istrained:
             behavior_model.load_or_train(remove_old=False)
-
-    # Compute trials mask and intervals from original trials
-    trials_mask = compute_mask(sl.trials, align_time=align_event, time_window=time_window)
-    intervals = np.vstack([sl.trials[align_event] + time_window[0], sl.trials[align_event] + time_window[1]]).T
-    if sum(trials_mask) <= MIN_BEHAV_TRIALS:
-        return None, None, None, None, None
 
     all_targets = []
     all_trials = []
@@ -79,9 +82,9 @@ def prepare_behavior(
             neurometrics = compute_neurometric_prior(all_trials[i], session_id, subject, model, behavior_path)
             all_neurometrics.append(neurometrics[trials_mask].reset_index(drop=True))
     else:
-        all_neurometrics = [None] * len(pseudo_ids)
+        all_neurometrics = None
 
-    return all_trials, all_targets, all_neurometrics, trials_mask, intervals
+    return all_trials, all_targets, trials_mask, intervals, all_neurometrics
 
 
 def prepare_ephys(one, session_id, probe_name, regions, intervals, qc=1, min_units=10, stage_only=False):
@@ -96,7 +99,7 @@ def prepare_ephys(one, session_id, probe_name, regions, intervals, qc=1, min_uni
 
     # This allows us to just stage the data without running the analysis, we can then switch ONE in local mode
     if stage_only:
-        return
+        return None, None
 
     # Prepare list of brain regions
     brainreg = BrainRegions()

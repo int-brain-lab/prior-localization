@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import brainbox.behavior.pyschofit as pfit
-from prior_localization.functions.process_targets import compute_beh_target
+from prior_localization.functions.behavior_targets import compute_beh_target
 from prior_localization.settings import BORDER_QUANTILES_NEUROMETRIC
 
 

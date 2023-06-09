@@ -5,7 +5,7 @@ import numpy as np
 
 from one.api import ONE
 from prior_localization.prepare_data import prepare_ephys, prepare_behavior
-from prior_localization.functions.process_targets import optimal_Bayesian
+from prior_localization.functions.behavior_targets import optimal_Bayesian
 from prior_localization.functions.process_motors import preprocess_motors, aggregate_on_timeWindow
 cache_motor_functions = __import__('prior_localization.pipelines.04_cache_motor', fromlist=('prior_localization.pipelines'))
 

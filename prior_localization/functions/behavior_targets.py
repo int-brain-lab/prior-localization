@@ -4,7 +4,7 @@ import torch
 from behavior_models.utils import format_data
 from behavior_models.utils import format_input
 
-from prior_localization.utils import check_bhv_fit_exists
+from prior_localization.functions.utils import check_bhv_fit_exists
 from behavior_models.models import ActionKernel, StimulusKernel
 
 

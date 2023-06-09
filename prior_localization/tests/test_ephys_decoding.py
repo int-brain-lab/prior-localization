@@ -6,7 +6,7 @@ import numpy as np
 
 from one.api import ONE
 from brainbox.io.one import SessionLoader
-from prior_localization.functions.process_targets import optimal_Bayesian
+from prior_localization.functions.behavior_targets import optimal_Bayesian
 from prior_localization.functions.decoding import fit_session_ephys
 
 
@@ -57,6 +57,13 @@ class TestEphysDecoding(unittest.TestCase):
                                                     Path(self.tmp_dir.name), 'single_regions', integration_test=True
                                                     )
             self.compare_target_test(results_fit_session, probe_name)
+
+    def test_stage_only(self):
+        results_fit_session = fit_session_ephys(self.one, self.eid, self.subject, self.probe_names, self.model,
+                                                output_dir=Path(self.tmp_dir.name), stage_only=True,
+                                                integration_test=True
+                                                )
+        self.assertIsNone(results_fit_session)
 
     def tearDown(self) -> None:
         self.tmp_dir.cleanup()

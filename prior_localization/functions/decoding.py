@@ -13,7 +13,7 @@ from sklearn.utils.class_weight import compute_sample_weight
 from prior_localization.prepare_data import prepare_ephys, prepare_behavior
 from prior_localization.functions.neurometric import get_neurometric_parameters
 from prior_localization.functions.process_motors import preprocess_motors
-from prior_localization.utils import create_neural_path
+from prior_localization.functions.utils import create_neural_path
 from prior_localization.settings import (
     N_RUNS, ESTIMATOR, ESTIMATOR_KWARGS, HPARAM_GRID, SAVE_BINNED, SAVE_PREDICTIONS, SHUFFLE,
     BALANCED_WEIGHT, USE_NATIVE_SKLEARN_FOR_HYPERPARAMETER_ESTIMATION, COMPUTE_NEURO_ON_EACH_FOLD,
@@ -21,56 +21,59 @@ from prior_localization.settings import (
 )
 from prior_localization.settings import region_defaults
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('prior_localization')
 
 
-def fit_session_ephys(
-        one, session_id, subject, probe_name, model=None, pseudo_ids=None, target='pLeft', align_event='stimOn_times',
-        time_window=(-0.6, -0.1), output_dir=None, regions='single_regions', stage_only=False, integration_test=False
-):
-    """Fit a single session for ephys data."""
+def fit_session_ephys(one, session_id, subject, probe_name, model=None, pseudo_ids=None, target='pLeft',
+                      align_event='stimOn_times', time_window=(-0.6, -0.1), output_dir=None, regions='single_regions',
+                      stage_only=False, integration_test=False):
+    """
+    Fit a single session for ephys data.
+    """
 
     # Check some inputs
     if output_dir is None:
         output_dir = Path.cwd()
         logger.info(f"No output directory specified, setting to current working directory {Path.cwd()}")
+
     pseudo_ids = [-1] if not pseudo_ids else pseudo_ids
     if 0 in pseudo_ids:
-        raise ValueError("pseudo id can only be -1/None (actual session) or strictly greater than 0 (pseudo session)")
+        raise ValueError("pseudo id can only be -1 (None, actual session) or strictly greater than 0 (pseudo session)")
     if not np.all(np.sort(pseudo_ids) == pseudo_ids):
         raise ValueError("pseudo_ids must be sorted")
 
-    # Collect filenames as outputs
-    filenames = []
-
     # Compute or load behavior targets
-    all_trials, all_targets, all_neurometrics, trials_mask, intervals = prepare_behavior(
-        one, session_id, subject, pseudo_ids=pseudo_ids, output_dir=output_dir, model=model, target=target,
-        align_event=align_event, time_window=time_window, stage_only=stage_only, integration_test=integration_test)
-    if all_trials is None:
-        logging.warning(f"Session {session_id} contains too few good trials ({sum(trials_mask)}). Skipping.")
-        return filenames
+    try:
+        all_trials, all_targets, trials_mask, intervals, all_neurometrics  = prepare_behavior(
+            one, session_id, subject, pseudo_ids=pseudo_ids, output_dir=output_dir, model=model, target=target,
+            align_event=align_event, time_window=time_window, stage_only=stage_only, integration_test=integration_test)
+    except ValueError as e:
+        logger.warning(e)
+        return
 
-    # Prepare ephys data
-    neural_binned, actual_regions = prepare_ephys(one, session_id, probe_name, regions, intervals,
-                                                  qc=QC_CRITERIA, min_units=MIN_UNITS)
-    probe_name = 'merged_probes' if isinstance(probe_name, list) else probe_name
-
-    # Optionally add motor regressors
+    # Prepare motor data as necessary
     if MOTOR_REGRESSORS:
         motor_binned = preprocess_motors(session_id, time_window)
-        if MOTOR_REGRESSORS_ONLY:
-            neural_binned = motor_binned
-        else:
+    if MOTOR_REGRESSORS_ONLY:
+        neural_binned = motor_binned
+    else:
+        # Prepare ephys data
+        neural_binned, actual_regions = prepare_ephys(one, session_id, probe_name, regions, intervals,
+                                                      qc=QC_CRITERIA, min_units=MIN_UNITS, stage_only=stage_only)
+        if MOTOR_REGRESSORS and not MOTOR_REGRESSORS_ONLY and not stage_only:
             neural_binned = [np.concatenate([n, m], axis=2) for n, m in zip(neural_binned, motor_binned)]
 
-    # Fit per region
+    probe_name = 'merged_probes' if isinstance(probe_name, list) else probe_name
+
+    # If we are only staging data, we are done here
+    if stage_only:
+        return
+
+    # Otherwise fit per region
+    filenames = []
     for region_binned, region in zip(neural_binned, actual_regions):
         # Create a string for saving the file
-        if (regions == 'all_regions') or (regions in region_defaults.keys()):
-            region_str = regions
-        else:
-            region_str = '_'.join(region)
+        region_str = regions if (regions == 'all_regions') or (regions in region_defaults.keys()) else '_'.join(region)
 
         # Fit
         fit_results = fit_region(region_binned[trials_mask], all_targets, all_trials, all_neurometrics, pseudo_ids,
@@ -103,9 +106,33 @@ def fit_session_widefield(hemisphere):
     pass
 
 
-def fit_region(neural_data, all_targets, all_trials, all_neurometrics, pseudo_ids, integration_test):
+def fit_region(neural_data, all_targets, all_trials, all_neurometrics=None, pseudo_ids=None, integration_test=False):
+    """
+    Fit neural data from a single region to list of behavior targets.
+
+    Parameters
+    ----------
+    neural_data : list of np.ndarray
+        List of neural data, each element is a (n_trials, n_units) array with the averaged neural activity
+    all_targets : list of np.ndarray
+        List of behavior targets, each element is a (n_trials,) array with the behavior targets for one (pseudo)session
+    all_trials : list of pd.DataFrames
+        List of trial information, each element is a pd.DataFrame with the trial information for one (pseudo)session
+    all_neurometrics : list of pd.DataFrames or None
+        List of neurometrics, each element is a pd.DataFrame with the neurometrics for one (pseudo)session.
+        If None, don't compute neurometrics. Default is None
+    pseudo_ids : list of int or None
+        List of pseudo session ids, -1 indicates the actual session. If None, run only on actual session.
+        Default is None.
+    integration_test : bool
+        Whether to run in integration test mode with fixed random seeds. Default is False.
+    """
 
     # Loop over (pseudo) sessions and then over runs
+    if not pseudo_ids:
+        pseudo_ids = [-1]
+    if not all_neurometrics:
+        all_neurometrics = [None] * len(all_targets)
     fit_results = []
     for targets, trials, neurometrics, pseudo_id in zip(all_targets, all_trials, all_neurometrics, pseudo_ids):
         # run decoders
@@ -129,7 +156,7 @@ def fit_region(neural_data, all_targets, all_trials, all_neurometrics, pseudo_id
             fit_result["pseudo_id"] = pseudo_id
             fit_result["run_id"] = i_run
 
-            if COMPUTE_NEUROMETRIC:
+            if neurometrics:
                 fit_result["full_neurometric"], fit_result["fold_neurometric"] = get_neurometric_parameters(
                     fit_result, trialsdf=neurometrics, compute_on_each_fold=COMPUTE_NEURO_ON_EACH_FOLD
                 )
@@ -142,24 +169,11 @@ def fit_region(neural_data, all_targets, all_trials, all_neurometrics, pseudo_id
     return fit_results
 
 
-def decode_cv(
-    ys,
-    Xs,
-    estimator,
-    estimator_kwargs,
-    balanced_weight=False,
-    hyperparam_grid=None,
-    test_prop=0.2,
-    n_folds=5,
-    save_binned=False,
-    save_predictions=True,
-    verbose=False,
-    shuffle=True,
-    outer_cv=True,
-    rng_seed=None,
-    use_cv_sklearn_method=False,
-):
-    """Regresses binned neural activity against a target, using a provided sklearn estimator.
+def decode_cv(ys, Xs, estimator, estimator_kwargs, balanced_weight=False, hyperparam_grid=None, test_prop=0.2,
+              n_folds=5, save_binned=False, save_predictions=True, verbose=False, shuffle=True, outer_cv=True,
+              rng_seed=None, use_cv_sklearn_method=False):
+    """
+    Regresses binned neural activity against a target, using a provided sklearn estimator.
 
     Parameters
     ----------

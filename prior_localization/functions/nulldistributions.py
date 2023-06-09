@@ -1,7 +1,7 @@
 import numpy as np
 from behavior_models.utils import format_input as mut_format_input
 from brainbox.task.closed_loop import generate_pseudo_session
-from prior_localization.functions.process_targets import (
+from prior_localization.functions.behavior_targets import (
     optimal_Bayesian,
     check_bhv_fit_exists,
 )
