@@ -20,9 +20,10 @@ class TestEphysInput(unittest.TestCase):
         self.intervals = np.load(self.fixtures_dir.joinpath('intervals.npy'))
 
     def test_prepare_ephys_merged(self):
-        binned_spikes, actual_regions, n_units = prepare_ephys(self.one, self.eid, self.probe_names,
-                                                               'single_regions', self.intervals)
+        binned_spikes, actual_regions = prepare_ephys(one=self.one, session_id=self.eid, probe_name=self.probe_names,
+                                                      regions='single_regions', intervals=self.intervals)
         for spikes, region in zip(binned_spikes, actual_regions):
+            # this failed for uninteresting reasons
             if region[0] == 'VPM':
                 continue
             expected = np.load(self.fixtures_dir.joinpath(f'merged_{region[0]}_ephys_in.npy'))
@@ -30,9 +31,10 @@ class TestEphysInput(unittest.TestCase):
 
     def test_prepare_ephys_single(self):
         for probe_name in self.probe_names:
-            binned_spikes, actual_regions, n_units = prepare_ephys(self.one, self.eid, probe_name,
-                                                                   'single_regions', self.intervals)
+            binned_spikes, actual_regions = prepare_ephys(one=self.one, session_id=self.eid, probe_name=probe_name,
+                                                          regions='single_regions', intervals=self.intervals)
             for spikes, region in zip(binned_spikes, actual_regions):
+                # this failed for uninteresting reasons
                 if region[0] == 'VPM':
                     continue
                 expected = np.load(self.fixtures_dir.joinpath(f'{probe_name}_{region[0]}_ephys_in.npy'))
@@ -47,19 +49,10 @@ class TestBehaviorInputs(unittest.TestCase):
         self.subject = self.one.eid2ref(self.eid)['subject']
         self.temp_dir = tempfile.TemporaryDirectory()
 
-    def test_with_pseudo(self):
+    def test_behav_targets(self):
         _, all_targets, _, mask, _ = prepare_behavior(
-            self.one, self.eid, self.subject, Path(self.temp_dir.name), model=optimal_Bayesian,
-            pseudo_ids=np.concatenate((-np.ones(1), np.arange(1, 3))).astype('int64'),
-            target='pLeft', align_event='stimOn_times', time_window=(-0.6, -0.1), integration_test=True)
+            one=self.one, session_id=self.eid, subject=self.subject, output_path=Path(self.temp_dir.name),
+            model=optimal_Bayesian, target='pLeft', align_event='stimOn_times', time_window=(-0.6, -0.1),
+            stage_only=False)
         expected_orig = np.load(Path(__file__).parent.joinpath('fixtures', 'behav_target.npy'))
-
-        # self.assertTrue(np.all(np.asarray([all_targets[0][m] for m in np.squeeze(np.where(mask))]) == expected_orig))
-
-        actual_1 = np.asarray([all_targets[1][m] for m in np.squeeze(np.where(mask))])
-        actual_2 = np.asarray([all_targets[2][m] for m in np.squeeze(np.where(mask))])
-
-        expected_1 = np.load(Path(__file__).parent.joinpath('fixtures', 'behav_target_pseudo_merged_BMA_1.npy'))
-        expected_2 = np.load(Path(__file__).parent.joinpath('fixtures', 'behav_target_pseudo_merged_BMA_2.npy'))
-
-        print('stop')
+        self.assertTrue(np.all(all_targets == expected_orig))
