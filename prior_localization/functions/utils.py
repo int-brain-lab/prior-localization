@@ -20,7 +20,7 @@ def create_neural_path(output_path, date, neural_dtype, subject, session_id, pro
     return full_path.joinpath(f'{file_name}.pkl')
 
 
-def check_bhv_fit_exists(subject, model, eids, resultpath, modeldispatcher, single_zeta):
+def check_bhv_fit_exists(subject, model, eids, resultpath, single_zeta):
     """
     Check if the fit for a given model exists for a given subject and session.
 
@@ -29,13 +29,11 @@ def check_bhv_fit_exists(subject, model, eids, resultpath, modeldispatcher, sing
     subject: str
         Subject nick name
     model: str
-        Model class
+        Model class name
     eids: list
         List of session ids for sessions on which model was fitted
     resultpath: str
         Path to the results
-    modeldispatcher: dict
-        Dictionary mapping model class to model name
     single_zeta: bool
         Whether or not the model was fitted with a single zeta
 
@@ -46,9 +44,7 @@ def check_bhv_fit_exists(subject, model, eids, resultpath, modeldispatcher, sing
     Path
         Path to the fit
     """
-    if model not in modeldispatcher.keys():
-        raise KeyError('Model is not an instance of a model from behavior_models')
-    path_results_mouse = 'model_%s_' % modeldispatcher[model] + 'single_zeta_' * single_zeta
+    path_results_mouse = f'model_{model}_single_zeta_{single_zeta}'
     trunc_eids = [eid.split('-')[0] for eid in eids]
     filen = build_path(path_results_mouse, trunc_eids)
     subjmodpath = Path(resultpath).joinpath(Path(subject))

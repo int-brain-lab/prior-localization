@@ -14,17 +14,17 @@ from prior_localization.prepare_data import prepare_ephys, prepare_behavior
 from prior_localization.functions.neurometric import get_neurometric_parameters
 from prior_localization.functions.process_motors import preprocess_motors
 from prior_localization.functions.utils import create_neural_path
-from prior_localization.settings import (
-    N_RUNS, ESTIMATOR, ESTIMATOR_KWARGS, HPARAM_GRID, SAVE_BINNED, SAVE_PREDICTIONS, SHUFFLE,
+from prior_localization.params import (
+    N_RUNS, ESTIMATOR, ESTIMATOR_KWARGS, HPARAM_GRID, SAVE_PREDICTIONS, SHUFFLE,
     BALANCED_WEIGHT, USE_NATIVE_SKLEARN_FOR_HYPERPARAMETER_ESTIMATION, COMPUTE_NEURO_ON_EACH_FOLD,
-    DATE, ADD_TO_PATH, MOTOR_REGRESSORS, MOTOR_REGRESSORS_ONLY, QC_CRITERIA, MIN_UNITS, COMPUTE_NEUROMETRIC
+    DATE, ADD_TO_PATH, MOTOR_REGRESSORS, MOTOR_REGRESSORS_ONLY, QC_CRITERIA, MIN_UNITS
 )
-from prior_localization.settings import region_defaults
+from prior_localization.params import REGION_DEFAULTS
 
 logger = logging.getLogger('prior_localization')
 
 
-def fit_session_ephys(one, session_id, subject, probe_name, model=None, pseudo_ids=None, target='pLeft',
+def fit_session_ephys(one, session_id, subject, probe_name, model='optBay', pseudo_ids=None, target='pLeft',
                       align_event='stimOn_times', time_window=(-0.6, -0.1), output_dir=None, regions='single_regions',
                       stage_only=False, integration_test=False):
     """
@@ -44,9 +44,10 @@ def fit_session_ephys(one, session_id, subject, probe_name, model=None, pseudo_i
 
     # Compute or load behavior targets
     try:
-        all_trials, all_targets, trials_mask, intervals, all_neurometrics  = prepare_behavior(
-            one, session_id, subject, pseudo_ids=pseudo_ids, output_dir=output_dir, model=model, target=target,
-            align_event=align_event, time_window=time_window, stage_only=stage_only, integration_test=integration_test)
+        all_trials, all_targets, trials_mask, intervals, all_neurometrics = prepare_behavior(
+            one, session_id, subject, pseudo_ids=pseudo_ids, output_dir=output_dir,
+            model=model, target=target, align_event=align_event, time_window=time_window,
+            stage_only=stage_only, integration_test=integration_test)
     except ValueError as e:
         logger.warning(e)
         return
@@ -73,7 +74,7 @@ def fit_session_ephys(one, session_id, subject, probe_name, model=None, pseudo_i
     filenames = []
     for region_binned, region in zip(neural_binned, actual_regions):
         # Create a string for saving the file
-        region_str = regions if (regions == 'all_regions') or (regions in region_defaults.keys()) else '_'.join(region)
+        region_str = regions if (regions == 'all_regions') or (regions in REGION_DEFAULTS.keys()) else '_'.join(region)
 
         # Fit
         fit_results = fit_region(region_binned[trials_mask], all_targets, all_trials, all_neurometrics, pseudo_ids,
@@ -144,7 +145,7 @@ def fit_region(neural_data, all_targets, all_trials, all_neurometrics=None, pseu
                 estimator=ESTIMATOR,
                 estimator_kwargs=ESTIMATOR_KWARGS,
                 hyperparam_grid=HPARAM_GRID,
-                save_binned=SAVE_BINNED,
+                save_binned=False,
                 save_predictions=SAVE_PREDICTIONS,
                 shuffle=SHUFFLE,
                 balanced_weight=BALANCED_WEIGHT,

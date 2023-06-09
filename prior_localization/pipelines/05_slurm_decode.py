@@ -1,5 +1,5 @@
 import sys
-from prior_localization.settings import kwargs, N_PSEUDO_PER_JOB, N_PSEUDO
+from prior_localization.params import kwargs, N_PSEUDO_PER_JOB, N_PSEUDO
 from prior_localization.functions.decoding import fit_session
 import numpy as np
 from prior_localization.params import CACHE_PATH

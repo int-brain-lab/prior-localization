@@ -6,7 +6,6 @@ import numpy as np
 
 from one.api import ONE
 from brainbox.io.one import SessionLoader
-from prior_localization.functions.behavior_targets import optimal_Bayesian
 from prior_localization.functions.decoding import fit_session_ephys
 
 
@@ -21,7 +20,7 @@ class TestEphysDecoding(unittest.TestCase):
         _, self.probe_names = self.one.eid2pid(self.eid)
         self.qc = 1
         self.subject = self.one.eid2ref(self.eid)['subject']
-        self.model = optimal_Bayesian
+        self.model = 'optBay'
         self.pseudo_ids = [-1, 1, 2]
         self.tmp_dir = tempfile.TemporaryDirectory()
         self.fixtures_dir = Path(__file__).parent.joinpath('fixtures', 'ephys_decoding')

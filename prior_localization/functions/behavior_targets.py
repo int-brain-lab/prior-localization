@@ -1,22 +1,22 @@
 import numpy as np
 import torch
 
-from behavior_models.utils import format_data
-from behavior_models.utils import format_input
+from behavior_models.utils import format_data, format_input
+from behavior_models.models import ActionKernel, StimulusKernel
 
 from prior_localization.functions.utils import check_bhv_fit_exists
-from behavior_models.models import ActionKernel, StimulusKernel
+from prior_localization.params import BINARIZATION_VALUE
 
 
 def optimal_Bayesian(act, side):
-    '''
+    """
     Generates the optimal prior
     Params:
         act (array of shape [nb_sessions, nb_trials]): action performed by the mice of shape
         side (array of shape [nb_sessions, nb_trials]): stimulus side (-1 (right), 1 (left)) observed by the mice
     Output:
         prior (array of shape [nb_sessions, nb_chains, nb_trials]): prior for each chain and session
-    '''
+    """
     act = torch.from_numpy(act)
     side = torch.from_numpy(side)
     lb, tau, ub, gamma = 20, 60, 100, 0.8
@@ -76,15 +76,15 @@ def optimal_Bayesian(act, side):
     return 1 - Pis
 
 
-modeldispatcher = {
-    ActionKernel: ActionKernel.name,
-    StimulusKernel: StimulusKernel.name,
-    optimal_Bayesian: "optBay",
-    None: "oracle",
+model_name2class = {
+    "optBay": optimal_Bayesian,
+    "actKernel": ActionKernel,
+    "stimKernel": StimulusKernel,
+    "oracle": None
 }
 
 
-def compute_beh_target(trials_df, session_id, subject, model, target, behavior_path, remove_old=False, **kwargs):
+def compute_beh_target(trials_df, session_id, subject, model, target, behavior_path, remove_old=False):
     """
     Computes regression target for use with regress_target, using subject, eid, and a string
     identifying the target parameter to output a vector of N_trials length containing the target
@@ -93,23 +93,19 @@ def compute_beh_target(trials_df, session_id, subject, model, target, behavior_p
     ----------
     trials_df : pandas.DataFrame
         Pandas dataframe containing trial information
-    subject : str
-        Subject identity in the IBL database, e.g. KS022
     session_id : str
         UUID of the session to compute the target for
+    subject : str
+        Subject identity in the IBL database, e.g. KS022
+    model : str
+        String in ['optBay', 'actKernel', 'stimKernel', 'oracle'], indication model-based prior, prediction error,
     target : str
         String in ['prior', 'prederr', 'signcont'], indication model-based prior, prediction error,
         or simple signed contrast per trial
-    savepath : str
-        where the beh model outputs are saved
-    behmodel : str
-        behmodel to use
-    pseudo : bool
-        Whether or not to compute a pseudosession result, rather than a real result.
-    modeltype : behavior_models model object
-        Instantiated object of behavior models. Needs to be instantiated for pseudosession target
-        generation in the case of a 'prior' or 'prederr' target.
-    beh_data : behavioral data feed to the model when using pseudo-sessions
+    behavior_path : str
+        Path to the behavior data
+    remove_old : bool
+            Whether to remove old fits
 
     Returns
     -------
@@ -126,9 +122,7 @@ def compute_beh_target(trials_df, session_id, subject, model, target, behavior_p
                                          if modetype=None, then it will return the actual pLeft (.2, .5, .8)
     '''
 
-    istrained, fullpath = check_bhv_fit_exists(
-        subject, model, session_id, behavior_path,
-        modeldispatcher=modeldispatcher, single_zeta=True)
+    istrained, fullpath = check_bhv_fit_exists(subject, model, session_id, behavior_path, single_zeta=True)
 
     if target in ['signcont', 'strengthcont']:
         if 'signedContrast' in trials_df.keys():
@@ -143,37 +137,31 @@ def compute_beh_target(trials_df, session_id, subject, model, target, behavior_p
         return trials_df.choice.values
     if target == 'feedback':
         return trials_df.feedbackType.values
-    elif (target == 'pLeft') and (model is None):
+    elif (target == 'pLeft') and (model == 'oracle'):
         return trials_df.probabilityLeft.values
-    elif (target == 'pLeft') and (model is optimal_Bayesian):  # bypass fitting and generate priors
+    elif (target == 'pLeft') and (model == 'optBay'):  # bypass fitting and generate priors
         side, stim, act, _ = format_data(trials_df)
         signal = optimal_Bayesian(act, side)
         return signal.numpy().squeeze()
 
-    if (not istrained) and (target != 'signcont') and (model is not None):
+    if (not istrained) and (target != 'signcont') and (model != 'oracle'):
         side, stim, act, _ = format_data(trials_df)
         stimuli, actions, stim_side = format_input(stim, act, side)
-        model = kwargs['model'](kwargs['behfit_path'], session_id, subject,
-                                actions, stimuli, stim_side, single_zeta=True)
+        model = model_name2class[model](behavior_path, session_id, subject, actions, stimuli, stim_side,
+                                        single_zeta=True)
         model.load_or_train(remove_old=remove_old)
-    elif (target != 'signcont') and (model is not None):
-        model = kwargs['model'](behavior_path,
-                                session_id,
-                                subject,
-                                actions=None,
-                                stimuli=None,
-                                stim_side=None, single_zeta=True)
+    elif (target != 'signcont') and (model != 'oracle'):
+        model = model_name2class[model](behavior_path, session_id, subject, actions=None, stimuli=None,
+                                        stim_side=None, single_zeta=True)
         model.load_or_train(loadpath=str(fullpath))
 
     # compute signal
     stim_side, stimuli, actions, _ = format_data(trials_df)
     stimuli, actions, stim_side = format_input([stimuli], [actions], [stim_side])
-    signal = model.compute_signal(signal='prior' if kwargs['target'] == 'pLeft' else kwargs['target'],
-                                  act=actions,
-                                  stim=stimuli,
-                                  side=stim_side)['prior' if kwargs['target'] == 'pLeft' else kwargs['target']]
+    signal = model.compute_signal(signal='prior' if target == 'pLeft' else target, act=actions,  stim=stimuli,
+                                  side=stim_side)['prior' if target == 'pLeft' else target]
     tvec = signal.squeeze()
-    if kwargs['binarization_value'] is not None:
-        tvec = (tvec > kwargs['binarization_value']) * 1
+    if BINARIZATION_VALUE is not None:
+        tvec = (tvec > BINARIZATION_VALUE) * 1
 
     return tvec

@@ -5,7 +5,6 @@ import numpy as np
 
 from one.api import ONE
 from prior_localization.prepare_data import prepare_ephys, prepare_behavior
-from prior_localization.functions.behavior_targets import optimal_Bayesian
 from prior_localization.functions.process_motors import preprocess_motors, aggregate_on_timeWindow
 cache_motor_functions = __import__('prior_localization.pipelines.04_cache_motor', fromlist=('prior_localization.pipelines'))
 
@@ -58,7 +57,7 @@ class TestBehaviorInputs(unittest.TestCase):
     def test_behav_targets(self):
         _, all_targets, _, mask, _ = prepare_behavior(
             self.one, self.eid, self.subject, pseudo_ids=None, output_dir=Path(self.temp_dir.name),
-            model=optimal_Bayesian, target='pLeft', align_event='stimOn_times', time_window=(-0.6, -0.1),
+            model='optBay', target='pLeft', align_event='stimOn_times', time_window=(-0.6, -0.1),
             stage_only=False)
         expected_orig = np.load(self.fixtures_dir.joinpath('behav_target.npy'))
         self.assertTrue(np.all(all_targets == expected_orig))

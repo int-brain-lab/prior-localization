@@ -1,5 +1,5 @@
 import pandas as pd
-from prior_localization.settings import kwargs
+from prior_localization.params import kwargs
 from prior_localization.functions.decoding import fit_session
 import numpy as np
 from prior_localization.params import IMPOSTER_SESSION_PATH

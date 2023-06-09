@@ -13,7 +13,7 @@ def extract_tested_variables(fit_content):
     return predictions, Rsquareds
 
 # settings and metadata
-from prior_localization.settings import kwargs
+from prior_localization.params import kwargs
 kwargs['set_seed_for_DEBUG'] = True
 kwargs['neural_dtype'] = 'widefield'
 kwargs['nb_runs'] = 2

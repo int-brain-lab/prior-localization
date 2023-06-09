@@ -18,7 +18,7 @@ import pandas as pd
 # IBL libraries
 from one.api import ONE
 from brainwidemap import bwm_query
-from prior_localization.params import CACHE_PATH
+from prior_localization.functions.process_motors import CACHE_PATH
 CACHE_PATH.mkdir(parents=True, exist_ok=True)
 
 # motor signal extraction libraries

@@ -7,21 +7,28 @@ from brainbox.population.decode import get_spike_counts_in_bins
 from brainbox.io.one import SessionLoader
 from brainwidemap.bwm_loading import load_good_units, merge_probes
 from behavior_models.utils import format_data, format_input
+from behavior_models.models import ActionKernel, StimulusKernel
 
-from prior_localization.settings import region_defaults, modeldispatcher
 from prior_localization.functions.behavior_targets import optimal_Bayesian, compute_beh_target
 from prior_localization.functions.process_motors import compute_motor_prediction
 from prior_localization.functions.utils import compute_mask, derivative, check_bhv_fit_exists
 from prior_localization.functions.nulldistributions import generate_null_distribution_session
 from prior_localization.functions.neurometric import compute_neurometric_prior
 
-from prior_localization.settings import COMPUTE_NEUROMETRIC, DECODE_DERIVATIVE, MOTOR_RESIDUAL, MIN_BEHAV_TRIALS
+from prior_localization.params import REGION_DEFAULTS, COMPUTE_NEUROMETRIC, DECODE_DERIVATIVE, MOTOR_RESIDUAL, MIN_BEHAV_TRIALS
 
 logger = logging.getLogger('prior_localization')
 
+model_name2class = {
+    "optBay": optimal_Bayesian,
+    "actKernel": ActionKernel,
+    "stimKernel": StimulusKernel,
+    "oracle": None
+}
+
 
 def prepare_behavior(
-        one, session_id, subject, pseudo_ids=None, output_dir=None, model=None, target='pLeft',
+        one, session_id, subject, pseudo_ids=None, output_dir=None, model='optBay', target='pLeft',
         align_event='stimOn_times', time_window=(-0.6, -0.1), stage_only=False, integration_test=False,
 ):
     if pseudo_ids is None:
@@ -41,13 +48,12 @@ def prepare_behavior(
 
     behavior_path = output_dir.joinpath('behavior') if output_dir else Path.cwd().joinpath('behavior')
     # Train model if not trained already, optimal Bayesian and oracle (None) don't need to be trained
-    if model and model != optimal_Bayesian:
+    if model not in ['oracle', 'optBay']:
         side, stim, act, _ = format_data(sl.trials)
         stimuli, actions, stim_side = format_input([stim], [act], [side])
-        behavior_model = model(behavior_path. session_id, subject, actions, stimuli, stim_side, single_zeta=True)
-        istrained, _ = check_bhv_fit_exists(
-            subject, model, session_id, behavior_path, modeldispatcher, single_zeta=True,
-        )
+        behavior_model = model_name2class[model](behavior_path, session_id, subject, actions, stimuli, stim_side,
+                                                 single_zeta=True)
+        istrained, _ = check_bhv_fit_exists(subject, model, session_id, behavior_path, single_zeta=True)
         if not istrained:
             behavior_model.load_or_train(remove_old=False)
 
@@ -105,8 +111,8 @@ def prepare_ephys(one, session_id, probe_name, regions, intervals, qc=1, min_uni
     brainreg = BrainRegions()
     beryl_regions = brainreg.acronym2acronym(clusters['acronym'], mapping="Beryl")
     if isinstance(regions, str):
-        if regions in region_defaults.keys():
-            regions = region_defaults[regions]
+        if regions in REGION_DEFAULTS.keys():
+            regions = REGION_DEFAULTS[regions]
         elif regions == 'single_regions':
             regions = [[k] for k in np.unique(beryl_regions) if k not in ['root', 'void']]
         elif regions == 'all_regions':
@@ -132,14 +138,14 @@ def prepare_ephys(one, session_id, probe_name, regions, intervals, qc=1, min_uni
     return binned_spikes, actual_regions
 
 
-def prepare_motor():
-    # account for sessions without motor
-
-    motor_regressors = cut_behavior(eid,duration =2, lag = -1,query_type='auto') # very large interval
-    motor_signals_of_interest = ['licking', 'whisking_l', 'whisking_r', 'wheeling', 'nose_pos', 'paw_pos_r', 'paw_pos_l']
-    regressors = dict(filter(lambda i:i[0] in motor_signals_of_interest, motor_regressors.items()))
-    return regressors
-
+# def prepare_motor():
+#     # account for sessions without motor
+#
+#     motor_regressors = cut_behavior(eid,duration =2, lag = -1,query_type='auto') # very large interval
+#     motor_signals_of_interest = ['licking', 'whisking_l', 'whisking_r', 'wheeling', 'nose_pos', 'paw_pos_r', 'paw_pos_l']
+#     regressors = dict(filter(lambda i:i[0] in motor_signals_of_interest, motor_regressors.items()))
+#     return regressors
+#
 #
 # def prepare_widefield():
 #     from prior_localization.decoding.functions.process_inputs import get_bery_reg_wfi

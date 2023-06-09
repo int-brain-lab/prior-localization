@@ -1,11 +1,13 @@
 import numpy as np
 from scipy import stats
 import glob
-from prior_localization.params import CACHE_PATH
 from datetime import datetime
 import pickle
 
 from sklearn.linear_model import RidgeCV
+
+from pathlib import Path
+CACHE_PATH = Path(__file__).parent.joinpath('tests', 'fixtures', 'inputs')
 
 
 def aggregate_on_timeWindow(regressors, motor_signals_of_interest, time_window):

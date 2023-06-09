@@ -2,11 +2,11 @@ import numpy as np
 import pandas as pd
 import brainbox.behavior.pyschofit as pfit
 from prior_localization.functions.behavior_targets import compute_beh_target
-from prior_localization.settings import BORDER_QUANTILES_NEUROMETRIC
+from prior_localization.params import BORDER_QUANTILES_NEUROMETRIC
 
 
 def compute_neurometric_prior(trials_df, session_id, subject, model, behavior_path):
-    if model is not None:
+    if model != 'oracle':
         blockprob_neurometric = compute_beh_target(trials_df, session_id, subject, model, 'pLeft', behavior_path)
         trials_df["target_neurometric"] = blockprob_neurometric
         trials_df["blockprob_neurometric"] = np.stack(

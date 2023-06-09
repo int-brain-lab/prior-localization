@@ -2,7 +2,7 @@ import pickle
 import pandas as pd
 import glob
 from prior_localization.params import FIT_PATH
-from prior_localization.settings import modeldispatcher
+from prior_localization.params import modeldispatcher
 from tqdm import tqdm
 
 date = "10-05-2025"
