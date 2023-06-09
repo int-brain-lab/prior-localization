@@ -24,7 +24,7 @@ class TestEphysDecoding(unittest.TestCase):
         self.model = optimal_Bayesian
         self.pseudo_ids = [-1, 1, 2]
         self.tmp_dir = tempfile.TemporaryDirectory()
-        self.fixtures_dir = Path(__file__).parent.joinpath('fixtures')
+        self.fixtures_dir = Path(__file__).parent.joinpath('fixtures', 'ephys_decoding')
 
         sl = SessionLoader(self.one, self.eid)
         sl.load_trials()
