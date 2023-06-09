@@ -29,28 +29,26 @@ def fit_session_ephys(
         regions='single_regions', stage_only=False, integration_test=False
 ):
 
-    # Add stage only param
     """Fit a single session for ephys data."""
-    # If we run integration tests, we want to have reproducible results
-    if integration_test:
-        np.random.seed(0)
 
     # Collect filenames as outputs
     filenames = []
 
-    # Checks on pseudo ids
+    # Check some inputs
     if 0 in pseudo_ids:
         raise ValueError("pseudo id can only be -1 (actual session) or strictly greater than 0 (pseudo session)")
     if not np.all(np.sort(pseudo_ids) == pseudo_ids):
         raise ValueError("pseudo_ids must be sorted")
 
-    # Load / compute behavior targets
+    # Compute or load behavior targets
     trials_df, behavior_targets, mask, intervals, neurometrics = prepare_behavior(
         one=one, session_id=session_id, subject=subject, output_path=output_path, model=model, target=target,
         align_event=align_event, time_window=time_window, stage_only=stage_only
     )
     if behavior_targets is None:
         return filenames
+
+    # Generate pseudo sessions
 
     # Prepare ephys data
     neural_binned, actual_regions = prepare_ephys(one, session_id, probe_name, regions, intervals,
@@ -79,13 +77,17 @@ def fit_session_ephys(
         for pseudo_id in pseudo_ids:
             # Create pseudo session and fit region
             if pseudo_id == -1:
-                fit_results.extend(fit_region(region_binned[mask], behavior_targets, trials_df, mask, neurometrics, pseudo_id))
+                fit_results.extend(fit_region(region_binned[mask], behavior_targets, trials_df, mask, neurometrics,
+                                              pseudo_id, integration_test=integration_test))
             else:
+                if integration_test:
+                    np.random.seed(pseudo_id)
                 control_trials = generate_null_distribution_session(trials_df, session_id, subject, model,
                                                                     output_path.joinpath('behavior'))
                 control_targets = compute_beh_target(control_trials, session_id, subject, model, target,
                                                      output_path.joinpath('behavior'))
-                fit_results.extend(fit_region(region_binned[mask], control_targets[mask], control_trials, mask, neurometrics, pseudo_id))
+                fit_results.extend(fit_region(region_binned[mask], control_targets[mask], control_trials, mask,
+                                              neurometrics, pseudo_id, integration_test=integration_test))
 
         # Create output paths and save
         filename = create_neural_path(output_path, DATE, 'ephys', subject, session_id, probe_name,
@@ -110,21 +112,14 @@ def fit_session_widefield(hemisphere):
     pass
 
 
-def fit_region(neural_data, behavior_targets, trials_df, mask, neurometrics, pseudo_id):
+def fit_region(neural_data, behavior_targets, trials_df, mask, neurometrics, pseudo_id, integration_test):
 
     # make feature matrix
     fit_results = []
 
     # run decoders
     for i_run in range(N_RUNS):
-        if QUASI_RANDOM:
-            if pseudo_id == -1:
-                rng_seed = i_run
-            else:
-                rng_seed = pseudo_id * N_RUNS + i_run
-        else:
-            rng_seed = None
-
+        rng_seed = i_run if integration_test else None
         fit_result = decode_cv(
             ys=behavior_targets,
             Xs=neural_data,
