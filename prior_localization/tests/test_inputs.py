@@ -57,7 +57,7 @@ class TestBehaviorInputs(unittest.TestCase):
 
     def test_behav_targets(self):
         _, all_targets, _, mask, _ = prepare_behavior(
-            one=self.one, session_id=self.eid, subject=self.subject, output_path=Path(self.temp_dir.name),
+            self.one, self.eid, self.subject, pseudo_ids=None, output_dir=Path(self.temp_dir.name),
             model=optimal_Bayesian, target='pLeft', align_event='stimOn_times', time_window=(-0.6, -0.1),
             stage_only=False)
         expected_orig = np.load(self.fixtures_dir.joinpath('behav_target.npy'))

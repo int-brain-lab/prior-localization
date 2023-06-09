@@ -13,11 +13,11 @@ def compute_mask(
     trials_df,
     align_time,
     time_window,
-    min_len,
-    max_len,
-    no_unbias,
-    min_rt,
-    max_rt,
+    min_len=None,
+    max_len=None,
+    no_unbias=False,
+    min_rt=0.08,
+    max_rt=None,
 ):
     """Create a mask that denotes "good" trials which will be used for further analysis.
 

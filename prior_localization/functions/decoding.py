@@ -1,7 +1,8 @@
+import logging
 import pickle
 import numpy as np
 import pandas as pd
-from itertools import compress
+from pathlib import Path
 
 from sklearn import linear_model as sklm
 from sklearn.metrics import accuracy_score, balanced_accuracy_score, r2_score
@@ -14,41 +15,41 @@ from prior_localization.functions.neurometric import get_neurometric_parameters
 from prior_localization.functions.process_motors import preprocess_motors
 from prior_localization.utils import create_neural_path
 from prior_localization.settings import (
-    N_RUNS, QUASI_RANDOM, ESTIMATOR, ESTIMATOR_KWARGS, HPARAM_GRID, SAVE_BINNED, SAVE_PREDICTIONS, SHUFFLE,
+    N_RUNS, ESTIMATOR, ESTIMATOR_KWARGS, HPARAM_GRID, SAVE_BINNED, SAVE_PREDICTIONS, SHUFFLE,
     BALANCED_WEIGHT, USE_NATIVE_SKLEARN_FOR_HYPERPARAMETER_ESTIMATION, COMPUTE_NEURO_ON_EACH_FOLD,
-    DATE, ADD_TO_PATH, MOTOR_REGRESSORS, MOTOR_REGRESSORS_ONLY, QC_CRITERIA, MIN_UNITS,
+    DATE, ADD_TO_PATH, MOTOR_REGRESSORS, MOTOR_REGRESSORS_ONLY, QC_CRITERIA, MIN_UNITS, COMPUTE_NEUROMETRIC
 )
 from prior_localization.settings import region_defaults
-from prior_localization.functions.process_targets import compute_beh_target
-from prior_localization.functions.nulldistributions import generate_null_distribution_session
-from prior_localization.settings import COMPUTE_NEUROMETRIC
+
+logger = logging.getLogger(__name__)
 
 
 def fit_session_ephys(
-        one, session_id, subject, probe_name, model, pseudo_ids, target, align_event, time_window, output_path,
-        regions='single_regions', stage_only=False, integration_test=False
+        one, session_id, subject, probe_name, model=None, pseudo_ids=None, target='pLeft', align_event='stimOn_times',
+        time_window=(-0.6, -0.1), output_dir=None, regions='single_regions', stage_only=False, integration_test=False
 ):
-
     """Fit a single session for ephys data."""
+
+    # Check some inputs
+    if output_dir is None:
+        output_dir = Path.cwd()
+        logger.info(f"No output directory specified, setting to current working directory {Path.cwd()}")
+    pseudo_ids = [-1] if not pseudo_ids else pseudo_ids
+    if 0 in pseudo_ids:
+        raise ValueError("pseudo id can only be -1/None (actual session) or strictly greater than 0 (pseudo session)")
+    if not np.all(np.sort(pseudo_ids) == pseudo_ids):
+        raise ValueError("pseudo_ids must be sorted")
 
     # Collect filenames as outputs
     filenames = []
 
-    # Check some inputs
-    if 0 in pseudo_ids:
-        raise ValueError("pseudo id can only be -1 (actual session) or strictly greater than 0 (pseudo session)")
-    if not np.all(np.sort(pseudo_ids) == pseudo_ids):
-        raise ValueError("pseudo_ids must be sorted")
-
     # Compute or load behavior targets
-    trials_df, behavior_targets, mask, intervals, neurometrics = prepare_behavior(
-        one=one, session_id=session_id, subject=subject, output_path=output_path, model=model, target=target,
-        align_event=align_event, time_window=time_window, stage_only=stage_only
-    )
-    if behavior_targets is None:
+    all_trials, all_targets, all_neurometrics, trials_mask, intervals = prepare_behavior(
+        one, session_id, subject, pseudo_ids=pseudo_ids, output_dir=output_dir, model=model, target=target,
+        align_event=align_event, time_window=time_window, stage_only=stage_only, integration_test=integration_test)
+    if all_trials is None:
+        logging.warning(f"Session {session_id} contains too few good trials ({sum(trials_mask)}). Skipping.")
         return filenames
-
-    # Generate pseudo sessions
 
     # Prepare ephys data
     neural_binned, actual_regions = prepare_ephys(one, session_id, probe_name, regions, intervals,
@@ -63,34 +64,24 @@ def fit_session_ephys(
         else:
             neural_binned = [np.concatenate([n, m], axis=2) for n, m in zip(neural_binned, motor_binned)]
 
-    # Fit per region, then per pseudo session, then per run
+    # Fit per region
     for region_binned, region in zip(neural_binned, actual_regions):
         # Create a string for saving the file
         if (regions == 'all_regions') or (regions in region_defaults.keys()):
             region_str = regions
         else:
             region_str = '_'.join(region)
-        # This is the neural data we will fit
 
-        # Loop of pseudo sessions
-        fit_results = []
-        for pseudo_id in pseudo_ids:
-            # Create pseudo session and fit region
-            if pseudo_id == -1:
-                fit_results.extend(fit_region(region_binned[mask], behavior_targets, trials_df, mask, neurometrics,
-                                              pseudo_id, integration_test=integration_test))
-            else:
-                if integration_test:
-                    np.random.seed(pseudo_id)
-                control_trials = generate_null_distribution_session(trials_df, session_id, subject, model,
-                                                                    output_path.joinpath('behavior'))
-                control_targets = compute_beh_target(control_trials, session_id, subject, model, target,
-                                                     output_path.joinpath('behavior'))
-                fit_results.extend(fit_region(region_binned[mask], control_targets[mask], control_trials, mask,
-                                              neurometrics, pseudo_id, integration_test=integration_test))
+        # Fit
+        fit_results = fit_region(region_binned[trials_mask], all_targets, all_trials, all_neurometrics, pseudo_ids,
+                                 integration_test=integration_test)
+
+        # Add the mask to fit results
+        for fit_result in fit_results:
+            fit_result['mask'] = trials_mask if SAVE_PREDICTIONS else None
 
         # Create output paths and save
-        filename = create_neural_path(output_path, DATE, 'ephys', subject, session_id, probe_name,
+        filename = create_neural_path(output_dir, DATE, 'ephys', subject, session_id, probe_name,
                                       region_str, target, time_window, pseudo_ids, ADD_TO_PATH)
         outdict = {
             "fit": fit_results,
@@ -112,42 +103,41 @@ def fit_session_widefield(hemisphere):
     pass
 
 
-def fit_region(neural_data, behavior_targets, trials_df, mask, neurometrics, pseudo_id, integration_test):
+def fit_region(neural_data, all_targets, all_trials, all_neurometrics, pseudo_ids, integration_test):
 
-    # make feature matrix
+    # Loop over (pseudo) sessions and then over runs
     fit_results = []
-
-    # run decoders
-    for i_run in range(N_RUNS):
-        rng_seed = i_run if integration_test else None
-        fit_result = decode_cv(
-            ys=behavior_targets,
-            Xs=neural_data,
-            estimator=ESTIMATOR,
-            estimator_kwargs=ESTIMATOR_KWARGS,
-            hyperparam_grid=HPARAM_GRID,
-            save_binned=SAVE_BINNED,
-            save_predictions=SAVE_PREDICTIONS,
-            shuffle=SHUFFLE,
-            balanced_weight=BALANCED_WEIGHT,
-            rng_seed=rng_seed,
-            use_cv_sklearn_method=USE_NATIVE_SKLEARN_FOR_HYPERPARAMETER_ESTIMATION,
-        )
-
-        fit_result["trials_df"] = trials_df
-        fit_result["mask"] = mask if SAVE_PREDICTIONS else None
-        fit_result["pseudo_id"] = pseudo_id
-        fit_result["run_id"] = i_run
-
-        if COMPUTE_NEUROMETRIC:
-            fit_result["full_neurometric"], fit_result["fold_neurometric"] = get_neurometric_parameters(
-                fit_result, trialsdf=neurometrics, compute_on_each_fold=COMPUTE_NEURO_ON_EACH_FOLD
+    for targets, trials, neurometrics, pseudo_id in zip(all_targets, all_trials, all_neurometrics, pseudo_ids):
+        # run decoders
+        for i_run in range(N_RUNS):
+            rng_seed = i_run if integration_test else None
+            fit_result = decode_cv(
+                ys=targets,
+                Xs=neural_data,
+                estimator=ESTIMATOR,
+                estimator_kwargs=ESTIMATOR_KWARGS,
+                hyperparam_grid=HPARAM_GRID,
+                save_binned=SAVE_BINNED,
+                save_predictions=SAVE_PREDICTIONS,
+                shuffle=SHUFFLE,
+                balanced_weight=BALANCED_WEIGHT,
+                rng_seed=rng_seed,
+                use_cv_sklearn_method=USE_NATIVE_SKLEARN_FOR_HYPERPARAMETER_ESTIMATION,
             )
-        else:
-            fit_result["full_neurometric"] = None
-            fit_result["fold_neurometric"] = None
 
-        fit_results.append(fit_result)
+            fit_result["trials_df"] = trials
+            fit_result["pseudo_id"] = pseudo_id
+            fit_result["run_id"] = i_run
+
+            if COMPUTE_NEUROMETRIC:
+                fit_result["full_neurometric"], fit_result["fold_neurometric"] = get_neurometric_parameters(
+                    fit_result, trialsdf=neurometrics, compute_on_each_fold=COMPUTE_NEURO_ON_EACH_FOLD
+                )
+            else:
+                fit_result["full_neurometric"] = None
+                fit_result["fold_neurometric"] = None
+
+            fit_results.append(fit_result)
 
     return fit_results
 

@@ -53,13 +53,8 @@ NB_TRIALS_TAKEOUT_END = 0
 MIN_BEHAV_TRIALS = (
     150 if NEURAL_DTYPE == "ephys" else 150
 )  # default BWM setting is 400. 200 must remain after filtering
-MIN_RT = 0.08  # 0.08  # Float (s) or None
-MAX_RT = None
-SINGLE_REGION = (
-   True # "Widefield" # False  # True  # perform decoding on region-wise or whole brain analysis
-)
+
 MERGED_PROBES = False # merge probes before performing analysis
-NO_UNBIAS = False  # take out unbiased trials
 SHUFFLE = True  # interleaved cross validation
 BORDER_QUANTILES_NEUROMETRIC = [0.3, 0.7]  # [.3, .4, .5, .6, .7]
 COMPUTE_NEUROMETRIC = False
@@ -105,9 +100,6 @@ if NEURAL_DTYPE == "widefield" and WFI_NB_FRAMES_START > WFI_NB_FRAMES_END:
         "there is a problem in the specification of the timing of the widefield"
     )
 
-# WHEEL VELOCITY
-MIN_LEN = None  # min length of trial
-MAX_LEN = None  # max length of trial
 
 # DEEPLABCUT MOVEMENT REGRESSORS
 MOTOR_REGRESSORS = False
@@ -148,9 +140,6 @@ if TARGET in ["choice", "feedback"] and (
     )
 
 # ValueErrors and NotImplementedErrors
-if not SINGLE_REGION and not MERGED_PROBES:
-    raise ValueError("full probes analysis can only be done with merged probes")
-
 if MODEL not in list(modeldispatcher.keys()) and not isinstance(MODEL, str):
     raise NotImplementedError("this MODEL is not supported yet")
 
@@ -179,16 +168,13 @@ fit_metadata = {
     "n_pseudo": N_PSEUDO,
     "min_units": MIN_UNITS,
     "min_behav_trials": MIN_BEHAV_TRIALS,
-    "min_rt": MIN_RT,
     "qc_criteria": QC_CRITERIA,
     "shuffle": SHUFFLE,
-    "no_unbias": NO_UNBIAS,
     "hyperparameter_grid": HPARAM_GRID,
     "save_binned": SAVE_BINNED,
     "balanced_weight": BALANCED_WEIGHT,
     "compute_neurometric": COMPUTE_NEUROMETRIC,
     "n_runs": N_RUNS,
-    "single_region": SINGLE_REGION,
     "neural_dtype": NEURAL_DTYPE,
     "modeldispatcher": modeldispatcher,
     "behfit_path": BEHAVIOR_MOD_PATH,
@@ -196,8 +182,6 @@ fit_metadata = {
     "estimator_kwargs": ESTIMATOR_KWARGS,
     "hyperparam_grid": HPARAM_GRID,
     "add_to_saving_path": ADD_TO_PATH,
-    "min_len": MIN_LEN,
-    "max_len": MAX_LEN,
     "save_predictions": SAVE_PREDICTIONS,
     "wfi_nb_frames_start": WFI_NB_FRAMES_START,
     "wfi_nb_frames_end": WFI_NB_FRAMES_END,
@@ -217,7 +201,6 @@ if NEURAL_DTYPE == "widefield":
 kwargs = {
     "date": DATE,
     "nb_runs": N_RUNS,
-    "single_region": SINGLE_REGION,
     "merged_probes": MERGED_PROBES,
     "neuralfit_path": NEURAL_MOD_PATH,
     "behfit_path": BEHAVIOR_MOD_PATH,
@@ -232,9 +215,6 @@ kwargs = {
     "target": TARGET,
     "model": MODEL,
     "align_time": ALIGN_TIME,
-    "no_unbias": NO_UNBIAS,
-    "min_rt": MIN_RT,
-    "max_rt": MAX_RT,
     "min_behav_trials": MIN_BEHAV_TRIALS,
     "qc_criteria": QC_CRITERIA,
     "min_units": MIN_UNITS,
@@ -245,8 +225,6 @@ kwargs = {
     "neural_dtype": NEURAL_DTYPE,
     "wfi_hemispheres": WFI_HEMISPHERES,
     "binarization_value": BINARIZATION_VALUE,
-    "min_len": MIN_LEN,
-    "max_len": MAX_LEN,
     "save_predictions": SAVE_PREDICTIONS,
     "wfi_nb_frames_start": WFI_NB_FRAMES_START,
     "wfi_nb_frames_end": WFI_NB_FRAMES_END,
