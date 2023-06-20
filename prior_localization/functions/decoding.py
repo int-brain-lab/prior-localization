@@ -12,7 +12,7 @@ from sklearn.utils.class_weight import compute_sample_weight
 
 from prior_localization.prepare_data import prepare_ephys, prepare_behavior
 from prior_localization.functions.neurometric import get_neurometric_parameters
-from prior_localization.functions.process_motors import preprocess_motors
+from prior_localization.functions.process_motors import prepare_motor
 from prior_localization.functions.utils import create_neural_path
 from prior_localization.params import (
     N_RUNS, ESTIMATOR, ESTIMATOR_KWARGS, HPARAM_GRID, SAVE_PREDICTIONS, SHUFFLE,
@@ -53,8 +53,9 @@ def fit_session_ephys(one, session_id, subject, probe_name, model='optBay', pseu
         return
 
     # Prepare motor data as necessary
+    # TODO: How to handle that some sessions don't have DLC / motion energy -- throw error or check before?
     if MOTOR_REGRESSORS:
-        motor_binned = preprocess_motors(session_id, time_window)
+        motor_binned = prepare_motor(one, session_id=session_id, time_window=time_window)
     if MOTOR_REGRESSORS_ONLY:
         neural_binned = motor_binned
     else:

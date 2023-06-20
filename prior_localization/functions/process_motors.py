@@ -6,7 +6,6 @@ from sklearn.linear_model import RidgeCV
 
 from brainbox.io.one import SessionLoader
 from brainbox.processing import bincount2D
-import brainbox.behavior.wheel as wh
 
 from prior_localization.params import MOTOR_BIN
 
@@ -24,21 +23,6 @@ def find_nearest(array, value):
         return idx - 1
     else:
         return idx
-
-
-def get_licks(XYs):
-    '''
-    define a frame as a lick frame if
-    x or y for left or right tongue point
-    change more than half the sdt of the diff
-    '''
-
-    licks = []
-    for point in ['tongue_end_l', 'tongue_end_r']:
-        for c in XYs[point]:
-            thr = np.nanstd(np.diff(c)) / 4
-            licks.append(set(np.where(abs(np.diff(c)) > thr)[0]))
-    return sorted(list(set.union(*licks)))
 
 
 def prepare_motor(one, eid, time_window):
@@ -60,64 +44,48 @@ def cut_behavior(one, eid, duration=0.4, lag=-0.6,
     param: lag: time in sec wrt to align time to start segment
     param: duration: length of cut segment in sec
     """
+    # Initiate session loader
     sl = SessionLoader(one, eid)
+
     # get wheel speed and normalize
-    # wheel = one.load_object(eid, 'wheel', query_type=query_type)
-    # pos, times_w = wh.interpolate_position(wheel.timestamps,
-    #                                        wheel.position, freq=1/MOTOR_BIN)
-    # v = np.append(np.diff(pos),np.diff(pos)[-1])
-    # v = abs(v)
-    # v = v/max(v)  # else the units are very small
     sl.load_wheel(fs=1/MOTOR_BIN)
-    v = np.append(np.diff(sl.wheel['position']), np.diff(sl.wheel['position'])[-1])
-    v = abs(v)
+    v = abs(sl.wheel['velocity'])
     v = v / max(v)  # else the units are very small
 
-    # get motion energy
+    # Get wheel moves
+    wheelMoves = one.load_object(eid, 'wheelMoves')
+
+    # Load motion energy and dlc
     sl.load_motion_energy(views=['left', 'right'])
     sl.load_pose(views=['left', 'right'], likelihood_thr=0.9)
 
-    # load whisker motion energy, separate for both cams
-    times_me_l, whisking_l0 = sl.motion_energy['leftCamera']['times'], sl.motion_energy['leftCamera'][
-        'whiskerMotionEnergy']
-    times_me_r, whisking_r0 = sl.motion_energy['rightCamera']['times'], sl.motion_energy['rightCamera'][
-        'whiskerMotionEnergy']
+    # Load trials
+    # TODO: we already have this in the main function, not clear it is needed?
+    sl.load_trials()
 
-    points = np.unique(['_'.join(x.split('_')[:-1]) for x in sl.pose['leftCamera'].columns])
-    times_l, XYs_l = sl.pose['leftCamera']['times'], {point: np.array([sl.pose['leftCamera'][f'{point}_x'],
-                                                                       sl.pose['leftCamera'][f'{point}_y']])
-                                                      for point in points if point != ''}
-    times_r, XYs_r = sl.pose['rightCamera']['times'], {point: np.array([sl.pose['rightCamera'][f'{point}_x'],
-                                                                        sl.pose['rightCamera'][f'{point}_y']])
-                                                       for point in points if point != ''}
-
-    DLC = {'left': [times_l, XYs_l], 'right': [times_r, XYs_r]}
-
+    # TODO: double check that this is doing wht we want it to do
     # get licks using both cameras
     lick_times = []
-    for video_type in ['right', 'left']:
-        times, XYs = DLC[video_type]
-        r = get_licks(XYs)
-        try:
-            idx = np.where(np.array(r) < len(times))[0][-1]  # ERROR HERE ...
-            lick_times.append(times[r[:idx]])
-        except:
-            print('ohoh')
+    for video in ['left', 'right']:
+        times = sl.pose[f'{video}Camera']['times']
+        licks = []
+        for point in ['tongue_end_l', 'tongue_end_r']:
+            for c in np.array(sl.pose[f'{video}Camera'][[f'{point}_x', f'{point}_y']]).T:
+                thr = np.nanstd(np.diff(c)) / 4
+                licks.append(set(np.where(abs(np.diff(c)) > thr)[0]))
+        r = sorted(list(set.union(*licks)))
+        idx = np.where(np.array(r) < len(times))[0][-1]  # ERROR HERE ...
+        lick_times.append(times[r[:idx]])
+    binned_licks, times_lick, _ = bincount2D(sorted(np.concatenate(lick_times)), np.ones(len(lick_times)), MOTOR_BIN)
 
-    lick_times = sorted(np.concatenate(lick_times))
-    R, times_lick, _ = bincount2D(lick_times, np.ones(len(lick_times)), MOTOR_BIN)
-    lcs = R[0]
     # get paw position, for each cam separate
-
     if pawex:
-        paw_pos_r0 = XYs_r['paw_r']
-        paw_pos_l0 = XYs_l['paw_r']
+        paw_pos_r0 = sl.pose['rightCamera'][['paw_r_x', 'paw_r_y']]
+        paw_pos_l0 = sl.pose['leftCamera'][['paw_r_x', 'paw_r_y']]
     else:
-        paw_pos_r0 = (XYs_r['paw_r'][0] ** 2 + XYs_r['paw_r'][1] ** 2) ** 0.5
-        paw_pos_l0 = (XYs_l['paw_r'][0] ** 2 + XYs_l['paw_r'][1] ** 2) ** 0.5
+        paw_pos_r0 = (sl.pose['rightCamera']['paw_r_x'] ** 2 + sl.pose['rightCamera']['paw_r_y'] ** 2) ** 0.5
+        paw_pos_l0 = (sl.pose['leftCamera']['paw_r_x'] ** 2 + sl.pose['leftCamera']['paw_r_y'] ** 2) ** 0.5
 
-    # get nose x position from left cam only
-    nose_pos0 = XYs_l['nose_tip'][0]
     licking = []
     whisking_l = []
     whisking_r = []
@@ -125,8 +93,6 @@ def cut_behavior(one, eid, duration=0.4, lag=-0.6,
     nose_pos = []
     paw_pos_r = []
     paw_pos_l = []
-
-    DD = []
 
     pleft = []
     sides = []
@@ -143,57 +109,49 @@ def cut_behavior(one, eid, duration=0.4, lag=-0.6,
     D = dict(zip(ds, d))
 
     # continuous time series of behavior and stamps
-    behaves = {'licking': [times_lick, lcs],
-               'whisking_l': [times_me_l, whisking_l0],
-               'whisking_r': [times_me_r, whisking_r0],
+    behaves = {'licking': [times_lick, binned_licks[0]],
+               'whisking_l': [sl.motion_energy['leftCamera']['times'], sl.motion_energy['leftCamera']['whiskerMotionEnergy']],
+               'whisking_r': [sl.motion_energy['rightCamera']['times'], sl.motion_energy['rightCamera']['whiskerMotionEnergy']],
                'wheeling': [sl.wheel['times'], v],
-               'nose_pos': [times_l, nose_pos0],
-               'paw_pos_r': [times_r, paw_pos_r0],
-               'paw_pos_l': [times_l, paw_pos_l0]}
-    trials = one.load_object(eid, 'trials', query_type=query_type)
-    wheelMoves = one.load_object(eid, 'wheelMoves', query_type=query_type)
+               'nose_pos': [sl.pose['leftCamera']['times'], sl.pose['leftCamera']['nose_tip_x']],
+               'paw_pos_r': [sl.pose['rightCamera']['times'], paw_pos_r0],
+               'paw_pos_l': [sl.pose['leftCamera']['times'], paw_pos_l0]}
 
     print('cutting data')
-    trials = one.load_object(eid, 'trials', query_type=query_type)
-    evts = ['stimOn_times', 'feedback_times', 'probabilityLeft',
-            'choice', 'feedbackType', 'firstMovement_times']
-
     kk = 0
-    for tr in range(len(trials['intervals'])):
+    for tr in range(sl.trials.shape[0]):
 
         a = wheelMoves['intervals'][:, 1]
 
         if stim_to_stim:
-            start_t = trials['stimOn_times'][tr]
+            start_t = sl.trials['stimOn_times'][tr]
 
         elif align == 'wheel_stop':
             start_t = a + lag
 
         else:
-            start_t = trials[align][tr] + lag
+            start_t = sl.trials[align][tr] + lag
 
-        if np.isnan(trials['contrastLeft'][tr]):
-            cont = trials['contrastRight'][tr]
+        if np.isnan(sl.trials['contrastLeft'][tr]):
             side = 0  # right side stimulus
         else:
-            cont = trials['contrastLeft'][tr]
             side = 1  # left side stimulus
 
         sides.append(side)
 
         if endTrial:
-            choices.append(trials['choice'][tr + 1])
+            choices.append(sl.trials['choice'][tr + 1])
         else:
-            choices.append(trials['choice'][tr])
+            choices.append(sl.trials['choice'][tr])
 
-        pleft.append(trials['probabilityLeft'][tr])
+        pleft.append(sl.trials['probabilityLeft'][tr])
 
         for be in behaves:
             times = behaves[be][0]
             series = behaves[be][1]
             start_idx = find_nearest(times, start_t)
             if stim_to_stim:
-                end_idx = find_nearest(times, trials['stimOn_times'][tr + 1])
+                end_idx = find_nearest(times, sl.trials['stimOn_times'][tr + 1])
             else:
                 if sr[be] == 'T_BIN':
                     end_idx = start_idx + int(duration / MOTOR_BIN)
@@ -216,8 +174,6 @@ def cut_behavior(one, eid, duration=0.4, lag=-0.6,
 
     print(kk, 'trials used')
     return (D)
-
-
 
 
 def aggregate_on_timeWindow(regressors, motor_signals_of_interest, time_window):
