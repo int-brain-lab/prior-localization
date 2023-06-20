@@ -4,11 +4,12 @@ import sklearn.linear_model as sklm
 NEURAL_DTYPE = "ephys"  # 'ephys' or 'widefield'
 DATE = "30-01-2023"
 
+MOTOR_BIN = 0.02
 ALIGN_EVENT = "stimOn_times"
 TARGET = "pLeft"  # "pLeft", "signcont", "strengthcont", "choice", "feedback"
 MODEL = "optBay"  # "optBay", "stimKernel", "actKernel", "oracle"
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  # only ephys
-ESTIMATOR = sklm.Ridge  # Must be in keys of strlut above
+ESTIMATOR = sklm.Ridge
 USE_NATIVE_SKLEARN_FOR_HYPERPARAMETER_ESTIMATION = (ESTIMATOR == sklm.Ridge)
 BINARIZATION_VALUE = None  # to binarize the target -> could be useful with logistic regression estimator
 ESTIMATOR_KWARGS = {"tol": 0.0001, "max_iter": 20000, "fit_intercept": True}
@@ -50,15 +51,6 @@ MOTOR_REGRESSORS_ONLY = False  # only _use motor regressors
 MOTOR_RESIDUAL = False
 # DO WE WANT TO DECODE THE DERIVATIVE OF THE TARGET SIGNAL ?
 DECODE_DERIVATIVE = False
-
-strlut = {
-    sklm.Lasso: "Lasso",
-    sklm.LassoCV: "LassoCV",
-    sklm.Ridge: "Ridge",
-    sklm.RidgeCV: "RidgeCV",
-    sklm.LinearRegression: "PureLinear",
-    sklm.LogisticRegression: "Logistic",
-}
 
 if TARGET in ["choice", "feedback"] and (
     MODEL != 'actKernel'

@@ -5,8 +5,7 @@ import numpy as np
 
 from one.api import ONE
 from prior_localization.prepare_data import prepare_ephys, prepare_behavior
-from prior_localization.functions.process_motors import preprocess_motors, aggregate_on_timeWindow
-cache_motor_functions = __import__('prior_localization.pipelines.04_cache_motor', fromlist=('prior_localization.pipelines'))
+from prior_localization.functions.process_motors import prepare_motor, aggregate_on_timeWindow
 
 
 class TestEphysInput(unittest.TestCase):
@@ -75,17 +74,8 @@ class TestMotor(unittest.TestCase):
         self.expected = np.load(self.fixtures.joinpath(f'motor_regressors.npy'))
         self.temp_dir = tempfile.TemporaryDirectory()
 
-    def test_cached_preprocess(self):
-        # test the function that generates the motor signals from the pre-generated cache stored in fixtures
-        predicted = preprocess_motors(eid=self.eid, time_window=self.time_window, cache_path=self.fixtures)
-        self.assertIsNone(np.testing.assert_equal(np.array(predicted).squeeze(), self.expected))
-        self.assertIsInstance(predicted, list)
-        self.assertEqual(len(np.array(predicted).shape), 3)
-
     def test_standalone_preprocess(self):
-        regressors = cache_motor_functions.load_motor(self.one, self.eid)
-        motor_signals_of_interest = ['licking', 'whisking_l', 'whisking_r', 'wheeling', 'nose_pos', 'paw_pos_r', 'paw_pos_l']
-        predicted = aggregate_on_timeWindow(regressors, motor_signals_of_interest, self.time_window)
+        predicted = prepare_motor(self.one, self.eid, self.time_window)
         self.assertIsNone(np.testing.assert_equal(np.array(predicted).squeeze(), self.expected))
         self.assertIsInstance(predicted, list)
         self.assertEqual(len(np.array(predicted).shape), 3)
