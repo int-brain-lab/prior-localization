@@ -1,4 +1,3 @@
-import math
 import numpy as np
 from pathlib import Path
 from scipy import stats
@@ -6,6 +5,7 @@ from sklearn.linear_model import RidgeCV
 
 from brainbox.io.one import SessionLoader
 from brainbox.processing import bincount2D
+from brainbox.behavior.dlc import get_licks
 
 from prior_localization.params import MOTOR_BIN
 
@@ -19,14 +19,14 @@ sr = {'licking':'T_BIN','whisking_l':'T_BIN', 'whisking_r':'T_BIN',
 
 def find_nearest(array, value):
     idx = np.searchsorted(array, value, side="left")
-    if idx > 0 and (idx == len(array) or math.fabs(value - array[idx - 1]) < math.fabs(value - array[idx])):
+    if idx > 0 and (idx == len(array) or np.abs(value - array[idx - 1]) < np.abs(value - array[idx])):
         return idx - 1
     else:
         return idx
 
 
 def prepare_motor(one, eid, time_window):
-    motor_regressors = cut_behavior(one, eid, duration=2, lag=-1, query_type='auto')  # very large interval
+    motor_regressors = cut_behavior(one, eid, duration=2, lag=-1, align_event='stimOn_times')  # very large interval
     motor_signals_of_interest = ['licking', 'whisking_l', 'whisking_r', 'wheeling', 'nose_pos', 'paw_pos_r', 'paw_pos_l']
     regressors = dict(filter(lambda i: i[0] in motor_signals_of_interest, motor_regressors.items()))
     motor_binned = aggregate_on_timeWindow(regressors, motor_signals_of_interest, time_window)
@@ -34,8 +34,8 @@ def prepare_motor(one, eid, time_window):
 
 
 def cut_behavior(one, eid, duration=0.4, lag=-0.6,
-                 align='stimOn_times', stim_to_stim=False,
-                 endTrial=False, query_type='remote', pawex=False):
+                 align_event='stimOn_times', stim_to_stim=False,
+                 endTrial=False, pawex=False):
     """
     cut segments of behavioral time series for PSTHs
 
@@ -43,109 +43,51 @@ def cut_behavior(one, eid, duration=0.4, lag=-0.6,
     param: align: in stimOn_times, firstMovement_times, feedback_times
     param: lag: time in sec wrt to align time to start segment
     param: duration: length of cut segment in sec
+    stim_to_stim will just be align_event stimOn_times and lag 0
     """
-    # Initiate session loader
+    # Initiate session loader and load trials
     sl = SessionLoader(one, eid)
+    sl.load_trials()
 
-    # get wheel speed and normalize
+    # Load wheel velocity , take the absolute and normalize to max
     sl.load_wheel(fs=1/MOTOR_BIN)
-    v = abs(sl.wheel['velocity'])
-    v = v / max(v)  # else the units are very small
+    wheel_acc = abs(sl.wheel['velocity'])
+    wheel_acc = wheel_acc / max(wheel_acc)
 
-    # Get wheel moves
-    wheelMoves = one.load_object(eid, 'wheelMoves')
-
-    # Load motion energy and dlc
+    # Load motion energy and pose estimates
     sl.load_motion_energy(views=['left', 'right'])
     sl.load_pose(views=['left', 'right'], likelihood_thr=0.9)
 
-    # Load trials
-    # TODO: we already have this in the main function, not clear it is needed?
-    sl.load_trials()
+    # Get the licks from both cameras combined
+    lick_times = [get_licks(sl.pose[f'{side}Camera'], sl.pose[f'{side}Camera']['times']) for side in ['left', 'right']]
+    lick_times = list(set(sorted(np.concatenate(lick_times))))
+    binned_licks, times_licks, _ = bincount2D(lick_times, np.ones(len(lick_times)), MOTOR_BIN)
 
-    # TODO: double check that this is doing wht we want it to do
-    # get licks using both cameras
-    lick_times = []
-    for video in ['left', 'right']:
-        times = sl.pose[f'{video}Camera']['times']
-        licks = []
-        for point in ['tongue_end_l', 'tongue_end_r']:
-            for c in np.array(sl.pose[f'{video}Camera'][[f'{point}_x', f'{point}_y']]).T:
-                thr = np.nanstd(np.diff(c)) / 4
-                licks.append(set(np.where(abs(np.diff(c)) > thr)[0]))
-        r = sorted(list(set.union(*licks)))
-        idx = np.where(np.array(r) < len(times))[0][-1]  # ERROR HERE ...
-        lick_times.append(times[r[:idx]])
-    binned_licks, times_lick, _ = bincount2D(sorted(np.concatenate(lick_times)), np.ones(len(lick_times)), MOTOR_BIN)
-
-    # get paw position, for each cam separate
-    if pawex:
-        paw_pos_r0 = sl.pose['rightCamera'][['paw_r_x', 'paw_r_y']]
-        paw_pos_l0 = sl.pose['leftCamera'][['paw_r_x', 'paw_r_y']]
-    else:
-        paw_pos_r0 = (sl.pose['rightCamera']['paw_r_x'] ** 2 + sl.pose['rightCamera']['paw_r_y'] ** 2) ** 0.5
-        paw_pos_l0 = (sl.pose['leftCamera']['paw_r_x'] ** 2 + sl.pose['leftCamera']['paw_r_y'] ** 2) ** 0.5
-
-    licking = []
-    whisking_l = []
-    whisking_r = []
-    wheeling = []
-    nose_pos = []
-    paw_pos_r = []
-    paw_pos_l = []
-
-    pleft = []
-    sides = []
-    choices = []
-    T = []
-    difs = []  # difference between stim on and last wheel movement
-    d = (licking, whisking_l, whisking_r, wheeling,
-         nose_pos, paw_pos_r, paw_pos_l,
-         pleft, sides, choices, T, difs)
-    ds = ('licking', 'whisking_l', 'whisking_r', 'wheeling',
-          'nose_pos', 'paw_pos_r', 'paw_pos_l',
-          'pleft', 'sides', 'choices', 'T', 'difs')
-
-    D = dict(zip(ds, d))
+    # get root of sum of squares for paw position
+    paw_pos_r = sl.pose['rightCamera'][['paw_r_x', 'paw_r_y']].pow(2).sum(axis=1, skipna=False).apply(np.sqrt)
+    paw_pos_l = sl.pose['leftCamera'][['paw_r_x', 'paw_r_y']].pow(2).sum(axis=1, skipna=False).apply(np.sqrt)
 
     # continuous time series of behavior and stamps
-    behaves = {'licking': [times_lick, binned_licks[0]],
-               'whisking_l': [sl.motion_energy['leftCamera']['times'], sl.motion_energy['leftCamera']['whiskerMotionEnergy']],
-               'whisking_r': [sl.motion_energy['rightCamera']['times'], sl.motion_energy['rightCamera']['whiskerMotionEnergy']],
-               'wheeling': [sl.wheel['times'], v],
-               'nose_pos': [sl.pose['leftCamera']['times'], sl.pose['leftCamera']['nose_tip_x']],
-               'paw_pos_r': [sl.pose['rightCamera']['times'], paw_pos_r0],
-               'paw_pos_l': [sl.pose['leftCamera']['times'], paw_pos_l0]}
+    behaves = {
+        'wheeling': [sl.wheel['times'], wheel_acc],
+        'licking': [times_licks, binned_licks[0]],
+        'nose_pos': [sl.pose['leftCamera']['times'], sl.pose['leftCamera']['nose_tip_x']],
+        'whisking_l': [sl.motion_energy['leftCamera']['times'], sl.motion_energy['leftCamera']['whiskerMotionEnergy']],
+        'whisking_r': [sl.motion_energy['rightCamera']['times'], sl.motion_energy['rightCamera']['whiskerMotionEnergy']],
+        'paw_pos_r': [sl.pose['rightCamera']['times'], paw_pos_r],
+        'paw_pos_l': [sl.pose['leftCamera']['times'], paw_pos_l]
+    }
 
-    print('cutting data')
-    kk = 0
-    for tr in range(sl.trials.shape[0]):
+    # Get stimulus side, 0 for NaN, 1 for all values
+    sides = (~sl.trials['contrastLeft'].isna()).astype('int')
+    # Create dictionary to fill
+    D = {'licking': [], 'whisking_l': [], 'whisking_r': [], 'wheeling': [],
+         'nose_pos': [], 'paw_pos_r': [], 'paw_pos_l': [],
+         'pleft': sl.trials['probabilityLeft'], 'sides': sides, 'choices': sl.trials['choice']}
 
-        a = wheelMoves['intervals'][:, 1]
-
-        if stim_to_stim:
-            start_t = sl.trials['stimOn_times'][tr]
-
-        elif align == 'wheel_stop':
-            start_t = a + lag
-
-        else:
-            start_t = sl.trials[align][tr] + lag
-
-        if np.isnan(sl.trials['contrastLeft'][tr]):
-            side = 0  # right side stimulus
-        else:
-            side = 1  # left side stimulus
-
-        sides.append(side)
-
-        if endTrial:
-            choices.append(sl.trials['choice'][tr + 1])
-        else:
-            choices.append(sl.trials['choice'][tr])
-
-        pleft.append(sl.trials['probabilityLeft'][tr])
-
+    # Get the time of the align events and add the lag, if you want the align event to be the start, choose lag 0
+    start_times = sl.trials[align_event] + lag
+    for tr, start_t in enumerate(start_times):
         for be in behaves:
             times = behaves[be][0]
             series = behaves[be][1]
@@ -158,22 +100,12 @@ def cut_behavior(one, eid, duration=0.4, lag=-0.6,
                 else:
                     fs = sr[be]
                     end_idx = start_idx + int(duration * fs)
+            if start_idx > len(series):
+                print('start_idx > len(series)')
+                break
+            D[be].append(series[start_idx:end_idx])
 
-            if (pawex and ('paw' in be)):  # for illustration on frame
-                D[be].append([series[0][start_idx:end_idx],
-                              series[1][start_idx:end_idx]])
-            else:
-                # bug inducing
-                if start_idx > len(series):
-                    print('start_idx > len(series)')
-                    break
-                D[be].append(series[start_idx:end_idx])
-
-        T.append(tr)
-        kk += 1
-
-    print(kk, 'trials used')
-    return (D)
+    return D
 
 
 def aggregate_on_timeWindow(regressors, motor_signals_of_interest, time_window):
