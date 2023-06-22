@@ -1,5 +1,7 @@
 import numpy as np
 from pathlib import Path
+
+import pandas as pd
 from scipy import stats
 from sklearn.linear_model import RidgeCV
 
@@ -16,6 +18,7 @@ sr = {'licking':'T_BIN','whisking_l':'T_BIN', 'whisking_r':'T_BIN',
       'wheeling':'T_BIN','nose_pos':'T_BIN', 'paw_pos_r':'T_BIN',
       'paw_pos_l':'T_BIN'}
 
+save_path = Path('/home/julia/data/prior_review/motor_regressors/')
 
 def find_nearest(array, value):
     idx = np.searchsorted(array, value, side="left")
@@ -26,16 +29,14 @@ def find_nearest(array, value):
 
 
 def prepare_motor(one, eid, time_window):
-    motor_regressors = cut_behavior(one, eid, duration=2, lag=-1, align_event='stimOn_times')  # very large interval
+    motor_regressors = cut_behavior(one, eid, align_event='stimOn_times', epoch=[-1, 1])  # very large interval
     motor_signals_of_interest = ['licking', 'whisking_l', 'whisking_r', 'wheeling', 'nose_pos', 'paw_pos_r', 'paw_pos_l']
     regressors = dict(filter(lambda i: i[0] in motor_signals_of_interest, motor_regressors.items()))
     motor_binned = aggregate_on_timeWindow(regressors, motor_signals_of_interest, time_window)
     return motor_binned
 
 
-def cut_behavior(one, eid, duration=0.4, lag=-0.6,
-                 align_event='stimOn_times', stim_to_stim=False,
-                 endTrial=False, pawex=False):
+def cut_behavior(one, eid, align_event='stimOn_times', epoch=[-0.6, -0.2], stim_to_stim=False):
     """
     cut segments of behavioral time series for PSTHs
 
@@ -43,7 +44,6 @@ def cut_behavior(one, eid, duration=0.4, lag=-0.6,
     param: align: in stimOn_times, firstMovement_times, feedback_times
     param: lag: time in sec wrt to align time to start segment
     param: duration: length of cut segment in sec
-    stim_to_stim will just be align_event stimOn_times and lag 0
     """
     # Initiate session loader and load trials
     sl = SessionLoader(one, eid)
@@ -86,8 +86,12 @@ def cut_behavior(one, eid, duration=0.4, lag=-0.6,
          'pleft': sl.trials['probabilityLeft'], 'sides': sides, 'choices': sl.trials['choice']}
 
     # Get the time of the align events and add the lag, if you want the align event to be the start, choose lag 0
-    start_times = sl.trials[align_event] + lag
+    start_times = sl.trials[align_event] + epoch[0]
+    # check_times = {'licking': [], 'whisking_l': [], 'whisking_r': [], 'wheeling': [],
+    #                 'nose_pos': [], 'paw_pos_r': [], 'paw_pos_l': []}
     for tr, start_t in enumerate(start_times):
+        # if np.isnan(start_t):
+        #     continue
         for be in behaves:
             times = behaves[be][0]
             series = behaves[be][1]
@@ -96,15 +100,20 @@ def cut_behavior(one, eid, duration=0.4, lag=-0.6,
                 end_idx = find_nearest(times, sl.trials['stimOn_times'][tr + 1])
             else:
                 if sr[be] == 'T_BIN':
-                    end_idx = start_idx + int(duration / MOTOR_BIN)
+                    end_idx = start_idx + int((epoch[1] - epoch[0]) / MOTOR_BIN)
                 else:
                     fs = sr[be]
-                    end_idx = start_idx + int(duration * fs)
+                    end_idx = start_idx + int((epoch[1] - epoch[0]) * fs)
             if start_idx > len(series):
                 print('start_idx > len(series)')
                 break
-            D[be].append(series[start_idx:end_idx])
-
+            #D[be].append(series[start_idx:end_idx])
+            D[be].append(np.asarray(times[start_idx:end_idx] - sl.trials[align_event][tr]))
+            # cut = np.asarray(times[start_idx:end_idx])
+            # check_events = np.asarray(sl.trials[align_event])
+            # check_times[be].append(cut)
+    # check_events = check_events[~np.isnan(check_events)]
+    # pd.DataFrame(check_times).to_csv(save_path.joinpath(f'{eid}_checks.csv'))
     return D
 
 
@@ -117,11 +126,14 @@ def aggregate_on_timeWindow(regressors, motor_signals_of_interest, time_window):
     i_max =  int((t_max + 1)/T_bin)
 
     motor_signals = np.zeros((len(regressors['licking']),len(motor_signals_of_interest)))
+    check_times = {'licking': [], 'whisking_l': [], 'whisking_r': [], 'wheeling': [],
+                    'nose_pos': [], 'paw_pos_r': [], 'paw_pos_l': []}
     for i in range(len(regressors['licking'])):
         for j,motor in enumerate(motor_signals_of_interest) :
             # we add all bin values to get a unique regressor value for decoding interval
             try :
                 motor_signals[i][j] = np.nansum(regressors[motor][i][i_min:i_max])
+                check_times[motor].append(np.asarray(regressors[motor][i][i_min:i_max]))
             except :
                 print('time bounds reached')
                 motor_signals[i][j] = np.nansum(regressors[motor][i]) # TO CORRECT
