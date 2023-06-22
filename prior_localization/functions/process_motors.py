@@ -14,11 +14,13 @@ from prior_localization.params import MOTOR_BIN
 CACHE_PATH = Path(__file__).parent.joinpath('tests', 'fixtures', 'inputs')
 
 
-sr = {'licking':'T_BIN','whisking_l':'T_BIN', 'whisking_r':'T_BIN',
-      'wheeling':'T_BIN','nose_pos':'T_BIN', 'paw_pos_r':'T_BIN',
-      'paw_pos_l':'T_BIN'}
+# sr = {'licking':'T_BIN','whisking_l':'T_BIN', 'whisking_r':'T_BIN',
+#       'wheeling':'T_BIN','nose_pos':'T_BIN', 'paw_pos_r':'T_BIN',
+#       'paw_pos_l':'T_BIN'}
 
-save_path = Path('/home/julia/data/prior_review/motor_regressors/')
+sr = {'licking': 1./MOTOR_BIN, 'whisking_l': 60, 'whisking_r': 150,
+      'wheeling': 1./MOTOR_BIN, 'nose_pos': 60, 'paw_pos_r': 150,
+      'paw_pos_l': 60}
 
 def find_nearest(array, value):
     idx = np.searchsorted(array, value, side="left")
@@ -87,11 +89,7 @@ def cut_behavior(one, eid, align_event='stimOn_times', epoch=[-0.6, -0.2], stim_
 
     # Get the time of the align events and add the lag, if you want the align event to be the start, choose lag 0
     start_times = sl.trials[align_event] + epoch[0]
-    # check_times = {'licking': [], 'whisking_l': [], 'whisking_r': [], 'wheeling': [],
-    #                 'nose_pos': [], 'paw_pos_r': [], 'paw_pos_l': []}
     for tr, start_t in enumerate(start_times):
-        # if np.isnan(start_t):
-        #     continue
         for be in behaves:
             times = behaves[be][0]
             series = behaves[be][1]
@@ -99,21 +97,12 @@ def cut_behavior(one, eid, align_event='stimOn_times', epoch=[-0.6, -0.2], stim_
             if stim_to_stim:
                 end_idx = find_nearest(times, sl.trials['stimOn_times'][tr + 1])
             else:
-                if sr[be] == 'T_BIN':
-                    end_idx = start_idx + int((epoch[1] - epoch[0]) / MOTOR_BIN)
-                else:
-                    fs = sr[be]
-                    end_idx = start_idx + int((epoch[1] - epoch[0]) * fs)
+                end_idx = start_idx + int((epoch[1] - epoch[0]) * sr[be])
             if start_idx > len(series):
                 print('start_idx > len(series)')
                 break
-            #D[be].append(series[start_idx:end_idx])
-            D[be].append(np.asarray(times[start_idx:end_idx] - sl.trials[align_event][tr]))
-            # cut = np.asarray(times[start_idx:end_idx])
-            # check_events = np.asarray(sl.trials[align_event])
-            # check_times[be].append(cut)
-    # check_events = check_events[~np.isnan(check_events)]
-    # pd.DataFrame(check_times).to_csv(save_path.joinpath(f'{eid}_checks.csv'))
+            D[be].append(series[start_idx:end_idx])
+            # D[be].append(np.asarray(times[start_idx:end_idx] - sl.trials[align_event][tr]))
     return D
 
 
@@ -121,19 +110,18 @@ def aggregate_on_timeWindow(regressors, motor_signals_of_interest, time_window):
     # format the signals
     t_min = time_window[0]
     t_max = time_window[1]
-    T_bin = 0.02
-    i_min = int((t_min + 1)/T_bin)
-    i_max =  int((t_max + 1)/T_bin)
 
     motor_signals = np.zeros((len(regressors['licking']),len(motor_signals_of_interest)))
-    check_times = {'licking': [], 'whisking_l': [], 'whisking_r': [], 'wheeling': [],
-                    'nose_pos': [], 'paw_pos_r': [], 'paw_pos_l': []}
+    # check_times = {'licking': [], 'whisking_l': [], 'whisking_r': [], 'wheeling': [],
+    #                 'nose_pos': [], 'paw_pos_r': [], 'paw_pos_l': []}
     for i in range(len(regressors['licking'])):
         for j,motor in enumerate(motor_signals_of_interest) :
+            i_min = int((t_min + 1) * sr[motor])
+            i_max = int((t_max + 1) * sr[motor])
             # we add all bin values to get a unique regressor value for decoding interval
             try :
                 motor_signals[i][j] = np.nansum(regressors[motor][i][i_min:i_max])
-                check_times[motor].append(np.asarray(regressors[motor][i][i_min:i_max]))
+                # check_times[motor].append(np.asarray(regressors[motor][i][i_min:i_max]))
             except :
                 print('time bounds reached')
                 motor_signals[i][j] = np.nansum(regressors[motor][i]) # TO CORRECT
