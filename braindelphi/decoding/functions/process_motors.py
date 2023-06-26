@@ -40,18 +40,18 @@ def preprocess_motors(eid,kwargs):
 
     # the cache contain 100 values for each regressors : t_bins=0.02s & t-min= -1s , t_max= +1s
     # we select the bins inside the decoding interval
-    t_min = kwargs['time_window'][0]
-    t_max = kwargs['time_window'][1]
-    T_bin = 0.02
-    i_min = int((t_min + 1)/T_bin)
-    i_max =  int((t_max + 1)/T_bin)
+    # t_min = kwargs['time_window'][0]
+    # t_max = kwargs['time_window'][1]
+    # T_bin = 0.02
+    # i_min = int((t_min + 1)/T_bin)
+    # i_max =  int((t_max + 1)/T_bin)
 
     motor_signals = np.zeros((len(regressors['licking']),len(motor_signals_of_interest)))
     for i in range(len(regressors['licking'])):
         for j,motor in enumerate(motor_signals_of_interest) :
             # we add all bin values to get a unique regressor value for decoding interval
             try :
-                motor_signals[i][j] = np.nansum(regressors[motor][i][i_min:i_max])
+                motor_signals[i][j] = np.nansum(regressors[motor][i])
             except :
                 print('time bounds reached')
                 motor_signals[i][j] = np.nansum(regressors[motor][i]) # TO CORRECT
