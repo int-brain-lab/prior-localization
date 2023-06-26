@@ -71,10 +71,10 @@ def preprocess_pupil_pos(eid,tracking_file,old_files=False):
     return pupil_position
 
 # location of pupil tracking files given by Matt
-# files = glob.glob("C:/Users/fphub/Documents/ibl/decoding_results/ephys/pupils/data/dataframes_prior/*")
-# eids = [file.replace('\\','.').split('.')[1] for file in files]
-files = glob.glob("/home/julia/data/prior_review/dataframes_prior/*")
-eids = [file.split('/')[-1].split('.')[0] for file in files]
+files = glob.glob("C:/Users/fphub/Documents/ibl/decoding_results/ephys/pupils/data/dataframes_prior/*")
+eids = [file.replace('\\','.').split('.')[1] for file in files]
+# files = glob.glob("/home/julia/data/prior_review/dataframes_prior/*")
+# eids = [file.split('/')[-1].split('.')[0] for file in files]
 
 pupil_positions = []
 
