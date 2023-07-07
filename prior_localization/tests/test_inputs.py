@@ -6,7 +6,7 @@ import numpy as np
 from one.api import ONE
 from brainbox.io.one import SessionLoader
 from prior_localization.prepare_data import prepare_ephys, prepare_behavior, prepare_motor
-from prior_localization.utils import average_data_in_epoch
+from prior_localization.functions.utils import average_data_in_epoch
 
 
 class TestEphysInput(unittest.TestCase):

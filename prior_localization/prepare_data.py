@@ -14,10 +14,9 @@ from behavior_models.utils import format_data, format_input
 from behavior_models.models import ActionKernel, StimulusKernel
 
 from prior_localization.functions.behavior_targets import optimal_Bayesian, compute_beh_target
-from prior_localization.functions.utils import compute_mask, derivative, check_bhv_fit_exists
+from prior_localization.functions.utils import compute_mask, derivative, check_bhv_fit_exists, average_data_in_epoch
 from prior_localization.functions.nulldistributions import generate_null_distribution_session
 from prior_localization.functions.neurometric import compute_neurometric_prior
-from prior_localization.utils import average_data_in_epoch
 
 from prior_localization.params import REGION_DEFAULTS, COMPUTE_NEUROMETRIC, DECODE_DERIVATIVE, MOTOR_RESIDUAL, \
     MIN_BEHAV_TRIALS, MOTOR_BIN
