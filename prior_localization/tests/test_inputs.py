@@ -5,7 +5,7 @@ import numpy as np
 
 from one.api import ONE
 from brainbox.io.one import SessionLoader
-from prior_localization.prepare_data import prepare_ephys, prepare_behavior, prepare_motor
+from prior_localization.prepare_data import prepare_ephys, prepare_behavior, prepare_motor, prepare_pupil
 from prior_localization.functions.utils import average_data_in_epoch
 
 
@@ -66,7 +66,7 @@ class TestBehaviorInputs(unittest.TestCase):
         self.temp_dir.cleanup()
 
 
-class TestMotor(unittest.TestCase):
+class TestMotorInputs(unittest.TestCase):
     def setUp(self) -> None:
         self.one = ONE()
         self.eid = '56956777-dca5-468c-87cb-78150432cc57'
@@ -81,6 +81,19 @@ class TestMotor(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
+
+
+class TestPupilInputs(unittest.TestCase):
+    def setUp(self) -> None:
+        self.one = ONE()
+        self.eid = '4a45c8ba-db6f-4f11-9403-56e06a33dfa4'
+        self.time_window = [-0.6, -0.1]
+        self.fixtures = Path(__file__).parent.joinpath('fixtures', 'inputs')
+        #self.expected = np.load(self.fixtures.joinpath(f'pupil_regressors_{self.eid}.npy'))
+
+    def test_prepare_pupil(self):
+        predicted = prepare_pupil(self.one, self.eid, align_event='stimOn_times', time_window=self.time_window)
+        #self.assertIsNone(np.testing.assert_equal(predicted, self.expected))
 
 
 class TestAverageDataInEpoch(unittest.TestCase):

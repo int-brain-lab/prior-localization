@@ -213,6 +213,31 @@ def prepare_behavior(
     return all_trials, all_targets, trials_mask, intervals, all_neurometrics
 
 
+def prepare_pupil(one, eid, time_window=(-0.6, -0.1), align_event='stimOn_times', camera='left'):
+    # Load the trials data
+    sl = SessionLoader(one, eid)
+    sl.load_trials()
+    # TODO: replace this with SessionLoader ones that loads lightning pose
+    pupil_data = one.load_object(eid, f'{camera}Camera', attribute=['lightningPose', 'times'])
+
+    # Calculate the average x position of the pupil in the time windows
+    epochs_x = average_data_in_epoch(
+        pupil_data['times'], pupil_data['lightningPose']['pupil_top_r_x'].values, sl.trials, align_event=align_event,
+        epoch=time_window
+    )
+    # Calculate the average y position (first average between bottom and top) in each time window
+    epochs_y = average_data_in_epoch(
+        pupil_data['times'], (pupil_data['lightningPose'][['pupil_bottom_r_y', 'pupil_top_r_y']].sum(axis=1) / 2),
+        sl.trials, align_event='stimOn_times', epoch=time_window
+    )
+    pupil_position = stats.zscore(np.c_[epochs_x, epochs_y], axis=0, nan_policy='omit')
+    return pupil_position
+
+
+# location of pupil tracking files given by Matt
+# files = glob.glob("/home/julia/data/prior_review/dataframes_prior/*")
+# eids = [file.split('/')[-1].split('.')[0] for file in files]
+
 
 # def prepare_widefield():
 #     from prior_localization.decoding.functions.process_inputs import get_bery_reg_wfi
