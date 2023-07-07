@@ -10,9 +10,8 @@ from sklearn.model_selection import KFold, train_test_split
 from sklearn.linear_model import RidgeCV, Ridge, Lasso, LassoCV
 from sklearn.utils.class_weight import compute_sample_weight
 
-from prior_localization.prepare_data import prepare_ephys, prepare_behavior
+from prior_localization.prepare_data import prepare_ephys, prepare_behavior, prepare_motor
 from prior_localization.functions.neurometric import get_neurometric_parameters
-from prior_localization.functions.process_motors import prepare_motor
 from prior_localization.functions.utils import create_neural_path
 from prior_localization.params import (
     N_RUNS, ESTIMATOR, ESTIMATOR_KWARGS, HPARAM_GRID, SAVE_PREDICTIONS, SHUFFLE,

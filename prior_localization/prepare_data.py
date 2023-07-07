@@ -1,21 +1,26 @@
 import logging
 import numpy as np
 from pathlib import Path
+from scipy import stats
+from sklearn.linear_model import RidgeCV
 
 from ibllib.atlas import BrainRegions
-from brainbox.population.decode import get_spike_counts_in_bins
 from brainbox.io.one import SessionLoader
+from brainbox.population.decode import get_spike_counts_in_bins
+from brainbox.behavior.dlc import get_licks
+
 from brainwidemap.bwm_loading import load_good_units, merge_probes
 from behavior_models.utils import format_data, format_input
 from behavior_models.models import ActionKernel, StimulusKernel
 
 from prior_localization.functions.behavior_targets import optimal_Bayesian, compute_beh_target
-from prior_localization.functions.process_motors import compute_motor_prediction
 from prior_localization.functions.utils import compute_mask, derivative, check_bhv_fit_exists
 from prior_localization.functions.nulldistributions import generate_null_distribution_session
 from prior_localization.functions.neurometric import compute_neurometric_prior
+from prior_localization.utils import average_data_in_epoch
 
-from prior_localization.params import REGION_DEFAULTS, COMPUTE_NEUROMETRIC, DECODE_DERIVATIVE, MOTOR_RESIDUAL, MIN_BEHAV_TRIALS
+from prior_localization.params import REGION_DEFAULTS, COMPUTE_NEUROMETRIC, DECODE_DERIVATIVE, MOTOR_RESIDUAL, \
+    MIN_BEHAV_TRIALS, MOTOR_BIN
 
 logger = logging.getLogger('prior_localization')
 
@@ -25,6 +30,122 @@ model_name2class = {
     "stimKernel": StimulusKernel,
     "oracle": None
 }
+
+
+def prepare_ephys(one, session_id, probe_name, regions, intervals, qc=1, min_units=10, stage_only=False):
+
+    # Load spikes and clusters and potentially merge probes
+    if isinstance(probe_name, list) and len(probe_name) > 1:
+        to_merge = [load_good_units(one, pid=None, eid=session_id, qc=qc, pname=probe_name)
+                    for probe_name in probe_name]
+        spikes, clusters = merge_probes([spikes for spikes, _ in to_merge], [clusters for _, clusters in to_merge])
+    else:
+        spikes, clusters = load_good_units(one, pid=None, eid=session_id, qc=qc, pname=probe_name)
+
+    # This allows us to just stage the data without running the analysis, we can then switch ONE in local mode
+    if stage_only:
+        return None, None
+
+    # Prepare list of brain regions
+    brainreg = BrainRegions()
+    beryl_regions = brainreg.acronym2acronym(clusters['acronym'], mapping="Beryl")
+    if isinstance(regions, str):
+        if regions in REGION_DEFAULTS.keys():
+            regions = REGION_DEFAULTS[regions]
+        elif regions == 'single_regions':
+            regions = [[k] for k in np.unique(beryl_regions) if k not in ['root', 'void']]
+        elif regions == 'all_regions':
+            regions = [np.unique([r for r in beryl_regions if r not in ['root', 'void']])]
+        else:
+            regions = [regions]
+    elif isinstance(regions, list):
+        pass
+
+    binned_spikes = []
+    actual_regions = []
+    for region in regions:
+        # find all clusters in region (where region can be a list of regions)
+        region_mask = np.isin(beryl_regions, region)
+        if sum(region_mask) < min_units:
+            print(f"{'_'.join(region)} below min units threshold ({min_units}) : {sum(region_mask)}, not decoding")
+        else:
+            # find all spikes in those clusters
+            spike_mask = np.isin(spikes['clusters'], clusters[region_mask].index)
+            binned, _ = get_spike_counts_in_bins(spikes['times'][spike_mask], spikes['clusters'][spike_mask], intervals)
+            binned_spikes.append(binned.T)
+            actual_regions.append(region)
+    return binned_spikes, actual_regions
+
+
+def prepare_motor(one, eid, align_event='stimOn_times', time_window=(-0.6, -0.1)):
+
+    # Initiate session loader, load trials, wheel, motion energy and pose estimates
+    sl = SessionLoader(one, eid)
+    sl.load_trials()
+    sl.load_wheel()
+    sl.load_motion_energy(views=['left', 'right'])
+    sl.load_pose(views=['left', 'right'], likelihood_thr=0.9)
+
+    # Convert wheel velocity to acceleration and normalize to max
+    wheel_acc = abs(sl.wheel['velocity'])
+    wheel_acc = wheel_acc / max(wheel_acc)
+    wheel_epochs = average_data_in_epoch(
+        sl.wheel['times'], wheel_acc, sl.trials, align_event=align_event, epoch=time_window
+    )
+
+    # Get the licks from both cameras combined and bin
+    lick_times = [get_licks(sl.pose[f'{side}Camera'], sl.pose[f'{side}Camera']['times']) for side in ['left', 'right']]
+    lick_times = np.unique(np.concatenate(lick_times))
+    lick_times.sort()
+    # binned_licks[i] contains all licks greater/equal to binned_licks_times[i-1] and smaller than binned_licks_times[i]
+    binned_licks_times = np.arange(lick_times[0], lick_times[-1] + MOTOR_BIN, MOTOR_BIN)
+    binned_licks = np.bincount(np.digitize(lick_times, binned_licks_times))
+    lick_epochs = average_data_in_epoch(
+        binned_licks_times, binned_licks, sl.trials, align_event=align_event, epoch=time_window
+    )
+
+    # Get nose position
+    nose_epochs = average_data_in_epoch(
+        sl.pose['leftCamera']['times'], sl.pose['leftCamera']['nose_tip_x'], sl.trials,
+        align_event=align_event, epoch=time_window
+    )
+
+    # Get whisking
+    whisking_l_epochs = average_data_in_epoch(
+        sl.motion_energy['leftCamera']['times'], sl.motion_energy['leftCamera']['whiskerMotionEnergy'], sl.trials,
+        align_event=align_event, epoch=time_window
+    )
+    whisking_r_epochs = average_data_in_epoch(
+        sl.motion_energy['rightCamera']['times'], sl.motion_energy['rightCamera']['whiskerMotionEnergy'], sl.trials,
+        align_event=align_event, epoch=time_window
+    )
+
+    # get root of sum of squares for paw position
+    paw_pos_r = sl.pose['rightCamera'][['paw_r_x', 'paw_r_y']].pow(2).sum(axis=1, skipna=False).apply(np.sqrt)
+    paw_pos_l = sl.pose['leftCamera'][['paw_r_x', 'paw_r_y']].pow(2).sum(axis=1, skipna=False).apply(np.sqrt)
+
+    paw_l_epochs = average_data_in_epoch(
+        sl.pose['leftCamera']['times'], paw_pos_l, sl.trials, align_event=align_event, epoch=time_window
+    )
+    paw_r_epochs = average_data_in_epoch(
+        sl.pose['rightCamera']['times'], paw_pos_r, sl.trials, align_event=align_event, epoch=time_window
+    )
+
+    # motor signals has shape (n_trials, n_regressors)
+    motor_signals = np.c_[
+        wheel_epochs, lick_epochs, nose_epochs, whisking_l_epochs, whisking_r_epochs, paw_l_epochs, paw_r_epochs
+    ]
+    # normalize the motor signals
+    motor_signals = stats.zscore(motor_signals, axis=0, nan_policy='omit')
+    return motor_signals
+
+
+def compute_motor_prediction(one, eid, target, time_window):
+    motor_signals = prepare_motor(one, eid, time_window=time_window)
+    clf = RidgeCV(alphas=[1e-3, 1e-2, 1e-1]).fit(motor_signals, target)
+    motor_prediction = clf.predict(motor_signals)
+
+    return motor_prediction
 
 
 def prepare_behavior(
@@ -93,60 +214,7 @@ def prepare_behavior(
     return all_trials, all_targets, trials_mask, intervals, all_neurometrics
 
 
-def prepare_ephys(one, session_id, probe_name, regions, intervals, qc=1, min_units=10, stage_only=False):
 
-    # Load spikes and clusters and potentially merge probes
-    if isinstance(probe_name, list) and len(probe_name) > 1:
-        to_merge = [load_good_units(one, pid=None, eid=session_id, qc=qc, pname=probe_name)
-                    for probe_name in probe_name]
-        spikes, clusters = merge_probes([spikes for spikes, _ in to_merge], [clusters for _, clusters in to_merge])
-    else:
-        spikes, clusters = load_good_units(one, pid=None, eid=session_id, qc=qc, pname=probe_name)
-
-    # This allows us to just stage the data without running the analysis, we can then switch ONE in local mode
-    if stage_only:
-        return None, None
-
-    # Prepare list of brain regions
-    brainreg = BrainRegions()
-    beryl_regions = brainreg.acronym2acronym(clusters['acronym'], mapping="Beryl")
-    if isinstance(regions, str):
-        if regions in REGION_DEFAULTS.keys():
-            regions = REGION_DEFAULTS[regions]
-        elif regions == 'single_regions':
-            regions = [[k] for k in np.unique(beryl_regions) if k not in ['root', 'void']]
-        elif regions == 'all_regions':
-            regions = [np.unique([r for r in beryl_regions if r not in ['root', 'void']])]
-        else:
-            regions = [regions]
-    elif isinstance(regions, list):
-        pass
-
-    binned_spikes = []
-    actual_regions = []
-    for region in regions:
-        # find all clusters in region (where region can be a list of regions)
-        region_mask = np.isin(beryl_regions, region)
-        if sum(region_mask) < min_units:
-            print(f"{'_'.join(region)} below min units threshold ({min_units}) : {sum(region_mask)}, not decoding")
-        else:
-            # find all spikes in those clusters
-            spike_mask = np.isin(spikes['clusters'], clusters[region_mask].index)
-            binned, _ = get_spike_counts_in_bins(spikes['times'][spike_mask], spikes['clusters'][spike_mask], intervals)
-            binned_spikes.append(binned.T)
-            actual_regions.append(region)
-    return binned_spikes, actual_regions
-
-
-# def prepare_motor():
-#     # account for sessions without motor
-#
-#     motor_regressors = cut_behavior(eid,duration =2, lag = -1,query_type='auto') # very large interval
-#     motor_signals_of_interest = ['licking', 'whisking_l', 'whisking_r', 'wheeling', 'nose_pos', 'paw_pos_r', 'paw_pos_l']
-#     regressors = dict(filter(lambda i:i[0] in motor_signals_of_interest, motor_regressors.items()))
-#     return regressors
-#
-#
 # def prepare_widefield():
 #     from prior_localization.decoding.functions.process_inputs import get_bery_reg_wfi
 #

@@ -4,8 +4,9 @@ from pathlib import Path
 import numpy as np
 
 from one.api import ONE
-from prior_localization.prepare_data import prepare_ephys, prepare_behavior
-from prior_localization.functions.process_motors import prepare_motor, aggregate_on_timeWindow
+from brainbox.io.one import SessionLoader
+from prior_localization.prepare_data import prepare_ephys, prepare_behavior, prepare_motor
+from prior_localization.utils import average_data_in_epoch
 
 
 class TestEphysInput(unittest.TestCase):
@@ -71,15 +72,70 @@ class TestMotor(unittest.TestCase):
         self.eid = '56956777-dca5-468c-87cb-78150432cc57'
         self.time_window = [-0.6, -0.1]
         self.fixtures = Path(__file__).parent.joinpath('fixtures', 'inputs')
-        self.expected = np.load(self.fixtures.joinpath(f'motor_regressors.npy'))
+        self.expected = np.load(self.fixtures.joinpath(f'motor_regressors_{self.eid}.npy'))
         self.temp_dir = tempfile.TemporaryDirectory()
 
     def test_standalone_preprocess(self):
-        predicted = prepare_motor(self.one, self.eid, self.time_window)
-        self.assertIsNone(np.testing.assert_equal(np.array(predicted).squeeze(), self.expected))
-        self.assertIsInstance(predicted, list)
-        self.assertEqual(len(np.array(predicted).shape), 3)
+        predicted = prepare_motor(self.one, self.eid, align_event='stimOn_times', time_window=self.time_window)
+        self.assertIsNone(np.testing.assert_equal(predicted, self.expected))
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
 
+
+class TestAverageDataInEpoch(unittest.TestCase):
+    def setUp(self) -> None:
+        self.one = ONE()
+        self.eid = 'fc14c0d6-51cf-48ba-b326-56ed5a9420c3'
+        self.sl = SessionLoader(self.one, self.eid)
+        self.sl.load_trials()
+        self.ts = 1 / 30
+        self.epoch = [-0.6, -0.1]
+        self.fixtures = Path(__file__).parent.joinpath('fixtures', 'inputs')
+
+    def test_errors(self):
+        # Test that timestamps and values are same length and timestamps sorted, else raise error
+        times = np.arange(0, 10, self.ts)
+        values = np.random.rand(len(times) + 1)
+        with self.assertRaises(ValueError):
+            average_data_in_epoch(times, values, self.sl.trials, align_event='stimOn_times', epoch=self.epoch)
+
+        times = np.array([0.1, 0.2, 0.4, 0.39, 0.5])
+        values = np.random.rand(len(times))
+        with self.assertRaises(ValueError):
+            average_data_in_epoch(times, values, self.sl.trials, align_event='stimOn_times', epoch=self.epoch)
+
+    def test_epoch(self):
+        # Test that data is sampled from correct epoch
+        # Using the times as values allows to see at which times the data is actually sampled, but still we need to
+        # tests against precomputed values that we know are sampled from
+        times = np.arange(int(self.sl.trials['stimOn_times'].min()-10),
+                          int(self.sl.trials['stimOn_times'].max()+10), self.ts)
+        actual = average_data_in_epoch(times, times, self.sl.trials, align_event='stimOn_times', epoch=self.epoch)
+        predicted = np.load(self.fixtures.joinpath('average_in_epoch_uniform.npy'))
+        np.testing.assert_array_equal(actual, predicted)
+
+        # Same for non-uniformly sampled data
+        np.random.seed(6)
+        times = np.random.uniform(times.min(), times.max(), len(times))
+        times.sort()
+        actual = average_data_in_epoch(times, times, self.sl.trials, align_event='stimOn_times', epoch=self.epoch)
+        predicted = np.load(self.fixtures.joinpath('average_in_epoch_nonuniform.npy'))
+        self.assertIsNone(np.testing.assert_array_equal(actual, predicted))
+
+    def test_nans(self):
+        # Align events with Nans
+        times = np.arange(int(self.sl.trials['firstMovement_times'].min() - 10),
+                          int(self.sl.trials['firstMovement_times'].max() + 10), self.ts)
+        nan_idx = np.where(np.isnan(self.sl.trials['firstMovement_times']))
+        res = average_data_in_epoch(times, times, self.sl.trials, align_event='firstMovement_times', epoch=self.epoch)
+        self.assertTrue(np.all(np.isnan(res[nan_idx])))
+
+        # First trial before timestamps and last trial after timestamps
+        end_idx = self.sl.trials.shape[0]-20
+        times = np.arange(np.ceil(self.sl.trials['firstMovement_times'][7]),
+                          np.floor(self.sl.trials['firstMovement_times'][end_idx]), self.ts)
+        res = average_data_in_epoch(times, np.ones_like(times), self.sl.trials,
+                                    align_event='firstMovement_times', epoch=self.epoch)
+        self.assertTrue(np.all(np.isnan(res[:8])))
+        self.assertTrue(np.all(np.isnan(res[end_idx:])))
