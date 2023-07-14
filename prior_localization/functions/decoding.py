@@ -52,9 +52,10 @@ def fit_session_ephys(
     # Prepare motor data if regressing against motor
     if motor_regressors:
         motor_epoch = prepare_motor(one, session_id=session_id, time_window=time_window, align_event=align_event)
-        data_epoch = [np.concatenate([n, m], axis=2) for n, m in zip(data_epoch, motor_epoch)]
+        motor_epoch = len(data_epoch) * [motor_epoch]
+        data_epoch = [np.concatenate([n, m], axis=1) for n, m in zip(data_epoch, motor_epoch)]
         # Adjust trials mask to also remove any trials that have no data in the motor signal
-        trials_mask = trials_mask & ~np.any(np.isnan(motor_epoch), axis=1)
+        trials_mask = trials_mask & ~np.any(np.isnan(motor_epoch[0]), axis=1)
 
     # Fix the probe name (mainly for saving)
     probe_name = 'merged_probes' if isinstance(probe_name, list) else probe_name

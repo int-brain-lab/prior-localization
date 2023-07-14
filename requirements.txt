@@ -6,5 +6,6 @@ torch
 ibllib
 ONE-api
 ibl-neuropixel
+psychofit
 behavior_models @ git+https://github.com/int-brain-lab/behavior_models.git
 brainwidemap @ git+https://github.com/int-brain-lab/paper-brain-wide-map.git

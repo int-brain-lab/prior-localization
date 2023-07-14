@@ -140,12 +140,12 @@ def prepare_motor(one, session_id, align_event='stimOn_times', time_window=(-0.6
 
 def compute_motor_prediction(one, eid, target_data, trials_mask, time_window):
     motor_signals = prepare_motor(one, eid, time_window=time_window)
-    trials_mask = trials_mask & ~np.any(np.isnan(motor_signals, axis=1))
+    trials_mask = trials_mask & ~np.any(np.isnan(motor_signals), axis=1)
     clf = RidgeCV(alphas=[1e-3, 1e-2, 1e-1]).fit(motor_signals[trials_mask], target_data[trials_mask])
-    motor_prediction = np.full_like(motor_signals, np.nan)
+    motor_prediction = np.full_like(trials_mask, np.nan)
     motor_prediction[trials_mask] = clf.predict(motor_signals[trials_mask])
 
-    return motor_prediction, trials_mask
+    return motor_prediction
 
 
 def prepare_behavior(
@@ -195,9 +195,10 @@ def prepare_behavior(
 
     # add motor residual to regressors if indicated
     if motor_residual:
-        motor_predictions, trials_mask = [compute_motor_prediction(one, session_id, t, trials_mask, time_window)
-                                          for t in all_targets]
+        motor_predictions = [compute_motor_prediction(one, session_id, t, trials_mask, time_window) for t in all_targets]
         all_targets = [t - motor for t, motor in zip(all_targets, motor_predictions)]
+        # update trials mask with possible nans from motor prediction
+        trials_mask = trials_mask & ~np.isnan(motor_predictions[0])
 
     # Compute neurometrics if indicated
     if compute_neurometrics:
