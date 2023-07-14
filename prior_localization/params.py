@@ -1,14 +1,11 @@
 import numpy as np
 import sklearn.linear_model as sklm
 
+# These are settings
 NEURAL_DTYPE = "ephys"  # 'ephys' or 'widefield'
 DATE = "30-01-2023"
 
-MOTOR_BIN = 0.02
-ALIGN_EVENT = "stimOn_times"
-TARGET = "pLeft"  # "pLeft", "signcont", "strengthcont", "choice", "feedback"
-MODEL = "optBay"  # "optBay", "stimKernel", "actKernel", "oracle"
-TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  # only ephys
+# These might be params
 ESTIMATOR = sklm.Ridge
 USE_NATIVE_SKLEARN_FOR_HYPERPARAMETER_ESTIMATION = (ESTIMATOR == sklm.Ridge)
 BINARIZATION_VALUE = None  # to binarize the target -> could be useful with logistic regression estimator
@@ -18,11 +15,9 @@ N_PSEUDO_PER_JOB = 10
 N_JOBS_PER_SESSION = N_PSEUDO // N_PSEUDO_PER_JOB
 N_RUNS = 2
 MIN_UNITS = 10
-MIN_BEHAV_TRIALS = 150 if NEURAL_DTYPE == "ephys" else 150
 MERGED_PROBES = False  # merge probes before performing analysis
 SHUFFLE = True  # interleaved cross validation
 BORDER_QUANTILES_NEUROMETRIC = [0.3, 0.7]  # [.3, .4, .5, .6, .7]
-COMPUTE_NEUROMETRIC = False
 COMPUTE_NEURO_ON_EACH_FOLD = False  # if True, expect a script that is 5 times slower
 SAVE_PREDICTIONS = True
 QC_CRITERIA = 3 / 3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
@@ -35,6 +30,8 @@ HPARAM_GRID = (
     else {"C": np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])}
 )
 ADD_TO_PATH = {'balanced_weighting': BALANCED_WEIGHT}
+MOTOR_RESIDUAL = False
+COMPUTE_NEUROMETRIC = False
 
 # WIDE FIELD IMAGING
 WFI_HEMISPHERES = ["left", "right"]  # 'left' and/or 'right'
@@ -44,33 +41,26 @@ WFI_AVERAGE_OVER_FRAMES = False
 if NEURAL_DTYPE == "widefield" and WFI_NB_FRAMES_START > WFI_NB_FRAMES_END:
     raise ValueError("there is a problem in the specification of the timing of the widefield")
 
-# DEEPLABCUT MOVEMENT REGRESSORS
-MOTOR_REGRESSORS = False
-MOTOR_REGRESSORS_ONLY = False  # only _use motor regressors
-# DO WE WANT TO DECODE MOTOR RESIDUAL OF THE PRIOR TARGET (WORK ONLY FOR OPTI BAYES)
-MOTOR_RESIDUAL = False
-# DO WE WANT TO DECODE THE DERIVATIVE OF THE TARGET SIGNAL ?
-DECODE_DERIVATIVE = False
 
-if TARGET in ["choice", "feedback"] and (
-    MODEL != 'actKernel'
-):
-    raise ValueError(
-        "if you want to decode choice or feedback, you must use the actionKernel model and frankenstein sessions"
-    )
-
-if COMPUTE_NEUROMETRIC and TARGET != "signcont":
-    raise ValueError("the target should be signcont to compute neurometric curves")
-
-if len(BORDER_QUANTILES_NEUROMETRIC) == 0 and MODEL is not None:
-    raise ValueError(
-        "BORDER_QUANTILES_NEUROMETRIC must be at least of 1 when MODEL is specified"
-    )
-
-if len(BORDER_QUANTILES_NEUROMETRIC) != 0 and MODEL is None:
-    raise ValueError(
-        "BORDER_QUANTILES_NEUROMETRIC must be empty when MODEL is not specified - oracle pLeft used"
-    )
+# if TARGET in ["choice", "feedback"] and (
+#     MODEL != 'actKernel'
+# ):
+#     raise ValueError(
+#         "if you want to decode choice or feedback, you must use the actionKernel model and frankenstein sessions"
+#     )
+#
+# if COMPUTE_NEUROMETRIC and TARGET != "signcont":
+#     raise ValueError("the target should be signcont to compute neurometric curves")
+#
+# if len(BORDER_QUANTILES_NEUROMETRIC) == 0 and MODEL is not None:
+#     raise ValueError(
+#         "BORDER_QUANTILES_NEUROMETRIC must be at least of 1 when MODEL is specified"
+#     )
+#
+# if len(BORDER_QUANTILES_NEUROMETRIC) != 0 and MODEL is None:
+#     raise ValueError(
+#         "BORDER_QUANTILES_NEUROMETRIC must be empty when MODEL is not specified - oracle pLeft used"
+#     )
 
 
 REGION_DEFAULTS = {

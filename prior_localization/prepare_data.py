@@ -14,12 +14,11 @@ from behavior_models.utils import format_data, format_input
 from behavior_models.models import ActionKernel, StimulusKernel
 
 from prior_localization.functions.behavior_targets import optimal_Bayesian, compute_beh_target
-from prior_localization.functions.utils import compute_mask, derivative, check_bhv_fit_exists, average_data_in_epoch
+from prior_localization.functions.utils import compute_mask, check_bhv_fit_exists, average_data_in_epoch
 from prior_localization.functions.nulldistributions import generate_null_distribution_session
 from prior_localization.functions.neurometric import compute_neurometric_prior
 
-from prior_localization.params import REGION_DEFAULTS, COMPUTE_NEUROMETRIC, DECODE_DERIVATIVE, MOTOR_RESIDUAL, \
-    MIN_BEHAV_TRIALS, MOTOR_BIN
+from prior_localization.params import REGION_DEFAULTS
 
 logger = logging.getLogger('prior_localization')
 
@@ -76,10 +75,10 @@ def prepare_ephys(one, session_id, probe_name, regions, intervals, qc=1, min_uni
     return binned_spikes, actual_regions
 
 
-def prepare_motor(one, eid, align_event='stimOn_times', time_window=(-0.6, -0.1)):
+def prepare_motor(one, session_id, align_event='stimOn_times', time_window=(-0.6, -0.1), lick_bins=0.02):
 
     # Initiate session loader, load trials, wheel, motion energy and pose estimates
-    sl = SessionLoader(one, eid)
+    sl = SessionLoader(one, session_id)
     sl.load_trials()
     sl.load_wheel()
     sl.load_motion_energy(views=['left', 'right'])
@@ -97,7 +96,7 @@ def prepare_motor(one, eid, align_event='stimOn_times', time_window=(-0.6, -0.1)
     lick_times = np.unique(np.concatenate(lick_times))
     lick_times.sort()
     # binned_licks[i] contains all licks greater/equal to binned_licks_times[i-1] and smaller than binned_licks_times[i]
-    binned_licks_times = np.arange(lick_times[0], lick_times[-1] + MOTOR_BIN, MOTOR_BIN)
+    binned_licks_times = np.arange(lick_times[0], lick_times[-1] + lick_bins, lick_bins)
     binned_licks = np.bincount(np.digitize(lick_times, binned_licks_times))
     lick_epochs = average_data_in_epoch(
         binned_licks_times, binned_licks, sl.trials, align_event=align_event, epoch=time_window
@@ -139,17 +138,20 @@ def prepare_motor(one, eid, align_event='stimOn_times', time_window=(-0.6, -0.1)
     return motor_signals
 
 
-def compute_motor_prediction(one, eid, target, time_window):
+def compute_motor_prediction(one, eid, target_data, trials_mask, time_window):
     motor_signals = prepare_motor(one, eid, time_window=time_window)
-    clf = RidgeCV(alphas=[1e-3, 1e-2, 1e-1]).fit(motor_signals, target)
-    motor_prediction = clf.predict(motor_signals)
+    trials_mask = trials_mask & ~np.any(np.isnan(motor_signals, axis=1))
+    clf = RidgeCV(alphas=[1e-3, 1e-2, 1e-1]).fit(motor_signals[trials_mask], target_data[trials_mask])
+    motor_prediction = np.full_like(motor_signals, np.nan)
+    motor_prediction[trials_mask] = clf.predict(motor_signals[trials_mask])
 
-    return motor_prediction
+    return motor_prediction, trials_mask
 
 
 def prepare_behavior(
         one, session_id, subject, pseudo_ids=None, output_dir=None, model='optBay', target='pLeft',
-        align_event='stimOn_times', time_window=(-0.6, -0.1), stage_only=False, integration_test=False,
+        align_event='stimOn_times', time_window=(-0.6, -0.1), min_trials=150, motor_residual=False,
+        compute_neurometrics=False, stage_only=False, integration_test=False,
 ):
     if pseudo_ids is None:
         pseudo_ids = [-1]  # -1 is always the actual session
@@ -161,8 +163,8 @@ def prepare_behavior(
     # Compute trials mask and intervals from original trials
     trials_mask = compute_mask(sl.trials, align_time=align_event, time_window=time_window)
     intervals = np.vstack([sl.trials[align_event] + time_window[0], sl.trials[align_event] + time_window[1]]).T
-    if sum(trials_mask) <= MIN_BEHAV_TRIALS:
-        raise ValueError(f"Session {session_id} has {sum(trials_mask)} good trials, less than {MIN_BEHAV_TRIALS}.")
+    if sum(trials_mask) <= min_trials:
+        raise ValueError(f"Session {session_id} has {sum(trials_mask)} good trials, less than {min_trials}.")
     if stage_only:
         return None, None, trials_mask, intervals, None
 
@@ -191,18 +193,14 @@ def prepare_behavior(
             all_trials.append(control_trials)
             all_targets.append(compute_beh_target(control_trials, session_id, subject, model, target, behavior_path))
 
-    # mask all targets
-    all_targets = [target[trials_mask] for target in all_targets]
-    # compute derivative if indicated
-    if DECODE_DERIVATIVE:
-        all_targets = [derivative(target) for target in all_targets]
     # add motor residual to regressors if indicated
-    if MOTOR_RESIDUAL:
-        motor_predictions = [compute_motor_prediction(session_id, target, time_window) for target in all_targets]
-        all_targets = [target - motor for target, motor in zip(all_targets, motor_predictions)]
+    if motor_residual:
+        motor_predictions, trials_mask = [compute_motor_prediction(one, session_id, t, trials_mask, time_window)
+                                          for t in all_targets]
+        all_targets = [t - motor for t, motor in zip(all_targets, motor_predictions)]
 
     # Compute neurometrics if indicated
-    if COMPUTE_NEUROMETRIC:
+    if compute_neurometrics:
         all_neurometrics = []
         for i in range(len(pseudo_ids)):
             neurometrics = compute_neurometric_prior(all_trials[i], session_id, subject, model, behavior_path)
@@ -213,12 +211,12 @@ def prepare_behavior(
     return all_trials, all_targets, trials_mask, intervals, all_neurometrics
 
 
-def prepare_pupil(one, eid, time_window=(-0.6, -0.1), align_event='stimOn_times', camera='left'):
+def prepare_pupil(one, session_id, time_window=(-0.6, -0.1), align_event='stimOn_times', camera='left'):
     # Load the trials data
-    sl = SessionLoader(one, eid)
+    sl = SessionLoader(one, session_id)
     sl.load_trials()
     # TODO: replace this with SessionLoader ones that loads lightning pose
-    pupil_data = one.load_object(eid, f'{camera}Camera', attribute=['lightningPose', 'times'])
+    pupil_data = one.load_object(session_id, f'{camera}Camera', attribute=['lightningPose', 'times'])
 
     # Calculate the average x position of the pupil in the time windows
     epochs_x = average_data_in_epoch(
@@ -230,13 +228,8 @@ def prepare_pupil(one, eid, time_window=(-0.6, -0.1), align_event='stimOn_times'
         pupil_data['times'], (pupil_data['lightningPose'][['pupil_bottom_r_y', 'pupil_top_r_y']].sum(axis=1) / 2),
         sl.trials, align_event='stimOn_times', epoch=time_window
     )
-    pupil_position = stats.zscore(np.c_[epochs_x, epochs_y], axis=0, nan_policy='omit')
-    return pupil_position
-
-
-# location of pupil tracking files given by Matt
-# files = glob.glob("/home/julia/data/prior_review/dataframes_prior/*")
-# eids = [file.split('/')[-1].split('.')[0] for file in files]
+    # Return concatenated x and y
+    return np.c_[epochs_x, epochs_y]
 
 
 # def prepare_widefield():

@@ -11,7 +11,7 @@ def create_neural_path(output_path, date, neural_dtype, subject, session_id, pro
     full_path = Path(output_path).joinpath('neural', date, neural_dtype, subject, session_id, probe)
     full_path.mkdir(exist_ok=True, parents=True)
 
-    pseudo_str = f'{pseudo_ids[0]}_{pseudo_ids[-1]}' if isinstance(pseudo_ids, np.ndarray) else str(pseudo_ids)
+    pseudo_str = f'{pseudo_ids[0]}_{pseudo_ids[-1]}' if len(pseudo_ids) > 1 else str(pseudo_ids[0])
     time_str = f'{time_window[0]}_{time_window[1]}'.replace('.', '_')
     file_name = f'{region_str}_target_{target}_timeWindow_{time_str}_pseudo_id_{pseudo_str}'
     if add_to_path:
@@ -133,13 +133,6 @@ def compute_mask(trials_df, align_time, time_window, min_len=None, max_len=None,
     return mask
 
 
-def derivative(y):
-    dy = np.zeros(y.shape, np.float)
-    dy[0:-1] = np.diff(y)
-    dy[-1] = y[-1] - y[-2]
-    return dy
-
-
 def average_data_in_epoch(times, values, trials_df, align_event='stimOn_times', epoch=(-0.6, -0.1)):
     """
     Aggregate values in a given epoch relative to align_event for each trial. For trials for which the align_event
@@ -188,3 +181,17 @@ def average_data_in_epoch(times, values, trials_df, align_event='stimOn_times', 
                                             zip(epoch_idx_start, epoch_idx_stop)], dtype=float)
 
     return epoch_array
+
+
+def check_inputs(output_dir, pseudo_ids, logger):
+    if output_dir is None:
+        output_dir = Path.cwd()
+        logger.info(f"No output directory specified, setting to current working directory {Path.cwd()}")
+
+    pseudo_ids = [-1] if not pseudo_ids else pseudo_ids
+    if 0 in pseudo_ids:
+        raise ValueError("pseudo id can only be -1 (None, actual session) or strictly greater than 0 (pseudo session)")
+    if not np.all(np.sort(pseudo_ids) == pseudo_ids):
+        raise ValueError("pseudo_ids must be sorted")
+
+    return output_dir, pseudo_ids

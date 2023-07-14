@@ -2,7 +2,6 @@ import logging
 import pickle
 import numpy as np
 import pandas as pd
-from pathlib import Path
 
 from sklearn import linear_model as sklm
 from sklearn.metrics import accuracy_score, balanced_accuracy_score, r2_score
@@ -10,60 +9,54 @@ from sklearn.model_selection import KFold, train_test_split
 from sklearn.linear_model import RidgeCV, Ridge, Lasso, LassoCV
 from sklearn.utils.class_weight import compute_sample_weight
 
-from prior_localization.prepare_data import prepare_ephys, prepare_behavior, prepare_motor
+from prior_localization.prepare_data import prepare_ephys, prepare_behavior, prepare_motor, prepare_pupil
 from prior_localization.functions.neurometric import get_neurometric_parameters
-from prior_localization.functions.utils import create_neural_path
+from prior_localization.functions.utils import create_neural_path, check_inputs
 from prior_localization.params import (
     N_RUNS, ESTIMATOR, ESTIMATOR_KWARGS, HPARAM_GRID, SAVE_PREDICTIONS, SHUFFLE,
     BALANCED_WEIGHT, USE_NATIVE_SKLEARN_FOR_HYPERPARAMETER_ESTIMATION, COMPUTE_NEURO_ON_EACH_FOLD,
-    DATE, ADD_TO_PATH, MOTOR_REGRESSORS, MOTOR_REGRESSORS_ONLY, QC_CRITERIA, MIN_UNITS
+    DATE, ADD_TO_PATH, QC_CRITERIA, MIN_UNITS
 )
 from prior_localization.params import REGION_DEFAULTS
 
 logger = logging.getLogger('prior_localization')
 
 
-def fit_session_ephys(one, session_id, subject, probe_name, model='optBay', pseudo_ids=None, target='pLeft',
-                      align_event='stimOn_times', time_window=(-0.6, -0.1), output_dir=None, regions='single_regions',
-                      stage_only=False, integration_test=False):
+def fit_session_ephys(
+        one, session_id, subject, probe_name, model='optBay', pseudo_ids=None, target='pLeft',
+        align_event='stimOn_times', time_window=(-0.6, -0.1), output_dir=None, regions='single_regions',
+        min_trials=150, motor_regressors=False, motor_residuals=False, compute_neurometrics=False,
+        stage_only=False, integration_test=False
+):
     """
     Fit a single session for ephys data.
     """
 
     # Check some inputs
-    if output_dir is None:
-        output_dir = Path.cwd()
-        logger.info(f"No output directory specified, setting to current working directory {Path.cwd()}")
-
-    pseudo_ids = [-1] if not pseudo_ids else pseudo_ids
-    if 0 in pseudo_ids:
-        raise ValueError("pseudo id can only be -1 (None, actual session) or strictly greater than 0 (pseudo session)")
-    if not np.all(np.sort(pseudo_ids) == pseudo_ids):
-        raise ValueError("pseudo_ids must be sorted")
+    output_dir, pseudo_ids = check_inputs(output_dir, pseudo_ids, logger)
+    if motor_residuals and model != 'optBay':
+        raise ValueError('Motor residuals can only be computed for optBay model')
 
     # Compute or load behavior targets
-    try:
-        all_trials, all_targets, trials_mask, intervals, all_neurometrics = prepare_behavior(
-            one, session_id, subject, pseudo_ids=pseudo_ids, output_dir=output_dir,
-            model=model, target=target, align_event=align_event, time_window=time_window,
-            stage_only=stage_only, integration_test=integration_test)
-    except ValueError as e:
-        logger.warning(e)
-        return
+    all_trials, all_targets, trials_mask, intervals, all_neurometrics = prepare_behavior(
+        one, session_id, subject, pseudo_ids=pseudo_ids, output_dir=output_dir,
+        model=model, target=target, align_event=align_event, time_window=time_window, min_trials=min_trials,
+        motor_residual=motor_residuals, compute_neurometrics=compute_neurometrics,
+        stage_only=stage_only, integration_test=integration_test)
 
-    # Prepare motor data as necessary
-    # TODO: How to handle that some sessions don't have DLC / motion energy -- throw error or check before?
-    if MOTOR_REGRESSORS:
-        motor_binned = prepare_motor(one, session_id=session_id, time_window=time_window)
-    if MOTOR_REGRESSORS_ONLY:
-        neural_binned = motor_binned
-    else:
-        # Prepare ephys data
-        neural_binned, actual_regions = prepare_ephys(one, session_id, probe_name, regions, intervals,
-                                                      qc=QC_CRITERIA, min_units=MIN_UNITS, stage_only=stage_only)
-        if MOTOR_REGRESSORS and not MOTOR_REGRESSORS_ONLY and not stage_only:
-            neural_binned = [np.concatenate([n, m], axis=2) for n, m in zip(neural_binned, motor_binned)]
+    # Prepare ephys data
+    data_epoch, actual_regions = prepare_ephys(
+        one, session_id, probe_name, regions, intervals, qc=QC_CRITERIA, min_units=MIN_UNITS, stage_only=stage_only
+    )
 
+    # Prepare motor data if regressing against motor
+    if motor_regressors:
+        motor_epoch = prepare_motor(one, session_id=session_id, time_window=time_window, align_event=align_event)
+        data_epoch = [np.concatenate([n, m], axis=2) for n, m in zip(data_epoch, motor_epoch)]
+        # Adjust trials mask to also remove any trials that have no data in the motor signal
+        trials_mask = trials_mask & ~np.any(np.isnan(motor_epoch), axis=1)
+
+    # Fix the probe name (mainly for saving)
     probe_name = 'merged_probes' if isinstance(probe_name, list) else probe_name
 
     # If we are only staging data, we are done here
@@ -72,13 +65,13 @@ def fit_session_ephys(one, session_id, subject, probe_name, model='optBay', pseu
 
     # Otherwise fit per region
     filenames = []
-    for region_binned, region in zip(neural_binned, actual_regions):
+    for data_region, region in zip(data_epoch, actual_regions):
         # Create a string for saving the file
         region_str = regions if (regions == 'all_regions') or (regions in REGION_DEFAULTS.keys()) else '_'.join(region)
 
         # Fit
-        fit_results = fit_region(region_binned[trials_mask], all_targets, all_trials, all_neurometrics, pseudo_ids,
-                                 integration_test=integration_test)
+        fit_results = fit_target(data_region[trials_mask], [t[trials_mask] for t in all_targets], all_trials,
+                                 all_neurometrics, pseudo_ids, integration_test=integration_test)
 
         # Add the mask to fit results
         for fit_result in fit_results:
@@ -93,12 +86,88 @@ def fit_session_ephys(one, session_id, subject, probe_name, model='optBay', pseu
             "eid": session_id,
             "probe": probe_name,
             "region": region,
-            "N_units": region_binned.shape[1],
+            "N_units": data_region.shape[1],
         }
         with open(filename, "wb") as fw:
             pickle.dump(outdict, fw)
         filenames.append(filename)
     return filenames
+
+
+def fit_session_pupil(
+    one, session_id, subject, model='optBay', pseudo_ids=None, target='pLeft', align_event='stimOn_times',
+    time_window=(-0.6, -0.1), output_dir=None, neural_dtype='ephys', stage_only=False, integration_test=False
+):
+    # Check some inputs
+    output_dir, pseudo_ids = check_inputs(output_dir, pseudo_ids, logger)
+
+    # Compute or load behavior targets
+    all_trials, all_targets, trials_mask, intervals, all_neurometrics = prepare_behavior(
+        one, session_id, subject, pseudo_ids=pseudo_ids, output_dir=output_dir,
+        model=model, target=target, align_event=align_event, time_window=time_window,
+        stage_only=stage_only, integration_test=integration_test)
+    # Load the pupil data
+    pupil_data = prepare_pupil(one, session_id=session_id, time_window=time_window, align_event=align_event)
+    # For trials where there was no pupil data recording (yet or any more), add these to the trials_mask
+    trials_mask = trials_mask & ~np.any(np.isnan(pupil_data), axis=1)
+    # Fit
+    fit_results = fit_target(pupil_data[trials_mask], [t[trials_mask] for t in all_targets], all_trials,
+                             all_neurometrics, pseudo_ids, integration_test=integration_test)
+    # Create output paths and save
+    filename = create_neural_path(
+        output_path=output_dir, date=DATE, neural_dtype=neural_dtype, subject=subject, session_id=session_id, probe='',
+        region_str='pupil', target=target, time_window=time_window, pseudo_ids=pseudo_ids,
+        add_to_path=ADD_TO_PATH
+    )
+
+    outdict = {
+        "fit": fit_results,
+        "subject": subject,
+        "eid": session_id,
+        "probe": None,
+    }
+    with open(filename, "wb") as fw:
+        pickle.dump(outdict, fw)
+
+    return filename
+
+
+def fit_session_motor(
+    one, session_id, subject, model='optBay', pseudo_ids=None, target='pLeft', align_event='stimOn_times',
+    time_window=(-0.6, -0.1), output_dir=None, neural_dtype='ephys', stage_only=False, integration_test=False
+):
+    # Check some inputs
+    output_dir, pseudo_ids = check_inputs(output_dir, pseudo_ids, logger)
+
+    # Compute or load behavior targets
+    all_trials, all_targets, trials_mask, intervals, all_neurometrics = prepare_behavior(
+        one, session_id, subject, pseudo_ids=pseudo_ids, output_dir=output_dir,
+        model=model, target=target, align_event=align_event, time_window=time_window,
+        stage_only=stage_only, integration_test=integration_test)
+    # Load the motor data
+    motor_data = prepare_motor(one, session_id=session_id, time_window=time_window, align_event=align_event)
+    # For trials where there was no motor data (yet or any more), add these to the trials_mask
+    trials_mask = trials_mask & ~np.any(np.isnan(motor_data), axis=1)
+    # Fit
+    fit_results = fit_target(motor_data[trials_mask], [t[trials_mask] for t in all_targets], all_trials,
+                             all_neurometrics, pseudo_ids, integration_test=integration_test)
+    # Create output paths and save
+    filename = create_neural_path(
+        output_path=output_dir, date=DATE, neural_dtype=neural_dtype, subject=subject, session_id=session_id, probe='',
+        region_str='motor', target=target, time_window=time_window, pseudo_ids=pseudo_ids,
+        add_to_path=ADD_TO_PATH
+    )
+
+    outdict = {
+        "fit": fit_results,
+        "subject": subject,
+        "eid": session_id,
+        "probe": None,
+    }
+    with open(filename, "wb") as fw:
+        pickle.dump(outdict, fw)
+
+    return filename
 
 
 def fit_session_widefield(hemisphere):
@@ -107,14 +176,14 @@ def fit_session_widefield(hemisphere):
     pass
 
 
-def fit_region(neural_data, all_targets, all_trials, all_neurometrics=None, pseudo_ids=None, integration_test=False):
+def fit_target(data_to_fit, all_targets, all_trials, all_neurometrics=None, pseudo_ids=None, integration_test=False):
     """
-    Fit neural data from a single region to list of behavior targets.
+    Fits data (neural, motor, etc) to behavior targets.
 
     Parameters
     ----------
-    neural_data : list of np.ndarray
-        List of neural data, each element is a (n_trials, n_units) array with the averaged neural activity
+    data_to_fit : list of np.ndarray
+        List of neural or other data, each element is a (n_trials, n_units) array with the averaged neural activity
     all_targets : list of np.ndarray
         List of behavior targets, each element is a (n_trials,) array with the behavior targets for one (pseudo)session
     all_trials : list of pd.DataFrames
@@ -141,7 +210,7 @@ def fit_region(neural_data, all_targets, all_trials, all_neurometrics=None, pseu
             rng_seed = i_run if integration_test else None
             fit_result = decode_cv(
                 ys=targets,
-                Xs=neural_data,
+                Xs=data_to_fit,
                 estimator=ESTIMATOR,
                 estimator_kwargs=ESTIMATOR_KWARGS,
                 hyperparam_grid=HPARAM_GRID,
