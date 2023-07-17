@@ -25,8 +25,7 @@ logger = logging.getLogger('prior_localization')
 def fit_session_ephys(
         one, session_id, subject, probe_name, model='optBay', pseudo_ids=None, target='pLeft',
         align_event='stimOn_times', time_window=(-0.6, -0.1), output_dir=None, regions='single_regions',
-        min_trials=150, motor_regressors=False, motor_residuals=False, compute_neurometrics=False,
-        stage_only=False, integration_test=False
+        min_trials=150, motor_residuals=False, compute_neurometrics=False,  stage_only=False, integration_test=False
 ):
     """
     Fit a single session for ephys data.
@@ -48,14 +47,6 @@ def fit_session_ephys(
     data_epoch, actual_regions = prepare_ephys(
         one, session_id, probe_name, regions, intervals, qc=QC_CRITERIA, min_units=MIN_UNITS, stage_only=stage_only
     )
-
-    # Prepare motor data if regressing against motor
-    if motor_regressors:
-        motor_epoch = prepare_motor(one, session_id=session_id, time_window=time_window, align_event=align_event)
-        motor_epoch = len(data_epoch) * [motor_epoch]
-        data_epoch = [np.concatenate([n, m], axis=1) for n, m in zip(data_epoch, motor_epoch)]
-        # Adjust trials mask to also remove any trials that have no data in the motor signal
-        trials_mask = trials_mask & ~np.any(np.isnan(motor_epoch[0]), axis=1)
 
     # Fix the probe name (mainly for saving)
     probe_name = 'merged_probes' if isinstance(probe_name, list) else probe_name
@@ -107,13 +98,17 @@ def fit_session_pupil(
         one, session_id, subject, pseudo_ids=pseudo_ids, output_dir=output_dir,
         model=model, target=target, align_event=align_event, time_window=time_window,
         stage_only=stage_only, integration_test=integration_test)
+
     # Load the pupil data
     pupil_data = prepare_pupil(one, session_id=session_id, time_window=time_window, align_event=align_event)
-    # For trials where there was no pupil data recording (yet or any more), add these to the trials_mask
+
+    # For trials where there was no pupil data recording (start/end), add these to the trials_mask
     trials_mask = trials_mask & ~np.any(np.isnan(pupil_data), axis=1)
+
     # Fit
     fit_results = fit_target(pupil_data[trials_mask], [t[trials_mask] for t in all_targets], all_trials,
                              all_neurometrics, pseudo_ids, integration_test=integration_test)
+
     # Create output paths and save
     filename = create_neural_path(
         output_path=output_dir, date=DATE, neural_dtype=neural_dtype, subject=subject, session_id=session_id, probe='',
@@ -145,13 +140,17 @@ def fit_session_motor(
         one, session_id, subject, pseudo_ids=pseudo_ids, output_dir=output_dir,
         model=model, target=target, align_event=align_event, time_window=time_window,
         stage_only=stage_only, integration_test=integration_test)
+
     # Load the motor data
     motor_data = prepare_motor(one, session_id=session_id, time_window=time_window, align_event=align_event)
-    # For trials where there was no motor data (yet or any more), add these to the trials_mask
+
+    # For trials where there was no motor data (start/end), add these to the trials_mask
     trials_mask = trials_mask & ~np.any(np.isnan(motor_data), axis=1)
+
     # Fit
     fit_results = fit_target(motor_data[trials_mask], [t[trials_mask] for t in all_targets], all_trials,
                              all_neurometrics, pseudo_ids, integration_test=integration_test)
+
     # Create output paths and save
     filename = create_neural_path(
         output_path=output_dir, date=DATE, neural_dtype=neural_dtype, subject=subject, session_id=session_id, probe='',

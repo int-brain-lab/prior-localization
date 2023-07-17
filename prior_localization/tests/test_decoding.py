@@ -66,14 +66,6 @@ class TestEphysDecoding(unittest.TestCase):
                                                 output_dir=Path(self.tmp_dir.name), regions='single_regions',
                                                 motor_residuals=True, integration_test=True
                                                 )
-
-    def test_motor_regressors(self):
-        results_fit_session = fit_session_ephys(self.one, self.eid, self.subject, self.probe_names, self.model,
-                                                self.pseudo_ids, 'pLeft', 'stimOn_times', [-0.6, -0.1],
-                                                output_dir=Path(self.tmp_dir.name), regions='single_regions',
-                                                motor_regressors=True, integration_test=True
-                                                )
-
     def tearDown(self) -> None:
         self.tmp_dir.cleanup()
 
