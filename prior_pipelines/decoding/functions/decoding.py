@@ -100,7 +100,9 @@ def fit_eid(neural_dict, trials_df, metadata, pseudo_ids=[-1], **kwargs):
         add_to_saving_path : str
             additional string to append to filenames
     """
-
+    if kwargs['run_integration_test']:
+        np.random.seed(0)
+    
     print(f"Working on eid : %s" % metadata["eid"])
     filenames = []  # this will contain paths to saved decoding results for this eid
 
@@ -267,8 +269,8 @@ def fit_eid(neural_dict, trials_df, metadata, pseudo_ids=[-1], **kwargs):
 
             # create pseudo session when necessary
             if pseudo_id > 0:
-                if kwargs['set_seed_for_DEBUG']:
-                    np.random.seed(pseudo_id)
+                #if kwargs['set_seed_for_DEBUG']:
+                #    np.random.seed(pseudo_id)
                 controlsess_df = generate_null_distribution_session(
                     trials_df, metadata, **kwargs
                 )
@@ -320,10 +322,9 @@ def fit_eid(neural_dict, trials_df, metadata, pseudo_ids=[-1], **kwargs):
             # run decoders
             for i_run in range(kwargs["nb_runs"]):
 
-                if kwargs["set_seed_for_DEBUG"]:
-                    rng_seed = i_run
-                else:
-                    rng_seed = None
+                #if kwargs["set_seed_for_DEBUG"]:
+                #    rng_seed = i_run
+                rng_seed = None
 
                 fit_result = decode_cv(
                     ys=y_decoding,

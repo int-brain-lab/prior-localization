@@ -68,25 +68,41 @@ def load_wfi(path_to_wfi, sessid=-1):
     return downsampled, behavior, ds_atlas, ds_map, frame_df
 
 
-def load_wfi_session(path_to_wfi, sessid):
-    downsampled, behavior, ds_atlas, ds_map, frame_df = load_wfi(path_to_wfi, sessid)
-    atlas = pd.read_csv('ccf_regions.csv')
+def load_wfi_session(path_to_wfi_subject, sessid, hemispheres, path_to_wfi, keep_all_session=False):
+    downsampled, behavior, ds_atlas, ds_map, frame_df = load_wfi(path_to_wfi_subject)
+    atlas = pd.read_csv(path_to_wfi + '/ccf_regions.csv')
     for k in range(behavior.size):
-        behavior[k]['session_id'] = k
+        behavior[k]['eid'] = k
         behavior[k]['session_to_decode'] = True if k == sessid else False
     sessiondf = pd.concat(behavior, axis=0).reset_index(drop=True)
-    sessiondf['subject'] = 'wfi%i' % int(path_to_wfi.split('-')[-1])
+    if not keep_all_session:
+        sessiondf = sessiondf[sessiondf.session_to_decode]
+    if 'left' not in hemispheres:  # if 'left' is not in hemispheres, only keep regions with negative labels (right hem)
+        ds_atlas = (ds_atlas < 0) * ds_atlas
+    if 'right' not in hemispheres:  # if 'right' is not in hemispheres, only keep regions with positive labels (left hem)
+        ds_atlas = (ds_atlas > 0) * ds_atlas
+    sessiondf['subject'] = 'wfi%i' % int(path_to_wfi_subject.split('-')[-1])
     sessiondf = sessiondf[['choice', 'stimOn_times', 'feedbackType', 'feedback_times', 'contrastLeft', 'goCue_times',
                            'contrastRight', 'probabilityLeft', 'session_to_decode', 'subject', 'signedContrast',
-                           'session_id', 'firstMovement_times']]
+                           'eid', 'firstMovement_times']]
     sessiondf = sessiondf.assign(stim_side=(sessiondf.choice * (sessiondf.feedbackType == 1) -
                                             sessiondf.choice * (sessiondf.feedbackType == -1)))
-    sessiondf['eid'] = sessiondf['session_id'].apply(lambda x: ('wfi' + str(int(path_to_wfi.split('-')[-1]))
+    sessiondf['eid'] = sessiondf['eid'].apply(lambda x: ('wfi' + str(int(path_to_wfi_subject.split('-')[-1]))
                                                                 + 's' + str(x)))
-    # downsampled = downsampled[sessid]
+    downsampled = downsampled[sessid]
     frame_df = frame_df[sessid]
-    wideFieldImaging_dict = {'activity': downsampled, 'timings': frame_df, 'regions': ds_atlas, 'atlas': atlas}
-    return sessiondf, wideFieldImaging_dict
+    wideFieldImaging_dict = {'activity': downsampled, 'timings': frame_df,
+                             'regions': ds_atlas, 'atlas': atlas[['acronym', 'name', 'label']]}
+
+    if sessiondf.eid[sessiondf.session_to_decode].unique().size > 1:
+        raise ValueError('there is a problem in the code')
+    if sessiondf.subject[sessiondf.session_to_decode].unique().size > 1:
+        raise ValueError('there is a problem in the code')
+
+    metadata = {'eid': sessiondf.eid[sessiondf.session_to_decode].unique()[0],
+                'subject': sessiondf.subject[sessiondf.session_to_decode].unique()[0],}
+
+    return sessiondf, wideFieldImaging_dict, metadata
 
 
 
@@ -299,11 +315,9 @@ def spatial_down_sample(stack, pixelSize=20):
                 downsampled_im[:, int(top / pixelSize), int(left / pixelSize)] = spot_activity
     return downsampled_im
 
-def prepare_widefield_data(eid, one, corrected=True):
-    if corrected:
-        SVT = one.load_dataset(eid, 'widefieldSVT.haemoCorrected.npy')
-    else:
-        SVT = one.load_dataset(eid, 'widefieldSVT.uncorrected.npy')
+import wfield
+def prepare_widefield_data(eid, one):
+    SVT = one.load_dataset(eid, 'widefieldSVT.haemoCorrected.npy')
     U = one.load_dataset(eid, 'widefieldU.images.npy')
     times = one.load_dataset(eid, 'imaging.times.npy')
     channels = one.load_dataset(eid, 'imaging.imagingLightSource.npy')
