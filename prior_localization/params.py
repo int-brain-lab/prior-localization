@@ -30,16 +30,13 @@ HPARAM_GRID = (
     else {"C": np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])}
 )
 ADD_TO_PATH = {'balanced_weighting': BALANCED_WEIGHT}
-MOTOR_RESIDUAL = False
-COMPUTE_NEUROMETRIC = False
 
 # WIDE FIELD IMAGING
-WFI_HEMISPHERES = ["left", "right"]  # 'left' and/or 'right'
-WFI_NB_FRAMES_START = -2  # left signed number of frames from ALIGN_TIME (frame included)
-WFI_NB_FRAMES_END = -2  # right signed number of frames from ALIGN_TIME (frame included). If 0 align time frame included
+# WFI_NB_FRAMES_START = -2  # left signed number of frames from ALIGN_TIME (frame included)
+# WFI_NB_FRAMES_END = -2  # right signed number of frames from ALIGN_TIME (frame included). If 0 align time frame included
 WFI_AVERAGE_OVER_FRAMES = False
-if NEURAL_DTYPE == "widefield" and WFI_NB_FRAMES_START > WFI_NB_FRAMES_END:
-    raise ValueError("there is a problem in the specification of the timing of the widefield")
+# if NEURAL_DTYPE == "widefield" and WFI_NB_FRAMES_START > WFI_NB_FRAMES_END:
+#     raise ValueError("there is a problem in the specification of the timing of the widefield")
 
 
 # if TARGET in ["choice", "feedback"] and (
@@ -61,44 +58,6 @@ if NEURAL_DTYPE == "widefield" and WFI_NB_FRAMES_START > WFI_NB_FRAMES_END:
 #     raise ValueError(
 #         "BORDER_QUANTILES_NEUROMETRIC must be empty when MODEL is not specified - oracle pLeft used"
 #     )
-
-
-REGION_DEFAULTS = {
-    'widefield': [
-            ["ACAd"],
-            ["AUDd"],
-            ["AUDp"],
-            ["AUDpo"],
-            ["AUDv"],
-            ["FRP"],
-            ["MOB"],
-            ["MOp"],
-            ["MOs"],
-            ["PL"],
-            ["RSPagl"],
-            ["RSPd"],
-            ["RSPv"],
-            ["SSp-bfd"],
-            ["SSp-ll"],
-            ["SSp-m"],
-            ["SSp-n"],
-            ["SSp-tr"],
-            ["SSp-ul"],
-            ["SSp-un"],
-            ["SSs"],
-            ["TEa"],
-            ["VISa"],
-            ["VISal"],
-            ["VISam"],
-            ["VISl"],
-            ["VISli"],
-            ["VISp"],
-            ["VISpl"],
-            ["VISpm"],
-            ["VISpor"],
-            ["VISrl"],
-        ]
-}
 
 # def check_settings(settings):
 #     """Error check on pipeline settings.

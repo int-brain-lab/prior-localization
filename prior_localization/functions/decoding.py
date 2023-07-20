@@ -9,15 +9,16 @@ from sklearn.model_selection import KFold, train_test_split
 from sklearn.linear_model import RidgeCV, Ridge, Lasso, LassoCV
 from sklearn.utils.class_weight import compute_sample_weight
 
-from prior_localization.prepare_data import prepare_ephys, prepare_behavior, prepare_motor, prepare_pupil
+from prior_localization.prepare_data import prepare_ephys, prepare_widefield, prepare_behavior, prepare_motor, prepare_pupil
 from prior_localization.functions.neurometric import get_neurometric_parameters
 from prior_localization.functions.utils import create_neural_path, check_inputs
 from prior_localization.params import (
-    N_RUNS, ESTIMATOR, ESTIMATOR_KWARGS, HPARAM_GRID, SAVE_PREDICTIONS, SHUFFLE,
-    BALANCED_WEIGHT, USE_NATIVE_SKLEARN_FOR_HYPERPARAMETER_ESTIMATION, COMPUTE_NEURO_ON_EACH_FOLD,
-    DATE, ADD_TO_PATH, QC_CRITERIA, MIN_UNITS
+    N_RUNS, ESTIMATOR, ESTIMATOR_KWARGS, HPARAM_GRID, SAVE_PREDICTIONS, SHUFFLE, BALANCED_WEIGHT,
+    USE_NATIVE_SKLEARN_FOR_HYPERPARAMETER_ESTIMATION, COMPUTE_NEURO_ON_EACH_FOLD,
+    DATE, ADD_TO_PATH, MIN_UNITS
 )
-from prior_localization.params import REGION_DEFAULTS
+
+from prior_localization.functions.wfi_utils import select_widefield_imaging_regions, preprocess_widefield_imaging, get_original_timings
 
 logger = logging.getLogger('prior_localization')
 
@@ -25,7 +26,7 @@ logger = logging.getLogger('prior_localization')
 def fit_session_ephys(
         one, session_id, subject, probe_name, model='optBay', pseudo_ids=None, target='pLeft',
         align_event='stimOn_times', time_window=(-0.6, -0.1), output_dir=None, regions='single_regions',
-        min_trials=150, motor_residuals=False, compute_neurometrics=False,  stage_only=False, integration_test=False
+        min_trials=150, cluster_qc=1., motor_residuals=False, compute_neurometrics=False,  stage_only=False, integration_test=False
 ):
     """
     Fit a single session for ephys data.
@@ -45,7 +46,7 @@ def fit_session_ephys(
 
     # Prepare ephys data
     data_epoch, actual_regions = prepare_ephys(
-        one, session_id, probe_name, regions, intervals, qc=QC_CRITERIA, min_units=MIN_UNITS, stage_only=stage_only
+        one, session_id, probe_name, regions, intervals, qc=cluster_qc, min_units=MIN_UNITS, stage_only=stage_only
     )
 
     # Fix the probe name (mainly for saving)
@@ -59,7 +60,7 @@ def fit_session_ephys(
     filenames = []
     for data_region, region in zip(data_epoch, actual_regions):
         # Create a string for saving the file
-        region_str = regions if (regions == 'all_regions') or (regions in REGION_DEFAULTS.keys()) else '_'.join(region)
+        region_str = regions if (regions == 'all_regions') else '_'.join(region)
 
         # Fit
         fit_results = fit_target(data_region[trials_mask], [t[trials_mask] for t in all_targets], all_trials,
@@ -79,6 +80,70 @@ def fit_session_ephys(
             "probe": probe_name,
             "region": region,
             "N_units": data_region.shape[1],
+        }
+        with open(filename, "wb") as fw:
+            pickle.dump(outdict, fw)
+        filenames.append(filename)
+    return filenames
+
+
+def fit_session_widefield(
+        one, session_id, subject, hemisphere=("left", "right"), model='optBay', pseudo_ids=None, target='pLeft',
+        align_event='stimOn_times', frame_window=(-2, 2), output_dir=None, min_trials=150,
+        motor_residuals=False, compute_neurometrics=False, stage_only=False, integration_test=False):
+
+    """Fit a single session for widefield data."""
+
+    # Check some inputs
+    output_dir, pseudo_ids = check_inputs(output_dir, pseudo_ids, logger)
+
+    # Compute or load behavior targets
+    all_trials, all_targets, trials_mask, intervals, all_neurometrics = prepare_behavior(
+        one, session_id, subject, pseudo_ids=pseudo_ids, output_dir=output_dir, model=model, target=target,
+        align_event=align_event, min_trials=min_trials, motor_residual=motor_residuals,
+        compute_neurometrics=compute_neurometrics, stage_only=stage_only, integration_test=integration_test
+    )
+
+    # Prepare widefield data
+    neural_dict = prepare_widefield(one, session_id, corrected=True)
+    neural_dict['regions'] = np.load(
+        '/home/julia/workspace/int-brain-lab/prior-localization/prior_localization/tests/fixtures/regions_wfi.npy')  # take Chris' regions
+    neural_dict['activity'] = np.load(
+        '/home/julia/data/prior_review/aws_download_widefield_for_test')  # take Chris' activity
+    neural_dict['timings'] = get_original_timings(session_id)  # take Chris' times
+    neural_dict['timings']['stimOn_times'] = neural_dict['timings']['stimOn_times'].astype(int)
+    # beryl_reg = get_bery_reg_wfi(neural_dict, hemisphere)
+
+    regions = [["ACAd"], ["AUDd"], ["AUDp"], ["AUDpo"], ["AUDv"], ["FRP"], ["MOB"], ["MOp"], ["MOs"], ["PL"],
+               ["RSPagl"], ["RSPd"], ["RSPv"], ["SSp-bfd"], ["SSp-ll"], ["SSp-m"], ["SSp-n"], ["SSp-tr"], ["SSp-ul"],
+               ["SSp-un"], ["SSs"], ["TEa"], ["VISa"], ["VISal"], ["VISam"], ["VISl"], ["VISli"], ["VISp"], ["VISpl"],
+               ["VISpm"], ["VISpor"], ["VISrl"]]
+
+    hemisphere_name = 'both_hemispheres' if isinstance(hemisphere, tuple) or isinstance(hemisphere, list) else hemisphere
+    filenames = []
+    for region in regions:
+        reg_mask = select_widefield_imaging_regions(neural_dict, region, hemisphere)
+        msub_binned = preprocess_widefield_imaging(neural_dict, reg_mask, align_event, frame_window)
+        msub_binned = np.asarray(msub_binned).squeeze()
+        region_str = regions if (regions == 'all_regions') else '_'.join(region)
+
+        fit_results = fit_target(msub_binned[trials_mask], [t[trials_mask] for t in all_targets], all_trials,
+                                 all_neurometrics, pseudo_ids, integration_test=integration_test)
+
+        # Add the mask to fit results
+        for fit_result in fit_results:
+            fit_result['mask'] = trials_mask if SAVE_PREDICTIONS else None
+
+        # Create output paths and save
+        filename = create_neural_path(output_dir, DATE, 'widefield', subject, session_id, hemisphere_name,
+                                      region_str, target, time_window, pseudo_ids, ADD_TO_PATH)
+        outdict = {
+            "fit": fit_results,
+            "subject": subject,
+            "eid": session_id,
+            "probe": hemisphere,
+            "region": region,
+            "N_units": msub_binned.shape[1],
         }
         with open(filename, "wb") as fw:
             pickle.dump(outdict, fw)
@@ -170,12 +235,6 @@ def fit_session_motor(
     return filename
 
 
-def fit_session_widefield(hemisphere):
-    """Fit a single session for widefield data."""
-    probe = hemisphere
-    pass
-
-
 def fit_target(data_to_fit, all_targets, all_trials, all_neurometrics=None, pseudo_ids=None, integration_test=False):
     """
     Fits data (neural, motor, etc) to behavior targets.
@@ -199,7 +258,7 @@ def fit_target(data_to_fit, all_targets, all_trials, all_neurometrics=None, pseu
     """
 
     # Loop over (pseudo) sessions and then over runs
-    if not pseudo_ids:
+    if pseudo_ids is None:
         pseudo_ids = [-1]
     if not all_neurometrics:
         all_neurometrics = [None] * len(all_targets)

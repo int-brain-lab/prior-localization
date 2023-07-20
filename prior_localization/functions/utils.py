@@ -188,7 +188,7 @@ def check_inputs(output_dir, pseudo_ids, logger):
         output_dir = Path.cwd()
         logger.info(f"No output directory specified, setting to current working directory {Path.cwd()}")
 
-    pseudo_ids = [-1] if not pseudo_ids else pseudo_ids
+    pseudo_ids = [-1] if pseudo_ids is None else pseudo_ids
     if 0 in pseudo_ids:
         raise ValueError("pseudo id can only be -1 (None, actual session) or strictly greater than 0 (pseudo session)")
     if not np.all(np.sort(pseudo_ids) == pseudo_ids):

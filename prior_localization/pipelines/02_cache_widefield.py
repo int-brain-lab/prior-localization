@@ -11,8 +11,8 @@ import glob
 from tqdm import tqdm
 
 # IBL libraries
-from prior_pipelines.params import CACHE_PATH, WIDE_FIELD_PATH
-from prior_pipelines.pipelines.wfi_utils import load_wfi_session
+from prior_localization.params import CACHE_PATH, WIDE_FIELD_PATH
+from prior_localization.functions.wfi_utils import load_wfi_session
 CACHE_PATH.mkdir(parents=True, exist_ok=True)
 _logger = logging.getLogger('prior_pipelines')
 

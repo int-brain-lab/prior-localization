@@ -6,6 +6,78 @@ from scipy.stats import spearmanr
 import numpy
 import torch
 import wfield
+from ibllib.io.extractors.ephys_fpga import get_sync_fronts, get_sync_and_chn_map
+from labcams import parse_cam_log
+from one.api import ONE
+import math
+
+
+def find_nearest(array, value):
+    array = np.asarray(array)
+    # return (np.abs(array - value)).argmin() #old, aligned to closest frame,
+    return np.argmax(array >= value) # instead do to the first frame after the event
+
+
+def time_to_frames(sync, led, event_times, dropna=True):
+    """
+    Attributes the closest frame of the imaging data to an array of events, such as
+    stimulus onsets.
+    sync: the synchronization pandas DataFrame including the frame and timestamp from imaging, and the
+          timestamp for the bpod events from the fpga
+    event_times: the time in seconds of the bpod event associated with
+
+    returns an array of len(event_times) with a frame attributed to each event
+    """
+    event_times = np.array(event_times)
+    if dropna:
+        event_times = event_times[~np.isnan(event_times)]
+    sync['conversion'] = sync['timestamp'] - sync['task_time']
+
+    temp_led = led['timestamp'] / 1000  # this is the time of each frame
+
+    event_frames = np.empty(event_times.shape)
+    for i in range(len(event_times)):
+        offset = sync.iloc[find_nearest(sync['task_time'], event_times[i])]['conversion']
+        event_frames[i] = led.iloc[find_nearest(temp_led, event_times[i] + offset)]['frame']
+
+    return (event_frames / 2).astype(int)
+
+
+def get_original_timings(eid):
+    one = ONE(base_url='https://alyx.internationalbrainlab.org')
+    _ = one.load_object(eid, 'sync', collection='raw_ephys_data')
+    dset = one.list_datasets(eid, '*nidq.meta')
+    one.load_dataset(eid, dset[0].split('/')[-1], collection='raw_ephys_data')
+    sync, chmap = get_sync_and_chn_map(one.eid2path(eid), sync_collection='raw_ephys_data')
+    bpod_sync = get_sync_fronts(sync, chmap['bpod'])['times']
+
+    camlog_file = one.load_dataset(eid, 'widefieldEvents.raw.camlog', download_only=True)
+    _, led, sync_camlog, _ = parse_cam_log(camlog_file, readTeensy=True)
+
+    bpod_gaps = np.diff(bpod_sync)
+    sync_camlog.timestamp = sync_camlog.timestamp / 1000  # convert from milliseconds to seconds
+    sync_gaps = np.diff(sync_camlog.timestamp)
+    sync_camlog['task_time'] = np.nan
+    assert len(bpod_sync) == len(sync_camlog)
+
+    for i in range(len(bpod_gaps)):
+        # make sure the pulses are the same
+        if math.isclose(bpod_gaps[i], sync_gaps[i], abs_tol=.005):
+            sync_camlog['task_time'].iloc[i] = bpod_sync[i]
+        else:
+            print('WARNING: syncs do not line up for index {}!!!'.format(i))
+    sync_camlog['frame'] = (sync_camlog['frame'] / 2).astype(int)
+    sync_camlog.dropna(axis=0)
+
+    trials = one.load_object(eid, 'trials').to_df()
+    time_mask = ['times' in key for key in trials.keys()]
+    time_df = trials[trials.keys()[time_mask]]
+
+    frame_df = pd.DataFrame(columns=time_df.keys())
+    for (columnName, columnData) in time_df.items():
+        frame_df[columnName] = time_to_frames(sync_camlog, led, np.array(columnData), dropna=False)
+    frame_df = frame_df.astype(np.int64)
+    return frame_df
 
 
 def preprocess_widefield_imaging(neural_dict, reg_mask, **kwargs):
@@ -24,23 +96,15 @@ def preprocess_widefield_imaging(neural_dict, reg_mask, **kwargs):
     return binned
 
 
-def select_ephys_regions(neural_dict, beryl_reg, region, **kwargs):
-    """Select units based on QC criteria and brain region."""
-    qc_pass = np.asarray(neural_dict['clusters']['label'] >= kwargs['qc_criteria'])
-    reg_mask = np.isin(beryl_reg, region)
-    reg_clu_ids = np.argwhere(reg_mask & qc_pass).flatten()
-    return reg_clu_ids
-
-
-def get_bery_reg_wfi(neural_dict, **kwargs):
+def get_bery_reg_wfi(neural_dict, hemisphere=('left', 'right')):
     uniq_regions = np.unique(neural_dict['regions'])
-    if 'left' in kwargs['wfi_hemispheres'] and 'right' in kwargs['wfi_hemispheres']:
+    if 'left' in hemisphere and 'right' in hemisphere:
         return neural_dict['atlas'].acronym[np.array([k in np.abs(uniq_regions)
                                                       for k in neural_dict['atlas'].label])]
-    elif 'left' in kwargs['wfi_hemispheres']:
+    elif 'left' in hemisphere and 'right' not in hemisphere:
         return neural_dict['atlas'].acronym[np.array([k in np.abs(uniq_regions[uniq_regions > 0])
                                                       for k in neural_dict['atlas'].label])]
-    elif 'right' in kwargs['wfi_hemispheres']:
+    elif 'right' in hemisphere and 'left' not in hemisphere:
         return neural_dict['atlas'].acronym[np.array([k in np.abs(uniq_regions[uniq_regions < 0])
                                                       for k in neural_dict['atlas'].label])]
     else:
@@ -258,22 +322,23 @@ def optimal_Bayesian(act, side):
 
 
 
-def select_widefield_imaging_regions(neural_dict, region, kwargs):
+def select_widefield_imaging_regions(neural_dict, region, hemishpere):
     """Select pixels based on brain region."""
     region_labels = []
     reg_lab = neural_dict['atlas'][neural_dict['atlas'].acronym.isin(region).values].label.values.squeeze()
-    if 'left' in kwargs['wfi_hemispheres']:
+    if 'left' in hemishpere:
         region_labels.append(reg_lab)
-    if 'right' in kwargs['wfi_hemispheres']:
+    if 'right' in hemishpere:
         region_labels.append(-reg_lab)
 
     reg_mask = np.isin(neural_dict['regions'], region_labels)
     return reg_mask
 
-def preprocess_widefield_imaging(neural_dict, reg_mask, kwargs):
+
+def preprocess_widefield_imaging(neural_dict, reg_mask, align_event, frame_window):
     frames_idx = np.sort(
-        neural_dict['timings'][kwargs['align_time']].values[:, None] +
-        np.arange(kwargs['wfi_nb_frames_start'], kwargs['wfi_nb_frames_end'] + 1),
+        neural_dict['timings'][align_event].values[:, None] +
+        np.arange(frame_window[0], frame_window[1] + 1),
         axis=1,
     )
     binned = np.take(neural_dict['activity'][:, reg_mask],
@@ -282,111 +347,6 @@ def preprocess_widefield_imaging(neural_dict, reg_mask, kwargs):
     binned = list(binned.reshape(binned.shape[0], -1)[:, None])
     return binned
 
-# Taken from https://github.com/cskrasniak/wfield/blob/master/wfield/analyses.py
-def downsample_atlas(atlas, pixelSize=20, mask=None):
-    """
-    Downsamples the atlas so that it can be matching to the downsampled images. if mask is not provided
-    then just the atlas is used. pixelSize must be a common divisor of 540 and 640
-    """
-    if not mask:
-        mask = atlas != 0
-    downsampled_atlas = np.zeros((int(atlas.shape[0] / pixelSize), int(atlas.shape[1] / pixelSize)))
-    for top in np.arange(0, 540, pixelSize):
-        for left in np.arange(0, 640, pixelSize):
-            useArea = (np.array([np.arange(top, top + pixelSize)] * pixelSize).flatten(),
-                       np.array([[x] * pixelSize for x in range(left, left + pixelSize)]).flatten())
-            u_areas, u_counts = np.unique(atlas[useArea], return_counts=True)
-            if np.sum(mask[useArea] != 0) < .5:
-                # if more than half of the pixels are outside of the brain, skip this group of pixels
-                continue
-            else:
-                spot_label = u_areas[np.argmax(u_counts)]
-                downsampled_atlas[int(top / pixelSize), int(left / pixelSize)] = spot_label
-    return downsampled_atlas.astype(int)
 
 
-def spatial_down_sample(stack, pixelSize=20):
-    """
-    Downsamples the whole df/f video for a session to a manageable size, best are to do a 10x or
-    20x downsampling, this makes many tasks more manageable on a desktop.
-    """
-    mask = stack.U_warped != 0
-    mask = mask.mean(axis=2)
-    try:
-        downsampled_im = np.zeros((stack.SVT.shape[1],
-                                   int(stack.U_warped.shape[0] / pixelSize),
-                                   int(stack.U_warped.shape[1] / pixelSize)))
-    except:
-        print('Choose a downsampling amount that is a common divisor of 540 and 640')
-    for top in np.arange(0, 540, pixelSize):
-        for left in np.arange(0, 640, pixelSize):
-            useArea = (np.array([np.arange(top, top + pixelSize)] * pixelSize).flatten(),
-                       np.array([[x] * pixelSize for x in range(left, left + pixelSize)]).flatten())
-            if np.sum(mask[useArea] != 0) < .5:
-                # if more than half of the pixels are outside of the brain, skip this group of pixels
-                continue
-            else:
-                spot_activity = stack.get_timecourse(useArea).mean(axis=0)
-                downsampled_im[:, int(top / pixelSize), int(left / pixelSize)] = spot_activity
-    return downsampled_im
 
-def prepare_widefield_data(eid, one, corrected=True):
-    if corrected:
-        SVT = one.load_dataset(eid, 'widefieldSVT.haemoCorrected.npy')
-    else:
-        SVT = one.load_dataset(eid, 'widefieldSVT.uncorrected.npy')
-    U = one.load_dataset(eid, 'widefieldU.images.npy')
-    times = one.load_dataset(eid, 'imaging.times.npy')
-    channels = one.load_dataset(eid, 'imaging.imagingLightSource.npy')
-    channel_info = one.load_dataset(eid, 'imagingLightSource.properties.htsv', download_only=True)
-    channel_info = pd.read_csv(channel_info)
-    lmark_file = one.load_dataset(eid, 'widefieldLandmarks.dorsalCortex.json', download_only=True)
-    landmarks = wfield.load_allen_landmarks(lmark_file)
-    # If haemocorrected need to take timestamps that correspond to functional channel
-    functional_channel = 470
-    functional_chn = channel_info.loc[channel_info['wavelength'] == functional_channel]['channel_id'].values[0]
-    times = times[channels == functional_chn]
-
-    # Align the image stack to Allen reference
-    stack = wfield.SVDStack(U, SVT)
-    stack.set_warped(True, M=landmarks['transform'])
-
-    # Load in the Allen atlas
-    atlas, area_names, mask = wfield.atlas_from_landmarks_file(lmark_file, do_transform=False)
-    ccf_regions, _, _ = wfield.allen_load_reference('dorsal_cortex')
-    ccf_regions = ccf_regions[['acronym', 'name', 'label']]
-
-    # Create a 3d mask of the brain outline
-    mask3d = wfield.mask_to_3d(mask, shape=np.roll(stack.U_warped.shape, 1))
-    # Set pixels outside the brain outline to zero
-    stack.U_warped[~mask3d.transpose([1, 2, 0])] = 0
-    # Do the same to the Allen image
-    atlas[~mask] = 0
-
-    # Downsample the images
-    downsampled_atlas = downsample_atlas(atlas, pixelSize=10)
-    downsampled_stack = spatial_down_sample(stack, pixelSize=10)
-
-
-    trials = one.load_object(eid, 'trials')
-    trials = trials.to_df()
-    frames = pd.DataFrame()
-    for key in trials.keys():
-        if 'times' in key:
-            idx = np.searchsorted(times, trials[key].values).astype(np.float64)
-            idx[np.isnan(trials[key].values)] = np.nan
-            frames[key] = idx
-        else:
-            frames[key] = trials[key].values
-
-    # remove last trial as this is detected wrong
-    frames = frames[:-1]
-
-    neural_activity = {}
-    neural_activity['activity'] = downsampled_stack
-    neural_activity['timings'] = frames
-    neural_activity['regions'] = downsampled_atlas
-    neural_activity['atlas'] = ccf_regions
-
-
-    return neural_activity
