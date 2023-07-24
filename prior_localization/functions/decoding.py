@@ -15,7 +15,7 @@ from prior_localization.functions.utils import create_neural_path, check_inputs
 from prior_localization.params import (
     N_RUNS, ESTIMATOR, ESTIMATOR_KWARGS, HPARAM_GRID, SAVE_PREDICTIONS, SHUFFLE, BALANCED_WEIGHT,
     USE_NATIVE_SKLEARN_FOR_HYPERPARAMETER_ESTIMATION, COMPUTE_NEURO_ON_EACH_FOLD,
-    DATE, ADD_TO_PATH, MIN_UNITS
+    DATE, ADD_TO_PATH, MIN_UNITS, REGION_DEFAULTS
 )
 
 from prior_localization.functions.wfi_utils import select_widefield_imaging_regions, preprocess_widefield_imaging, get_original_timings
@@ -26,7 +26,8 @@ logger = logging.getLogger('prior_localization')
 def fit_session_ephys(
         one, session_id, subject, probe_name, model='optBay', pseudo_ids=None, target='pLeft',
         align_event='stimOn_times', time_window=(-0.6, -0.1), output_dir=None, regions='single_regions',
-        min_trials=150, cluster_qc=1., motor_residuals=False, compute_neurometrics=False,  stage_only=False, integration_test=False
+        min_trials=150, cluster_qc=1., motor_residuals=False, compute_neurometrics=False,  stage_only=False,
+        integration_test=False
 ):
     """
     Fit a single session for ephys data.
@@ -60,7 +61,7 @@ def fit_session_ephys(
     filenames = []
     for data_region, region in zip(data_epoch, actual_regions):
         # Create a string for saving the file
-        region_str = regions if (regions == 'all_regions') else '_'.join(region)
+        region_str = regions if (regions == 'all_regions') or (regions in REGION_DEFAULTS.keys()) else '_'.join(region)
 
         # Fit
         fit_results = fit_target(data_region[trials_mask], [t[trials_mask] for t in all_targets], all_trials,
@@ -89,7 +90,7 @@ def fit_session_ephys(
 
 def fit_session_widefield(
         one, session_id, subject, hemisphere=("left", "right"), model='optBay', pseudo_ids=None, target='pLeft',
-        align_event='stimOn_times', frame_window=(-2, 2), output_dir=None, min_trials=150,
+        align_event='stimOn_times', frame_window=(-2, 2), output_dir=None, regions='widefield', min_trials=150,
         motor_residuals=False, compute_neurometrics=False, stage_only=False, integration_test=False):
 
     """Fit a single session for widefield data."""
@@ -114,18 +115,16 @@ def fit_session_widefield(
     neural_dict['timings']['stimOn_times'] = neural_dict['timings']['stimOn_times'].astype(int)
     # beryl_reg = get_bery_reg_wfi(neural_dict, hemisphere)
 
-    regions = [["ACAd"], ["AUDd"], ["AUDp"], ["AUDpo"], ["AUDv"], ["FRP"], ["MOB"], ["MOp"], ["MOs"], ["PL"],
-               ["RSPagl"], ["RSPd"], ["RSPv"], ["SSp-bfd"], ["SSp-ll"], ["SSp-m"], ["SSp-n"], ["SSp-tr"], ["SSp-ul"],
-               ["SSp-un"], ["SSs"], ["TEa"], ["VISa"], ["VISal"], ["VISam"], ["VISl"], ["VISli"], ["VISp"], ["VISpl"],
-               ["VISpm"], ["VISpor"], ["VISrl"]]
+
 
     hemisphere_name = 'both_hemispheres' if isinstance(hemisphere, tuple) or isinstance(hemisphere, list) else hemisphere
     filenames = []
     for region in regions:
+        region_str = regions if (regions == 'all_regions') or (regions in REGION_DEFAULTS.keys()) else '_'.join(region)
+
         reg_mask = select_widefield_imaging_regions(neural_dict, region, hemisphere)
         msub_binned = preprocess_widefield_imaging(neural_dict, reg_mask, align_event, frame_window)
         msub_binned = np.asarray(msub_binned).squeeze()
-        region_str = regions if (regions == 'all_regions') else '_'.join(region)
 
         fit_results = fit_target(msub_binned[trials_mask], [t[trials_mask] for t in all_targets], all_trials,
                                  all_neurometrics, pseudo_ids, integration_test=integration_test)
@@ -136,7 +135,7 @@ def fit_session_widefield(
 
         # Create output paths and save
         filename = create_neural_path(output_dir, DATE, 'widefield', subject, session_id, hemisphere_name,
-                                      region_str, target, time_window, pseudo_ids, ADD_TO_PATH)
+                                      region_str, target, frame_window, pseudo_ids, ADD_TO_PATH)
         outdict = {
             "fit": fit_results,
             "subject": subject,

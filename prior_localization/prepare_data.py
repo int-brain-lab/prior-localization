@@ -20,6 +20,9 @@ from prior_localization.functions.utils import compute_mask, check_bhv_fit_exist
 from prior_localization.functions.nulldistributions import generate_null_distribution_session
 from prior_localization.functions.neurometric import compute_neurometric_prior
 
+from prior_localization.params import REGION_DEFAULTS
+
+
 logger = logging.getLogger('prior_localization')
 
 model_name2class = {
@@ -48,7 +51,9 @@ def prepare_ephys(one, session_id, probe_name, regions, intervals, qc=1, min_uni
     brainreg = BrainRegions()
     beryl_regions = brainreg.acronym2acronym(clusters['acronym'], mapping="Beryl")
     if isinstance(regions, str):
-        if regions == 'single_regions':
+        if regions in REGION_DEFAULTS.keys():
+            regions = REGION_DEFAULTS[regions]
+        elif regions == 'single_regions':
             regions = [[k] for k in np.unique(beryl_regions) if k not in ['root', 'void']]
         elif regions == 'all_regions':
             regions = [np.unique([r for r in beryl_regions if r not in ['root', 'void']])]

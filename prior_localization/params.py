@@ -38,6 +38,43 @@ WFI_AVERAGE_OVER_FRAMES = False
 # if NEURAL_DTYPE == "widefield" and WFI_NB_FRAMES_START > WFI_NB_FRAMES_END:
 #     raise ValueError("there is a problem in the specification of the timing of the widefield")
 
+REGION_DEFAULTS = {
+    'widefield': [
+            ["ACAd"],
+            ["AUDd"],
+            ["AUDp"],
+            ["AUDpo"],
+            ["AUDv"],
+            ["FRP"],
+            ["MOB"],
+            ["MOp"],
+            ["MOs"],
+            ["PL"],
+            ["RSPagl"],
+            ["RSPd"],
+            ["RSPv"],
+            ["SSp-bfd"],
+            ["SSp-ll"],
+            ["SSp-m"],
+            ["SSp-n"],
+            ["SSp-tr"],
+            ["SSp-ul"],
+            ["SSp-un"],
+            ["SSs"],
+            ["TEa"],
+            ["VISa"],
+            ["VISal"],
+            ["VISam"],
+            ["VISl"],
+            ["VISli"],
+            ["VISp"],
+            ["VISpl"],
+            ["VISpm"],
+            ["VISpor"],
+            ["VISrl"],
+        ]
+}
+
 
 # if TARGET in ["choice", "feedback"] and (
 #     MODEL != 'actKernel'
