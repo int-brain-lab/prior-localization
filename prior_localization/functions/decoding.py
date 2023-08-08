@@ -18,7 +18,8 @@ from prior_localization.params import (
     DATE, ADD_TO_PATH, MIN_UNITS, REGION_DEFAULTS
 )
 
-from prior_localization.functions.wfi_utils import select_widefield_imaging_regions, preprocess_widefield_imaging, get_original_timings
+from prior_localization.functions.wfi_utils import select_widefield_imaging_regions, preprocess_widefield_imaging, \
+    get_original_timings, get_bery_reg_wfi
 
 logger = logging.getLogger('prior_localization')
 
@@ -107,20 +108,29 @@ def fit_session_widefield(
 
     # Prepare widefield data
     neural_dict = prepare_widefield(one, session_id, corrected=True)
+    # TODO: remove this, just for sanity check right now
     neural_dict['regions'] = np.load(
-        '/home/julia/workspace/int-brain-lab/prior-localization/prior_localization/tests/fixtures/regions_wfi.npy')  # take Chris' regions
+        '/home/julia/workspace/int-brain-lab/prior-localization/prior_localization/tests/fixtures/decoding/wfield/regions_wfi.npy')  # take Chris' regions
     neural_dict['activity'] = np.load(
         '/home/julia/data/prior_review/aws_download_widefield_for_test')  # take Chris' activity
     neural_dict['timings'] = get_original_timings(session_id)  # take Chris' times
     neural_dict['timings']['stimOn_times'] = neural_dict['timings']['stimOn_times'].astype(int)
-    # beryl_reg = get_bery_reg_wfi(neural_dict, hemisphere)
-
-
+    ####
+    beryl_regions = get_bery_reg_wfi(neural_dict, hemisphere)
+    if isinstance(regions, str):
+        if regions in REGION_DEFAULTS.keys():
+            actual_regions = REGION_DEFAULTS[regions]
+        elif regions == 'single_regions':
+            actual_regions = [[k] for k in np.unique(beryl_regions) if k not in ['root', 'void']]
+        elif regions == 'all_regions':
+            actual_regions = [np.unique([r for r in beryl_regions if r not in ['root', 'void']])]
+        else:
+            actual_regions = [regions]
 
     hemisphere_name = 'both_hemispheres' if isinstance(hemisphere, tuple) or isinstance(hemisphere, list) else hemisphere
     filenames = []
-    for region in regions:
-        region_str = regions if (regions == 'all_regions') or (regions in REGION_DEFAULTS.keys()) else '_'.join(region)
+    for region in actual_regions:
+        region_str = regions if (regions == 'all_regions') else '_'.join(region)
 
         reg_mask = select_widefield_imaging_regions(neural_dict, region, hemisphere)
         msub_binned = preprocess_widefield_imaging(neural_dict, reg_mask, align_event, frame_window)

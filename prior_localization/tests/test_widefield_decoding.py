@@ -1,20 +1,7 @@
 import pickle
 from prior_localization.functions.decoding import fit_session_widefield
 import numpy as np
-#from prior_localization.functions.wfi_utils import prepare_widefield_data, get_original_timings
 from one.api import ONE
-from brainbox.io.one import SessionLoader
-from one.remote import aws
-from pathlib import Path
-
-
-# kwargs = {}
-# kwargs['set_seed_for_DEBUG'] = True
-# kwargs['neural_dtype'] = 'widefield'
-# kwargs['nb_runs'] = 2
-# kwargs["single_region"] = True
-# kwargs['run_integration_test'] = True
-# build_test = False
 
 
 def extract_tested_variables(fit_content):
@@ -23,7 +10,7 @@ def extract_tested_variables(fit_content):
     return predictions, Rsquareds
 
 
-# download from aws
+root_path = '/home/julia/workspace/int-brain-lab/prior-localization/prior_localization/tests/fixtures/decoding/wfield'
 one = ONE()
 eid = 'ff7a70f5-a2b6-4e7e-938e-e7208e0678c2'
 subject = 'wfi9'
@@ -54,14 +41,14 @@ pseudo_ids = np.concatenate((-np.ones(1), np.arange(1, 3))).astype('int64')
 # }
 results_fit_eid = fit_session_widefield(
     one, eid, subject, hemisphere=("left", "right"), model='optBay',  pseudo_ids=pseudo_ids, target='pLeft',
-        align_event='stimOn_times', time_window=(-0.6, -0.1), frame_window=(-2, 2), output_dir=None, min_trials=150,
+        align_event='stimOn_times', frame_window=(-2, 2), output_dir=None, min_trials=150,
         motor_residuals=False, compute_neurometrics=False, stage_only=False, integration_test=True)
 
 for fit_file in results_fit_eid:
     predicteds = pickle.load(open(fit_file, 'rb'))
     predictions, Rsquareds = extract_tested_variables(predicteds)
-    predictions_expected = np.load('/home/julia/workspace/int-brain-lab/prior-localization/prior_localization/tests/fixtures/julia/wfi_{}_predictions.npy'.format(fit_file.name.split('_')[0]))
-    Rsquareds_expected = np.load('/home/julia/workspace/int-brain-lab/prior-localization/prior_localization/tests/fixtures/julia/wfi_{}_rsquareds.npy'.format(fit_file.name.split('_')[0]))
+    predictions_expected = np.load(root_path.joinpath(f"wfi_{fit_file.name.split('_')[0]}_predictions.npy"))
+    Rsquareds_expected = np.load(root_path.joinpath(f"wfi_{fit_file.name.split('_')[0]}_rsquareds.npy"))
     np.testing.assert_allclose(predictions_expected, predictions, rtol=5e-2, atol=0)
     np.testing.assert_allclose(Rsquareds, Rsquareds_expected, rtol=1e-2, atol=0)
     fit_file.unlink()  # remove predicted path
