@@ -1,51 +1,23 @@
-import pandas as pd
-from prior_localization.params import kwargs
-from prior_localization.functions.decoding import fit_session
-import numpy as np
-from prior_localization.params import IMPOSTER_SESSION_PATH
+from pathlib import Path
 from one.api import ONE
-from brainwidemap import bwm_query, load_good_units
-from brainbox.io.one import SessionLoader
+from prior_localization.functions.decoding import fit_session_ephys
+import tempfile
 
-T_BEF = 0.6
-T_AFT = 0.6
-BINWIDTH = 0.02
-idx = 0
-pseudo_ids = np.arange(-1, 49)  # if this contains -1, fitting will also be run on the real session
+# Instantiate ONE to connect to the public IBL database
+one = ONE(base_url='https://openalyx.internationalbrainlab.org', password='international')
 
-one = ONE()
-bwm_df = bwm_query(one)
+# UUID of an example session
+session_id = '56956777-dca5-468c-87cb-78150432cc57'
 
-metadata = {
-    'subject': bwm_df.iloc[idx]['subject'],
-    'eid': bwm_df.iloc[idx]['eid'],
-    'probe_name': bwm_df.iloc[idx]['probe_name']
-}
+# Get some other required information through the ONE API, like subject nickname and probe names
+subject = one.eid2ref(session_id)['subject']
+probe_names = one.eid2pid(session_id)[1]
 
-# Load trials df and add start and end times (for now)
-sess_loader = SessionLoader(one, metadata['eid'])
-sess_loader.load_trials()
-sess_loader.trials['trial_start'] = sess_loader.trials['stimOn_times'] - T_BEF
-sess_loader.trials['trial_end'] = sess_loader.trials['stimOn_times'] + T_AFT
+# Create a temporary directory for the outputs (you can replace this with permanent path on your disk)
+output_dir = Path(tempfile.TemporaryDirectory().name)
 
-
-# Load spike sorting data and put it in a dictionary for now
-spikes, clusters = load_good_units(one, bwm_df.iloc[idx]['pid'], eid=bwm_df.iloc[idx]['eid'],
-                                   pname=bwm_df.iloc[idx]['probe_name'])
-
-neural_dict = {
-    'spk_times': spikes['times'],
-    'spk_clu': spikes['clusters'],
-    'clu_regions': clusters['acronym'],
-    'clu_qc': {k: np.asarray(v) for k, v in clusters.to_dict('list').items()},
-    'clu_df': clusters
-}
-
-if kwargs['use_imposter_session']:
-    kwargs['imposterdf'] = pd.read_parquet(IMPOSTER_SESSION_PATH.joinpath('imposterSessions_beforeRecordings.pqt'))
-else:
-    kwargs['imposterdf'] = None
-
-results_fit_session = fit_session(neural_dict=neural_dict, trials_df=sess_loader.trials, metadata=metadata,
-                                  pseudo_ids=pseudo_ids, **kwargs)
-
+# For this session, ...
+results_fit_session = fit_session_ephys(one, session_id, subject, probe_names, model='optBay', pseudo_ids=[-1, 1, 2],
+                                        target='pLeft', align_event='stimOn_times', time_window=(-0.6, -0.1),
+                                        output_dir=output_dir, regions='single_regions'
+                                        )
