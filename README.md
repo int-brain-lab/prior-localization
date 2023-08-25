@@ -1,4 +1,4 @@
-# Prior pipelines
+# Prior Localization
 The repo provides code to run prior decoding for the entire IBL brainwide map dataset.
 
 ## Dependencies
@@ -53,7 +53,7 @@ This script has been tested on a laptop computer (Intel® Core™ i7 processor, 
 [software_versions_example.txt](https://github.com/int-brain-lab/prior-localization/blob/main/software_versions_example.txt).
 In this setup, it takes about 2 min to run (including data download times).
 
-## Run tests
+## Running tests
 To run the full set of tests you can use e.g. unittest
 ```shell
 python -m unittest discover -s prior_localization/tests
