@@ -18,9 +18,6 @@ from prior_localization.params import (
     DATE, ADD_TO_PATH, MIN_UNITS, REGION_DEFAULTS
 )
 
-from prior_localization.functions.wfi_utils import select_widefield_imaging_regions, preprocess_widefield_imaging, \
-    get_original_timings, get_bery_reg_wfi
-
 logger = logging.getLogger('prior_localization')
 
 
@@ -82,77 +79,6 @@ def fit_session_ephys(
             "probe": probe_name,
             "region": region,
             "N_units": data_region.shape[1],
-        }
-        with open(filename, "wb") as fw:
-            pickle.dump(outdict, fw)
-        filenames.append(filename)
-    return filenames
-
-
-def fit_session_widefield(
-        one, session_id, subject, hemisphere=("left", "right"), model='optBay', pseudo_ids=None, target='pLeft',
-        align_event='stimOn_times', frame_window=(-2, 2), output_dir=None, regions='widefield', min_trials=150,
-        motor_residuals=False, compute_neurometrics=False, stage_only=False, integration_test=False):
-
-    """Fit a single session for widefield data."""
-
-    # Check some inputs
-    output_dir, pseudo_ids = check_inputs(output_dir, pseudo_ids, logger)
-
-    # Compute or load behavior targets
-    all_trials, all_targets, trials_mask, intervals, all_neurometrics = prepare_behavior(
-        one, session_id, subject, pseudo_ids=pseudo_ids, output_dir=output_dir, model=model, target=target,
-        align_event=align_event, min_trials=min_trials, motor_residual=motor_residuals,
-        compute_neurometrics=compute_neurometrics, stage_only=stage_only, integration_test=integration_test
-    )
-
-    # Prepare widefield data
-    neural_dict = prepare_widefield(one, session_id, corrected=True)
-    # TODO: remove this, just for sanity check right now
-    neural_dict['regions'] = np.load(
-        '/home/julia/workspace/int-brain-lab/prior-localization/prior_localization/tests/fixtures/decoding/wfield/regions_wfi.npy')  # take Chris' regions
-    neural_dict['activity'] = np.load(
-        '/home/julia/data/prior_review/aws_download_widefield_for_test')  # take Chris' activity
-    neural_dict['timings'] = get_original_timings(session_id)  # take Chris' times
-    neural_dict['timings']['stimOn_times'] = neural_dict['timings']['stimOn_times'].astype(int)
-    ####
-    beryl_regions = get_bery_reg_wfi(neural_dict, hemisphere)
-    if isinstance(regions, str):
-        if regions in REGION_DEFAULTS.keys():
-            actual_regions = REGION_DEFAULTS[regions]
-        elif regions == 'single_regions':
-            actual_regions = [[k] for k in np.unique(beryl_regions) if k not in ['root', 'void']]
-        elif regions == 'all_regions':
-            actual_regions = [np.unique([r for r in beryl_regions if r not in ['root', 'void']])]
-        else:
-            actual_regions = [regions]
-
-    hemisphere_name = 'both_hemispheres' if isinstance(hemisphere, tuple) or isinstance(hemisphere, list) else hemisphere
-    filenames = []
-    for region in actual_regions:
-        region_str = regions if (regions == 'all_regions') else '_'.join(region)
-
-        reg_mask = select_widefield_imaging_regions(neural_dict, region, hemisphere)
-        msub_binned = preprocess_widefield_imaging(neural_dict, reg_mask, align_event, frame_window)
-        msub_binned = np.asarray(msub_binned).squeeze()
-
-        fit_results = fit_target(msub_binned[trials_mask], [t[trials_mask] for t in all_targets], all_trials,
-                                 all_neurometrics, pseudo_ids, integration_test=integration_test)
-
-        # Add the mask to fit results
-        for fit_result in fit_results:
-            fit_result['mask'] = trials_mask if SAVE_PREDICTIONS else None
-
-        # Create output paths and save
-        filename = create_neural_path(output_dir, DATE, 'widefield', subject, session_id, hemisphere_name,
-                                      region_str, target, frame_window, pseudo_ids, ADD_TO_PATH)
-        outdict = {
-            "fit": fit_results,
-            "subject": subject,
-            "eid": session_id,
-            "probe": hemisphere,
-            "region": region,
-            "N_units": msub_binned.shape[1],
         }
         with open(filename, "wb") as fw:
             pickle.dump(outdict, fw)
