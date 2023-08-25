@@ -6,11 +6,11 @@ The repo provides code to run prior decoding for the entire IBL brainwide map da
 
 
 ## Dependencies
-The code has been tested on Ubuntu 20.04 and 22.04 using either Python 3.8 or 3.10. R
-equired Python software packages are listed in [requirements.txt](https://github.com/int-brain-lab/prior-localization/blob/main/requirements.txt). 
+The code has been tested on Ubuntu 20.04 and 22.04 using either Python 3.8 or 3.10. 
+Required Python software packages are listed in [requirements.txt](https://github.com/int-brain-lab/prior-localization/blob/main/requirements.txt). 
 
 ## Installation
-It is recommended to set up and activate a clean environment using conda or virtualenv, e.g.
+The installation takes about 7 min on a standard desktop computer. It is recommended to set up and activate a clean environment using conda or virtualenv, e.g.
 ```shell
 virtualenv prior --python=python3.10
 source prior/bin/activate
@@ -19,7 +19,7 @@ source prior/bin/activate
 Then clone this repository and install it along with its dependencies
 ```shell
 git clone https://github.com/int-brain-lab/prior-localization.git
-cd prior_localization
+cd prior-localization
 pip install .
 ```
 
