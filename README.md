@@ -1,5 +1,5 @@
 # Prior Localization
-The repository provides the code associated with the paper \emph{Brain-wide representations of prior information in mouse decision-making}.
+The repository provides the code associated with the paper *Brain-wide representations of prior information in mouse decision-making*.
 
 ## Dependencies
 The code has been tested on Ubuntu 20.04 and 22.04, Rocky Linux 8.8 and OSX 13.4.1, using Python 3.8, 3.9 and 3.10.
