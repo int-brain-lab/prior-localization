@@ -1,8 +1,8 @@
 # Prior Localization
-The repo provides code to run prior decoding for the entire IBL brainwide map dataset.
+The repository provides the code associated with the paper \emph{Brain-wide representations of prior information in mouse decision-making}.
 
 ## Dependencies
-The code has been tested on Ubuntu 20.04 and 22.04, Rocky Linux 8.8 and OSX 13.4.1, using Python 3.8, 3.9 and 3.10. 
+The code has been tested on Ubuntu 20.04 and 22.04, Rocky Linux 8.8 and OSX 13.4.1, using Python 3.8, 3.9 and 3.10.
 Required Python software packages are listed in [requirements.txt](https://github.com/int-brain-lab/prior-localization/blob/main/requirements.txt). 
 
 ## Installation
@@ -45,7 +45,8 @@ ONE.setup(base_url='https://openalyx.internationalbrainlab.org')
 If you run into any issues refer to the [ONE documentation](https://int-brain-lab.github.io/ONE/index.html)
 
 ## Running example code
-We provide an example script that performs ... . The data is
+We provide an example script in `prior_localization/decode_single_session.ipynb` that performs a region-level 
+decoding of the Bayes optimal prior from pre-stimulus neural activity. The data is
 automatically downloaded from the public IBL database, provided that the above ONE setup has been performed.
 
 
