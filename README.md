@@ -59,3 +59,9 @@ To run the full set of tests you can use e.g. unittest
 ```shell
 python -m unittest discover -s prior_localization/tests
 ```
+
+## Code Description
+The code heavily relies on the fitting functions in `prior_localication/functions/decoding.py`. 
+The inputs of this function are described in the function's description and in the tutorial file.
+This codes outputs the paths of the folders which contain the decoding results. See the tutorial file
+to plot output predictions of the decoding results.
