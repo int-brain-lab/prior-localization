@@ -232,4 +232,3 @@ def prepare_pupil(one, session_id, time_window=(-0.6, -0.1), align_event='stimOn
     )
     # Return concatenated x and y
     return np.c_[epochs_x, epochs_y]
-

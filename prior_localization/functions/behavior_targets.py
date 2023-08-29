@@ -38,11 +38,11 @@ def optimal_Bayesian(act, side):
     torch.flip(ref.double(), (0,))
     hazard = torch.cummax(
         ref / torch.flip(torch.cumsum(torch.flip(ref.double(), (0,)), 0) + eps, (0,)), 0)[0]
-    l = torch.cat(
+    l_mat = torch.cat(
         (torch.unsqueeze(hazard, -1),
          torch.cat((torch.diag(1 - hazard[:-1]), torch.zeros(nb_blocklengths - 1)[None]), axis=0)),
         axis=-1)  # l_{t-1}, l_t
-    transition = eps + torch.transpose(l[:, :, None, None] * b[None], 1, 2).reshape(
+    transition = eps + torch.transpose(l_mat[:, :, None, None] * b[None], 1, 2).reshape(
         nb_typeblocks * nb_blocklengths, -1)
 
     # likelihood
@@ -57,9 +57,9 @@ def optimal_Bayesian(act, side):
         # save priors
         if i_trial >= 0:
             if i_trial > 0:
-                alpha[i_trial] = torch.sum(torch.unsqueeze(h, -1) * transition, axis=0) * to_update[i_trial - 1] \
-                                 + alpha[i_trial - 1] * (1 - to_update[i_trial - 1])
-            #else:
+                alpha[i_trial] = (torch.sum(torch.unsqueeze(h, -1) * transition, axis=0) * to_update[i_trial - 1]
+                                  + alpha[i_trial - 1] * (1 - to_update[i_trial - 1]))
+            # else:
             #    alpha = alpha.reshape(-1, nb_blocklengths, nb_typeblocks)
             #    alpha[i_trial, 0, 0] = 0.5
             #    alpha[i_trial, 0, -1] = 0.5
@@ -158,7 +158,7 @@ def compute_beh_target(trials_df, session_id, subject, model, target, behavior_p
     # compute signal
     stim_side, stimuli, actions, _ = format_data(trials_df)
     stimuli, actions, stim_side = format_input([stimuli], [actions], [stim_side])
-    signal = model.compute_signal(signal='prior' if target == 'pLeft' else target, act=actions,  stim=stimuli,
+    signal = model.compute_signal(signal='prior' if target == 'pLeft' else target, act=actions, stim=stimuli,
                                   side=stim_side)['prior' if target == 'pLeft' else target]
     tvec = signal.squeeze()
     if BINARIZATION_VALUE is not None:

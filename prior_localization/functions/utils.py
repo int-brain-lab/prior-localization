@@ -1,13 +1,10 @@
 from pathlib import Path
-
 import numpy as np
-import pandas as pd
-
 from behavior_models.utils import build_path
 
 
 def create_neural_path(output_path, date, neural_dtype, subject, session_id, probe,
-                       region_str, target, time_window,  pseudo_ids, add_to_path=None):
+                       region_str, target, time_window, pseudo_ids, add_to_path=None):
     full_path = Path(output_path).joinpath('neural', date, neural_dtype, subject, session_id, probe)
     full_path.mkdir(exist_ok=True, parents=True)
 

@@ -66,6 +66,7 @@ class TestEphysDecoding(unittest.TestCase):
                                                 output_dir=Path(self.tmp_dir.name), regions='single_regions',
                                                 motor_residuals=True, integration_test=True
                                                 )
+        self.assertEqual(len(results_fit_session), 5)
 
     def tearDown(self) -> None:
         self.tmp_dir.cleanup()

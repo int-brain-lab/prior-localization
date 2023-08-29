@@ -24,7 +24,7 @@ logger = logging.getLogger('prior_localization')
 def fit_session_ephys(
         one, session_id, subject, probe_name, model='optBay', pseudo_ids=None, target='pLeft',
         align_event='stimOn_times', time_window=(-0.6, -0.1), output_dir=None, regions='single_regions',
-        min_trials=150, cluster_qc=1., motor_residuals=False, compute_neurometrics=False,  stage_only=False,
+        min_trials=150, cluster_qc=1., motor_residuals=False, compute_neurometrics=False, stage_only=False,
         integration_test=False
 ):
     """

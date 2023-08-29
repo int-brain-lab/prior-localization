@@ -52,4 +52,3 @@ def generate_choices(pseudosess, trials_df, subjModel):
     act_sim = np.array(act_sim.squeeze().T, dtype=np.int64)
 
     return act_sim
-

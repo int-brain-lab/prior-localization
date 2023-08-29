@@ -89,11 +89,11 @@ class TestPupilInputs(unittest.TestCase):
         self.eid = '4a45c8ba-db6f-4f11-9403-56e06a33dfa4'
         self.time_window = [-0.6, -0.1]
         self.fixtures = Path(__file__).parent.joinpath('fixtures', 'inputs')
-        #self.expected = np.load(self.fixtures.joinpath(f'pupil_regressors_{self.eid}.npy'))
+        self.expected = np.load(self.fixtures.joinpath(f'pupil_regressors_{self.eid}.npy'))
 
     def test_prepare_pupil(self):
         predicted = prepare_pupil(self.one, self.eid, align_event='stimOn_times', time_window=self.time_window)
-        #self.assertIsNone(np.testing.assert_equal(predicted, self.expected))
+        self.assertIsNone(np.testing.assert_equal(predicted, self.expected))
 
 
 class TestAverageDataInEpoch(unittest.TestCase):
@@ -122,8 +122,8 @@ class TestAverageDataInEpoch(unittest.TestCase):
         # Test that data is sampled from correct epoch
         # Using the times as values allows to see at which times the data is actually sampled, but still we need to
         # tests against precomputed values that we know are sampled from
-        times = np.arange(int(self.sl.trials['stimOn_times'].min()-10),
-                          int(self.sl.trials['stimOn_times'].max()+10), self.ts)
+        times = np.arange(int(self.sl.trials['stimOn_times'].min() - 10),
+                          int(self.sl.trials['stimOn_times'].max() + 10), self.ts)
         actual = average_data_in_epoch(times, times, self.sl.trials, align_event='stimOn_times', epoch=self.epoch)
         predicted = np.load(self.fixtures.joinpath('average_in_epoch_uniform.npy'))
         np.testing.assert_array_equal(actual, predicted)
@@ -145,7 +145,7 @@ class TestAverageDataInEpoch(unittest.TestCase):
         self.assertTrue(np.all(np.isnan(res[nan_idx])))
 
         # First trial before timestamps and last trial after timestamps
-        end_idx = self.sl.trials.shape[0]-20
+        end_idx = self.sl.trials.shape[0] - 20
         times = np.arange(np.ceil(self.sl.trials['firstMovement_times'][7]),
                           np.floor(self.sl.trials['firstMovement_times'][end_idx]), self.ts)
         res = average_data_in_epoch(times, np.ones_like(times), self.sl.trials,
