@@ -28,7 +28,35 @@ def fit_session_ephys(
         integration_test=False
 ):
     """
-    Fit a single session for ephys data.
+    Fits a single session for ephys data.
+    Parameters
+    ----------
+    one: ONE object
+    session_id: session uuid to run the decoding on
+    subject: the mouse name
+    probe_name: the probe name(s)
+    model: the model to be decoded (default is optBay)
+    pseudo_ids: list of ids. if id=-1, then the
+    target: target to be decoded, default is 'pLeft', meaning the prior probability that the stimulus
+    will appear on the left side
+    align_event: event on which we align the time window. Default is stimulus onset
+    time_window: considered time window for the neural activity is [-600 to -100]
+    output_dir: directory in which the results are saved
+    regions: specify which kind of decoding to performing, region-level, whole-brain or particular regions
+    min_trials: minimum number of trials under which we consider that there is not enough trials to perform
+    an accurate decoding
+    cluster_qc: quality control metric of the units
+    motor_residuals: compute the motor residual before performing neural decoding. This argument is used
+     to study embodiment corresponding to figure 2f.
+    compute_neurometrics: compute the neurometric curves (target here must be signed_contrast). This is
+    used for figure 3 and compute the neurometric shift and slopes (please refer to the paper for
+    more information)
+    stage_only: mode to test that everything works as intended
+    integration_test: integration test mode
+
+    Returns
+    -------
+    the paths of the file where the results of the decoding has been performed
     """
 
     # Check some inputs
