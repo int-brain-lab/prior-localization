@@ -4,8 +4,9 @@ import torch
 from behavior_models.utils import format_data, format_input
 from behavior_models.models import ActionKernel, StimulusKernel
 
-from prior_localization.functions.utils import check_bhv_fit_exists
-from prior_localization.params import BINARIZATION_VALUE
+from prior_localization.functions.utils import check_bhv_fit_exists, check_config
+
+config = check_config()
 
 
 def optimal_Bayesian(act, side):
@@ -161,7 +162,7 @@ def compute_beh_target(trials_df, session_id, subject, model, target, behavior_p
     signal = model.compute_signal(signal='prior' if target == 'pLeft' else target, act=actions, stim=stimuli,
                                   side=stim_side)['prior' if target == 'pLeft' else target]
     tvec = signal.squeeze()
-    if BINARIZATION_VALUE is not None:
-        tvec = (tvec > BINARIZATION_VALUE) * 1
+    if config['binarization_value'] is not None:
+        tvec = (tvec > config['binarization_value']) * 1
 
     return tvec

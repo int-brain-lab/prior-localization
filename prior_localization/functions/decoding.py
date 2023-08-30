@@ -1,7 +1,9 @@
 import logging
 import pickle
+import yaml
 import numpy as np
 import pandas as pd
+from pathlib import Path
 
 from sklearn import linear_model as sklm
 from sklearn.metrics import accuracy_score, balanced_accuracy_score, r2_score
@@ -11,56 +13,71 @@ from sklearn.utils.class_weight import compute_sample_weight
 
 from prior_localization.prepare_data import prepare_ephys, prepare_behavior, prepare_motor, prepare_pupil
 from prior_localization.functions.neurometric import get_neurometric_parameters
-from prior_localization.functions.utils import create_neural_path, check_inputs
-from prior_localization.params import (
-    N_RUNS, ESTIMATOR, ESTIMATOR_KWARGS, HPARAM_GRID, SAVE_PREDICTIONS, SHUFFLE, BALANCED_WEIGHT,
-    USE_NATIVE_SKLEARN_FOR_HYPERPARAMETER_ESTIMATION, COMPUTE_NEURO_ON_EACH_FOLD,
-    DATE, ADD_TO_PATH, MIN_UNITS, REGION_DEFAULTS
-)
+from prior_localization.functions.utils import create_neural_path, check_inputs, check_config
 
+# Set up logger
 logger = logging.getLogger('prior_localization')
+# Load settings
+with open(Path(__file__).parent.parent.joinpath('settings.yml'), "r") as settings_yml:
+    settings = yaml.safe_load(settings_yml)
+# Load and check configuration file
+config = check_config()
 
 
 def fit_session_ephys(
         one, session_id, subject, probe_name, model='optBay', pseudo_ids=None, target='pLeft',
         align_event='stimOn_times', time_window=(-0.6, -0.1), output_dir=None, regions='single_regions',
-        min_trials=150, cluster_qc=1., motor_residuals=False, compute_neurometrics=False, stage_only=False,
-        integration_test=False
+        min_trials=150, motor_residuals=False, stage_only=False, integration_test=False
 ):
     """
     Fits a single session for ephys data.
     Parameters
     ----------
-    one: ONE object
-    session_id: session uuid to run the decoding on
-    subject: the mouse name
-    probe_name: the probe name(s)
-    model: the model to be decoded (default is optBay)
-    pseudo_ids: list of ids. if id=-1, then the
-    target: target to be decoded, default is 'pLeft', meaning the prior probability that the stimulus
-    will appear on the left side
-    align_event: event on which we align the time window. Default is stimulus onset
-    time_window: considered time window for the neural activity is [-600 to -100]
-    output_dir: directory in which the results are saved
-    regions: specify which kind of decoding to performing, region-level, whole-brain or particular regions
-    min_trials: minimum number of trials under which we consider that there is not enough trials to perform
-    an accurate decoding
-    cluster_qc: quality control metric of the units
-    motor_residuals: compute the motor residual before performing neural decoding. This argument is used
-     to study embodiment corresponding to figure 2f.
-    compute_neurometrics: compute the neurometric curves (target here must be signed_contrast). This is
-    used for figure 3 and compute the neurometric shift and slopes (please refer to the paper for
-    more information)
-    stage_only: mode to test that everything works as intended
-    integration_test: integration test mode
+    one: one.api.ONE object
+     ONE instance connected to database that data should be loaded from
+    session_id: str
+     Database UUID of the session uuid to run the decoding on
+    subject: str
+     Nickname of the mouse
+    probe_name: str or list of str
+     Probe name(s)
+    model: str
+     Model to be decoded, options are {optBay, actKernel, stimKernel, oracle}, default is optBay
+    pseudo_ids: list of int
+     List of sessions / pseudo sessions to decode, -1 represents decoding of the actual session, integers > 0 indicate
+     pseudo_session ids.
+    target: str
+     Target to be decoded, options are {pLeft, prior, choice, feedback, signcont}, default is pLeft,
+     meaning the prior probability that the stimulus  will appear on the left side
+    align_event: str
+     Event to which we align the time window, default is stimOn_times (stimulus onset). Options are
+     {"firstMovement_times", "goCue_times", "stimOn_times", "feedback_times"}
+    time_window: tuple of float
+     Time window in which neural activity is considered, relative to align_event, default is (-0.6, -0.1)
+    output_dir: str, pathlib.Path or None
+     Directory in which the results are saved, will be created if it doesn't exist. If None, use working directory
+    regions:
+     Specify the level of granularity at which decoding is done. Options are single_regions (every region that is
+     passed by the probe is decoded separately), all_regions (all regions passed are decoded together) or any key
+     into the regions_defaults dictionary, specified in config.yml
+    min_trials: int
+     Minimum number of valid trials for session to be decoded, default is 150
+    motor_residuals: bool
+     Whether ot compute the motor residual before performing neural decoding. This argument is used to study embodiment
+     corresponding to figure 2f, default is False
+    stage_only: bool
+     If true, only download all required data, don't perform the actual decoding
+    integration_test: bool
+     If true set random seeds for integration testing. Do not use this when running actual decoding
 
     Returns
     -------
-    the paths of the file where the results of the decoding has been performed
+    list
+     List of paths to the results files
     """
 
     # Check some inputs
-    output_dir, pseudo_ids = check_inputs(output_dir, pseudo_ids, logger)
+    pseudo_ids, output_dir = check_inputs(model, pseudo_ids, target, output_dir, config, logger)
     if motor_residuals and model != 'optBay':
         raise ValueError('Motor residuals can only be computed for optBay model')
 
@@ -68,12 +85,13 @@ def fit_session_ephys(
     all_trials, all_targets, trials_mask, intervals, all_neurometrics = prepare_behavior(
         one, session_id, subject, pseudo_ids=pseudo_ids, output_dir=output_dir,
         model=model, target=target, align_event=align_event, time_window=time_window, min_trials=min_trials,
-        motor_residual=motor_residuals, compute_neurometrics=compute_neurometrics,
+        motor_residual=motor_residuals, compute_neurometrics=config['compute_neurometrics'],
         stage_only=stage_only, integration_test=integration_test)
 
     # Prepare ephys data
     data_epoch, actual_regions = prepare_ephys(
-        one, session_id, probe_name, regions, intervals, qc=cluster_qc, min_units=MIN_UNITS, stage_only=stage_only
+        one, session_id, probe_name, regions, intervals, qc=config['unit_qc'], min_units=config['min_units'],
+        stage_only=stage_only
     )
 
     # Fix the probe name (mainly for saving)
@@ -87,7 +105,8 @@ def fit_session_ephys(
     filenames = []
     for data_region, region in zip(data_epoch, actual_regions):
         # Create a string for saving the file
-        region_str = regions if (regions == 'all_regions') or (regions in REGION_DEFAULTS.keys()) else '_'.join(region)
+        region_str = regions if (regions == 'all_regions') or (
+            regions in config['region_defaults'].keys()) else '_'.join(region)
 
         # Fit
         fit_results = fit_target(data_region[trials_mask], [t[trials_mask] for t in all_targets], all_trials,
@@ -95,11 +114,11 @@ def fit_session_ephys(
 
         # Add the mask to fit results
         for fit_result in fit_results:
-            fit_result['mask'] = trials_mask if SAVE_PREDICTIONS else None
+            fit_result['mask'] = trials_mask if config['save_predictions'] else None
 
         # Create output paths and save
-        filename = create_neural_path(output_dir, DATE, 'ephys', subject, session_id, probe_name,
-                                      region_str, target, time_window, pseudo_ids, ADD_TO_PATH)
+        filename = create_neural_path(output_dir, settings['date'], 'ephys', subject, session_id, probe_name,
+                                      region_str, target, time_window, pseudo_ids, settings['add_to_path'])
         outdict = {
             "fit": fit_results,
             "subject": subject,
@@ -119,7 +138,7 @@ def fit_session_pupil(
     time_window=(-0.6, -0.1), output_dir=None, neural_dtype='ephys', stage_only=False, integration_test=False
 ):
     # Check some inputs
-    output_dir, pseudo_ids = check_inputs(output_dir, pseudo_ids, logger)
+    pseudo_ids, output_dir = check_inputs(model, pseudo_ids, target, output_dir, config, logger)
 
     # Compute or load behavior targets
     all_trials, all_targets, trials_mask, intervals, all_neurometrics = prepare_behavior(
@@ -139,9 +158,9 @@ def fit_session_pupil(
 
     # Create output paths and save
     filename = create_neural_path(
-        output_path=output_dir, date=DATE, neural_dtype=neural_dtype, subject=subject, session_id=session_id, probe='',
-        region_str='pupil', target=target, time_window=time_window, pseudo_ids=pseudo_ids,
-        add_to_path=ADD_TO_PATH
+        output_path=output_dir, date=settings['date'], neural_dtype=neural_dtype, subject=subject,
+        session_id=session_id, probe='', region_str='pupil', target=target, time_window=time_window,
+        pseudo_ids=pseudo_ids, add_to_path=settings['add_to_path']
     )
 
     outdict = {
@@ -161,8 +180,7 @@ def fit_session_motor(
     time_window=(-0.6, -0.1), output_dir=None, neural_dtype='ephys', stage_only=False, integration_test=False
 ):
     # Check some inputs
-    output_dir, pseudo_ids = check_inputs(output_dir, pseudo_ids, logger)
-
+    pseudo_ids, output_dir = check_inputs(model, pseudo_ids, target, output_dir, config, logger)
     # Compute or load behavior targets
     all_trials, all_targets, trials_mask, intervals, all_neurometrics = prepare_behavior(
         one, session_id, subject, pseudo_ids=pseudo_ids, output_dir=output_dir,
@@ -181,9 +199,9 @@ def fit_session_motor(
 
     # Create output paths and save
     filename = create_neural_path(
-        output_path=output_dir, date=DATE, neural_dtype=neural_dtype, subject=subject, session_id=session_id, probe='',
-        region_str='motor', target=target, time_window=time_window, pseudo_ids=pseudo_ids,
-        add_to_path=ADD_TO_PATH
+        output_path=output_dir, date=settings['date'], neural_dtype=neural_dtype, subject=subject,
+        session_id=session_id, probe='', region_str='motor', target=target, time_window=time_window,
+        pseudo_ids=pseudo_ids, add_to_path=settings['add_to_path']
     )
 
     outdict = {
@@ -228,20 +246,20 @@ def fit_target(data_to_fit, all_targets, all_trials, all_neurometrics=None, pseu
     fit_results = []
     for targets, trials, neurometrics, pseudo_id in zip(all_targets, all_trials, all_neurometrics, pseudo_ids):
         # run decoders
-        for i_run in range(N_RUNS):
+        for i_run in range(config['n_runs']):
             rng_seed = i_run if integration_test else None
             fit_result = decode_cv(
                 ys=targets,
                 Xs=data_to_fit,
-                estimator=ESTIMATOR,
-                estimator_kwargs=ESTIMATOR_KWARGS,
-                hyperparam_grid=HPARAM_GRID,
+                estimator=config['estimator'],
+                estimator_kwargs=config['estimator_kwargs'],
+                hyperparam_grid=config['hparam_grid'],
                 save_binned=False,
-                save_predictions=SAVE_PREDICTIONS,
-                shuffle=SHUFFLE,
-                balanced_weight=BALANCED_WEIGHT,
+                save_predictions=config['save_predictions'],
+                shuffle=config['shuffle'],
+                balanced_weight=config['balanced_weighting'],
                 rng_seed=rng_seed,
-                use_cv_sklearn_method=USE_NATIVE_SKLEARN_FOR_HYPERPARAMETER_ESTIMATION,
+                use_cv_sklearn_method=config['use_native_sklearn_for_hyperparam_estimation'],
             )
 
             fit_result["trials_df"] = trials
@@ -250,7 +268,7 @@ def fit_target(data_to_fit, all_targets, all_trials, all_neurometrics=None, pseu
 
             if neurometrics:
                 fit_result["full_neurometric"], fit_result["fold_neurometric"] = get_neurometric_parameters(
-                    fit_result, trialsdf=neurometrics, compute_on_each_fold=COMPUTE_NEURO_ON_EACH_FOLD
+                    fit_result, trialsdf=neurometrics, compute_on_each_fold=config['compute_neuro_on_each_fold']
                 )
             else:
                 fit_result["full_neurometric"] = None

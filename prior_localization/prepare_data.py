@@ -14,11 +14,9 @@ from behavior_models.utils import format_data, format_input
 from behavior_models.models import ActionKernel, StimulusKernel
 
 from prior_localization.functions.behavior_targets import optimal_Bayesian, compute_beh_target
-from prior_localization.functions.utils import compute_mask, check_bhv_fit_exists, average_data_in_epoch
+from prior_localization.functions.utils import compute_mask, check_bhv_fit_exists, average_data_in_epoch, check_config
 from prior_localization.functions.nulldistributions import generate_null_distribution_session
 from prior_localization.functions.neurometric import compute_neurometric_prior
-
-from prior_localization.params import REGION_DEFAULTS
 
 
 logger = logging.getLogger('prior_localization')
@@ -29,6 +27,8 @@ model_name2class = {
     "stimKernel": StimulusKernel,
     "oracle": None
 }
+
+config = check_config()
 
 
 def prepare_ephys(one, session_id, probe_name, regions, intervals, qc=1, min_units=10, stage_only=False):
@@ -49,8 +49,8 @@ def prepare_ephys(one, session_id, probe_name, regions, intervals, qc=1, min_uni
     brainreg = BrainRegions()
     beryl_regions = brainreg.acronym2acronym(clusters['acronym'], mapping="Beryl")
     if isinstance(regions, str):
-        if regions in REGION_DEFAULTS.keys():
-            regions = REGION_DEFAULTS[regions]
+        if regions in config['region_defaults'].keys():
+            regions = config['region_defaults'][regions]
         elif regions == 'single_regions':
             regions = [[k] for k in np.unique(beryl_regions) if k not in ['root', 'void']]
         elif regions == 'all_regions':

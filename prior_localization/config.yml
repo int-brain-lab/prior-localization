@@ -1,0 +1,56 @@
+# Ephys data config
+unit_qc: 1 # minimum QC value for units to enter analysis (between 0 and 1)
+min_units: 10 # minimum number of units per region for a region to enter analysis
+
+# Decoding config
+estimator: Ridge  # possible values: LinearRegression, Lasso, Ridge, LogisticRegression,
+estimator_kwargs: {tol: 0.0001, max_iter: 20000, fit_intercept: True}
+binarization_value: null # to binarize the target -> could be useful with logistic regression estimator
+n_runs: 2
+shuffle: True
+balanced_weighting: True
+save_predictions: True
+hparam_grid: {}
+
+# Neurometric curves config
+# This is used for figure 3 and compute the neurometric shift and slopes (please refer to the paper for more information)
+compute_neurometrics: False  # Target must be signcont if this is True
+border_quantiles_neurometrics: [0.3, 0.7]  # [.3, .4, .5, .6, .7]
+compute_neuro_on_each_fold: False # if True, expect a script that is 5 times slower
+
+# Regions config
+region_defaults: {
+  'widefield': [
+    [ "ACAd" ],
+    [ "AUDd" ],
+    [ "AUDp" ],
+    [ "AUDpo" ],
+    [ "AUDv" ],
+    [ "FRP" ],
+    [ "MOB" ],
+    [ "MOp" ],
+    [ "MOs" ],
+    [ "PL" ],
+    [ "RSPagl" ],
+    [ "RSPd" ],
+    [ "RSPv" ],
+    [ "SSp-bfd" ],
+    [ "SSp-ll" ],
+    [ "SSp-m" ],
+    [ "SSp-n" ],
+    [ "SSp-tr" ],
+    [ "SSp-ul" ],
+    [ "SSp-un" ],
+    [ "SSs" ],
+    [ "TEa" ],
+    [ "VISa" ],
+    [ "VISal" ],
+    [ "VISam" ],
+    [ "VISl" ],
+    [ "VISli" ],
+    [ "VISp" ],
+    [ "VISpl" ],
+    [ "VISpm" ],
+    [ "VISpor" ],
+    [ "VISrl" ],
+  ]}

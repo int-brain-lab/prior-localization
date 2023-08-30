@@ -1,0 +1,4 @@
+# The date which should be used for saving the outputs. Only change this if you want to rerun previous analyses
+date: 30-01-2023
+# You can specify here any parameters that are defined in config.yml, so their value will be be added to the name of the results file
+add_to_path: [balanced_weighting]

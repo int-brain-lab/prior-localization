@@ -1,6 +1,11 @@
+import logging
+import yaml
 from pathlib import Path
 import numpy as np
+import sklearn.linear_model as sklm
 from behavior_models.utils import build_path
+
+logger = logging.getLogger('prior_localization')
 
 
 def create_neural_path(output_path, date, neural_dtype, subject, session_id, probe,
@@ -8,12 +13,14 @@ def create_neural_path(output_path, date, neural_dtype, subject, session_id, pro
     full_path = Path(output_path).joinpath('neural', date, neural_dtype, subject, session_id, probe)
     full_path.mkdir(exist_ok=True, parents=True)
 
+    config = check_config()
+
     pseudo_str = f'{pseudo_ids[0]}_{pseudo_ids[-1]}' if len(pseudo_ids) > 1 else str(pseudo_ids[0])
     time_str = f'{time_window[0]}_{time_window[1]}'.replace('.', '_')
     file_name = f'{region_str}_target_{target}_timeWindow_{time_str}_pseudo_id_{pseudo_str}'
     if add_to_path:
-        for k, v in add_to_path.items():
-            file_name = f'{file_name}_{k}_{v}'
+        for a in add_to_path:
+            file_name = f'{file_name}_{a}_{config[a]}'
     return full_path.joinpath(f'{file_name}.pkl')
 
 
@@ -180,7 +187,7 @@ def average_data_in_epoch(times, values, trials_df, align_event='stimOn_times', 
     return epoch_array
 
 
-def check_inputs(output_dir, pseudo_ids, logger):
+def check_inputs(model, pseudo_ids, target, output_dir, config, logger):
     if output_dir is None:
         output_dir = Path.cwd()
         logger.info(f"No output directory specified, setting to current working directory {Path.cwd()}")
@@ -191,4 +198,49 @@ def check_inputs(output_dir, pseudo_ids, logger):
     if not np.all(np.sort(pseudo_ids) == pseudo_ids):
         raise ValueError("pseudo_ids must be sorted")
 
-    return output_dir, pseudo_ids
+    if target in ['choice', 'feedback'] and model != 'actKernel':
+        raise ValueError("If you want to decode choice or feedback, you must use the actionKernel model")
+
+    if config['compute_neurometrics'] and target != "signcont":
+        raise ValueError("The target should be signcont when compute_neurometrics is set to True in config file")
+
+    if config['compute_neurometrics'] and len(config['border_quantiles_neurometrics']) == 0 and model != 'oracle':
+        raise ValueError(
+            "If compute_neurometrics is set to True in config file, and model is not oracle, "
+            "border_quantiles_neurometrics must be a list of at least length 1"
+        )
+
+    if config['compute_neurometrics'] and len(config['border_quantiles_neurometrics']) != 0 and model == 'oracle':
+        raise ValueError(
+            "If compute_neurometrics is set to True in config file, and model is oracle, "
+            "border_quantiles_neurometrics must be set to an empty list"
+        )
+
+    return pseudo_ids, output_dir
+
+
+def check_config():
+    # Get settings, need for some things
+    with open(Path(__file__).parent.parent.joinpath('settings.yml'), "r") as settings_yml:
+        settings = yaml.safe_load(settings_yml)
+    # Get config
+    with open(Path(__file__).parent.parent.joinpath('config.yml'), "r") as config_yml:
+        config = yaml.safe_load(config_yml)
+    # Estimator from scikit learn
+    try:
+        config['estimator'] = getattr(sklm, config['estimator'])
+    except AttributeError as e:
+        logger.error(f'The estimator {config["estimator"]} specified in config.yaml is not a function of scikit-learn'
+                     f'linear_model.')
+        raise e
+    # Hyperparameter estimation
+    config['use_native_sklearn_for_hyperparam_estimation'] = (config['estimator'] == sklm.Ridge)
+    config['hparam_grid'] = ({"C": np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])}
+                             if config['estimator'] == sklm.LogisticRegression
+                             else {"alpha": np.array([0.00001, 0.0001, 0.001, 0.01, 0.1])})
+
+    # Add to path
+    if settings['add_to_path'] is not None:
+        config['add_to_path'] = {i: config[i] for i in settings['add_to_path']}
+
+    return config
