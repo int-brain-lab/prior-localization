@@ -12,7 +12,7 @@ from prior_localization.functions.utils import average_data_in_epoch
 class TestEphysInput(unittest.TestCase):
 
     def setUp(self) -> None:
-        self.one = ONE()
+        self.one = ONE(base_url='https://openalyx.internationalbrainlab.org')
         self.eid = '56956777-dca5-468c-87cb-78150432cc57'
         _, self.probe_names = self.one.eid2pid(self.eid)
         self.qc = 1
@@ -48,7 +48,7 @@ class TestEphysInput(unittest.TestCase):
 class TestBehaviorInputs(unittest.TestCase):
 
     def setUp(self) -> None:
-        self.one = ONE()
+        self.one = ONE(base_url='https://openalyx.internationalbrainlab.org')
         self.eid = '56956777-dca5-468c-87cb-78150432cc57'
         self.subject = self.one.eid2ref(self.eid)['subject']
         self.temp_dir = tempfile.TemporaryDirectory()
@@ -68,7 +68,7 @@ class TestBehaviorInputs(unittest.TestCase):
 
 class TestMotorInputs(unittest.TestCase):
     def setUp(self) -> None:
-        self.one = ONE()
+        self.one = ONE(base_url='https://openalyx.internationalbrainlab.org')
         self.eid = '56956777-dca5-468c-87cb-78150432cc57'
         self.time_window = [-0.6, -0.1]
         self.fixtures = Path(__file__).parent.joinpath('fixtures', 'inputs')
@@ -78,6 +78,7 @@ class TestMotorInputs(unittest.TestCase):
     def test_standalone_preprocess(self):
         predicted = prepare_motor(self.one, self.eid, align_event='stimOn_times', time_window=self.time_window)
         self.assertIsNone(np.testing.assert_equal(predicted, self.expected))
+        # Note that this test fails with new camera timestamps, will need to adjust once new timestamps are published
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
@@ -85,7 +86,7 @@ class TestMotorInputs(unittest.TestCase):
 
 class TestPupilInputs(unittest.TestCase):
     def setUp(self) -> None:
-        self.one = ONE()
+        self.one = ONE(base_url='https://openalyx.internationalbrainlab.org')
         self.eid = '4a45c8ba-db6f-4f11-9403-56e06a33dfa4'
         self.time_window = [-0.6, -0.1]
         self.fixtures = Path(__file__).parent.joinpath('fixtures', 'inputs')
@@ -98,7 +99,7 @@ class TestPupilInputs(unittest.TestCase):
 
 class TestAverageDataInEpoch(unittest.TestCase):
     def setUp(self) -> None:
-        self.one = ONE()
+        self.one = ONE(base_url='https://openalyx.internationalbrainlab.org')
         self.eid = 'fc14c0d6-51cf-48ba-b326-56ed5a9420c3'
         self.sl = SessionLoader(self.one, self.eid)
         self.sl.load_trials()

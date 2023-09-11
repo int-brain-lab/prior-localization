@@ -14,7 +14,7 @@ class TestEphysDecoding(unittest.TestCase):
     We compare Rsquared and predicted values of the test set.
     """
     def setUp(self) -> None:
-        self.one = ONE()
+        self.one = ONE(base_url='https://openalyx.internationalbrainlab.org')
         self.eid = '56956777-dca5-468c-87cb-78150432cc57'
         _, self.probe_names = self.one.eid2pid(self.eid)
         self.qc = 1
@@ -79,7 +79,7 @@ class TestMotorEyeDecoding(unittest.TestCase):
 
     # TODO: test actual fit?
     def setUp(self) -> None:
-        self.one = ONE()
+        self.one = ONE(base_url='https://openalyx.internationalbrainlab.org')
         self.eid = '4a45c8ba-db6f-4f11-9403-56e06a33dfa4'
         self.subject = self.one.eid2ref(self.eid)['subject']
         self.model = 'optBay'
