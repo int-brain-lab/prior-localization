@@ -4,7 +4,7 @@ from pathlib import Path
 from scipy import stats
 from sklearn.linear_model import RidgeCV
 
-from ibllib.atlas import BrainRegions
+from iblatlas.regions import BrainRegions
 from brainbox.io.one import SessionLoader
 from brainbox.population.decode import get_spike_counts_in_bins
 from brainbox.behavior.dlc import get_licks
