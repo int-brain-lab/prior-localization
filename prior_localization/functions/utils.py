@@ -56,27 +56,20 @@ def check_bhv_fit_exists(subject, model, eids, resultpath, single_zeta):
     return fullpath.exists(), fullpath
 
 
-def compute_mask(trials_df, align_time, time_window, min_len=None, max_len=None, no_unbias=False,
-                 min_rt=0.08, max_rt=None, n_trials_crop_end=0):
+def compute_mask(trials_df, align_event, min_rt=0.08, max_rt=None, n_trials_crop_end=0):
     """Create a mask that denotes "good" trials which will be used for further analysis.
 
     Parameters
     ----------
     trials_df : dict
         contains relevant trial information like goCue_times, firstMovement_times, etc.
-    align_time : str
+    align_event : str
         event in trial on which to align intervals
         'firstMovement_times' | 'stimOn_times' | 'feedback_times'
-    time_window : tuple
-        (window_start, window_end), relative to align_time
-    min_len : float, optional
-        minimum length of trials to keep (seconds), bypassed if trial_start column not in trials_df
-    max_len : float, original
-        maximum length of trials to keep (seconds), bypassed if trial_start column not in trials_df
-    no_unbias : bool
-        True to remove unbiased block trials, False to keep them
     min_rt : float
-        minimum reaction time; trials with fast reactions will be removed
+        minimum reaction time; trials with faster reactions will be removed
+    max_rt : float
+        maximum reaction time; trials with slower reactions will be removed
     n_trials_crop_end : int
         number of trials to crop from the end of the session
 
@@ -84,49 +77,23 @@ def compute_mask(trials_df, align_time, time_window, min_len=None, max_len=None,
     -------
     pd.Series
         boolean mask of good trials
-
     """
 
     # define reaction times
-    if "react_times" not in trials_df.keys():
-        trials_df["react_times"] = (
-            trials_df.firstMovement_times - trials_df.stimOn_times
-        )
-
+    react_times = trials_df.firstMovement_times - trials_df.stimOn_times
     # successively build a mask that defines which trials we want to keep
 
     # ensure align event is not a nan
-    mask = trials_df[align_time].notna()
+    mask = trials_df[align_event].notna()
 
     # ensure animal has moved
     mask = mask & trials_df.firstMovement_times.notna()
 
-    # get rid of unbiased trials
-    if no_unbias:
-        mask = mask & (trials_df.probabilityLeft != 0.5).values
-
     # keep trials with reasonable reaction times
     if min_rt is not None:
-        mask = mask & (~(trials_df.react_times < min_rt)).values
+        mask = mask & (~(react_times < min_rt)).values
     if max_rt is not None:
-        mask = mask & (~(trials_df.react_times > max_rt)).values
-
-    if (
-        "goCue_times" in trials_df.columns
-        and max_len is not None
-        and min_len is not None
-    ):
-        # get rid of trials that are too short or too long
-        start_diffs = trials_df.goCue_times.diff()
-        start_diffs.iloc[0] = 2
-        mask = mask & ((start_diffs > min_len).values & (start_diffs < max_len).values)
-
-        # get rid of trials with decoding windows that overlap following trial
-        tmp = (
-            trials_df[align_time].values[:-1] + time_window[1]
-        ) < trials_df.trial_start.values[1:]
-        tmp = np.concatenate([tmp, [True]])  # include final trial, no following trials
-        mask = mask & tmp
+        mask = mask & (~(react_times > max_rt)).values
 
     # get rid of trials where animal does not respond
     mask = mask & (trials_df.choice != 0)
@@ -188,6 +155,7 @@ def average_data_in_epoch(times, values, trials_df, align_event='stimOn_times', 
 
 
 def check_inputs(model, pseudo_ids, target, output_dir, config, logger):
+    """Perform some basic checks and/or corrections on inputs to the main decoding functions"""
     if output_dir is None:
         output_dir = Path.cwd()
         logger.info(f"No output directory specified, setting to current working directory {Path.cwd()}")
@@ -220,6 +188,7 @@ def check_inputs(model, pseudo_ids, target, output_dir, config, logger):
 
 
 def check_config():
+    """Load config yaml and perform some basic checks"""
     # Get settings, need for some things
     with open(Path(__file__).parent.parent.joinpath('settings.yml'), "r") as settings_yml:
         settings = yaml.safe_load(settings_yml)
@@ -244,3 +213,67 @@ def check_config():
         config['add_to_path'] = {i: config[i] for i in settings['add_to_path']}
 
     return config
+
+
+# Copied from from https://github.com/cskrasniak/wfield/blob/master/wfield/analyses.py
+def downsample_atlas(atlas, pixelSize=20, mask=None):
+    """
+    Downsamples the atlas so that it can be matching to the downsampled images. if mask is not provided
+    then just the atlas is used. pixelSize must be a common divisor of 540 and 640
+    """
+    if not mask:
+        mask = atlas != 0
+    downsampled_atlas = np.zeros((int(atlas.shape[0] / pixelSize), int(atlas.shape[1] / pixelSize)))
+    for top in np.arange(0, 540, pixelSize):
+        for left in np.arange(0, 640, pixelSize):
+            useArea = (np.array([np.arange(top, top + pixelSize)] * pixelSize).flatten(),
+                       np.array([[x] * pixelSize for x in range(left, left + pixelSize)]).flatten())
+            u_areas, u_counts = np.unique(atlas[useArea], return_counts=True)
+            if np.sum(mask[useArea] != 0) < .5:
+                # if more than half of the pixels are outside of the brain, skip this group of pixels
+                continue
+            else:
+                spot_label = u_areas[np.argmax(u_counts)]
+                downsampled_atlas[int(top / pixelSize), int(left / pixelSize)] = spot_label
+    return downsampled_atlas.astype(int)
+
+
+def spatial_down_sample(stack, pixelSize=20):
+    """
+    Downsamples the whole df/f video for a session to a manageable size, best are to do a 10x or
+    20x downsampling, this makes many tasks more manageable on a desktop.
+    """
+    mask = stack.U_warped != 0
+    mask = mask.mean(axis=2)
+    try:
+        downsampled_im = np.zeros((stack.SVT.shape[1],
+                                   int(stack.U_warped.shape[0] / pixelSize),
+                                   int(stack.U_warped.shape[1] / pixelSize)))
+    except:
+        print('Choose a downsampling amount that is a common divisor of 540 and 640')
+    for top in np.arange(0, 540, pixelSize):
+        for left in np.arange(0, 640, pixelSize):
+            useArea = (np.array([np.arange(top, top + pixelSize)] * pixelSize).flatten(),
+                       np.array([[x] * pixelSize for x in range(left, left + pixelSize)]).flatten())
+            if np.sum(mask[useArea] != 0) < .5:
+                # if more than half of the pixels are outside of the brain, skip this group of pixels
+                continue
+            else:
+                spot_activity = stack.get_timecourse(useArea).mean(axis=0)
+                downsampled_im[:, int(top / pixelSize), int(left / pixelSize)] = spot_activity
+    return downsampled_im
+
+
+def subtract_motor_residuals(motor_signals, all_targets, trials_mask):
+    """Subtract predictions based on motor signal from predictions as residuals from the behavioural targets"""
+    # Update trials mask with possible nans from motor signal
+    trials_mask = trials_mask & ~np.any(np.isnan(motor_signals), axis=1)
+    # Compute motor predictions and subtract them from targets
+    new_targets = []
+    for target_data in all_targets:
+        clf = sklm.RidgeCV(alphas=[1e-3, 1e-2, 1e-1]).fit(motor_signals[trials_mask], target_data[trials_mask])
+        motor = np.full_like(trials_mask, np.nan)
+        motor[trials_mask] = clf.predict(motor_signals[trials_mask])
+        new_targets.append(target_data - motor)
+
+    return new_targets, trials_mask

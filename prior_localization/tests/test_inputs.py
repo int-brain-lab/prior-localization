@@ -57,8 +57,8 @@ class TestBehaviorInputs(unittest.TestCase):
     def test_behav_targets(self):
         sl = SessionLoader(self.one, self.eid)
         sl.load_trials()
-        trials_mask = compute_mask(sl.trials, align_time=self.align_event, time_window=self.time_window)
-        _, all_targets, mask, _, _ = prepare_behavior(
+        trials_mask = compute_mask(sl.trials, align_event='stimOn_times', min_rt=0.08, max_rt=None, n_trials_crop_end=0)
+        _, all_targets, mask, _ = prepare_behavior(
             self.eid, self.subject, sl.trials, trials_mask, pseudo_ids=None, output_dir=Path(self.temp_dir.name),
             model='optBay', target='pLeft'
         )

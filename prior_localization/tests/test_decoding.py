@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 
 from one.api import ONE
-from prior_localization.functions.decoding import fit_session_ephys, fit_session_pupil, fit_session_motor
+from prior_localization.fit_data import fit_session_ephys, fit_session_pupil, fit_session_motor, fit_session_widefield
 
 
 class TestEphysDecoding(unittest.TestCase):
@@ -22,7 +22,7 @@ class TestEphysDecoding(unittest.TestCase):
         self.model = 'optBay'
         self.pseudo_ids = [-1, 1, 2]
         self.tmp_dir = tempfile.TemporaryDirectory()
-        self.fixtures_dir = Path(__file__).parent.joinpath('fixtures', 'decoding')
+        self.fixtures_dir = Path(__file__).parent.joinpath('fixtures', 'decoding', 'ephys')
 
     def compare_target_test(self, results_fit_session, probe):
         for f in results_fit_session:
@@ -109,3 +109,43 @@ class TestMotorEyeDecoding(unittest.TestCase):
         self.assertEqual(predicted['subject'], self.subject)
         self.assertEqual(predicted['eid'], self.eid)
         self.assertIsNone(predicted['probe'])
+
+
+class TestWidefieldDecoding(unittest.TestCase):
+    """
+    Test decoding on widefield data of a single session. We compare Rsquared and predicted values of the test set.
+    """
+    def setUp(self) -> None:
+        self.one = ONE(base_url='https://openalyx.internationalbrainlab.org')
+        self.eid = 'ff7a70f5-a2b6-4e7e-938e-e7208e0678c2'
+        self.subject = self.one.eid2ref(self.eid)['subject']
+        self.pseudo_ids = [-1, 1, 2]
+        self.tmp_dir = tempfile.TemporaryDirectory()
+        self.fixtures_dir = Path(__file__).parent.joinpath('fixtures', 'decoding', 'wfield')
+
+    def compare_target_test(self, results_fit_session, fixtures_dir):
+        for f in results_fit_session:
+            region = f.name.split('_')[0]
+            with open(f, 'rb') as fb:
+                predicted_fit = pickle.load(fb)['fit']
+            for key in ['Rsquared_test_full', 'predictions_test']:
+                test = np.asarray([p[key] for p in predicted_fit]).squeeze()
+                target = np.load(fixtures_dir.joinpath(f'wfi_{region}_{key.split("_")[0].lower()}.npy'))
+                self.assertTrue(np.allclose(test, target, rtol=1e-06))
+
+    def test_ONE_data(self):
+        results_fit_session = fit_session_widefield(
+            self.one, self.eid, self.subject, hemisphere=("left", "right"), pseudo_ids=self.pseudo_ids,
+            frame_window=(-2, -2), integration_test=True, old_data=False
+        )
+        self.compare_target_test(results_fit_session, self.fixtures_dir.joinpath('new'))
+
+    def test_chris_data(self):
+        results_fit_session = fit_session_widefield(
+            self.one, self.eid, self.subject, hemisphere=("left", "right"), pseudo_ids=self.pseudo_ids,
+            frame_window=(-2, -2), integration_test=True, old_data=self.fixtures_dir.joinpath('old')
+        )
+        self.compare_target_test(results_fit_session, self.fixtures_dir.joinpath('old'))
+
+    def tearDown(self) -> None:
+        self.tmp_dir.cleanup()

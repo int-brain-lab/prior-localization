@@ -17,10 +17,11 @@ from behavior_models.utils import format_data, format_input
 from behavior_models.models import ActionKernel, StimulusKernel
 
 from prior_localization.functions.behavior_targets import optimal_Bayesian, compute_beh_target
-from prior_localization.functions.utils import check_bhv_fit_exists, average_data_in_epoch, check_config
+from prior_localization.functions.utils import (
+    check_bhv_fit_exists, average_data_in_epoch, check_config, downsample_atlas, spatial_down_sample
+)
 from prior_localization.functions.nulldistributions import generate_null_distribution_session
 from prior_localization.functions.neurometric import compute_neurometric_prior
-from prior_localization.functions.wfi_utils import downsample_atlas, spatial_down_sample
 
 
 logger = logging.getLogger('prior_localization')
@@ -53,14 +54,14 @@ def prepare_ephys(one, session_id, probe_name, regions, intervals, qc=1, min_uni
     brainreg = BrainRegions()
     beryl_regions = brainreg.acronym2acronym(clusters['acronym'], mapping="Beryl")
     if isinstance(regions, str):
-        if regions in config['region_defaults'].keys():
+        if regions in config['region_defaults'].keys():  # if regions is a key into the regions_default config dict
             regions = config['region_defaults'][regions]
-        elif regions == 'single_regions':
-            regions = [[k] for k in np.unique(beryl_regions) if k not in ['root', 'void']]
-        elif regions == 'all_regions':
-            regions = [np.unique([r for r in beryl_regions if r not in ['root', 'void']])]
+        elif regions == 'single_regions':  # if single_regions, make a list of lists to decode every region separately
+            regions = [[b] for b in np.unique(beryl_regions) if b not in ['root', 'void']]
+        elif regions == 'all_regions':  # if all regions make a list of a single list to decode all regions together
+            regions = [[b for b in np.unique(beryl_regions) if b not in ['root', 'void']]]
         else:
-            regions = [regions]
+            regions = [regions]  # if one region is given, put it into a list
     elif isinstance(regions, list):
         pass
 
@@ -143,20 +144,6 @@ def prepare_motor(one, session_id, align_event='stimOn_times', time_window=(-0.6
     return motor_signals
 
 
-def subtract_motor_residuals(motor_signals, all_targets, trials_mask):
-    # Update trials mask with possible nans from motor signal
-    trials_mask = trials_mask & ~np.any(np.isnan(motor_signals), axis=1)
-    # Compute motor predictions and subtract them from targets
-    new_targets = []
-    for target_data in all_targets:
-        clf = sklm.RidgeCV(alphas=[1e-3, 1e-2, 1e-1]).fit(motor_signals[trials_mask], target_data[trials_mask])
-        motor = np.full_like(trials_mask, np.nan)
-        motor[trials_mask] = clf.predict(motor_signals[trials_mask])
-        new_targets.append(target_data - motor)
-
-    return new_targets, trials_mask
-
-
 def prepare_behavior(
         session_id, subject, trials_df, trials_mask, pseudo_ids=None, output_dir=None, model='optBay',
         target='pLeft', compute_neurometrics=False, integration_test=False,
@@ -222,8 +209,9 @@ def prepare_pupil(one, session_id, time_window=(-0.6, -0.1), align_event='stimOn
     return np.c_[epochs_x, epochs_y]
 
 
-def prepare_widefield(one, session_id, trials_df, functional_channel=470):
-
+def prepare_widefield(
+        one, session_id, hemisphere, regions, align_times, frame_window, functional_channel=470, stage_only=False
+):
     # Load the haemocorrected temporal components and projected spatial components
     SVT = one.load_dataset(session_id, 'widefieldSVT.haemoCorrected.npy')
     U = one.load_dataset(session_id, 'widefieldU.images.npy')
@@ -239,6 +227,10 @@ def prepare_widefield(one, session_id, trials_df, functional_channel=470):
     times = one.load_dataset(session_id, 'imaging.times.npy')
     functional_chn = channel_info.loc[channel_info['wavelength'] == functional_channel]['channel_id'].values[0]
     times = times[channels == functional_chn]
+
+    # If we are only staging data, end here
+    if stage_only:
+        return None, None
 
     # Align the image stack to Allen reference
     stack = wfield.SVDStack(U, SVT)
@@ -256,22 +248,101 @@ def prepare_widefield(one, session_id, trials_df, functional_channel=470):
     stack.U_warped[~mask3d.transpose([1, 2, 0])] = 0
     downsampled_stack = spatial_down_sample(stack, pixelSize=10)
 
-    frames = pd.DataFrame()
-    for key in trials_df.keys():
-        if 'times' in key:
-            idx = np.searchsorted(times, trials_df[key].values).astype(np.float64)
-            idx[np.isnan(trials_df[key].values)] = np.nan
-            frames[key] = idx
+    # Find the frames corresponding to the trials times of the align event
+    frames = np.searchsorted(times, align_times).astype(np.float64)
+    frames[np.isnan(align_times)] = np.nan
+    # Get the frame window intervals around the align event frame, from which to draw data
+    intervals = np.sort(frames[:, None] + np.arange(frame_window[0], frame_window[1] + 1), axis=1).astype(int).squeeze()
+
+    # Get the brain regions for now disregarding hemisphere
+    atlas_regions = ccf_regions.acronym[ccf_regions.label.isin(np.unique(downsampled_atlas))].values
+    if isinstance(regions, str):
+        if regions in config['region_defaults'].keys():  # if regions is a key into the regions_default config dict
+            regions = config['region_defaults'][regions]
+        elif regions == 'single_regions':  # if single_regions, make a list of lists to decode every region separately
+            regions = [[r] for r in atlas_regions]
+        elif regions == 'all_regions':  # if all regions make a list of a single list to decode all regions together
+            regions = [atlas_regions]
         else:
-            frames[key] = trials_df[key].values
+            regions = [regions]  # if one region is given, put it into a list
+    elif isinstance(regions, list):
+        pass
 
-    # remove last trial as this is detected wrong
-    # frames = frames[:-1]
+    data_epoch = []
+    actual_regions = []
+    for region in regions:
+        # Translate back into label for masking the atlas
+        region_labels = ccf_regions[ccf_regions.acronym.isin(region)].label.values
+        # If left hemisphere, these are the correct labels, for right hemisphere need negative labels (both for both)
+        if hemisphere == 'right':
+            region_labels = -region_labels
+        elif sorted(hemisphere) == ['left', 'right']:
+            region_labels = np.concatenate((region_labels, -region_labels))
+        # Make a region mask, apply it to the actual data and get data in the respective time intervals
+        region_mask = np.isin(downsampled_atlas, region_labels)
+        masked_data = downsampled_stack[:, region_mask]
+        if np.sum(masked_data) == 0:
+            print(f"{'_'.join(region)} no pixels in mask, not decoding")
+        else:
+            binned = np.take(masked_data, intervals, axis=0)
+            data_epoch.append(binned)
+            actual_regions.append(region)
 
-    neural_activity = {}
-    neural_activity['activity'] = downsampled_stack
-    neural_activity['timings'] = frames
-    neural_activity['regions'] = downsampled_atlas
-    neural_activity['atlas'] = ccf_regions
+    return data_epoch, actual_regions
 
-    return neural_activity
+
+def prepare_widefield_old(old_data, hemisphere, regions, align_event, frame_window):
+    """
+    Function to load previous version of data (directly given by Chris) for sanity check
+    Assumes three files called timings.pqt, activity.npy and regions.npy in old_data
+    """
+
+    # Load old data from disk, path given in old_data input, also load allen atlas
+    downsampled_stack = np.load(old_data.joinpath('activity.npy'))  # used to be neural_activity['activity']
+    frames = pd.read_parquet(old_data.joinpath('timings.pqt'))  # used to be neural_activity['timings']
+    downsampled_atlas = np.load(old_data.joinpath('regions.npy'))  # used to be neural_activity['regions']
+    ccf_regions, _, _ = wfield.allen_load_reference('dorsal_cortex')
+    ccf_regions = ccf_regions[['acronym', 'name', 'label']]  # used to be neural_activity['atlas']
+
+    # From here it is pretty much equivalent with the new prepare_widefield function
+
+    # Get the frame window intervals around the align event frame, from which to draw data
+    intervals = np.sort(
+        frames[align_event].values[:, None] + np.arange(frame_window[0], frame_window[1] + 1), axis=1
+    ).astype(int).squeeze()
+
+    # Get the brain regions for now disregarding hemisphere
+    atlas_regions = ccf_regions.acronym[ccf_regions.label.isin(np.unique(downsampled_atlas))].values
+    if isinstance(regions, str):
+        if regions in config['region_defaults'].keys():  # if regions is a key into the regions_default config dict
+            regions = config['region_defaults'][regions]
+        elif regions == 'single_regions':  # if single_regions, make a list of lists to decode every region separately
+            regions = [[r] for r in atlas_regions]
+        elif regions == 'all_regions':  # if all regions make a list of a single list to decode all regions together
+            regions = [atlas_regions]
+        else:
+            regions = [regions]  # if one region is given, put it into a list
+    elif isinstance(regions, list):
+        pass
+
+    data_epoch = []
+    actual_regions = []
+    for region in regions:
+        # Translate back into label for masking the atlas
+        region_labels = ccf_regions[ccf_regions.acronym.isin(region)].label.values
+        # If left hemisphere, these are the correct labels, for right hemisphere need negative labels (both for both)
+        if hemisphere == 'right':
+            region_labels = -region_labels
+        elif sorted(hemisphere) == ['left', 'right']:
+            region_labels = np.concatenate((region_labels, -region_labels))
+        # Make a region mask, apply it to the actual data and get data in the respective time intervals
+        region_mask = np.isin(downsampled_atlas, region_labels)
+        masked_data = downsampled_stack[:, region_mask]
+        if np.sum(masked_data) == 0:
+            print(f"{'_'.join(region)} no pixels in mask, not decoding")
+        else:
+            binned = np.take(masked_data, intervals, axis=0)
+            data_epoch.append(binned)
+            actual_regions.append(region)
+
+    return data_epoch, actual_regions
