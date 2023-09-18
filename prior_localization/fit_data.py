@@ -11,14 +11,18 @@ from sklearn.model_selection import KFold, train_test_split
 from sklearn.linear_model import RidgeCV, Ridge, Lasso, LassoCV
 from sklearn.utils.class_weight import compute_sample_weight
 
-from prior_localization.prepare_data import prepare_ephys, prepare_behavior, prepare_motor, prepare_pupil
+from brainbox.io.one import SessionLoader
+
+from prior_localization.prepare_data import (prepare_ephys, prepare_behavior, prepare_motor, prepare_pupil,
+                                             prepare_widefield, prepare_widefield_old)
 from prior_localization.functions.neurometric import get_neurometric_parameters
-from prior_localization.functions.utils import create_neural_path, check_inputs, check_config
+from prior_localization.functions.utils import (create_neural_path, check_inputs, check_config, compute_mask,
+                                                subtract_motor_residuals)
 
 # Set up logger
 logger = logging.getLogger('prior_localization')
 # Load settings
-with open(Path(__file__).parent.parent.joinpath('settings.yml'), "r") as settings_yml:
+with open(Path(__file__).parent.joinpath('settings.yml'), "r") as settings_yml:
     settings = yaml.safe_load(settings_yml)
 # Load and check configuration file
 config = check_config()
@@ -56,10 +60,10 @@ def fit_session_ephys(
      Time window in which neural activity is considered, relative to align_event, default is (-0.6, -0.1)
     output_dir: str, pathlib.Path or None
      Directory in which the results are saved, will be created if it doesn't exist. If None, use working directory
-    regions:
-     Specify the level of granularity at which decoding is done. Options are single_regions (every region that is
-     passed by the probe is decoded separately), all_regions (all regions passed are decoded together) or any key
-     into the regions_defaults dictionary, specified in config.yml
+    regions: str or list of str
+     Specify the level of granularity at which decoding is done. Options are 'single_regions' (every region that is
+     passed by the probe is decoded separately), 'all_regions' (all regions passed are decoded together), any key
+     into the 'regions_defaults' dictionary, specified in config.yml, or a single region name or list of region names
     min_trials: int
      Minimum number of valid trials for session to be decoded, default is 150
     motor_residuals: bool
@@ -81,14 +85,26 @@ def fit_session_ephys(
     if motor_residuals and model != 'optBay':
         raise ValueError('Motor residuals can only be computed for optBay model')
 
+    # Load trials data and compute mask
+    sl = SessionLoader(one, session_id)
+    sl.load_trials()
+    trials_mask = compute_mask(sl.trials, align_event=align_event, min_rt=0.08, max_rt=None, n_trials_crop_end=0)
+    if sum(trials_mask) <= min_trials:
+        raise ValueError(f"Session {session_id} has {sum(trials_mask)} good trials, less than {min_trials}.")
+
     # Compute or load behavior targets
-    all_trials, all_targets, trials_mask, intervals, all_neurometrics = prepare_behavior(
-        one, session_id, subject, pseudo_ids=pseudo_ids, output_dir=output_dir,
-        model=model, target=target, align_event=align_event, time_window=time_window, min_trials=min_trials,
-        motor_residual=motor_residuals, compute_neurometrics=config['compute_neurometrics'],
-        stage_only=stage_only, integration_test=integration_test)
+    all_trials, all_targets, trials_mask, all_neurometrics = prepare_behavior(
+        session_id, subject, sl.trials, trials_mask, pseudo_ids=pseudo_ids, output_dir=output_dir,
+        model=model, target=target,  compute_neurometrics=config['compute_neurometrics'],
+        integration_test=integration_test)
+
+    # Remove the motor residuals from the targets if indicated
+    if motor_residuals:
+        motor_signals = prepare_motor(one, session_id, time_window=time_window)
+        all_targets, trials_mask = subtract_motor_residuals(motor_signals, all_targets, trials_mask)
 
     # Prepare ephys data
+    intervals = np.vstack([sl.trials[align_event] + time_window[0], sl.trials[align_event] + time_window[1]]).T
     data_epoch, actual_regions = prepare_ephys(
         one, session_id, probe_name, regions, intervals, qc=config['unit_qc'], min_units=config['min_units'],
         stage_only=stage_only
@@ -133,21 +149,185 @@ def fit_session_ephys(
     return filenames
 
 
-def fit_session_pupil(
-    one, session_id, subject, model='optBay', pseudo_ids=None, target='pLeft', align_event='stimOn_times',
-    time_window=(-0.6, -0.1), output_dir=None, neural_dtype='ephys', stage_only=False, integration_test=False
-):
+def fit_session_widefield(
+        one, session_id, subject, hemisphere=("left", "right"), model='optBay', pseudo_ids=None, target='pLeft',
+        align_event='stimOn_times', frame_window=(-2, -2), output_dir=None, regions='widefield', min_trials=150,
+        stage_only=False, integration_test=False, old_data=False):
+
+    """
+    Fit a single session for widefield data.
+
+    Parameters
+    ----------
+    one: one.api.ONE object
+     ONE instance connected to database that data should be loaded from
+    session_id: str
+     Database UUID of the session uuid to run the decoding on
+    subject: str
+     Nickname of the mouse
+    hemisphere: str or tuple of str
+        Which hemisphere(s) to decode from {'left', 'right', ('left', 'right')}
+    model: str
+     Model to be decoded, options are {optBay, actKernel, stimKernel, oracle}, default is optBay
+    pseudo_ids: list of int
+     List of sessions / pseudo sessions to decode, -1 represents decoding of the actual session, integers > 0 indicate
+     pseudo_session ids.
+    target: str
+     Target to be decoded, options are {pLeft, prior, choice, feedback, signcont}, default is pLeft,
+     meaning the prior probability that the stimulus  will appear on the left side
+    align_event: str
+     Event to which we align the time window, default is stimOn_times (stimulus onset). Options are
+     {"firstMovement_times", "goCue_times", "stimOn_times", "feedback_times"}
+    frame_window: tuple of int
+     Window in which neural activity is considered, in frames relative to align_event, default is (-2, -2) i.e. only a
+     single frame is considered
+    output_dir: str, pathlib.Path or None
+     Directory in which the results are saved, will be created if it doesn't exist. If None, use working directory
+    regions: str or list of str
+     Specify the level of granularity at which decoding is done. Options are 'single_regions' (every region that is
+     passed by the probe is decoded separately), 'all_regions' (all regions passed are decoded together), any key
+     into the 'regions_defaults' dictionary, specified in config.yml, or a single region name or list of region names
+    min_trials: int
+     Minimum number of valid trials for session to be decoded, default is 150
+    stage_only: bool
+     If true, only download all required data, don't perform the actual decoding
+    integration_test: bool
+     If true set random seeds for integration testing. Do not use this when running actual decoding
+    old_data: False or str
+     Only used for sanity check, if false, use updated way of loading data from ONE. If str it should be a path
+     to local copies of the previously used version of the data.
+
+    Returns
+    -------
+    list
+     List of paths to the results files
+    """
+
     # Check some inputs
     pseudo_ids, output_dir = check_inputs(model, pseudo_ids, target, output_dir, config, logger)
 
+    # Load trials data
+    sl = SessionLoader(one, session_id)
+    sl.load_trials()
+    trials_mask = compute_mask(sl.trials, align_event=align_event, min_rt=0.08, max_rt=None, n_trials_crop_end=1)
+    if sum(trials_mask) <= min_trials:
+        raise ValueError(f"Session {session_id} has {sum(trials_mask)} good trials, less than {min_trials}.")
+
     # Compute or load behavior targets
-    all_trials, all_targets, trials_mask, intervals, all_neurometrics = prepare_behavior(
-        one, session_id, subject, pseudo_ids=pseudo_ids, output_dir=output_dir,
-        model=model, target=target, align_event=align_event, time_window=time_window,
-        stage_only=stage_only, integration_test=integration_test)
+    all_trials, all_targets, trials_mask, all_neurometrics = prepare_behavior(
+        session_id, subject, sl.trials, trials_mask, pseudo_ids=pseudo_ids, output_dir=output_dir,
+        model=model, target=target,  compute_neurometrics=config['compute_neurometrics'],
+        integration_test=integration_test)
+
+    # Prepare widefield data
+    if old_data is False:
+        data_epoch, actual_regions = prepare_widefield(
+            one, session_id, regions=regions, align_times=sl.trials[align_event].values, frame_window=frame_window,
+            hemisphere=hemisphere, stage_only=stage_only
+        )
+    else:
+        data_epoch, actual_regions = prepare_widefield_old(old_data, hemisphere=hemisphere, regions=regions,
+                                                           align_event=align_event, frame_window=frame_window)
+
+    # Hemishpere name (mainly for saving)
+    hemi_name = 'both_hemispheres' if isinstance(hemisphere, tuple) or isinstance(hemisphere, list) else hemisphere
+
+    # If we are only staging data, we are done here
+    if stage_only:
+        return
+
+    # Otherwise, fit data per region
+    filenames = []
+    for data_region, region in zip(data_epoch, actual_regions):
+        region_str = regions if (regions == 'all_regions') else '_'.join(region)
+        fit_results = fit_target(data_region[trials_mask], [t[trials_mask] for t in all_targets], all_trials,
+                                 all_neurometrics, pseudo_ids, integration_test=integration_test)
+
+        # Add the mask to fit results
+        for fit_result in fit_results:
+            fit_result['mask'] = trials_mask if config['save_predictions'] else None
+
+        # Create output paths and save
+        filename = create_neural_path(output_dir, settings['date'], 'widefield', subject, session_id, hemi_name,
+                                      region_str, target, frame_window, pseudo_ids, config['add_to_path'])
+        outdict = {
+            "fit": fit_results,
+            "subject": subject,
+            "eid": session_id,
+            "probe": hemisphere,
+            "region": region,
+            "N_units": data_region.shape[1],
+        }
+
+        with open(filename, "wb") as fw:
+            pickle.dump(outdict, fw)
+        filenames.append(filename)
+    return filenames
+
+
+def fit_session_pupil(
+        one, session_id, subject, model='optBay', pseudo_ids=None, target='pLeft', align_event='stimOn_times',
+        time_window=(-0.6, -0.1), output_dir=None, min_trials=150, stage_only=False, integration_test=False
+):
+    """
+    Fit pupil tracking data to behavior (instead of neural activity)
+
+    Parameters
+    ----------
+    one: one.api.ONE object
+     ONE instance connected to database that data should be loaded from
+    session_id: str
+     Database UUID of the session uuid to run the decoding on
+    subject: str
+     Nickname of the mouse
+    model: str
+     Model to be decoded, options are {optBay, actKernel, stimKernel, oracle}, default is optBay
+    pseudo_ids: list of int
+     List of sessions / pseudo sessions to decode, -1 represents decoding of the actual session, integers > 0 indicate
+     pseudo_session ids.
+    target: str
+     Target to be decoded, options are {pLeft, prior, choice, feedback, signcont}, default is pLeft,
+     meaning the prior probability that the stimulus  will appear on the left side
+    align_event: str
+     Event to which we align the time window, default is stimOn_times (stimulus onset). Options are
+     {"firstMovement_times", "goCue_times", "stimOn_times", "feedback_times"}
+    time_window: tuple of float
+     Time window in which pupil movement is considered, relative to align_event, default is (-0.6, -0.1)
+    output_dir: str, pathlib.Path or None
+     Directory in which the results are saved, will be created if it doesn't exist. If None, use working directory
+    min_trials: int
+     Minimum number of valid trials for session to be decoded, default is 150
+    stage_only: bool
+     If true, only download all required data, don't perform the actual decoding
+    integration_test: bool
+     If true set random seeds for integration testing. Do not use this when running actual decoding
+
+    Returns
+    -------
+    list
+     List of paths to the results files
+    """
+    # Check some inputs
+    pseudo_ids, output_dir = check_inputs(model, pseudo_ids, target, output_dir, config, logger)
+
+    # Load trials data
+    sl = SessionLoader(one, session_id)
+    sl.load_trials()
+    trials_mask = compute_mask(sl.trials, align_event=align_event, min_rt=0.08, max_rt=None, n_trials_crop_end=0)
+    if sum(trials_mask) <= min_trials:
+        raise ValueError(f"Session {session_id} has {sum(trials_mask)} good trials, less than {min_trials}.")
+
+    # Compute or load behavior targets
+    all_trials, all_targets, trials_mask, all_neurometrics = prepare_behavior(
+        session_id, subject, sl.trials, trials_mask, pseudo_ids=pseudo_ids, output_dir=output_dir,
+        model=model, target=target,  compute_neurometrics=config['compute_neurometrics'],
+        integration_test=integration_test)
 
     # Load the pupil data
     pupil_data = prepare_pupil(one, session_id=session_id, time_window=time_window, align_event=align_event)
+
+    if stage_only:
+        return
 
     # For trials where there was no pupil data recording (start/end), add these to the trials_mask
     trials_mask = trials_mask & ~np.any(np.isnan(pupil_data), axis=1)
@@ -158,7 +338,7 @@ def fit_session_pupil(
 
     # Create output paths and save
     filename = create_neural_path(
-        output_path=output_dir, date=settings['date'], neural_dtype=neural_dtype, subject=subject,
+        output_path=output_dir, date=settings['date'], neural_dtype='ephys', subject=subject,
         session_id=session_id, probe='', region_str='pupil', target=target, time_window=time_window,
         pseudo_ids=pseudo_ids, add_to_path=settings['add_to_path']
     )
@@ -176,19 +356,69 @@ def fit_session_pupil(
 
 
 def fit_session_motor(
-    one, session_id, subject, model='optBay', pseudo_ids=None, target='pLeft', align_event='stimOn_times',
-    time_window=(-0.6, -0.1), output_dir=None, neural_dtype='ephys', stage_only=False, integration_test=False
+        one, session_id, subject, model='optBay', pseudo_ids=None, target='pLeft', align_event='stimOn_times',
+        time_window=(-0.6, -0.1), output_dir=None, stage_only=False, min_trials=150, integration_test=False
 ):
+    """
+    Fit movement tracking data to behavior (instead of neural actvity)
+
+    Parameters
+    ----------
+    one: one.api.ONE object
+     ONE instance connected to database that data should be loaded from
+    session_id: str
+     Database UUID of the session uuid to run the decoding on
+    subject: str
+     Nickname of the mouse
+    model: str
+     Model to be decoded, options are {optBay, actKernel, stimKernel, oracle}, default is optBay
+    pseudo_ids: list of int
+     List of sessions / pseudo sessions to decode, -1 represents decoding of the actual session, integers > 0 indicate
+     pseudo_session ids.
+    target: str
+     Target to be decoded, options are {pLeft, prior, choice, feedback, signcont}, default is pLeft,
+     meaning the prior probability that the stimulus  will appear on the left side
+    align_event: str
+     Event to which we align the time window, default is stimOn_times (stimulus onset). Options are
+     {"firstMovement_times", "goCue_times", "stimOn_times", "feedback_times"}
+    time_window: tuple of float
+     Time window in which movement is considered, relative to align_event, default is (-0.6, -0.1)
+    output_dir: str, pathlib.Path or None
+     Directory in which the results are saved, will be created if it doesn't exist. If None, use working directory
+    min_trials: int
+     Minimum number of valid trials for session to be decoded, default is 150
+    stage_only: bool
+     If true, only download all required data, don't perform the actual decoding
+    integration_test: bool
+     If true set random seeds for integration testing. Do not use this when running actual decoding
+
+    Returns
+    -------
+    list
+     List of paths to the results files
+    """
+
     # Check some inputs
     pseudo_ids, output_dir = check_inputs(model, pseudo_ids, target, output_dir, config, logger)
+
+    # Load trials data
+    sl = SessionLoader(one, session_id)
+    sl.load_trials()
+    trials_mask = compute_mask(sl.trials, align_event=align_event, min_rt=0.08, max_rt=None, n_trials_crop_end=0)
+    if sum(trials_mask) <= min_trials:
+        raise ValueError(f"Session {session_id} has {sum(trials_mask)} good trials, less than {min_trials}.")
+
     # Compute or load behavior targets
-    all_trials, all_targets, trials_mask, intervals, all_neurometrics = prepare_behavior(
-        one, session_id, subject, pseudo_ids=pseudo_ids, output_dir=output_dir,
-        model=model, target=target, align_event=align_event, time_window=time_window,
-        stage_only=stage_only, integration_test=integration_test)
+    all_trials, all_targets, trials_mask, all_neurometrics = prepare_behavior(
+        session_id, subject, sl.trials, trials_mask, pseudo_ids=pseudo_ids, output_dir=output_dir,
+        model=model, target=target,  compute_neurometrics=config['compute_neurometrics'],
+        integration_test=integration_test)
 
     # Load the motor data
     motor_data = prepare_motor(one, session_id=session_id, time_window=time_window, align_event=align_event)
+
+    if stage_only:
+        return
 
     # For trials where there was no motor data (start/end), add these to the trials_mask
     trials_mask = trials_mask & ~np.any(np.isnan(motor_data), axis=1)
@@ -199,7 +429,7 @@ def fit_session_motor(
 
     # Create output paths and save
     filename = create_neural_path(
-        output_path=output_dir, date=settings['date'], neural_dtype=neural_dtype, subject=subject,
+        output_path=output_dir, date=settings['date'], neural_dtype='ephys', subject=subject,
         session_id=session_id, probe='', region_str='motor', target=target, time_window=time_window,
         pseudo_ids=pseudo_ids, add_to_path=settings['add_to_path']
     )

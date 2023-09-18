@@ -6,7 +6,7 @@ import numpy as np
 from one.api import ONE
 from brainbox.io.one import SessionLoader
 from prior_localization.prepare_data import prepare_ephys, prepare_behavior, prepare_motor, prepare_pupil
-from prior_localization.functions.utils import average_data_in_epoch
+from prior_localization.functions.utils import average_data_in_epoch, compute_mask
 
 
 class TestEphysInput(unittest.TestCase):
@@ -55,10 +55,13 @@ class TestBehaviorInputs(unittest.TestCase):
         self.fixtures_dir = Path(__file__).parent.joinpath('fixtures', 'inputs')
 
     def test_behav_targets(self):
-        _, all_targets, mask, _, _ = prepare_behavior(
-            self.one, self.eid, self.subject, pseudo_ids=None, output_dir=Path(self.temp_dir.name),
-            model='optBay', target='pLeft', align_event='stimOn_times', time_window=(-0.6, -0.1),
-            stage_only=False)
+        sl = SessionLoader(self.one, self.eid)
+        sl.load_trials()
+        trials_mask = compute_mask(sl.trials, align_event='stimOn_times', min_rt=0.08, max_rt=None, n_trials_crop_end=0)
+        _, all_targets, mask, _ = prepare_behavior(
+            self.eid, self.subject, sl.trials, trials_mask, pseudo_ids=None, output_dir=Path(self.temp_dir.name),
+            model='optBay', target='pLeft'
+        )
         expected_orig = np.load(self.fixtures_dir.joinpath('behav_target.npy'))
         self.assertTrue(np.all(all_targets[0][mask] == expected_orig))
 

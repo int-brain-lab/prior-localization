@@ -1,33 +1,3 @@
-# Charles
-prior_pipelines
-prior_pipelines/utils_root.py
-prior-localization/prior_localization/pipelines/utils_motor.py
-prior-localization/prior_localization/pipelines/03_cache_behavior.py
-prior-localization/prior_localization/pipelines/00_cache_behavior_stand_alone.py
-prior-localization/prior_localization/decoding/pipelines/02_run_stand_alone.py
-prior-localization/prior_localization/decoding/slurm_format.sh
-prior-localization/prior_localization/decoding/logs
-prior-localization/prior_localization/decoding/plots
-prior-localization/prior_localization/decoding/null_distributions
-prior-localization/prior_localization/decoding/results/
-prior-localization/prior_localization/decoding/links_widefield/
-prior-localization/prior_localization/decoding/behavior
-wide_field_imaging/
-legacy_decoding/
-/results/
-/decoding/Data
-/decoding/results/
-/decoding/models/
-legacy
-cache/
-/data/*_fits/
-*dask-worker-space/
-dj_local_conf.json
-.one_params
-
-# Felix
-prior-localization/prior_localization/decoding/investigation/
-
 # Data files
 *.mat
 *.html
