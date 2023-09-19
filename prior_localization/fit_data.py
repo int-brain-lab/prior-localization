@@ -44,7 +44,7 @@ def fit_session_ephys(
     subject: str
      Nickname of the mouse
     probe_name: str or list of str
-     Probe name(s)
+     Probe name(s), if list of probe names, the probes, the data of both probes will be merged for decoding
     model: str
      Model to be decoded, options are {optBay, actKernel, stimKernel, oracle}, default is optBay
     pseudo_ids: list of int
@@ -111,7 +111,7 @@ def fit_session_ephys(
     )
 
     # Fix the probe name (mainly for saving)
-    probe_name = 'merged_probes' if isinstance(probe_name, list) else probe_name
+    probe_name = 'merged_probes' if (isinstance(probe_name, list) and len(probe_name) > 1) else probe_name
 
     # If we are only staging data, we are done here
     if stage_only:
