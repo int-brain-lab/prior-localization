@@ -9,11 +9,11 @@ from prior_localization.fit_data import fit_session_ephys
 parser = argparse.ArgumentParser(description='Run decoding')
 parser.add_argument('output_dir')
 parser.add_argument('session_idx')
-parser.add_argument('pseudo_ids')
+parser.add_argument('pseudo_ids', nargs='+')
 args = parser.parse_args()
 output_dir = str(args.output_dir)
 session_idx = int(args.session_idx)
-pseudo_ids = list(args.pseudo_id)
+pseudo_ids = [int(p) for p in args.pseudo_id]
 
 # Create an offline ONE instance, we don't want to hit the database when running so many jobs in parallel and have
 # downloaded the data before

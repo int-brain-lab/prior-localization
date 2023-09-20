@@ -1,24 +1,30 @@
-# Create a file in which each line has an index for the eid to use, and a set of pseudo sessions to use
-# Launch slurm task array calling slurm.job script with this file as input
-
-
 #!/bin/bash
 
+#### USER SETTINGS, ADAPT THESE TO YOUR CLUSTER ###
+out_dir=/mnt/ibl/quarantine/prior/ephys
+###################################################
 
-n_pseudo_sessions: 200  # Number of pseudo sessions to decode per real session for statistical analysis
+n_sessions=354  # number of unique eids in the dataframe that we will index in
+n_pseudo=200  # number of pseudo sessions to generate for each real session
+n_per_job=10  # number of (pseudo)sessions to fit per job on the cluster
 
+mkdir -p $out_dir
 
-# Recommendation: keep scripts in $HOME, and data in ceph
-projdir="$HOME/ceph/myproj/"  # dir with data*.hdf5
-jobname="job1"  # change for new jobs
-jobdir="$projdir/$jobname"
+# Create a file in which each line has an index for the eid to use, and a set of pseudo sessions to use
+idx_list="$out_dir/idx_list.txt"
 
-mkdir -p $jobdir
+# TODO: write to idx_list.txt:
+#0 (-1 1 2 3 4 5 6 7 8 9 10)
+#0 (11 12 13 14 15 16 17 18 19 20)
+#...
+#0 (191 192 193 194 195 196 197 198 199 200)
+#1 (-1 1 2 3 4 5 6 7 8 9 10)
+#1 (11 12 13 14 15 16 17 18 19 20)
+#...
+#353 (191 192 193 194 195 196 197 198 199 200)
 
-# Use the "find" command to write the list of files to process, 1 per line
-fn_list="$jobdir/fn_list.txt"
-find $projdir -name 'data*.hdf5' | sort > $fn_list
-nfiles=$(wc -l $fn_list)
+# Get the total number of jobs
+n_jobs=$(wc -l $idx_list)
 
 # Launch a Slurm job array with $nfiles entries
-sbatch --array=1-$nfiles job.slurm $fn_list
+sbatch --array=1-$n_jobs job.slurm $idx_list $out_dir
