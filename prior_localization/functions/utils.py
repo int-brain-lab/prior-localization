@@ -1,27 +1,12 @@
 import logging
 import yaml
+import pickle
 from pathlib import Path
 import numpy as np
 import sklearn.linear_model as sklm
 from behavior_models.utils import build_path
 
 logger = logging.getLogger('prior_localization')
-
-
-def create_neural_path(output_path, date, neural_dtype, subject, session_id, probe,
-                       region_str, target, time_window, pseudo_ids, add_to_path=None):
-    full_path = Path(output_path).joinpath('neural', date, neural_dtype, subject, session_id, probe)
-    full_path.mkdir(exist_ok=True, parents=True)
-
-    config = check_config()
-
-    pseudo_str = f'{pseudo_ids[0]}_{pseudo_ids[-1]}' if len(pseudo_ids) > 1 else str(pseudo_ids[0])
-    time_str = f'{time_window[0]}_{time_window[1]}'.replace('.', '_')
-    file_name = f'{region_str}_target_{target}_timeWindow_{time_str}_pseudo_id_{pseudo_str}'
-    if add_to_path:
-        for a in add_to_path:
-            file_name = f'{file_name}_{a}_{config[a]}'
-    return full_path.joinpath(f'{file_name}.pkl')
 
 
 def check_bhv_fit_exists(subject, model, eids, resultpath, single_zeta):
@@ -34,12 +19,10 @@ def check_bhv_fit_exists(subject, model, eids, resultpath, single_zeta):
         Subject nick name
     model: str
         Model class name
-    eids: list
-        List of session ids for sessions on which model was fitted
+    eids: str or list
+        session id or list of session ids for sessions on which model was fitted
     resultpath: str
         Path to the results
-    single_zeta: bool
-        Whether or not the model was fitted with a single zeta
 
     Returns
     -------
@@ -48,11 +31,13 @@ def check_bhv_fit_exists(subject, model, eids, resultpath, single_zeta):
     Path
         Path to the fit
     """
-    path_results_mouse = f'model_{model}_single_zeta_{single_zeta}'
-    trunc_eids = [eid.split('-')[0] for eid in eids]
-    filen = build_path(path_results_mouse, trunc_eids)
-    subjmodpath = Path(resultpath).joinpath(Path(subject))
-    fullpath = subjmodpath.joinpath(filen)
+    if isinstance(eids, str):
+        eids = [eids]
+    fullpath = f'model_{model}'
+    if single_zeta:
+        fullpath += '_single_zeta'
+    fullpath = build_path(fullpath, [eid.split('-')[0] for eid in eids])
+    fullpath = Path(resultpath).joinpath(subject, fullpath)
     return fullpath.exists(), fullpath
 
 
@@ -148,17 +133,25 @@ def average_data_in_epoch(times, values, trials_df, align_event='stimOn_times', 
     epoch_idx_stop = np.searchsorted(times, intervals[valid_trials, 1], side='right')
     # Create an array to fill in with the average epoch values for each trial
     epoch_array = np.full(events.shape, np.nan)
-    epoch_array[valid_trials] = np.asarray([np.nanmean(values[start:stop]) for start, stop in
-                                            zip(epoch_idx_start, epoch_idx_stop)], dtype=float)
+    epoch_array[valid_trials] = np.asarray(
+        [np.nanmean(values[start:stop]) if ~np.all(np.isnan(values[start:stop])) else np.nan
+         for start, stop in zip(epoch_idx_start, epoch_idx_stop)],
+        dtype=float)
 
     return epoch_array
 
 
-def check_inputs(model, pseudo_ids, target, output_dir, config, logger):
+def check_inputs(
+        model, pseudo_ids, target, output_dir, config, logger, compute_neurometrics=None, motor_residuals=None
+):
     """Perform some basic checks and/or corrections on inputs to the main decoding functions"""
-    if output_dir is None:
-        output_dir = Path.cwd()
-        logger.info(f"No output directory specified, setting to current working directory {Path.cwd()}")
+    output_dir = Path(output_dir)
+    if not output_dir.exists():
+        try:
+           output_dir.mkdir(parents=True)
+           logger.info(f"Created output_dir: {output_dir}")
+        except PermissionError:
+            raise PermissionError(f"Following output_dir cannot be created, insufficient permissions: {output_dir}")
 
     pseudo_ids = [-1] if pseudo_ids is None else pseudo_ids
     if 0 in pseudo_ids:
@@ -169,29 +162,29 @@ def check_inputs(model, pseudo_ids, target, output_dir, config, logger):
     if target in ['choice', 'feedback'] and model != 'actKernel':
         raise ValueError("If you want to decode choice or feedback, you must use the actionKernel model")
 
-    if config['compute_neurometrics'] and target != "signcont":
+    if compute_neurometrics and target != "signcont":
         raise ValueError("The target should be signcont when compute_neurometrics is set to True in config file")
 
-    if config['compute_neurometrics'] and len(config['border_quantiles_neurometrics']) == 0 and model != 'oracle':
+    if compute_neurometrics and len(config['border_quantiles_neurometrics']) == 0 and model != 'oracle':
         raise ValueError(
             "If compute_neurometrics is set to True in config file, and model is not oracle, "
             "border_quantiles_neurometrics must be a list of at least length 1"
         )
 
-    if config['compute_neurometrics'] and len(config['border_quantiles_neurometrics']) != 0 and model == 'oracle':
+    if compute_neurometrics and len(config['border_quantiles_neurometrics']) != 0 and model == 'oracle':
         raise ValueError(
             "If compute_neurometrics is set to True in config file, and model is oracle, "
             "border_quantiles_neurometrics must be set to an empty list"
         )
+
+    if motor_residuals and model != 'optBay':
+        raise ValueError('Motor residuals can only be computed for optBay model')
 
     return pseudo_ids, output_dir
 
 
 def check_config():
     """Load config yaml and perform some basic checks"""
-    # Get settings, need for some things
-    with open(Path(__file__).parent.parent.joinpath('settings.yml'), "r") as settings_yml:
-        settings = yaml.safe_load(settings_yml)
     # Get config
     with open(Path(__file__).parent.parent.joinpath('config.yml'), "r") as config_yml:
         config = yaml.safe_load(config_yml)
@@ -207,10 +200,6 @@ def check_config():
     config['hparam_grid'] = ({"C": np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])}
                              if config['estimator'] == sklm.LogisticRegression
                              else {"alpha": np.array([0.00001, 0.0001, 0.001, 0.01, 0.1])})
-
-    # Add to path
-    if settings['add_to_path'] is not None:
-        config['add_to_path'] = {i: config[i] for i in settings['add_to_path']}
 
     return config
 

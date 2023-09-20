@@ -22,7 +22,7 @@ pip install .
 
 In a Python console, test if you can import functions from prior_localization
 ```python
-from prior_localization.functions.decoding import fit_session_ephys
+from prior_localization.fit_data import fit_session_ephys
 ```
 
 

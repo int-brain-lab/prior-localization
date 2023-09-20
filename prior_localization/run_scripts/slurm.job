@@ -1,0 +1,23 @@
+# Set SBATCH flags
+# Read the input file from the launch script
+# Use the task array ID to pick a line for that input file
+# Use info from that line as input to call the actual decoding script
+
+#SBATCH -p ccX      # or "-p genx" if your job won't fill a node
+#SBATCH --ntasks=1  # run one thing per job
+#SBATCH --mem=128G  # ccX reserves all memory on the node, require at least...
+#SBATCH -t 1:00:00  # 1 hour
+
+# the file with the list of files to process
+fn_list=$1
+
+# the job array index
+# the task ID is automatically set by Slurm
+i=$SLURM_ARRAY_TASK_ID
+
+# get the line of the file belonging to this job
+# make sure your `sbatch --array=1-X` command uses 1 as the starting index
+fn=$(sed -n "${i}p" ${fn_list})
+
+echo "About to process $fn"
+./my_analysis_script.py $fn
