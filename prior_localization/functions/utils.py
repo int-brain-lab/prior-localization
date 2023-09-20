@@ -1,24 +1,12 @@
 import logging
 import yaml
+import pickle
 from pathlib import Path
 import numpy as np
 import sklearn.linear_model as sklm
 from behavior_models.utils import build_path
 
 logger = logging.getLogger('prior_localization')
-
-
-def create_neural_path(output_path, neural_dtype, subject, session_id, probe,
-                       region_str, target, time_window, pseudo_ids):
-    full_path = Path(output_path).joinpath('neural', neural_dtype, subject, session_id, probe)
-    full_path.mkdir(exist_ok=True, parents=True)
-
-    config = check_config()
-
-    pseudo_str = f'{pseudo_ids[0]}_{pseudo_ids[-1]}' if len(pseudo_ids) > 1 else str(pseudo_ids[0])
-    time_str = f'{time_window[0]}_{time_window[1]}'.replace('.', '_')
-    file_name = f'{region_str}_target_{target}_timeWindow_{time_str}_pseudo_id_{pseudo_str}'
-    return full_path.joinpath(f'{file_name}.pkl')
 
 
 def check_bhv_fit_exists(subject, model, eids, resultpath, single_zeta):
@@ -31,12 +19,10 @@ def check_bhv_fit_exists(subject, model, eids, resultpath, single_zeta):
         Subject nick name
     model: str
         Model class name
-    eids: list
-        List of session ids for sessions on which model was fitted
+    eids: str or list
+        session id or list of session ids for sessions on which model was fitted
     resultpath: str
         Path to the results
-    single_zeta: bool
-        Whether or not the model was fitted with a single zeta
 
     Returns
     -------
@@ -45,11 +31,13 @@ def check_bhv_fit_exists(subject, model, eids, resultpath, single_zeta):
     Path
         Path to the fit
     """
-    path_results_mouse = f'model_{model}_single_zeta_{single_zeta}'
-    trunc_eids = [eid.split('-')[0] for eid in eids]
-    filen = build_path(path_results_mouse, trunc_eids)
-    subjmodpath = Path(resultpath).joinpath(Path(subject))
-    fullpath = subjmodpath.joinpath(filen)
+    if isinstance(eids, str):
+        eids = [eids]
+    fullpath = f'model_{model}'
+    if single_zeta:
+        fullpath += '_single_zeta'
+    fullpath = build_path(fullpath, [eid.split('-')[0] for eid in eids])
+    fullpath = Path(resultpath).joinpath(subject, fullpath)
     return fullpath.exists(), fullpath
 
 
@@ -145,8 +133,10 @@ def average_data_in_epoch(times, values, trials_df, align_event='stimOn_times', 
     epoch_idx_stop = np.searchsorted(times, intervals[valid_trials, 1], side='right')
     # Create an array to fill in with the average epoch values for each trial
     epoch_array = np.full(events.shape, np.nan)
-    epoch_array[valid_trials] = np.asarray([np.nanmean(values[start:stop]) for start, stop in
-                                            zip(epoch_idx_start, epoch_idx_stop)], dtype=float)
+    epoch_array[valid_trials] = np.asarray(
+        [np.nanmean(values[start:stop]) if ~np.all(np.isnan(values[start:stop])) else np.nan
+         for start, stop in zip(epoch_idx_start, epoch_idx_stop)],
+        dtype=float)
 
     return epoch_array
 

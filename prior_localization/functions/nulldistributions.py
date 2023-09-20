@@ -31,14 +31,14 @@ def generate_null_distribution_session(trials_df, session_id, subject, model, be
 
 def generate_choices(pseudosess, trials_df, subjModel):
 
-    istrained, fullpath = check_bhv_fit_exists(subjModel["subject"], subjModel["modeltype"],
-                                               subjModel["eids_train"], subjModel["behfit_path"].as_posix() + "/",
-                                               single_zeta=True)
+    istrained, fullpath = check_bhv_fit_exists(subjModel["subject"], subjModel["modeltype"], subjModel["eid"],
+                                               subjModel["behfit_path"], single_zeta=True)
+
     if not istrained:
         raise ValueError("Something is wrong. The model should be trained by this line")
 
-    modelclass = model_name2class(subjModel["modeltype"])
-    model = modelclass(subjModel["behfit_path"], subjModel["eids_train"], subjModel["subject"],
+    modelclass = model_name2class[subjModel["modeltype"]]
+    model = modelclass(subjModel["behfit_path"], subjModel["eid"], subjModel["subject"],
                        actions=None, stimuli=None, stim_side=None, single_zeta=True)
     model.load_or_train(loadpath=str(fullpath))
     arr_params = model.get_parameters(parameter_type="posterior_mean")[None]

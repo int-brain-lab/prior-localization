@@ -14,8 +14,7 @@ from brainbox.io.one import SessionLoader
 from prior_localization.prepare_data import (prepare_ephys, prepare_behavior, prepare_motor, prepare_pupil,
                                              prepare_widefield, prepare_widefield_old)
 from prior_localization.functions.neurometric import get_neurometric_parameters
-from prior_localization.functions.utils import (create_neural_path, check_inputs, check_config, compute_mask,
-                                                subtract_motor_residuals)
+from prior_localization.functions.utils import check_inputs, check_config, compute_mask, subtract_motor_residuals
 
 # Set up logger
 logger = logging.getLogger('prior_localization')
@@ -105,20 +104,17 @@ def fit_session_ephys(
         stage_only=stage_only
     )
 
-    # Fix the probe name (mainly for saving)
-    probe_name = 'merged_probes' if (isinstance(probe_name, list) and len(probe_name) > 1) else probe_name
-
     # If we are only staging data, we are done here
     if stage_only:
         return
 
+    # Create strings for saving
+    pseudo_str = f'{pseudo_ids[0]}_{pseudo_ids[-1]}' if len(pseudo_ids) > 1 else str(pseudo_ids[0])
+    probe_str = 'merged_probes' if (isinstance(probe_name, list) and len(probe_name) > 1) else probe_name
+
     # Otherwise fit per region
     filenames = []
     for data_region, region in zip(data_epoch, actual_regions):
-        # Create a string for saving the file
-        region_str = config['regions'] if (config['regions'] == 'all_regions') or (
-            config['regions'] in config['region_defaults'].keys()) else '_'.join(region)
-
         # Fit
         fit_results = fit_target(data_region[trials_mask], [t[trials_mask] for t in all_targets], all_trials, n_runs,
                                  all_neurometrics, pseudo_ids, integration_test=integration_test)
@@ -128,13 +124,16 @@ def fit_session_ephys(
             fit_result['mask'] = trials_mask if config['save_predictions'] else None
 
         # Create output paths and save
-        filename = create_neural_path(output_dir, 'ephys', subject, session_id, probe_name,
-                                      region_str, target, time_window, pseudo_ids)
+        region_str = config['regions'] if (config['regions'] == 'all_regions') or (
+                config['regions'] in config['region_defaults'].keys()) else '_'.join(region)
+        filename = output_dir.joinpath(subject, session_id, f'{region_str}_{probe_str}_pseudo_ids_{pseudo_str}.pkl')
+        filename.parent.mkdir(parents=True, exist_ok=True)
+
         outdict = {
             "fit": fit_results,
             "subject": subject,
             "eid": session_id,
-            "probe": probe_name,
+            "probe": probe_str,
             "region": region,
             "N_units": data_region.shape[1],
         }
@@ -146,8 +145,8 @@ def fit_session_ephys(
 
 def fit_session_widefield(
         one, session_id, subject, output_dir, pseudo_ids=None, hemisphere=("left", "right"), target='pLeft',
-        align_event='stimOn_times', frame_window=(-2, -2), model='optBay', n_runs=10, stage_only=False,
-        integration_test=False, old_data=False
+        align_event='stimOn_times', frame_window=(-2, -2), model='optBay', n_runs=10, compute_neurometrics=False,
+        stage_only=False, integration_test=False, old_data=False
 ):
 
     """
@@ -183,6 +182,8 @@ def fit_session_widefield(
      Model to be decoded, options are {optBay, actKernel, stimKernel, oracle}, default is optBay
     n_runs: int
      Number of times to repeat full nested cross validation with different folds
+    compute_neurometrics: bool
+     Whether to compute neurometric shift and slopes (cf. Fig 3 of the paper)
     stage_only: bool
      If true, only download all required data, don't perform the actual decoding
     integration_test: bool
@@ -198,7 +199,7 @@ def fit_session_widefield(
     """
 
     # Check some inputs
-    pseudo_ids, output_dir = check_inputs(model, pseudo_ids, target, output_dir, config, logger)
+    pseudo_ids, output_dir = check_inputs(model, pseudo_ids, target, output_dir, config, logger, compute_neurometrics)
 
     # Load trials data
     sl = SessionLoader(one, session_id)
@@ -210,7 +211,7 @@ def fit_session_widefield(
     # Compute or load behavior targets
     all_trials, all_targets, trials_mask, all_neurometrics = prepare_behavior(
         session_id, subject, sl.trials, trials_mask, pseudo_ids=pseudo_ids, output_dir=output_dir,
-        model=model, target=target, integration_test=integration_test)
+        model=model, target=target, compute_neurometrics=compute_neurometrics, integration_test=integration_test)
 
     # Prepare widefield data
     if old_data is False:
@@ -222,17 +223,17 @@ def fit_session_widefield(
         data_epoch, actual_regions = prepare_widefield_old(old_data, hemisphere=hemisphere, regions=config['regions'],
                                                            align_event=align_event, frame_window=frame_window)
 
-    # Hemishpere name (mainly for saving)
-    hemi_name = 'both_hemispheres' if isinstance(hemisphere, tuple) or isinstance(hemisphere, list) else hemisphere
-
     # If we are only staging data, we are done here
     if stage_only:
         return
 
+    # Strings for saving
+    pseudo_str = f'{pseudo_ids[0]}_{pseudo_ids[-1]}' if len(pseudo_ids) > 1 else str(pseudo_ids[0])
+    hemi_str = 'both_hemispheres' if isinstance(hemisphere, tuple) or isinstance(hemisphere, list) else hemisphere
     # Otherwise, fit data per region
     filenames = []
     for data_region, region in zip(data_epoch, actual_regions):
-        region_str = config['regions'] if (config['regions'] == 'all_regions') else '_'.join(region)
+        # Fit
         fit_results = fit_target(data_region[trials_mask], [t[trials_mask] for t in all_targets], all_trials, n_runs,
                                  all_neurometrics, pseudo_ids, integration_test=integration_test)
 
@@ -241,13 +242,16 @@ def fit_session_widefield(
             fit_result['mask'] = trials_mask if config['save_predictions'] else None
 
         # Create output paths and save
-        filename = create_neural_path(output_dir, 'widefield', subject, session_id, hemi_name, region_str, target,
-                                      frame_window, pseudo_ids, )
+        region_str = config['regions'] if (config['regions'] == 'all_regions') or (
+                config['regions'] in config['region_defaults'].keys()) else '_'.join(region)
+        filename = output_dir.joinpath(subject, session_id, f'{region_str}_{hemi_str}_pseudo_ids_{pseudo_str}.pkl')
+        filename.parent.mkdir(parents=True, exist_ok=True)
+
         outdict = {
             "fit": fit_results,
             "subject": subject,
             "eid": session_id,
-            "probe": hemisphere,
+            "hemisphere": hemisphere,
             "region": region,
             "N_units": data_region.shape[1],
         }
@@ -331,16 +335,14 @@ def fit_session_pupil(
                              all_neurometrics, pseudo_ids, integration_test=integration_test)
 
     # Create output paths and save
-    filename = create_neural_path(
-        output_path=output_dir, neural_dtype='ephys', subject=subject, session_id=session_id, probe='',
-        region_str='pupil', target=target, time_window=time_window, pseudo_ids=pseudo_ids,
-    )
+    pseudo_str = f'{pseudo_ids[0]}_{pseudo_ids[-1]}' if len(pseudo_ids) > 1 else str(pseudo_ids[0])
+    filename = output_dir.joinpath(subject, session_id, f'pupil_pseudo_ids_{pseudo_str}.pkl')
+    filename.parent.mkdir(parents=True, exist_ok=True)
 
     outdict = {
         "fit": fit_results,
         "subject": subject,
         "eid": session_id,
-        "probe": None,
     }
     with open(filename, "wb") as fw:
         pickle.dump(outdict, fw)
@@ -422,16 +424,14 @@ def fit_session_motor(
                              all_neurometrics, pseudo_ids, integration_test=integration_test)
 
     # Create output paths and save
-    filename = create_neural_path(
-        output_path=output_dir, neural_dtype='ephys', subject=subject, session_id=session_id, probe='',
-        region_str='motor', target=target, time_window=time_window, pseudo_ids=pseudo_ids,
-    )
+    pseudo_str = f'{pseudo_ids[0]}_{pseudo_ids[-1]}' if len(pseudo_ids) > 1 else str(pseudo_ids[0])
+    filename = output_dir.joinpath(subject, session_id, f'motor_pseudo_ids_{pseudo_str}.pkl')
+    filename.parent.mkdir(parents=True, exist_ok=True)
 
     outdict = {
         "fit": fit_results,
         "subject": subject,
         "eid": session_id,
-        "probe": None,
     }
     with open(filename, "wb") as fw:
         pickle.dump(outdict, fw)

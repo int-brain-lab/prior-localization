@@ -58,6 +58,14 @@ class TestEphysDecoding(unittest.TestCase):
         )
         self.assertIsNone(results_fit_session)
 
+    def test_actKernel(self):
+        results_fit_session = fit_session_ephys(
+            one=self.one, session_id=self.eid, subject=self.subject, probe_name=self.probe_names,
+            output_dir=Path(self.tmp_dir.name), pseudo_ids=self.pseudo_ids, model='actKernel', n_runs=2,
+            integration_test=True
+        )
+        self.assertEqual(len(results_fit_session), 5)
+
     def test_motor_residuals(self):
         # TODO: get actual results?
         results_fit_session = fit_session_ephys(
@@ -95,7 +103,6 @@ class TestMotorEyeDecoding(unittest.TestCase):
             predicted = pickle.load(fb)
         self.assertEqual(predicted['subject'], self.subject)
         self.assertEqual(predicted['eid'], self.eid)
-        self.assertIsNone(predicted['probe'])
         # Reset to original eid for other tests
 
     def test_decode_motor(self):
@@ -108,7 +115,9 @@ class TestMotorEyeDecoding(unittest.TestCase):
             predicted = pickle.load(fb)
         self.assertEqual(predicted['subject'], self.subject)
         self.assertEqual(predicted['eid'], self.eid)
-        self.assertIsNone(predicted['probe'])
+
+    def tearDown(self) -> None:
+        self.tmp_dir.cleanup()
 
 
 class TestWidefieldDecoding(unittest.TestCase):
