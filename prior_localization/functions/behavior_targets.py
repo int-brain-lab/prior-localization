@@ -147,9 +147,11 @@ def compute_beh_target(trials_df, session_id, subject, model, target, behavior_p
 
     if (not istrained) and (target != 'signcont') and (model != 'oracle'):
         side, stim, act, _ = format_data(trials_df)
-        stimuli, actions, stim_side = format_input(stim, act, side)
-        model = model_name2class[model](behavior_path, session_id, subject, actions, stimuli, stim_side,
-                                        single_zeta=True)
+        stimuli, actions, stim_side = format_input([stim], [act], [side])
+        model = model_name2class[model](
+            path_to_results=behavior_path, session_uuids=session_id, mouse_name=subject, actions=actions,
+            stimuli=stimuli, stim_side=stim_side, single_zeta=True
+        )
         model.load_or_train(remove_old=remove_old)
     elif (target != 'signcont') and (model != 'oracle'):
         model = model_name2class[model](behavior_path, session_id, subject, actions=None, stimuli=None,

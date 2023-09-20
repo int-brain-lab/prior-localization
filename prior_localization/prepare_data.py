@@ -151,13 +151,15 @@ def prepare_behavior(
     if pseudo_ids is None:
         pseudo_ids = [-1]  # -1 is always the actual session
 
-    behavior_path = output_dir.joinpath('behavior') if output_dir else Path.cwd().joinpath('behavior')
+    behavior_path = output_dir.joinpath('behavior')
     # Train model if not trained already, optimal Bayesian and oracle (None) don't need to be trained
     if model not in ['oracle', 'optBay']:
         side, stim, act, _ = format_data(trials_df)
         stimuli, actions, stim_side = format_input([stim], [act], [side])
-        behavior_model = model_name2class[model](behavior_path, session_id, subject, actions, stimuli, stim_side,
-                                                 single_zeta=True)
+        behavior_model = model_name2class[model](
+            path_to_results=behavior_path, session_uuids=session_id, mouse_name=subject, actions=actions,
+            stimuli=stimuli, stim_side=stim_side, single_zeta=True
+        )
         istrained, _ = check_bhv_fit_exists(subject, model, session_id, behavior_path, single_zeta=True)
         if not istrained:
             behavior_model.load_or_train(remove_old=False)
