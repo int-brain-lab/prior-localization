@@ -31,7 +31,9 @@ But if you desire to view the swanson flatmaps locally, you can generate them by
 blocks of code in the above files.
 
 You may also want to generate the decoding extra panels found in the main figures 5, 6, 7, 8, and 9.  There is one 
-script which generates all of these extra panels for the figures, called `plot_extra_panels.py`.
+script which generates all of these extra panels for the figures, called `plot_extra_panels.py`.  It is not likely,
+however, that you will need to do this because Michael Schartner has this code and was working on a script that 
+plots all the analyses' extra panels at once.  In that case, just send the files used in this script to Michael. 
 
 Next, you can generate the decoding bar plots found in figure S6 by running `plot_bwm_bars.py`.  
 I previously shared a function with Yanliang Shi which creates these bar plots, `toyanliang_plotbars.py`.
