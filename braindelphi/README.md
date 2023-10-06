@@ -7,7 +7,10 @@ pipeline and combine regions.  Specifically, the decoding pipeline outputs are s
 and session, but sessions of the same region need to be combined using fisher's method to plot per-region
 results in the paper.
 
-directories and saving information...
+## set-up of directories
+Copy the summary table files ("\*.csv" and "\*_xy.pkl" that result from the decoding pipeline) for use in 
+this directory.  Paste the files into a sub-sub-directory called `decoding_results/summary/`.
+Create a directory called `decoding_figures/`.
 
 To process block summary tables, run the file
 `
@@ -37,7 +40,8 @@ the script, `plot_hist_weights.py`.
 You may also want to generate the decoding extra panels found in the main figures 5, 6, 7, 8, and 9.  There is one 
 script which generates all of these extra panels for the figures, called `plot_extra_panels.py`.  It is not likely,
 however, that you will need to do this because Michael Schartner has this code and was working on a script that 
-plots all the analyses' extra panels at once.  In that case, just send the files used in this script to Michael. 
+plots all the analyses' extra panels at once.  In that case, the files used in this script should be sent to 
+Michael. 
 
 Next, you can generate the decoding bar plots found in figure S6 by running `plot_bwm_bars.py`.  
 I previously shared a function with Yanliang Shi which creates these bar plots, `toyanliang_plotbars.py`
