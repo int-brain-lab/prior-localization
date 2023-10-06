@@ -30,8 +30,9 @@ up to the end of the first block denoted by `# %%` (spyder notation).  You will 
 variable `file_all_results` to match the name of the summary table files that came out of the decoding
 pipeline for the block variable.
 
-Do likewise for the rest of the variables.  Change `file_all_results` to match the summary table files
-of that variable.  Then run the first block of these files to process 
+Do likewise for the rest of the files listed below to process all the other variables besides block.  
+In each file, change `file_all_results` to match the summary table files
+of the corresponding variable.  Then, run the first block (up to `# %%`) of these files to process 
 stimulus side, choice, feedback, wheel-speed, and wheel-velocity:
 - `plot_decoding_stimside.py`
 - `plot_decodoing_choice_panel.py`
