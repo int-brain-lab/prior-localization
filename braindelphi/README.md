@@ -79,7 +79,7 @@ are histograms of p-values and **the title of the plot contains the omnibus p-va
 
 Unfortunately, I ran into issues with the omnibus wheel-velocity decoding pipeline. The cluster jobs do not finish 
 properly.  This meant that I needed to hack the wheel-velocity omnibus p-value by computing an upper-bound of the
-p-value rather than the p-value itself.  To comput this upper-bound for wheel-velocity, run the file
+p-value rather than the p-value itself.  To compute this upper-bound for wheel-velocity, run the file
 `omnibus_nobwmloading.py` and see that the last block of code does this.  The omnibus p-value is upper-bounded by 
 replacing all non-completed
 session-wise p-values with a maximum p-value of N_PSEUDO/(N_PSEUDO+1) where N_PSEUDO is the number of 
