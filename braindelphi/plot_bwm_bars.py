@@ -63,7 +63,8 @@ def bar_results(acronyms_unordered,
                 FILE_PATH='./decoding_figures/SI/',
                 YMIN=None,
                 YMAX=None,
-                bolded_regions=[]):
+                bolded_regions=[],
+                red_regions=[]):
     '''
     
 
@@ -93,9 +94,12 @@ def bar_results(acronyms_unordered,
         The y-axis lower limit.  The default is None.
     YMIN : float, optional
         The y-axis lower limit.  The default is None.
-    bolded_regions : None or array
-        if not None, array of strings for each region which should be bolded
-        in the x-axis
+    bolded_regions : array
+        array of strings for each region which should be bolded
+        in the x-axis.  default is empty array.
+    red_regions : array
+        array of strings for each region which should be made red
+        in the x-axis.  default is empty array.
     
     Returns
     -------
@@ -148,6 +152,7 @@ def bar_results(acronyms_unordered,
     plt.xticks(inds, labels=acronyms, rotation=90)
     xtls = fig.axes[0].get_xticklabels()
     [xtl.set_fontweight('extra bold') for xtl in xtls if xtl.get_text() in bolded_regions]
+    [xtl.set_color('red') for xtl in xtls if xtl.get_text() in red_regions]
     plt.xlim(np.min(inds)-1, np.max(inds)+1)
     
     # y-axis ticks, labels, limits
