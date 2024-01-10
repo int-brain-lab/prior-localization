@@ -11,10 +11,23 @@ from sklearn.utils.class_weight import compute_sample_weight
 
 from brainbox.io.one import SessionLoader
 
-from prior_localization.prepare_data import (prepare_ephys, prepare_behavior, prepare_motor, prepare_pupil,
-                                             prepare_widefield, prepare_widefield_old)
+from prior_localization.prepare_data import (
+    prepare_ephys,
+    prepare_behavior,
+    prepare_motor,
+    prepare_pupil,
+    prepare_widefield,
+    prepare_widefield_old,
+)
 from prior_localization.functions.neurometric import get_neurometric_parameters
-from prior_localization.functions.utils import check_inputs, check_config, compute_mask, subtract_motor_residuals
+from prior_localization.functions.utils import (
+    check_inputs,
+    check_config,
+    compute_mask,
+    subtract_motor_residuals,
+    format_data_for_decoding,
+    logisticreg_criteria,
+)
 
 # Set up logger
 logger = logging.getLogger('prior_localization')
@@ -579,30 +592,16 @@ def decode_cv(ys, Xs, estimator, estimator_kwargs, balanced_weight=False, hyperp
     """
 
     # transform target data into standard format: list of np.ndarrays
-    if isinstance(ys, np.ndarray):
-        # input is single numpy array
-        ys = [np.array([y]) for y in ys]
-    elif isinstance(ys, list) and ys[0].shape == ():
-        # input is list of float instead of list of np.ndarrays
-        ys = [np.array([y]) for y in ys]
-    elif isinstance(ys, pd.Series):
-        # input is a pandas Series
-        ys = ys.to_numpy()
-        ys = [np.array([y]) for y in ys]
-
-    # transform neural data into standard format: list of np.ndarrays
-    if isinstance(Xs, np.ndarray):
-        Xs = [x[None, :] for x in Xs]
+    ys, Xs = format_data_for_decoding(ys, Xs)
 
     # initialize containers to save outputs
     n_trials = len(Xs)
+    bins_per_trial = len(Xs[0])
     scores_test, scores_train = [], []
     idxes_test, idxes_train = [], []
     weights, intercepts, best_params = [], [], []
     predictions = [None for _ in range(n_trials)]
-    predictions_to_save = [
-        None for _ in range(n_trials)
-    ]  # different for logistic regression
+    predictions_to_save = [None for _ in range(n_trials)]  # different for logistic regression
 
     # split the dataset in two parts, train and test
     # when shuffle=False, the method will take the end of the dataset to create the test set
@@ -610,18 +609,24 @@ def decode_cv(ys, Xs, estimator, estimator_kwargs, balanced_weight=False, hyperp
         np.random.seed(rng_seed)
     indices = np.arange(n_trials)
     if outer_cv:
-        outer_kfold = KFold(
-            n_splits=n_folds if not use_cv_sklearn_method else 50, shuffle=shuffle
-        ).split(indices)
+        # create kfold function to loop over
+        get_kfold = lambda: KFold(n_folds if not use_cv_sklearn_method else 50, shuffle=shuffle).split(indices)
+        # define function to evaluate whether folds are satisfactory
+        if estimator == sklm.LogisticRegression:
+            # folds must be chosen such that 2 classes are present in each fold, with minimum 2 examples per class
+            assert logisticreg_criteria(ys)
+            isysat = lambda ys: logisticreg_criteria(ys, min_unique_counts=2)
+        else:
+            isysat = lambda ys: True
+        sample_count, _, outer_kfold_iter = sample_folds(ys, get_kfold, isysat)
+        if sample_count > 1:
+            print(f'sampled outer folds {sample_count} times to ensure enough targets')
     else:
-        outer_kfold = iter(
-            [train_test_split(indices, test_size=test_prop, shuffle=shuffle)]
-        )
+        outer_kfold = iter([train_test_split(indices, test_size=test_prop, shuffle=shuffle)])
+        outer_kfold_iter = [(train_idxs, test_idxs) for _, (train_idxs, test_idxs) in enumerate(outer_kfold)]
 
     # scoring function; use R2 for linear regression, accuracy for logistic regression
-    scoring_f = (
-        balanced_accuracy_score if (estimator == sklm.LogisticRegression) else r2_score
-    )
+    scoring_f = balanced_accuracy_score if (estimator == sklm.LogisticRegression) else r2_score
 
     # Select either the GridSearchCV estimator for a normal estimator, or use the native estimator
     # in the case of CV-type estimators
@@ -635,7 +640,7 @@ def decode_cv(ys, Xs, estimator, estimator_kwargs, balanced_weight=False, hyperp
         )
     else:
         # loop over outer folds
-        for train_idxs_outer, test_idxs_outer in outer_kfold:
+        for train_idxs_outer, test_idxs_outer in outer_kfold_iter:
             # outer fold data split
             # X_train = np.vstack([Xs[i] for i in train_idxs])
             # y_train = np.concatenate([ys[i] for i in train_idxs], axis=0)
@@ -649,30 +654,34 @@ def decode_cv(ys, Xs, estimator, estimator_kwargs, balanced_weight=False, hyperp
             key = list(hyperparam_grid.keys())[0]  # TODO: make this more robust
 
             if not use_cv_sklearn_method:
+
                 # now loop over inner folds
                 idx_inner = np.arange(len(X_train))
-                inner_kfold = KFold(n_splits=n_folds, shuffle=shuffle).split(idx_inner)
+
+                get_kfold_inner = lambda: KFold(n_splits=n_folds, shuffle=shuffle).split(idx_inner)
+
+                # produce inner_fold_iter
+                if estimator == sklm.LogisticRegression:
+                    # make sure data has at least 2 examples per class
+                    assert logisticreg_criteria(y_train, min_unique_counts=2)
+                    # folds must be chosen such that 2 classes are present in each fold, with min 1 example per class
+                    isysat_inner = lambda ys: logisticreg_criteria(ys, min_unique_counts=1)
+                else:
+                    isysat_inner = lambda ys: True
+                sample_count, _, inner_kfold_iter = sample_folds(y_train, get_kfold_inner, isysat_inner)
+                if sample_count > 1:
+                    print(f'sampled inner folds {sample_count} times to ensure enough targets')
 
                 r2s = np.zeros([n_folds, len(hyperparam_grid[key])])
-                inner_predictions = (
-                    np.zeros([len(y_train), len(hyperparam_grid[key])]) + np.nan
-                )
-                inner_targets = (
-                    np.zeros([len(y_train), len(hyperparam_grid[key])]) + np.nan
-                )
-                for ifold, (train_idxs_inner, test_idxs_inner) in enumerate(
-                    inner_kfold
-                ):
+                inner_predictions = np.zeros([len(y_train), len(hyperparam_grid[key])]) + np.nan
+                inner_targets = np.zeros([len(y_train), len(hyperparam_grid[key])]) + np.nan
+                for ifold, (train_idxs_inner, test_idxs_inner) in enumerate(inner_kfold_iter):
 
                     # inner fold data split
                     X_train_inner = np.vstack([X_train[i] for i in train_idxs_inner])
-                    y_train_inner = np.concatenate(
-                        [y_train[i] for i in train_idxs_inner], axis=0
-                    )
+                    y_train_inner = np.concatenate([y_train[i] for i in train_idxs_inner], axis=0)
                     X_test_inner = np.vstack([X_train[i] for i in test_idxs_inner])
-                    y_test_inner = np.concatenate(
-                        [y_train[i] for i in test_idxs_inner], axis=0
-                    )
+                    y_test_inner = np.concatenate([y_train[i] for i in test_idxs_inner], axis=0)
 
                     for i_alpha, alpha in enumerate(hyperparam_grid[key]):
 
@@ -682,13 +691,9 @@ def decode_cv(ys, Xs, estimator, estimator_kwargs, balanced_weight=False, hyperp
                         # initialize model
                         model_inner = estimator(**{**estimator_kwargs, key: alpha})
                         # fit model
-                        model_inner.fit(
-                            X_train_inner, y_train_inner, sample_weight=sample_weight
-                        )
+                        model_inner.fit(X_train_inner, y_train_inner, sample_weight=sample_weight)
                         # evaluate model
-                        pred_test_inner = (
-                            model_inner.predict(X_test_inner)
-                        )
+                        pred_test_inner = model_inner.predict(X_test_inner)
                         inner_predictions[test_idxs_inner, i_alpha] = pred_test_inner
                         inner_targets[test_idxs_inner, i_alpha] = y_test_inner
                         r2s[ifold, i_alpha] = scoring_f(y_test_inner, pred_test_inner)
@@ -717,9 +722,7 @@ def decode_cv(ys, Xs, estimator, estimator_kwargs, balanced_weight=False, hyperp
                 # fit model
                 model.fit(X_train_array, y_train_array, sample_weight=sample_weight)
             else:
-                if (
-                    estimator not in [Ridge, Lasso]
-                ):
+                if estimator not in [Ridge, Lasso]:
                     raise NotImplementedError("This case is not implemented")
                 model = (
                     RidgeCV(alphas=hyperparam_grid[key])
@@ -735,9 +738,7 @@ def decode_cv(ys, Xs, estimator, estimator_kwargs, balanced_weight=False, hyperp
 
             # evalute model on train data
             y_pred_train = model.predict(X_train_array)
-            scores_train.append(
-                scoring_f(y_train_array, y_pred_train)
-            )
+            scores_train.append(scoring_f(y_train_array, y_pred_train))
 
             # evaluate model on test data
             y_true = np.concatenate(y_test, axis=0)
@@ -821,3 +822,37 @@ def decode_cv(ys, Xs, estimator, estimator_kwargs, balanced_weight=False, hyperp
         print("The model is trained on the full (train + validation) set.")
 
     return outdict
+
+
+def sample_folds(ys, get_kfold, isfoldsat, max_iter=100):
+    """Sample a set of folds and ensure each fold satisfies user-defined criteria.
+
+    Parameters
+    ----------
+    ys : array-like
+        array of indices to split into folds
+    get_kfold : callable
+        callable function that returns a generator object
+    isfoldsat : callable
+        callable function that takes an array as input and returns a bool denoting is criteria are satisfied
+    max_iter : int, optional
+        maximum number of attempts to split folds
+
+    Returns
+    -------
+    tuple
+        - (int) number of samples required to satisfy fold criteria
+        - (generator) fold generator
+        - (list) list of tuples (train_idxs, test_idxs), one tuple for each fold
+
+    """
+    sample_count = 0
+    ysatisfy = [False]
+    while not np.all(np.array(ysatisfy)):
+        assert sample_count < max_iter
+        sample_count += 1
+        outer_kfold = get_kfold()
+        fold_iter = [(train_idxs, test_idxs) for _, (train_idxs, test_idxs) in enumerate(outer_kfold)]
+        ysatisfy = [isfoldsat(np.concatenate([ys[i] for i in t_idxs], axis=0)) for t_idxs, _ in fold_iter]
+
+    return sample_count, outer_kfold, fold_iter

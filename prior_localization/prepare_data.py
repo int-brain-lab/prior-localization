@@ -18,7 +18,12 @@ from behavior_models.models import ActionKernel, StimulusKernel
 
 from prior_localization.functions.behavior_targets import optimal_Bayesian, compute_beh_target
 from prior_localization.functions.utils import (
-    check_bhv_fit_exists, average_data_in_epoch, check_config, downsample_atlas, spatial_down_sample
+    check_bhv_fit_exists,
+    average_data_in_epoch,
+    check_config,
+    downsample_atlas,
+    spatial_down_sample,
+    logisticreg_criteria,
 )
 from prior_localization.functions.nulldistributions import generate_null_distribution_session
 from prior_localization.functions.neurometric import compute_neurometric_prior
@@ -174,9 +179,38 @@ def prepare_behavior(
         else:
             if integration_test:  # for reproducing the test results we need to fix a seed in this case
                 np.random.seed(pseudo_id)
-            control_trials = generate_null_distribution_session(trials_df, session_id, subject, model, behavior_path)
+
+            # compute initial pseudo targets
+            control_trials = generate_null_distribution_session(
+                trials_df, session_id, subject, model, behavior_path)
+            control_targets = compute_beh_target(
+                control_trials, session_id, subject, model, target, behavior_path)
+
+            # when using logistic regression, ensure that the generated target array has enough members of each class
+            if isinstance(config['estimator'], sklm.LogisticRegression):
+                targets_masked = control_targets[trials_mask]
+                sample_pseudo_count = 0
+                while not logisticreg_criteria(targets_masked):
+                    assert sample_pseudo_count < 100  # must be a reasonable number of attempts or something is wrong
+                    sample_pseudo_count += 1
+                    control_trials = generate_null_distribution_session(
+                        trials_df, session_id, subject, model, behavior_path)
+                    control_targets = compute_beh_target(
+                        control_trials, session_id, subject, model, target, behavior_path)
+                    targets_masked = control_targets[trials_mask]
+
+                if sample_pseudo_count > 1:
+                    print(f'sampled pseudo sessions {sample_pseudo_count} times to ensure valid target array')
+
             all_trials.append(control_trials)
-            all_targets.append(compute_beh_target(control_trials, session_id, subject, model, target, behavior_path))
+            all_targets.append(control_targets)
+
+        # final check on binary target arrays
+        if isinstance(config['estimator'], sklm.LogisticRegression):
+            targets_masked = all_targets[-1][trials_mask]
+            if not logisticreg_criteria(targets_masked):
+                print(f'target failed logistic regression criteria for pseudo_id {pseudo_id}')
+                continue
 
     # Compute neurometrics if indicated
     if compute_neurometrics:

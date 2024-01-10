@@ -154,7 +154,7 @@ def compute_beh_target(trials_df, session_id, subject, model, target, behavior_p
         signal = optimal_Bayesian(act, side)
         return signal.numpy().squeeze()
 
-    # generate prior from behavior model
+    # load behavior model
     if (not istrained) and (target not in stim_targets) and (model != 'oracle'):
         side, stim, act, _ = format_data(trials_df)
         stimuli, actions, stim_side = format_input([stim], [act], [side])
@@ -170,11 +170,12 @@ def compute_beh_target(trials_df, session_id, subject, model, target, behavior_p
         )
         model.load_or_train(loadpath=str(fullpath))
 
-    # compute signal
+    # compute signal from behavior model
     stim_side, stimuli, actions, _ = format_data(trials_df)
     stimuli, actions, stim_side = format_input([stimuli], [actions], [stim_side])
-    signal = model.compute_signal(signal='prior' if target == 'pLeft' else target, act=actions, stim=stimuli,
-                                  side=stim_side)['prior' if target == 'pLeft' else target]
+    target_ = 'prior' if target == 'pLeft' else target
+    signal = model.compute_signal(signal=target_, act=actions, stim=stimuli, side=stim_side)[target_]
+
     tvec = signal.squeeze()
     if config['binarization_value'] is not None:
         tvec = (tvec > config['binarization_value']) * 1

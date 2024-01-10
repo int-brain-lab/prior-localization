@@ -1,5 +1,6 @@
 import logging
 import yaml
+import pandas as pd
 import pickle
 from pathlib import Path
 import numpy as np
@@ -268,3 +269,60 @@ def subtract_motor_residuals(motor_signals, all_targets, trials_mask):
         new_targets.append(target_data - motor)
 
     return new_targets, trials_mask
+
+
+def format_data_for_decoding(ys, Xs):
+    """Transform target data into standard format: list of np.ndarrays.
+
+    Parameters
+    ----------
+    ys : np.ndarray or list or pandas.Series
+        targets
+    Xs : np.ndarray or list
+        regressors
+
+    Returns
+    -------
+    tuple
+        - (list of np.ndarray) formatted ys
+        - (list of np.ndarray) formatted Xs
+
+    """
+
+    # tranform targets
+    if isinstance(ys, np.ndarray):
+        # input is single numpy array
+        ys = [np.array([y]) for y in ys]
+    elif isinstance(ys, list) and ys[0].shape == ():
+        # input is list of float instead of list of np.ndarrays
+        ys = [np.array([y]) for y in ys]
+    elif isinstance(ys, pd.Series):
+        # input is a pandas Series
+        ys = ys.to_numpy()
+        ys = [np.array([y]) for y in ys]
+
+    # transform regressors
+    if isinstance(Xs, np.ndarray):
+        Xs = [x[None, :] for x in Xs]
+
+    return ys, Xs
+
+
+def logisticreg_criteria(array, min_unique_counts=3):
+    """Check array contains two classes, and that a minimum number of examples exist per class.
+
+    Parameters
+    ----------
+    array : array-like
+        array of ints
+    min_unique_counts : int, optional
+        minimum number of examples required for each class
+
+    Returns
+    -------
+    bool
+
+    """
+    array = format_data_for_decoding(array, [])[0]
+    y_uniquecounts = np.unique(array, return_counts=True)[1]
+    return len(y_uniquecounts) == 2 and np.min(y_uniquecounts) >= min_unique_counts
