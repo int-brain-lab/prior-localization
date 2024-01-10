@@ -99,10 +99,15 @@ def compute_beh_target(trials_df, session_id, subject, model, target, behavior_p
     subject : str
         Subject identity in the IBL database, e.g. KS022
     model : str
-        String in ['optBay', 'actKernel', 'stimKernel', 'oracle'], indication model-based prior, prediction error,
+        String in ['optBay', 'actKernel', 'stimKernel', 'oracle']
     target : str
-        String in ['prior', 'prederr', 'signcont'], indication model-based prior, prediction error,
-        or simple signed contrast per trial
+        signcont (categorical): signed stimulus contrast (includes side information)
+        strengthcont (categorical): strength of stimulus contrast (excludes side information)
+        stimside (binary): stimulus side information (excludes contrast information)
+        choice (binary): animal's binary choice (L/R)
+        feedback (binary): reward or punishment
+        pLeft (categorical): oracle prior (0.5, 0.8, 0.2)
+        prior (continuous): model-based prior
     behavior_path : str
         Path to the behavior data
     remove_old : bool
@@ -125,12 +130,16 @@ def compute_beh_target(trials_df, session_id, subject, model, target, behavior_p
 
     istrained, fullpath = check_bhv_fit_exists(subject, model, session_id, behavior_path, single_zeta=True)
 
-    if target in ['signcont', 'strengthcont']:
+    stim_targets = ['signcont', 'strengthcont', 'stimside']
+    if target in stim_targets:
         if 'signedContrast' in trials_df.keys():
             out = trials_df['signedContrast'].values
         else:
             out = np.nan_to_num(trials_df.contrastLeft) - np.nan_to_num(trials_df.contrastRight)
         if target == 'signcont':
+            return out
+        elif target == 'stimside':
+            out = (out > 0) * 1
             return out
         else:
             return np.abs(out)
@@ -145,17 +154,20 @@ def compute_beh_target(trials_df, session_id, subject, model, target, behavior_p
         signal = optimal_Bayesian(act, side)
         return signal.numpy().squeeze()
 
-    if (not istrained) and (target != 'signcont') and (model != 'oracle'):
+    # generate prior from behavior model
+    if (not istrained) and (target not in stim_targets) and (model != 'oracle'):
         side, stim, act, _ = format_data(trials_df)
         stimuli, actions, stim_side = format_input([stim], [act], [side])
         model = model_name2class[model](
             path_to_results=behavior_path, session_uuids=session_id, mouse_name=subject, actions=actions,
-            stimuli=stimuli, stim_side=stim_side, single_zeta=True
+            stimuli=stimuli, stim_side=stim_side, single_zeta=True,
         )
         model.load_or_train(remove_old=remove_old)
-    elif (target != 'signcont') and (model != 'oracle'):
-        model = model_name2class[model](behavior_path, session_id, subject, actions=None, stimuli=None,
-                                        stim_side=None, single_zeta=True)
+    elif (target not in stim_targets) and (model != 'oracle'):
+        model = model_name2class[model](
+            path_to_results=behavior_path, session_uuids=session_id, mouse_name=subject, actions=None,
+            stimuli=None, stim_side=None, single_zeta=True,
+        )
         model.load_or_train(loadpath=str(fullpath))
 
     # compute signal

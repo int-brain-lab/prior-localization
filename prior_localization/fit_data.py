@@ -485,13 +485,16 @@ def fit_target(
                 Xs=data_to_fit,
                 estimator=config['estimator'],
                 estimator_kwargs=config['estimator_kwargs'],
-                hyperparam_grid={'alpha': np.array([1.e-5, 1.e-4, 1.e-3, 1.e-2, 1.e-1, 1e0, 1e1])},  # config['hparam_grid'],
+                hyperparam_grid={'alpha': np.array([1.e-5, 1.e-4, 1.e-3, 1.e-2, 1.e-1, 1e0, 1e1])},
+                # hyperparam_grid=config['hparam_grid'],
                 save_binned=False,
                 save_predictions=config['save_predictions'],
                 shuffle=config['shuffle'],
-                balanced_weight=False,  # config['balanced_weighting'],
+                balanced_weight=False,
+                # balanced_weight=config['balanced_weighting'],
                 rng_seed=rng_seed,
-                use_cv_sklearn_method=False,  # config['use_native_sklearn_for_hyperparam_estimation'],
+                use_cv_sklearn_method=False,
+                # use_cv_sklearn_method=config['use_native_sklearn_for_hyperparam_estimation'],
             )
 
             fit_result["trials_df"] = trials
