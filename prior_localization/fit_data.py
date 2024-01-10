@@ -474,19 +474,24 @@ def fit_target(
     for targets, trials, neurometrics, pseudo_id in zip(all_targets, all_trials, all_neurometrics, pseudo_ids):
         # run decoders
         for i_run in range(n_runs):
-            rng_seed = i_run if integration_test else None
+            # rng_seed = i_run if integration_test else None
+            # set seed for reproducibility
+            if pseudo_id == -1:
+                rng_seed = i_run
+            else:
+                rng_seed = pseudo_id * n_runs + i_run
             fit_result = decode_cv(
                 ys=targets,
                 Xs=data_to_fit,
                 estimator=config['estimator'],
                 estimator_kwargs=config['estimator_kwargs'],
-                hyperparam_grid=config['hparam_grid'],
+                hyperparam_grid={'alpha': np.array([1.e-5, 1.e-4, 1.e-3, 1.e-2, 1.e-1, 1e0, 1e1])},  # config['hparam_grid'],
                 save_binned=False,
                 save_predictions=config['save_predictions'],
                 shuffle=config['shuffle'],
-                balanced_weight=config['balanced_weighting'],
+                balanced_weight=False,  # config['balanced_weighting'],
                 rng_seed=rng_seed,
-                use_cv_sklearn_method=config['use_native_sklearn_for_hyperparam_estimation'],
+                use_cv_sklearn_method=False,  # config['use_native_sklearn_for_hyperparam_estimation'],
             )
 
             fit_result["trials_df"] = trials
