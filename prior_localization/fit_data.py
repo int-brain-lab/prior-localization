@@ -485,8 +485,7 @@ def fit_target(
                 Xs=data_to_fit,
                 estimator=config['estimator'],
                 estimator_kwargs=config['estimator_kwargs'],
-                hyperparam_grid={'alpha': np.array([1.e-5, 1.e-4, 1.e-3, 1.e-2, 1.e-1, 1e0, 1e1])},
-                # hyperparam_grid=config['hparam_grid'],
+                hyperparam_grid=config['hparam_grid'],
                 save_binned=False,
                 save_predictions=config['save_predictions'],
                 shuffle=config['shuffle'],
@@ -743,10 +742,8 @@ def decode_cv(ys, Xs, estimator, estimator_kwargs, balanced_weight=False, hyperp
             # evaluate model on test data
             y_true = np.concatenate(y_test, axis=0)
             y_pred = model.predict(np.vstack(X_test))
-            if isinstance(estimator, sklm.LogisticRegression):
-                y_pred_probs = (
-                    model.predict_proba(np.vstack(X_test))[:, 0]
-                )
+            if isinstance(model, sklm.LogisticRegression):
+                y_pred_probs = model.predict_proba(np.vstack(X_test))[:, 1]  # probability of class 1
             else:
                 y_pred_probs = None
             scores_test.append(scoring_f(y_true, y_pred))
@@ -756,7 +753,7 @@ def decode_cv(ys, Xs, estimator, estimator_kwargs, balanced_weight=False, hyperp
             for i_fold, i_global in enumerate(test_idxs_outer):
                 # we already computed these estimates, take from above
                 predictions[i_global] = np.array([y_pred[i_fold]])
-                if isinstance(estimator, sklm.LogisticRegression):
+                if isinstance(model, sklm.LogisticRegression):
                     predictions_to_save[i_global] = np.array([y_pred_probs[i_fold]])
                 else:
                     predictions_to_save[i_global] = np.array([y_pred[i_fold]])

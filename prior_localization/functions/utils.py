@@ -160,7 +160,7 @@ def check_inputs(
         raise ValueError("pseudo_ids must be sorted")
 
     if target in ['choice', 'feedback'] and model != 'actKernel':
-        raise ValueError("If you want to decode choice or feedback, you must use the actionKernel model")
+        raise ValueError("If you want to decode choice or feedback, you must use the actKernel model")
 
     if compute_neurometrics and target != "signcont":
         raise ValueError("The target should be signcont when compute_neurometrics is set to True in config file")
@@ -195,11 +195,13 @@ def check_config():
         logger.error(f'The estimator {config["estimator"]} specified in config.yaml is not a function of scikit-learn'
                      f'linear_model.')
         raise e
+    if config['estimator'] == sklm.LogisticRegression:
+        config['estimator_kwargs'] = {**config['estimator_kwargs'], 'penalty': 'l1', 'solver': 'liblinear'}
     # Hyperparameter estimation
     config['use_native_sklearn_for_hyperparam_estimation'] = (config['estimator'] == sklm.Ridge)
     config['hparam_grid'] = ({"C": np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])}
                              if config['estimator'] == sklm.LogisticRegression
-                             else {"alpha": np.array([0.00001, 0.0001, 0.001, 0.01, 0.1])})
+                             else {"alpha": np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])})
 
     return config
 
