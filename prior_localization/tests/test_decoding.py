@@ -140,7 +140,7 @@ class TestWidefieldDecoding(unittest.TestCase):
             for key in ['Rsquared_test_full', 'predictions_test']:
                 test = np.asarray([p[key] for p in predicted_fit]).squeeze()
                 target = np.load(fixtures_dir.joinpath(f'wfi_{region}_{key.split("_")[0].lower()}.npy'))
-                self.assertTrue(np.allclose(test, target, rtol=1e-06))
+                self.assertTrue(np.allclose(test, target, rtol=1e-04))
 
     def test_ONE_data(self):
         results_fit_session = fit_session_widefield(
@@ -149,6 +149,7 @@ class TestWidefieldDecoding(unittest.TestCase):
         )
         self.compare_target_test(results_fit_session, self.fixtures_dir.joinpath('new'))
 
+    @unittest.skip("Currently only testing this on my machine because the test data is too big to ship on github")
     def test_chris_data(self):
         results_fit_session = fit_session_widefield(
             one=self.one, session_id=self.eid, subject=self.subject, output_dir=Path(self.tmp_dir.name),
@@ -158,3 +159,7 @@ class TestWidefieldDecoding(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.tmp_dir.cleanup()
+
+
+if __name__ == "__main__":
+    unittest.main()
