@@ -502,11 +502,10 @@ def fit_target(
                 save_binned=False,
                 save_predictions=config['save_predictions'],
                 shuffle=config['shuffle'],
-                balanced_weight=False,
-                # balanced_weight=config['balanced_weighting'],
+                balanced_weight=config['balanced_weighting'],
                 rng_seed=rng_seed,
-                use_cv_sklearn_method=False,
-                # use_cv_sklearn_method=config['use_native_sklearn_for_hyperparam_estimation'],
+                # use_cv_sklearn_method=False,
+                use_cv_sklearn_method=config['use_native_sklearn_for_hyperparam_estimation'],
             )
 
             fit_result["trials_df"] = trials

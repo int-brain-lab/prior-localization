@@ -202,7 +202,7 @@ def check_config():
     config['use_native_sklearn_for_hyperparam_estimation'] = (config['estimator'] == sklm.Ridge)
     config['hparam_grid'] = ({"C": np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])}
                              if config['estimator'] == sklm.LogisticRegression
-                             else {"alpha": np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])})
+                             else {"alpha": np.array([0.00001, 0.0001, 0.001, 0.01, 0.1])})
 
     return config
 
