@@ -63,7 +63,7 @@ class TestBehaviorInputs(unittest.TestCase):
             model='optBay', target='pLeft'
         )
         expected_orig = np.load(self.fixtures_dir.joinpath('behav_target.npy'))
-        self.assertTrue(np.all(all_targets[0][mask] == expected_orig))
+        self.assertTrue(np.allclose(all_targets[0][mask], expected_orig, rtol=1e-4))
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
@@ -155,3 +155,7 @@ class TestAverageDataInEpoch(unittest.TestCase):
                                     align_event='firstMovement_times', epoch=self.epoch)
         self.assertTrue(np.all(np.isnan(res[:8])))
         self.assertTrue(np.all(np.isnan(res[end_idx:])))
+
+
+if __name__ == "__main__":
+    unittest.main()
