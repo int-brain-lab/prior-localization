@@ -54,7 +54,8 @@ class TestEphysDecoding(unittest.TestCase):
     def test_stage_only(self):
         results_fit_session = fit_session_ephys(
             one=self.one, session_id=self.eid, subject=self.subject, probe_name=self.probe_names,
-            output_dir=Path(self.tmp_dir.name), pseudo_ids=self.pseudo_ids, n_runs=2, stage_only=True, integration_test=True
+            output_dir=Path(self.tmp_dir.name), pseudo_ids=self.pseudo_ids, n_runs=2, stage_only=True,
+            integration_test=True
         )
         self.assertIsNone(results_fit_session)
 

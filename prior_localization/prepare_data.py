@@ -24,6 +24,8 @@ from prior_localization.functions.utils import (
     downsample_atlas,
     spatial_down_sample,
     logisticreg_criteria,
+    get_spike_data_per_trial,
+    build_lagged_predictor_matrix,
 )
 from prior_localization.functions.nulldistributions import generate_null_distribution_session
 from prior_localization.functions.neurometric import compute_neurometric_prior
@@ -41,7 +43,10 @@ model_name2class = {
 config = check_config()
 
 
-def prepare_ephys(one, session_id, probe_name, regions, intervals, qc=1, min_units=10, stage_only=False):
+def prepare_ephys(
+        one, session_id, probe_name, regions, intervals, binsize=None, n_bins_lag=None, qc=1, min_units=10,
+        stage_only=False,
+):
 
     # Load spikes and clusters and potentially merge probes
     if isinstance(probe_name, list) and len(probe_name) > 1:
@@ -53,7 +58,7 @@ def prepare_ephys(one, session_id, probe_name, regions, intervals, qc=1, min_uni
 
     # This allows us to just stage the data without running the analysis, we can then switch ONE in local mode
     if stage_only:
-        return None, None
+        return None, None, None
 
     # Prepare list of brain regions
     brainreg = BrainRegions()
@@ -72,6 +77,7 @@ def prepare_ephys(one, session_id, probe_name, regions, intervals, qc=1, min_uni
 
     binned_spikes = []
     actual_regions = []
+    n_units = []
     for region in regions:
         # find all clusters in region (where region can be a list of regions)
         region_mask = np.isin(beryl_regions, region)
@@ -80,10 +86,28 @@ def prepare_ephys(one, session_id, probe_name, regions, intervals, qc=1, min_uni
         else:
             # find all spikes in those clusters
             spike_mask = np.isin(spikes['clusters'], clusters[region_mask].index)
-            binned, _ = get_spike_counts_in_bins(spikes['times'][spike_mask], spikes['clusters'][spike_mask], intervals)
-            binned_spikes.append(binned.T)
+            if binsize is None:
+                binned, _ = get_spike_counts_in_bins(
+                    spikes['times'][spike_mask], spikes['clusters'][spike_mask], intervals)
+                binned = binned.T
+            else:
+                # TODO: integrate this into `get_spike_counts_in_bins`
+                # update "intervals" to include more data to facilitate the lags
+                intervals_for_lags = np.copy(intervals)
+                intervals_for_lags[:, 0] = intervals_for_lags[:, 0] - n_bins_lag * binsize
+                # count spikes in multiple bins per interval
+                binned_2d, _ = get_spike_data_per_trial(
+                    times=spikes['times'][spike_mask], clusters=spikes['clusters'][spike_mask],
+                    intervals=intervals_for_lags, binsize=binsize,
+                )
+                # include lagged timepoints for each sample
+                binned = [build_lagged_predictor_matrix(b.T, n_bins_lag) for b in binned_2d]
+
+            binned_spikes.append(binned)
             actual_regions.append(region)
-    return binned_spikes, actual_regions
+            n_units.append(sum(region_mask))
+
+    return binned_spikes, actual_regions, n_units
 
 
 def prepare_motor(one, session_id, align_event='stimOn_times', time_window=(-0.6, -0.1), lick_bins=0.02):

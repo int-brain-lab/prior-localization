@@ -6,6 +6,8 @@ from pathlib import Path
 import numpy as np
 import sklearn.linear_model as sklm
 from behavior_models.utils import build_path
+from iblutil.numerical import bincount2D
+
 
 logger = logging.getLogger('prior_localization')
 
@@ -326,3 +328,92 @@ def logisticreg_criteria(array, min_unique_counts=3):
     array = format_data_for_decoding(array, [])[0]
     y_uniquecounts = np.unique(array, return_counts=True)[1]
     return len(y_uniquecounts) == 2 and np.min(y_uniquecounts) >= min_unique_counts
+
+
+def get_spike_data_per_trial(times, clusters, intervals, binsize):
+    """Select spiking data for specified interval on each trial.
+
+    Parameters
+    ----------
+    times : array-like
+        time in seconds for each spike
+    clusters : array-like
+        cluster id for each spike
+    intervals : np.array
+        shape (n_trials, 2) where columns indicate interval onset/offset (seconds)
+    binsize : float
+        width of each bin in seconds
+
+    Returns
+    -------
+    tuple
+        - (list): time in seconds for each trial; timepoints refer to the start/left edge of a bin
+        - (list): data for each trial of shape (n_clusters, n_bins)
+
+    """
+
+    interval_begs = intervals[:, 0]
+    interval_ends = intervals[:, 1]
+    interval_len = interval_ends - interval_begs
+    n_trials = intervals.shape[0]
+
+    # np.ceil because we want to make sure our bins contain all data
+    n_bins = int(np.median(np.ceil(interval_len / binsize).astype('int')))
+
+    cluster_ids = np.unique(clusters)
+    n_clusters_in_region = len(cluster_ids)
+
+    binned_spikes = np.zeros((n_trials, n_clusters_in_region, n_bins))
+    spike_times_list = []
+    for tr, (t_beg, t_end) in enumerate(zip(interval_begs, interval_ends)):
+        # just get spikes for this region/trial
+        idxs_t = (times >= t_beg) & (times < t_end)
+        times_curr = times[idxs_t]
+        clust_curr = clusters[idxs_t]
+        if times_curr.shape[0] == 0:
+            # no spikes in this trial
+            binned_spikes_tmp = np.zeros((n_clusters_in_region, n_bins))
+            if np.isnan(t_beg) or np.isnan(t_end):
+                t_idxs = np.nan * np.ones(n_bins)
+            else:
+                t_idxs = np.arange(t_beg, t_end + binsize / 2, binsize)
+            idxs_tmp = np.arange(n_clusters_in_region)
+        else:
+            # bin spikes
+            binned_spikes_tmp, t_idxs, cluster_idxs = bincount2D(
+                times_curr, clust_curr, xbin=binsize, xlim=[t_beg, t_end])
+            # find indices of clusters that returned spikes for this trial
+            _, idxs_tmp, _ = np.intersect1d(cluster_ids, cluster_idxs, return_indices=True)
+
+        # update data block
+        binned_spikes[tr, idxs_tmp, :] += binned_spikes_tmp[:, :n_bins]
+        spike_times_list.append(t_idxs[:n_bins])
+
+    return binned_spikes, spike_times_list
+
+
+def build_lagged_predictor_matrix(array, n_lags, return_valid=True):
+    """Build predictor matrix with time-lagged datapoints.
+
+    Parameters
+    ----------
+    array : np.ndarray
+        shape (n_time, n_clusters)
+    n_lags : int
+        number of lagged timepoints (includes zero lag)
+    return_valid : bool, optional
+        True to crop first n_lags rows, False to leave all
+
+    Returns
+    -------
+    np.ndarray
+        shape (n_time - n_lags, n_clusters * (n_lags + 1)) if return_valid==True
+        shape (n_time, n_clusters * (n_lags + 1)) if return_valid==False
+
+    """
+    if n_lags < 0:
+        raise ValueError('`n_lags` must be >=0, not {}'.format(n_lags))
+    mat = np.hstack([np.roll(array, i, axis=0) for i in range(n_lags + 1)])
+    if return_valid:
+        mat = mat[n_lags:]
+    return mat

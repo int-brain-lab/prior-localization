@@ -19,6 +19,7 @@ from prior_localization.prepare_data import (
     prepare_widefield,
     prepare_widefield_old,
 )
+from prior_localization.functions.behavior_targets import add_behavior_to_df
 from prior_localization.functions.neurometric import get_neurometric_parameters
 from prior_localization.functions.utils import (
     check_inputs,
@@ -37,8 +38,8 @@ config = check_config()
 
 def fit_session_ephys(
         one, session_id, subject, probe_name, output_dir, pseudo_ids=None, target='pLeft', align_event='stimOn_times',
-        time_window=(-0.6, -0.1), model='optBay', n_runs=10, compute_neurometrics=False, motor_residuals=False,
-        stage_only=False, integration_test=False
+        time_window=(-0.6, -0.1), binsize=None, n_bins_lag=None, model='optBay', n_runs=10, compute_neurometrics=False,
+        motor_residuals=False, stage_only=False, integration_test=False,
 ):
     """
     Fits a single session for ephys data.
@@ -67,6 +68,10 @@ def fit_session_ephys(
      {"firstMovement_times", "goCue_times", "stimOn_times", "feedback_times"}
     time_window: tuple of float
      Time window in which neural activity is considered, relative to align_event, default is (-0.6, -0.1)
+    binsize : float or None
+     if None, sum spikes in time_window for decoding; if float, split time window into smaller bins
+    n_lags : int
+     number of lagged timepoints (includes zero lag) for decoding wheel and DLC targets
     model: str
      Model to be decoded, options are {optBay, actKernel, stimKernel, oracle}, default is optBay
     n_runs: int
@@ -96,13 +101,19 @@ def fit_session_ephys(
     sl = SessionLoader(one, session_id)
     sl.load_trials()
     trials_mask = compute_mask(sl.trials, align_event=align_event, min_rt=0.08, max_rt=None, n_trials_crop_end=0)
+    intervals = np.vstack([sl.trials[align_event] + time_window[0], sl.trials[align_event] + time_window[1]]).T
+    if target in ['wheel-speed', 'wheel-velocity']:
+        # add behavior signal to df and update trials mask to reflect trials with signal issues
+        sl.trials, trials_mask = add_behavior_to_df(
+            session_loader=sl, target=target, intervals=intervals, binsize=binsize, mask=trials_mask)
+
     if sum(trials_mask) <= config['min_trials']:
         raise ValueError(f"Session {session_id} has {sum(trials_mask)} good trials, less than {config['min_trials']}.")
 
     # Compute or load behavior targets
     all_trials, all_targets, trials_mask, all_neurometrics = prepare_behavior(
         session_id, subject, sl.trials, trials_mask, pseudo_ids=pseudo_ids, output_dir=output_dir,
-        model=model, target=target,  compute_neurometrics=compute_neurometrics,
+        model=model, target=target, compute_neurometrics=compute_neurometrics,
         integration_test=integration_test)
 
     # Remove the motor residuals from the targets if indicated
@@ -111,15 +122,26 @@ def fit_session_ephys(
         all_targets, trials_mask = subtract_motor_residuals(motor_signals, all_targets, trials_mask)
 
     # Prepare ephys data
-    intervals = np.vstack([sl.trials[align_event] + time_window[0], sl.trials[align_event] + time_window[1]]).T
-    data_epoch, actual_regions = prepare_ephys(
-        one, session_id, probe_name, config['regions'], intervals, qc=config['unit_qc'], min_units=config['min_units'],
-        stage_only=stage_only
+    data_epoch, actual_regions, n_units = prepare_ephys(
+        one, session_id, probe_name, config['regions'], intervals, binsize=binsize, n_bins_lag=n_bins_lag,
+        qc=config['unit_qc'], min_units=config['min_units'], stage_only=stage_only,
     )
 
     # If we are only staging data, we are done here
     if stage_only:
         return
+
+    # Apply mask to targets
+    if isinstance(all_targets[0], list):
+        all_targets_masked = [[t[m] for m in np.squeeze(np.where(trials_mask))] for t in all_targets]
+    else:
+        all_targets_masked = [t[trials_mask] for t in all_targets]
+
+    # Apply mask to ephys data
+    if isinstance(data_epoch[0], list):
+        data_epoch_masked = [[d[m] for m in np.squeeze(np.where(trials_mask))] for d in data_epoch]
+    else:
+        data_epoch_masked = [d[trials_mask] for d in data_epoch]
 
     # Create strings for saving
     pseudo_str = f'{pseudo_ids[0]}_{pseudo_ids[-1]}' if len(pseudo_ids) > 1 else str(pseudo_ids[0])
@@ -127,10 +149,11 @@ def fit_session_ephys(
 
     # Otherwise fit per region
     filenames = []
-    for data_region, region in zip(data_epoch, actual_regions):
+    for data_region, region, n_units_region in zip(data_epoch_masked, actual_regions, n_units):
         # Fit
-        fit_results = fit_target(data_region[trials_mask], [t[trials_mask] for t in all_targets], all_trials, n_runs,
-                                 all_neurometrics, pseudo_ids, integration_test=integration_test)
+        fit_results = fit_target(
+            data_region, all_targets_masked, all_trials, n_runs, all_neurometrics, pseudo_ids,
+            integration_test=integration_test)
 
         # Add the mask to fit results
         for fit_result in fit_results:
@@ -148,7 +171,7 @@ def fit_session_ephys(
             "eid": session_id,
             "probe": probe_str,
             "region": region,
-            "N_units": data_region.shape[1],
+            "N_units": n_units_region,
         }
         with open(filename, "wb") as fw:
             pickle.dump(outdict, fw)
@@ -540,7 +563,7 @@ def decode_cv(ys, Xs, estimator, estimator_kwargs, balanced_weight=False, hyperp
         and teh value is the target.
     Xs : list of arrays or np.ndarray
         predictors; if list, each entry is an array of neural activity for one trial. if 2D numpy
-        array, each row is treated as a single vector of ativity for one trial, i.e. the array is
+        array, each row is treated as a single vector of activity for one trial, i.e. the array is
         of shape (n_trials, n_neurons)
     estimator : sklearn.linear_model object
         estimator from sklearn which provides .fit, .score, and .predict methods. CV estimators
@@ -630,14 +653,8 @@ def decode_cv(ys, Xs, estimator, estimator_kwargs, balanced_weight=False, hyperp
 
     # Select either the GridSearchCV estimator for a normal estimator, or use the native estimator
     # in the case of CV-type estimators
-    if (
-        estimator == sklm.RidgeCV
-        or estimator == sklm.LassoCV
-        or estimator == sklm.LogisticRegressionCV
-    ):
-        raise NotImplementedError(
-            "the code does not support a CV-type estimator for the moment."
-        )
+    if estimator == sklm.RidgeCV or estimator == sklm.LassoCV or estimator == sklm.LogisticRegressionCV:
+        raise NotImplementedError("the code does not support a CV-type estimator.")
     else:
         # loop over outer folds
         for train_idxs_outer, test_idxs_outer in outer_kfold_iter:
@@ -654,6 +671,12 @@ def decode_cv(ys, Xs, estimator, estimator_kwargs, balanced_weight=False, hyperp
             key = list(hyperparam_grid.keys())[0]  # TODO: make this more robust
 
             if not use_cv_sklearn_method:
+
+                """NOTE
+                This section of the code implements a modified nested-cross validation procedure. When decoding signals
+                with multiple samples per trial -- such as the wheel -- we need to create folds that do not put
+                samples from the same trial into different folds.
+                """
 
                 # now loop over inner folds
                 idx_inner = np.arange(len(X_train))
@@ -694,18 +717,15 @@ def decode_cv(ys, Xs, estimator, estimator_kwargs, balanced_weight=False, hyperp
                         model_inner.fit(X_train_inner, y_train_inner, sample_weight=sample_weight)
                         # evaluate model
                         pred_test_inner = model_inner.predict(X_test_inner)
-                        inner_predictions[test_idxs_inner, i_alpha] = pred_test_inner
-                        inner_targets[test_idxs_inner, i_alpha] = y_test_inner
+                        # record predictions and targets to check for nans later
+                        inner_predictions[test_idxs_inner, i_alpha] = np.mean(pred_test_inner)
+                        inner_targets[test_idxs_inner, i_alpha] = np.mean(y_test_inner)
+                        # record score
                         r2s[ifold, i_alpha] = scoring_f(y_test_inner, pred_test_inner)
 
                 assert np.all(~np.isnan(inner_predictions))
                 assert np.all(~np.isnan(inner_targets))
-                r2s_avg = np.array(
-                    [
-                        scoring_f(inner_targets[:, _k], inner_predictions[:, _k])
-                        for _k in range(len(hyperparam_grid[key]))
-                    ]
-                )
+
                 # select model with best hyperparameter value evaluated on inner-fold test data;
                 # refit/evaluate on all inner-fold data
                 r2s_avg = r2s.mean(axis=0)
@@ -752,12 +772,20 @@ def decode_cv(ys, Xs, estimator, estimator_kwargs, balanced_weight=False, hyperp
             # save the raw prediction in the case of linear and the predicted probabilities when
             # working with logitistic regression
             for i_fold, i_global in enumerate(test_idxs_outer):
-                # we already computed these estimates, take from above
-                predictions[i_global] = np.array([y_pred[i_fold]])
-                if isinstance(model, sklm.LogisticRegression):
-                    predictions_to_save[i_global] = np.array([y_pred_probs[i_fold]])
+                if bins_per_trial == 1:
+                    # we already computed these estimates, take from above
+                    predictions[i_global] = np.array([y_pred[i_fold]])
+                    if isinstance(model, sklm.LogisticRegression):
+                        predictions_to_save[i_global] = np.array([y_pred_probs[i_fold]])
+                    else:
+                        predictions_to_save[i_global] = np.array([y_pred[i_fold]])
                 else:
-                    predictions_to_save[i_global] = np.array([y_pred[i_fold]])
+                    # we already computed these above, but after all trials were stacked; recompute per-trial
+                    predictions[i_global] = model.predict(X_test[i_fold])
+                    if isinstance(model, sklm.LogisticRegression):
+                        predictions_to_save[i_global] = model.predict_proba(X_test[i_fold])[:, 1]
+                    else:
+                        predictions_to_save[i_global] = predictions[i_global]
 
             # save out other data of interest
             idxes_test.append(test_idxs_outer)
