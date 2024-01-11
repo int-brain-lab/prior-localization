@@ -81,7 +81,6 @@ class TestMotorInputs(unittest.TestCase):
     def test_standalone_preprocess(self):
         predicted = prepare_motor(self.one, self.eid, align_event='stimOn_times', time_window=self.time_window)
         self.assertIsNone(np.testing.assert_equal(predicted, self.expected))
-        # Note that this test fails with new camera timestamps, will need to adjust once new timestamps are published
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
