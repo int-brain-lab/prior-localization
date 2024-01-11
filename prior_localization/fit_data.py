@@ -487,12 +487,14 @@ def fit_target(
     for targets, trials, neurometrics, pseudo_id in zip(all_targets, all_trials, all_neurometrics, pseudo_ids):
         # run decoders
         for i_run in range(n_runs):
-            # rng_seed = i_run if integration_test else None
             # set seed for reproducibility
-            if pseudo_id == -1:
+            if integration_test:  # integration tests use old way of setting seed
                 rng_seed = i_run
             else:
-                rng_seed = pseudo_id * n_runs + i_run
+                if pseudo_id == -1:
+                    rng_seed = i_run
+                else:
+                    rng_seed = pseudo_id * n_runs + i_run
             fit_result = decode_cv(
                 ys=targets,
                 Xs=data_to_fit,
@@ -504,7 +506,6 @@ def fit_target(
                 shuffle=config['shuffle'],
                 balanced_weight=config['balanced_weighting'],
                 rng_seed=rng_seed,
-                # use_cv_sklearn_method=False,
                 use_cv_sklearn_method=config['use_native_sklearn_for_hyperparam_estimation'],
             )
 
