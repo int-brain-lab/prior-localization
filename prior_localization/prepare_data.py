@@ -27,7 +27,10 @@ from prior_localization.functions.utils import (
     get_spike_data_per_trial,
     build_lagged_predictor_matrix,
 )
-from prior_localization.functions.nulldistributions import generate_null_distribution_session
+from prior_localization.functions.nulldistributions import (
+    generate_null_distribution_session,
+    generate_null_distribution_session_imposter,
+)
 from prior_localization.functions.neurometric import compute_neurometric_prior
 
 
@@ -193,6 +196,13 @@ def prepare_behavior(
         if not istrained:
             behavior_model.load_or_train(remove_old=False)
 
+    # load imposter trials dataframe if required
+    if target in ['wheel-speed', 'wheel-velocity'] and np.any(pseudo_ids > 0):
+        assert config['imposter_df_path'] is not None, 'Must specify imposter_df_path in config.yaml file'
+        imposter_df = pd.read_parquet(config['imposter_df_path'])
+    else:
+        imposter_df = None
+
     all_targets = []
     all_trials = []
     # For all sessions (pseudo and or actual session) compute the behavioral targets
@@ -205,8 +215,12 @@ def prepare_behavior(
                 np.random.seed(pseudo_id)
 
             # compute initial pseudo targets
-            control_trials = generate_null_distribution_session(
-                trials_df, session_id, subject, model, behavior_path)
+            if target in ['wheel-speed', 'wheel-velocity']:
+                control_trials = generate_null_distribution_session_imposter(trials_df, session_id, imposter_df)
+            else:
+                # generate trial df from generative model of task (stimulus targets) or behavior (choice, feedback)
+                control_trials = generate_null_distribution_session(
+                    trials_df, session_id, subject, model, behavior_path)
             control_targets = compute_beh_target(
                 control_trials, session_id, subject, model, target, behavior_path)
 

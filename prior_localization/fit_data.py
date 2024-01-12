@@ -105,7 +105,8 @@ def fit_session_ephys(
     if target in ['wheel-speed', 'wheel-velocity']:
         # add behavior signal to df and update trials mask to reflect trials with signal issues
         sl.trials, trials_mask = add_behavior_to_df(
-            session_loader=sl, target=target, intervals=intervals, binsize=binsize, mask=trials_mask)
+            session_loader=sl, target=target, intervals=intervals, binsize=binsize,
+            interval_len=time_window[1] - time_window[0], mask=trials_mask)
 
     if sum(trials_mask) <= config['min_trials']:
         raise ValueError(f"Session {session_id} has {sum(trials_mask)} good trials, less than {config['min_trials']}.")

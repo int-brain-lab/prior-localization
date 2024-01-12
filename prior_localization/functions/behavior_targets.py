@@ -188,7 +188,7 @@ def compute_beh_target(trials_df, session_id, subject, model, target, behavior_p
     return tvec
 
 
-def add_behavior_to_df(session_loader, target, intervals, binsize, mask=None):
+def add_behavior_to_df(session_loader, target, intervals, binsize, interval_len=None, mask=None):
     """Add behavior signal to trials df.
 
     Parameters
@@ -201,6 +201,7 @@ def add_behavior_to_df(session_loader, target, intervals, binsize, mask=None):
         shape (n_trials, 2) where columns indicate interval onset/offset (seconds)
     binsize : float
         temporal width (seconds) of bins that divide interval
+    interval_len : float
     mask : array-like, optional
         existing trial mask, will be updated with mask from new behavior
 
@@ -220,7 +221,10 @@ def add_behavior_to_df(session_loader, target, intervals, binsize, mask=None):
 
     # split data into interval-based arrays
     _, target_vals_list, target_mask = split_behavior_data_by_trial(
-        times=times, values=values, intervals=intervals, binsize=binsize)
+        times=times, values=values, intervals=intervals, binsize=binsize, interval_len=interval_len)
+
+    if len(target_vals_list) == 0:
+        return None, None
 
     # add to trial df
     trials_df = session_loader.trials.copy()
@@ -281,7 +285,7 @@ def load_behavior(session_loader, target):
     return times, values, load_error
 
 
-def split_behavior_data_by_trial(times, values, intervals, binsize, allow_nans=False):
+def split_behavior_data_by_trial(times, values, intervals, binsize, interval_len=None, allow_nans=False):
     """Format a single session-wide array of target data into a list of trial-based arrays.
 
     Note: the bin size of the returned data will only be equal to the input `binsize` if that value
@@ -299,6 +303,7 @@ def split_behavior_data_by_trial(times, values, intervals, binsize, allow_nans=F
         shape (n_trials, 2) where columns indicate interval onset/offset (seconds)
     binsize : float
         size of individual bins in interval
+    interval_len : float
     allow_nans : bool, optional
         False to skip trials with >0 NaN values in target data
 
@@ -313,7 +318,8 @@ def split_behavior_data_by_trial(times, values, intervals, binsize, allow_nans=F
 
     interval_begs = intervals[:, 0]
     interval_ends = intervals[:, 1]
-    interval_len = intervals[0, 1] - intervals[0, 0]
+    if interval_len is None:
+        interval_len = np.nanmedian(intervals[:, 1] - intervals[:, 0])
 
     # split data by trial
     if np.all(np.isnan(interval_begs)) or np.all(np.isnan(interval_ends)):
