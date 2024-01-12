@@ -123,7 +123,7 @@ def fit_session_ephys(
         all_targets, trials_mask = subtract_motor_residuals(motor_signals, all_targets, trials_mask)
 
     # Prepare ephys data
-    data_epoch, actual_regions, n_units = prepare_ephys(
+    data_epoch, actual_regions, n_units, cluster_ids = prepare_ephys(
         one, session_id, probe_name, config['regions'], intervals, binsize=binsize, n_bins_lag=n_bins_lag,
         qc=config['unit_qc'], min_units=config['min_units'], stage_only=stage_only,
     )
@@ -150,10 +150,11 @@ def fit_session_ephys(
 
     # Otherwise fit per region
     filenames = []
-    for data_region, region, n_units_region in zip(data_epoch_masked, actual_regions, n_units):
+    for data_region, region, n_units_region, cluster_ids_region in zip(
+            data_epoch_masked, actual_regions, n_units, cluster_ids):
         # Fit
         fit_results = fit_target(
-            data_region, all_targets_masked, all_trials, n_runs, all_neurometrics, pseudo_ids,
+            data_region, all_targets_masked, all_trials, n_runs, all_neurometrics, pseudo_ids, cluster_ids_region,
             integration_test=integration_test)
 
         # Add the mask to fit results
@@ -477,7 +478,8 @@ def fit_session_motor(
 
 
 def fit_target(
-        data_to_fit, all_targets, all_trials, n_runs, all_neurometrics=None, pseudo_ids=None, integration_test=False
+        data_to_fit, all_targets, all_trials, n_runs, all_neurometrics=None, pseudo_ids=None, cluster_ids=None,
+        integration_test=False,
 ):
     """
     Fits data (neural, motor, etc) to behavior targets.
@@ -498,6 +500,8 @@ def fit_target(
     pseudo_ids : list of int or None
         List of pseudo session ids, -1 indicates the actual session. If None, run only on actual session.
         Default is None.
+    cluster_ids : list of str or None
+        cluster uuids for the provided neural data
     integration_test : bool
         Whether to run in integration test mode with fixed random seeds. Default is False.
     """
@@ -536,6 +540,7 @@ def fit_target(
             fit_result["trials_df"] = trials
             fit_result["pseudo_id"] = pseudo_id
             fit_result["run_id"] = i_run
+            fit_result["cluster_uuids"] = cluster_ids
 
             if neurometrics:
                 fit_result["full_neurometric"], fit_result["fold_neurometric"] = get_neurometric_parameters(

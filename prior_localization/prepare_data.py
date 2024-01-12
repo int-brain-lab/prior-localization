@@ -61,7 +61,7 @@ def prepare_ephys(
 
     # This allows us to just stage the data without running the analysis, we can then switch ONE in local mode
     if stage_only:
-        return None, None, None
+        return None, None, None, None
 
     # Prepare list of brain regions
     brainreg = BrainRegions()
@@ -81,6 +81,7 @@ def prepare_ephys(
     binned_spikes = []
     actual_regions = []
     n_units = []
+    cluster_uuids_list = []
     for region in regions:
         # find all clusters in region (where region can be a list of regions)
         region_mask = np.isin(beryl_regions, region)
@@ -89,9 +90,15 @@ def prepare_ephys(
         else:
             # find all spikes in those clusters
             spike_mask = np.isin(spikes['clusters'], clusters[region_mask].index)
+            times_masked = spikes['times'][spike_mask]
+            clusters_masked = spikes['clusters'][spike_mask]
+            # record cluster uuids
+            idxs_used = np.unique(clusters_masked)
+            clusters_uuids = list(clusters.iloc[idxs_used]['uuids'])
+            # bin spikes from those clusters
             if binsize is None:
                 binned, _ = get_spike_counts_in_bins(
-                    spikes['times'][spike_mask], spikes['clusters'][spike_mask], intervals)
+                    spike_times=times_masked, spike_clusters=clusters_masked, intervals=intervals)
                 binned = binned.T
             else:
                 # TODO: integrate this into `get_spike_counts_in_bins`
@@ -100,17 +107,16 @@ def prepare_ephys(
                 intervals_for_lags[:, 0] = intervals_for_lags[:, 0] - n_bins_lag * binsize
                 # count spikes in multiple bins per interval
                 binned_2d, _ = get_spike_data_per_trial(
-                    times=spikes['times'][spike_mask], clusters=spikes['clusters'][spike_mask],
-                    intervals=intervals_for_lags, binsize=binsize,
-                )
+                    times=times_masked, clusters=clusters_masked, intervals=intervals_for_lags, binsize=binsize)
                 # include lagged timepoints for each sample
                 binned = [build_lagged_predictor_matrix(b.T, n_bins_lag) for b in binned_2d]
 
             binned_spikes.append(binned)
             actual_regions.append(region)
             n_units.append(sum(region_mask))
+            cluster_uuids_list.append(clusters_uuids)
 
-    return binned_spikes, actual_regions, n_units
+    return binned_spikes, actual_regions, n_units, cluster_uuids_list
 
 
 def prepare_motor(one, session_id, align_event='stimOn_times', time_window=(-0.6, -0.1), lick_bins=0.02):
