@@ -1,0 +1,17 @@
+#SBATCH -p ccX      # or "-p genx" if your job won't fill a node
+#SBATCH --ntasks=1  # run one thing per job
+#SBATCH --mem=128G  # ccX reserves all memory on the node, require at least...
+#SBATCH -t 1:00:00  # 1 hour
+
+# the file with the list of session and pseudo_id combinations
+idx_list=$1
+out_dir=$2
+
+# the job array index, the task ID is automatically set by slurm
+i=$SLURM_ARRAY_TASK_ID
+
+# get the line of the file belonging to this job
+read -a session_idx pseudo_ids < <(sed -n "${i}p" ${idx_list})
+TODO: pseudo_ids is currently not read in as an array but needs to be
+
+python .run_ephys_decoding "$out_dir" $session_idx" "{pseudo_ids[@]}"

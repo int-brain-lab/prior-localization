@@ -1,0 +1,58 @@
+# Data QC config
+unit_qc: 1 # minimum QC value for units to enter analysis (between 0 and 1)
+min_units: 10 # minimum number of units per region for a region to enter analysis
+min_trials: 150  # minimum number of trials for a session to be included in analysis
+
+# Decoding config
+estimator: Ridge  # possible values: LinearRegression, Lasso, Ridge, LogisticRegression,
+estimator_kwargs: {tol: 0.0001, max_iter: 20000, fit_intercept: True}
+binarization_value: null # to binarize the target -> could be useful with logistic regression estimator
+shuffle: True
+balanced_weighting: True
+save_predictions: True
+hparam_grid: {}
+
+# Neurometric curves config
+border_quantiles_neurometrics: [0.3, 0.7]  # [.3, .4, .5, .6, .7]
+compute_neuro_on_each_fold: False # if True, expect a script that is 5 times slower
+
+# Regions config
+#     Specify the level of granularity at which decoding is done. Options are 'single_regions' (every region that is
+#     passed by the probe is decoded separately), 'all_regions' (all regions passed are decoded together), any key
+#     into the 'regions_defaults' dictionary, specified in config.yml, or a single region name or list of region names
+regions: single_regions
+region_defaults: {
+  'widefield': [
+    [ "ACAd" ],
+    [ "AUDd" ],
+    [ "AUDp" ],
+    [ "AUDpo" ],
+    [ "AUDv" ],
+    [ "FRP" ],
+    [ "MOB" ],
+    [ "MOp" ],
+    [ "MOs" ],
+    [ "PL" ],
+    [ "RSPagl" ],
+    [ "RSPd" ],
+    [ "RSPv" ],
+    [ "SSp-bfd" ],
+    [ "SSp-ll" ],
+    [ "SSp-m" ],
+    [ "SSp-n" ],
+    [ "SSp-tr" ],
+    [ "SSp-ul" ],
+    [ "SSp-un" ],
+    [ "SSs" ],
+    [ "TEa" ],
+    [ "VISa" ],
+    [ "VISal" ],
+    [ "VISam" ],
+    [ "VISl" ],
+    [ "VISli" ],
+    [ "VISp" ],
+    [ "VISpl" ],
+    [ "VISpm" ],
+    [ "VISpor" ],
+    [ "VISrl" ],
+  ]}

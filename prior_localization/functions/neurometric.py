@@ -2,7 +2,9 @@ import numpy as np
 import pandas as pd
 import psychofit as pfit
 from prior_localization.functions.behavior_targets import compute_beh_target
-from prior_localization.params import BORDER_QUANTILES_NEUROMETRIC
+from prior_localization.functions.utils import check_config
+
+config = check_config()
 
 
 def compute_neurometric_prior(trials_df, session_id, subject, model, behavior_path):
@@ -15,7 +17,7 @@ def compute_neurometric_prior(trials_df, session_id, subject, model, behavior_pa
                     blockprob_neurometric,
                     border,
                 ).astype(int)
-                for border in BORDER_QUANTILES_NEUROMETRIC
+                for border in config['border_quantiles_neurometrics']
             ]
         ).sum(0)
     else:

@@ -6,13 +6,13 @@ import numpy as np
 from one.api import ONE
 from brainbox.io.one import SessionLoader
 from prior_localization.prepare_data import prepare_ephys, prepare_behavior, prepare_motor, prepare_pupil
-from prior_localization.functions.utils import average_data_in_epoch
+from prior_localization.functions.utils import average_data_in_epoch, compute_mask
 
 
 class TestEphysInput(unittest.TestCase):
 
     def setUp(self) -> None:
-        self.one = ONE()
+        self.one = ONE(base_url='https://openalyx.internationalbrainlab.org')
         self.eid = '56956777-dca5-468c-87cb-78150432cc57'
         _, self.probe_names = self.one.eid2pid(self.eid)
         self.qc = 1
@@ -48,19 +48,22 @@ class TestEphysInput(unittest.TestCase):
 class TestBehaviorInputs(unittest.TestCase):
 
     def setUp(self) -> None:
-        self.one = ONE()
+        self.one = ONE(base_url='https://openalyx.internationalbrainlab.org')
         self.eid = '56956777-dca5-468c-87cb-78150432cc57'
         self.subject = self.one.eid2ref(self.eid)['subject']
         self.temp_dir = tempfile.TemporaryDirectory()
         self.fixtures_dir = Path(__file__).parent.joinpath('fixtures', 'inputs')
 
     def test_behav_targets(self):
-        _, all_targets, mask, _, _ = prepare_behavior(
-            self.one, self.eid, self.subject, pseudo_ids=None, output_dir=Path(self.temp_dir.name),
-            model='optBay', target='pLeft', align_event='stimOn_times', time_window=(-0.6, -0.1),
-            stage_only=False)
+        sl = SessionLoader(self.one, self.eid)
+        sl.load_trials()
+        trials_mask = compute_mask(sl.trials, align_event='stimOn_times', min_rt=0.08, max_rt=None, n_trials_crop_end=0)
+        _, all_targets, mask, _ = prepare_behavior(
+            self.eid, self.subject, sl.trials, trials_mask, pseudo_ids=None, output_dir=Path(self.temp_dir.name),
+            model='optBay', target='pLeft'
+        )
         expected_orig = np.load(self.fixtures_dir.joinpath('behav_target.npy'))
-        self.assertTrue(np.all(all_targets[0][mask] == expected_orig))
+        self.assertTrue(np.allclose(all_targets[0][mask], expected_orig, rtol=1e-4))
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
@@ -68,7 +71,7 @@ class TestBehaviorInputs(unittest.TestCase):
 
 class TestMotorInputs(unittest.TestCase):
     def setUp(self) -> None:
-        self.one = ONE()
+        self.one = ONE(base_url='https://openalyx.internationalbrainlab.org')
         self.eid = '56956777-dca5-468c-87cb-78150432cc57'
         self.time_window = [-0.6, -0.1]
         self.fixtures = Path(__file__).parent.joinpath('fixtures', 'inputs')
@@ -85,20 +88,20 @@ class TestMotorInputs(unittest.TestCase):
 
 class TestPupilInputs(unittest.TestCase):
     def setUp(self) -> None:
-        self.one = ONE()
+        self.one = ONE(base_url='https://openalyx.internationalbrainlab.org')
         self.eid = '4a45c8ba-db6f-4f11-9403-56e06a33dfa4'
         self.time_window = [-0.6, -0.1]
         self.fixtures = Path(__file__).parent.joinpath('fixtures', 'inputs')
-        #self.expected = np.load(self.fixtures.joinpath(f'pupil_regressors_{self.eid}.npy'))
+        self.expected = np.load(self.fixtures.joinpath(f'pupil_regressors_{self.eid}.npy'))
 
     def test_prepare_pupil(self):
         predicted = prepare_pupil(self.one, self.eid, align_event='stimOn_times', time_window=self.time_window)
-        #self.assertIsNone(np.testing.assert_equal(predicted, self.expected))
+        self.assertIsNone(np.testing.assert_equal(predicted, self.expected))
 
 
 class TestAverageDataInEpoch(unittest.TestCase):
     def setUp(self) -> None:
-        self.one = ONE()
+        self.one = ONE(base_url='https://openalyx.internationalbrainlab.org')
         self.eid = 'fc14c0d6-51cf-48ba-b326-56ed5a9420c3'
         self.sl = SessionLoader(self.one, self.eid)
         self.sl.load_trials()
@@ -122,8 +125,8 @@ class TestAverageDataInEpoch(unittest.TestCase):
         # Test that data is sampled from correct epoch
         # Using the times as values allows to see at which times the data is actually sampled, but still we need to
         # tests against precomputed values that we know are sampled from
-        times = np.arange(int(self.sl.trials['stimOn_times'].min()-10),
-                          int(self.sl.trials['stimOn_times'].max()+10), self.ts)
+        times = np.arange(int(self.sl.trials['stimOn_times'].min() - 10),
+                          int(self.sl.trials['stimOn_times'].max() + 10), self.ts)
         actual = average_data_in_epoch(times, times, self.sl.trials, align_event='stimOn_times', epoch=self.epoch)
         predicted = np.load(self.fixtures.joinpath('average_in_epoch_uniform.npy'))
         np.testing.assert_array_equal(actual, predicted)
@@ -145,10 +148,14 @@ class TestAverageDataInEpoch(unittest.TestCase):
         self.assertTrue(np.all(np.isnan(res[nan_idx])))
 
         # First trial before timestamps and last trial after timestamps
-        end_idx = self.sl.trials.shape[0]-20
+        end_idx = self.sl.trials.shape[0] - 20
         times = np.arange(np.ceil(self.sl.trials['firstMovement_times'][7]),
                           np.floor(self.sl.trials['firstMovement_times'][end_idx]), self.ts)
         res = average_data_in_epoch(times, np.ones_like(times), self.sl.trials,
                                     align_event='firstMovement_times', epoch=self.epoch)
         self.assertTrue(np.all(np.isnan(res[:8])))
         self.assertTrue(np.all(np.isnan(res[end_idx:])))
+
+
+if __name__ == "__main__":
+    unittest.main()
