@@ -26,6 +26,7 @@ from prior_localization.functions.utils import (
     logisticreg_criteria,
     get_spike_data_per_trial,
     build_lagged_predictor_matrix,
+    str2int,
 )
 from prior_localization.functions.nulldistributions import (
     generate_null_distribution_session,
@@ -219,6 +220,8 @@ def prepare_behavior(
         else:
             if integration_test:  # for reproducing the test results we need to fix a seed in this case
                 np.random.seed(pseudo_id)
+            else:
+                np.random.seed(str2int(session_id) + pseudo_id)
 
             # compute initial pseudo targets
             if target in ['wheel-speed', 'wheel-velocity']:
