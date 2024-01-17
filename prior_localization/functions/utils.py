@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import yaml
 import pandas as pd
@@ -417,3 +418,7 @@ def build_lagged_predictor_matrix(array, n_lags, return_valid=True):
     if return_valid:
         mat = mat[n_lags:]
     return mat
+
+
+def str2int(string, digits=8):
+    return int(hashlib.sha1(string.encode('utf-8')).hexdigest(), 16) % (10 ** digits)

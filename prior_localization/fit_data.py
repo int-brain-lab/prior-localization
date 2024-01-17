@@ -28,6 +28,7 @@ from prior_localization.functions.utils import (
     subtract_motor_residuals,
     format_data_for_decoding,
     logisticreg_criteria,
+    str2int,
 )
 
 # Set up logger
@@ -152,10 +153,11 @@ def fit_session_ephys(
     filenames = []
     for data_region, region, n_units_region, cluster_ids_region in zip(
             data_epoch_masked, actual_regions, n_units, cluster_ids):
+
         # Fit
         fit_results = fit_target(
             data_region, all_targets_masked, all_trials, n_runs, all_neurometrics, pseudo_ids, cluster_ids_region,
-            integration_test=integration_test)
+            base_rng_seed=str2int(session_id + '_'.join(region)), integration_test=integration_test)
 
         # Add the mask to fit results
         for fit_result in fit_results:
@@ -271,9 +273,11 @@ def fit_session_widefield(
     # Otherwise, fit data per region
     filenames = []
     for data_region, region in zip(data_epoch, actual_regions):
+
         # Fit
-        fit_results = fit_target(data_region[trials_mask], [t[trials_mask] for t in all_targets], all_trials, n_runs,
-                                 all_neurometrics, pseudo_ids, integration_test=integration_test)
+        fit_results = fit_target(
+            data_region[trials_mask], [t[trials_mask] for t in all_targets], all_trials, n_runs, all_neurometrics,
+            pseudo_ids, base_rng_seed=str2int(session_id + '_'.join(region)), integration_test=integration_test)
 
         # Add the mask to fit results
         for fit_result in fit_results:
@@ -369,8 +373,9 @@ def fit_session_pupil(
     trials_mask = trials_mask & ~np.any(np.isnan(pupil_data), axis=1)
 
     # Fit
-    fit_results = fit_target(pupil_data[trials_mask], [t[trials_mask] for t in all_targets], all_trials, n_runs,
-                             all_neurometrics, pseudo_ids, integration_test=integration_test)
+    fit_results = fit_target(
+        pupil_data[trials_mask], [t[trials_mask] for t in all_targets], all_trials, n_runs, all_neurometrics,
+        pseudo_ids, base_rng_seed=str2int(session_id), integration_test=integration_test)
 
     # Create output paths and save
     pseudo_str = f'{pseudo_ids[0]}_{pseudo_ids[-1]}' if len(pseudo_ids) > 1 else str(pseudo_ids[0])
@@ -458,8 +463,9 @@ def fit_session_motor(
     trials_mask = trials_mask & ~np.any(np.isnan(motor_data), axis=1)
 
     # Fit
-    fit_results = fit_target(motor_data[trials_mask], [t[trials_mask] for t in all_targets], all_trials, n_runs,
-                             all_neurometrics, pseudo_ids, integration_test=integration_test)
+    fit_results = fit_target(
+        motor_data[trials_mask], [t[trials_mask] for t in all_targets], all_trials, n_runs, all_neurometrics,
+        pseudo_ids, base_rng_seed=str2int(session_id), integration_test=integration_test)
 
     # Create output paths and save
     pseudo_str = f'{pseudo_ids[0]}_{pseudo_ids[-1]}' if len(pseudo_ids) > 1 else str(pseudo_ids[0])
@@ -479,7 +485,7 @@ def fit_session_motor(
 
 def fit_target(
         data_to_fit, all_targets, all_trials, n_runs, all_neurometrics=None, pseudo_ids=None, cluster_ids=None,
-        integration_test=False,
+        base_rng_seed=0, integration_test=False,
 ):
     """
     Fits data (neural, motor, etc) to behavior targets.
@@ -502,6 +508,8 @@ def fit_target(
         Default is None.
     cluster_ids : list of str or None
         cluster uuids for the provided neural data
+    base_rng_seed : int
+        seed that will be added to run- and pseudo_id-specific seeds
     integration_test : bool
         Whether to run in integration test mode with fixed random seeds. Default is False.
     """
@@ -520,9 +528,9 @@ def fit_target(
                 rng_seed = i_run
             else:
                 if pseudo_id == -1:
-                    rng_seed = i_run
+                    rng_seed = base_rng_seed + i_run
                 else:
-                    rng_seed = pseudo_id * n_runs + i_run
+                    rng_seed = base_rng_seed + pseudo_id * n_runs + i_run
             fit_result = decode_cv(
                 ys=targets,
                 Xs=data_to_fit,
