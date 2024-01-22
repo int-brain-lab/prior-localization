@@ -29,6 +29,19 @@ def generate_null_distribution_session(trials_df, session_id, subject, model, be
     return pseudosess
 
 
+def generate_null_distribution_session_imposter(trials_df, session_id, imposter_df):
+    # copy since we will modify below
+    df = imposter_df.copy()
+    # remove current eid from imposter sessions
+    df_clean = df[df.eid != session_id].reset_index()
+    # randomly select imposter trial to start sequence
+    n_trials = trials_df.index.size
+    total_imposter_trials = df_clean.shape[0]
+    idx_beg = np.random.choice(total_imposter_trials - n_trials)
+    control_trials = df_clean.iloc[idx_beg:idx_beg + n_trials]
+    return control_trials
+
+
 def generate_choices(pseudosess, trials_df, subjModel):
 
     istrained, fullpath = check_bhv_fit_exists(subjModel["subject"], subjModel["modeltype"], subjModel["eid"],

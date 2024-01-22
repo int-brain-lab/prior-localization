@@ -18,9 +18,20 @@ from behavior_models.models import ActionKernel, StimulusKernel
 
 from prior_localization.functions.behavior_targets import optimal_Bayesian, compute_beh_target
 from prior_localization.functions.utils import (
-    check_bhv_fit_exists, average_data_in_epoch, check_config, downsample_atlas, spatial_down_sample
+    check_bhv_fit_exists,
+    average_data_in_epoch,
+    check_config,
+    downsample_atlas,
+    spatial_down_sample,
+    logisticreg_criteria,
+    get_spike_data_per_trial,
+    build_lagged_predictor_matrix,
+    str2int,
 )
-from prior_localization.functions.nulldistributions import generate_null_distribution_session
+from prior_localization.functions.nulldistributions import (
+    generate_null_distribution_session,
+    generate_null_distribution_session_imposter,
+)
 from prior_localization.functions.neurometric import compute_neurometric_prior
 
 
@@ -36,7 +47,10 @@ model_name2class = {
 config = check_config()
 
 
-def prepare_ephys(one, session_id, probe_name, regions, intervals, qc=1, min_units=10, stage_only=False):
+def prepare_ephys(
+        one, session_id, probe_name, regions, intervals, binsize=None, n_bins_lag=None, qc=1, min_units=10,
+        stage_only=False,
+):
 
     # Load spikes and clusters and potentially merge probes
     if isinstance(probe_name, list) and len(probe_name) > 1:
@@ -48,7 +62,7 @@ def prepare_ephys(one, session_id, probe_name, regions, intervals, qc=1, min_uni
 
     # This allows us to just stage the data without running the analysis, we can then switch ONE in local mode
     if stage_only:
-        return None, None
+        return None, None, None, None
 
     # Prepare list of brain regions
     brainreg = BrainRegions()
@@ -67,6 +81,8 @@ def prepare_ephys(one, session_id, probe_name, regions, intervals, qc=1, min_uni
 
     binned_spikes = []
     actual_regions = []
+    n_units = []
+    cluster_uuids_list = []
     for region in regions:
         # find all clusters in region (where region can be a list of regions)
         region_mask = np.isin(beryl_regions, region)
@@ -75,10 +91,33 @@ def prepare_ephys(one, session_id, probe_name, regions, intervals, qc=1, min_uni
         else:
             # find all spikes in those clusters
             spike_mask = np.isin(spikes['clusters'], clusters[region_mask].index)
-            binned, _ = get_spike_counts_in_bins(spikes['times'][spike_mask], spikes['clusters'][spike_mask], intervals)
-            binned_spikes.append(binned.T)
+            times_masked = spikes['times'][spike_mask]
+            clusters_masked = spikes['clusters'][spike_mask]
+            # record cluster uuids
+            idxs_used = np.unique(clusters_masked)
+            clusters_uuids = list(clusters.iloc[idxs_used]['uuids'])
+            # bin spikes from those clusters
+            if binsize is None:
+                binned, _ = get_spike_counts_in_bins(
+                    spike_times=times_masked, spike_clusters=clusters_masked, intervals=intervals)
+                binned = binned.T
+            else:
+                # TODO: integrate this into `get_spike_counts_in_bins`
+                # update "intervals" to include more data to facilitate the lags
+                intervals_for_lags = np.copy(intervals)
+                intervals_for_lags[:, 0] = intervals_for_lags[:, 0] - n_bins_lag * binsize
+                # count spikes in multiple bins per interval
+                binned_2d, _ = get_spike_data_per_trial(
+                    times=times_masked, clusters=clusters_masked, intervals=intervals_for_lags, binsize=binsize)
+                # include lagged timepoints for each sample
+                binned = [build_lagged_predictor_matrix(b.T, n_bins_lag) for b in binned_2d]
+
+            binned_spikes.append(binned)
             actual_regions.append(region)
-    return binned_spikes, actual_regions
+            n_units.append(sum(region_mask))
+            cluster_uuids_list.append(clusters_uuids)
+
+    return binned_spikes, actual_regions, n_units, cluster_uuids_list
 
 
 def prepare_motor(one, session_id, align_event='stimOn_times', time_window=(-0.6, -0.1), lick_bins=0.02):
@@ -164,6 +203,13 @@ def prepare_behavior(
         if not istrained:
             behavior_model.load_or_train(remove_old=False)
 
+    # load imposter trials dataframe if required
+    if target in ['wheel-speed', 'wheel-velocity'] and np.any(pseudo_ids > 0):
+        assert config['imposter_df_path'] is not None, 'Must specify imposter_df_path in config.yaml file'
+        imposter_df = pd.read_parquet(config['imposter_df_path'])
+    else:
+        imposter_df = None
+
     all_targets = []
     all_trials = []
     # For all sessions (pseudo and or actual session) compute the behavioral targets
@@ -174,9 +220,44 @@ def prepare_behavior(
         else:
             if integration_test:  # for reproducing the test results we need to fix a seed in this case
                 np.random.seed(pseudo_id)
-            control_trials = generate_null_distribution_session(trials_df, session_id, subject, model, behavior_path)
+            else:
+                np.random.seed(str2int(session_id) + pseudo_id)
+
+            # compute initial pseudo targets
+            if target in ['wheel-speed', 'wheel-velocity']:
+                control_trials = generate_null_distribution_session_imposter(trials_df, session_id, imposter_df)
+            else:
+                # generate trial df from generative model of task (stimulus targets) or behavior (choice, feedback)
+                control_trials = generate_null_distribution_session(
+                    trials_df, session_id, subject, model, behavior_path)
+            control_targets = compute_beh_target(
+                control_trials, session_id, subject, model, target, behavior_path)
+
+            # when using logistic regression, ensure that the generated target array has enough members of each class
+            if isinstance(config['estimator'], sklm.LogisticRegression):
+                targets_masked = control_targets[trials_mask]
+                sample_pseudo_count = 0
+                while not logisticreg_criteria(targets_masked):
+                    assert sample_pseudo_count < 100  # must be a reasonable number of attempts or something is wrong
+                    sample_pseudo_count += 1
+                    control_trials = generate_null_distribution_session(
+                        trials_df, session_id, subject, model, behavior_path)
+                    control_targets = compute_beh_target(
+                        control_trials, session_id, subject, model, target, behavior_path)
+                    targets_masked = control_targets[trials_mask]
+
+                if sample_pseudo_count > 1:
+                    print(f'sampled pseudo sessions {sample_pseudo_count} times to ensure valid target array')
+
             all_trials.append(control_trials)
-            all_targets.append(compute_beh_target(control_trials, session_id, subject, model, target, behavior_path))
+            all_targets.append(control_targets)
+
+        # final check on binary target arrays
+        if isinstance(config['estimator'], sklm.LogisticRegression):
+            targets_masked = all_targets[-1][trials_mask]
+            if not logisticreg_criteria(targets_masked):
+                print(f'target failed logistic regression criteria for pseudo_id {pseudo_id}')
+                continue
 
     # Compute neurometrics if indicated
     if compute_neurometrics:
