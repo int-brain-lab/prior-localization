@@ -14,7 +14,7 @@ ONE.setup(base_url='https://openalyx.internationalbrainlab.org', cache_dir=input
 one = ONE(base_url='https://openalyx.internationalbrainlab.org')
 
 # Get brainwidemap dataframe
-bwm_df = bwm_query(one=one, freeze='2022_10_initial')
+bwm_df = bwm_query(one=one) #, freeze='2022_10_initial')
 
 # Loop over all sessions to stage ephys data
 for i, session_id in enumerate(bwm_df.eid.unique()):

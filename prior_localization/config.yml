@@ -1,16 +1,26 @@
 # Data QC config
 unit_qc: 1  # minimum QC value for units to enter analysis (between 0 and 1)
-min_units: 10  # minimum number of units per region for a region to enter analysis
-min_trials: 150  # minimum number of trials for a session to be included in analysis
+min_units: 1  # minimum number of units per region for a region to enter analysis
+min_trials: 1  # minimum number of trials for a session to be included in analysis
 
 # Decoding config
-estimator: Ridge  # possible values: LinearRegression, Lasso, Ridge, LogisticRegression,
+estimator: Lasso  # possible values: LinearRegression, Lasso, Ridge, LogisticRegression,
 estimator_kwargs: {tol: 0.0001, max_iter: 20000, fit_intercept: True}
 binarization_value: null # threshold to binarize the target -> could be useful with logistic regression estimator
 shuffle: True
-balanced_weighting: True
+balanced_weighting: False
 save_predictions: True
-hparam_grid: {}
+hparam_grid: {
+  "alpha":
+    [
+      0.00001,
+      0.0001,
+      0.001,
+      0.01,
+      0.1,
+    ]
+}
+
 imposter_df_path: null
 
 # Neurometric curves config

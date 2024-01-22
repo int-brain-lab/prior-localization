@@ -93,6 +93,8 @@ def fit_session_ephys(
      List of paths to the results files
     """
 
+    np.random.seed(str2int(session_id) + np.sum(pseudo_ids))
+
     # Check some inputs
     pseudo_ids, output_dir = check_inputs(
         model, pseudo_ids, target, output_dir, config, logger, compute_neurometrics, motor_residuals
@@ -101,7 +103,7 @@ def fit_session_ephys(
     # Load trials data and compute mask
     sl = SessionLoader(one, session_id)
     sl.load_trials()
-    trials_mask = compute_mask(sl.trials, align_event=align_event, min_rt=0.08, max_rt=None, n_trials_crop_end=0)
+    trials_mask = compute_mask(sl.trials, align_event=align_event, min_rt=0.08, max_rt=2.0, n_trials_crop_end=0)
     intervals = np.vstack([sl.trials[align_event] + time_window[0], sl.trials[align_event] + time_window[1]]).T
     if target in ['wheel-speed', 'wheel-velocity']:
         # add behavior signal to df and update trials mask to reflect trials with signal issues
