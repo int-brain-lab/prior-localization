@@ -21,8 +21,9 @@ class TestEphysInput(unittest.TestCase):
         self.intervals = np.load(self.fixtures_dir.joinpath('intervals.npy'))
 
     def test_prepare_ephys_merged(self):
-        binned_spikes, actual_regions = prepare_ephys(one=self.one, session_id=self.eid, probe_name=self.probe_names,
-                                                      regions='single_regions', intervals=self.intervals)
+        binned_spikes, actual_regions, n_units, cluster_ids = prepare_ephys(
+            one=self.one, session_id=self.eid, probe_name=self.probe_names, regions='single_regions',
+            intervals=self.intervals)
         for spikes, region in zip(binned_spikes, actual_regions):
             # this failed for uninteresting reasons
             if region[0] == 'VPM':
@@ -32,8 +33,9 @@ class TestEphysInput(unittest.TestCase):
 
     def test_prepare_ephys_single(self):
         for probe_name in self.probe_names:
-            binned_spikes, actual_regions = prepare_ephys(one=self.one, session_id=self.eid, probe_name=probe_name,
-                                                          regions='single_regions', intervals=self.intervals)
+            binned_spikes, actual_regions, n_units, cluster_ids = prepare_ephys(
+                one=self.one, session_id=self.eid, probe_name=probe_name, regions='single_regions',
+                intervals=self.intervals)
             for spikes, region in zip(binned_spikes, actual_regions):
                 # this failed for uninteresting reasons
                 if region[0] == 'VPM':
