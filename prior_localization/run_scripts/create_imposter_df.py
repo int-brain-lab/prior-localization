@@ -11,7 +11,7 @@ import pandas as pd
 from pathlib import Path
 
 from brainwidemap import bwm_query, load_trials_and_mask
-from prior_localization.functions.behavior_targets import add_behavior_to_df
+from prior_localization.functions.behavior_targets import add_target_to_trials
 
 
 def run_main(args):
@@ -84,7 +84,7 @@ def run_main(args):
                 sess_loader.trials[align_event] + time_window[0],
                 sess_loader.trials[align_event] + time_window[1]
             ]).T
-            trials_df, trials_mask = add_behavior_to_df(
+            trials_df, trials_mask = add_target_to_trials(
                 sess_loader, target, intervals, binsize, interval_len=time_window[1] - time_window[0],
                 mask=trials_mask,
             )

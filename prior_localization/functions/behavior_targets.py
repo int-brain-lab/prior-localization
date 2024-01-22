@@ -188,7 +188,7 @@ def compute_beh_target(trials_df, session_id, subject, model, target, behavior_p
     return tvec
 
 
-def add_behavior_to_df(session_loader, target, intervals, binsize, interval_len=None, mask=None):
+def add_target_to_trials(session_loader, target, intervals, binsize, interval_len=None, mask=None):
     """Add behavior signal to trials df.
 
     Parameters
@@ -217,7 +217,7 @@ def add_behavior_to_df(session_loader, target, intervals, binsize, interval_len=
         session_loader.load_trials()
 
     # load time/value arrays for the desired behavior
-    times, values, load_error = load_behavior(session_loader, target)
+    times, values = load_target(session_loader, target)
 
     # split data into interval-based arrays
     _, target_vals_list, target_mask = split_behavior_data_by_trial(
@@ -239,7 +239,7 @@ def add_behavior_to_df(session_loader, target, intervals, binsize, interval_len=
     return trials_df, mask
 
 
-def load_behavior(session_loader, target):
+def load_target(session_loader, target):
     """Load wheel or DLC data using a SessionLoader and return timestamps and values.
 
     Parameters
@@ -257,32 +257,24 @@ def load_behavior(session_loader, target):
 
     """
 
-    try:
-        if target in ['wheel-speed', 'wheel-velocity']:
-            session_loader.load_wheel()
-            times = session_loader.wheel['times'].to_numpy()
-            values = session_loader.wheel['velocity'].to_numpy()
-            if target == 'wheel-speed':
-                values = np.abs(values)
-        elif target == 'l-whisker-me':
-            session_loader.load_motion_energy(views=['left'])
-            times = session_loader.motion_energy['leftCamera']['times'].to_numpy(),
-            values = session_loader.motion_energy['leftCamera']['whiskerMotionEnergy'].to_numpy()
-        elif target == 'r-whisker-me':
-            session_loader.load_motion_energy(views=['right'])
-            times = session_loader.motion_energy['rightCamera']['times'].to_numpy(),
-            values = session_loader.motion_energy['rightCamera']['whiskerMotionEnergy'].to_numpy()
-        else:
-            raise NotImplementedError
+    if target in ['wheel-speed', 'wheel-velocity']:
+        session_loader.load_wheel()
+        times = session_loader.wheel['times'].to_numpy()
+        values = session_loader.wheel['velocity'].to_numpy()
+        if target == 'wheel-speed':
+            values = np.abs(values)
+    elif target == 'l-whisker-me':
+        session_loader.load_motion_energy(views=['left'])
+        times = session_loader.motion_energy['leftCamera']['times'].to_numpy(),
+        values = session_loader.motion_energy['leftCamera']['whiskerMotionEnergy'].to_numpy()
+    elif target == 'r-whisker-me':
+        session_loader.load_motion_energy(views=['right'])
+        times = session_loader.motion_energy['rightCamera']['times'].to_numpy(),
+        values = session_loader.motion_energy['rightCamera']['whiskerMotionEnergy'].to_numpy()
+    else:
+        raise NotImplementedError
 
-        load_error = False
-
-    except BaseException as e:
-        print('error loading %s data' % target)
-        print(e)
-        times, values, load_error = None, None, True
-
-    return times, values, load_error
+    return times, values
 
 
 def split_behavior_data_by_trial(times, values, intervals, binsize, interval_len=None, allow_nans=False):
@@ -316,13 +308,11 @@ def split_behavior_data_by_trial(times, values, intervals, binsize, interval_len
 
     """
 
-    interval_begs = intervals[:, 0]
-    interval_ends = intervals[:, 1]
     if interval_len is None:
         interval_len = np.nanmedian(intervals[:, 1] - intervals[:, 0])
 
     # split data by trial
-    if np.all(np.isnan(interval_begs)) or np.all(np.isnan(interval_ends)):
+    if np.all(np.isnan(intervals[:, 0])) or np.all(np.isnan(intervals[:, 1])):
         print('interval times all nan')
         good_trial = np.full((intervals.shape[0],), False)
         times_list = []
@@ -333,8 +323,8 @@ def split_behavior_data_by_trial(times, values, intervals, binsize, interval_len
     n_bins = int(np.ceil(interval_len / binsize))
 
     # split data into trials
-    idxs_beg = np.searchsorted(times, interval_begs, side='right')
-    idxs_end = np.searchsorted(times, interval_ends, side='left')
+    idxs_beg = np.searchsorted(times, intervals[:, 0], side='right')
+    idxs_end = np.searchsorted(times, intervals[:, 1], side='left')
     target_times_og_list = [times[ib:ie] for ib, ie in zip(idxs_beg, idxs_end)]
     target_vals_og_list = [values[ib:ie] for ib, ie in zip(idxs_beg, idxs_end)]
 
@@ -356,19 +346,19 @@ def split_behavior_data_by_trial(times, values, intervals, binsize, interval_len
             times_list.append(None)
             values_list.append(None)
             continue
-        if np.isnan(interval_begs[i]) or np.isnan(interval_ends[i]):
+        if np.isnan(intervals[i, 0]) or np.isnan(intervals[i, 1]):
             print('bad trial interval data on trial %i; skipping' % i)
             good_trial[i] = False
             times_list.append(None)
             values_list.append(None)
             continue
-        if np.abs(interval_begs[i] - target_time[0]) > binsize:
+        if np.abs(intervals[i, 0] - target_time[0]) > binsize:
             print('target data starts too late on trial %i; skipping' % i)
             good_trial[i] = False
             times_list.append(None)
             values_list.append(None)
             continue
-        if np.abs(interval_ends[i] - target_time[-1]) > binsize:
+        if np.abs(intervals[i, 1] - target_time[-1]) > binsize:
             print('target data ends too early on trial %i; skipping' % i)
             good_trial[i] = False
             times_list.append(None)
@@ -379,7 +369,7 @@ def split_behavior_data_by_trial(times, values, intervals, binsize, interval_len
         # using `interval_begs[i] + binsize` forces the interpolation to sample the continuous
         # signal at the *end* (or right side) of each bin; this way the spikes in a given bin will
         # fully precede the corresponding target sample for that same bin.
-        x_interp = np.linspace(interval_begs[i] + binsize, interval_ends[i], n_bins)
+        x_interp = np.linspace(intervals[i, 0] + binsize, intervals[i, 1], n_bins)
         if len(values.shape) > 1 and values.shape[1] > 1:
             n_dims = values.shape[1]
             y_interp_tmps = []

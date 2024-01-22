@@ -19,7 +19,7 @@ from prior_localization.prepare_data import (
     prepare_widefield,
     prepare_widefield_old,
 )
-from prior_localization.functions.behavior_targets import add_behavior_to_df
+from prior_localization.functions.behavior_targets import add_target_to_trials
 from prior_localization.functions.neurometric import get_neurometric_parameters
 from prior_localization.functions.utils import (
     check_inputs,
@@ -105,7 +105,7 @@ def fit_session_ephys(
     intervals = np.vstack([sl.trials[align_event] + time_window[0], sl.trials[align_event] + time_window[1]]).T
     if target in ['wheel-speed', 'wheel-velocity']:
         # add behavior signal to df and update trials mask to reflect trials with signal issues
-        sl.trials, trials_mask = add_behavior_to_df(
+        sl.trials, trials_mask = add_target_to_trials(
             session_loader=sl, target=target, intervals=intervals, binsize=binsize,
             interval_len=time_window[1] - time_window[0], mask=trials_mask)
 
