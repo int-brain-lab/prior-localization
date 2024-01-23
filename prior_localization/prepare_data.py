@@ -204,7 +204,7 @@ def prepare_behavior(
             behavior_model.load_or_train(remove_old=False)
 
     # load imposter trials dataframe if required
-    if target in ['wheel-speed', 'wheel-velocity'] and np.any(pseudo_ids > 0):
+    if target in ['wheel-speed', 'wheel-velocity'] and np.any(np.array(pseudo_ids) > 0):
         assert config['imposter_df_path'] is not None, 'Must specify imposter_df_path in config.yaml file'
         imposter_df = pd.read_parquet(config['imposter_df_path'])
     else:

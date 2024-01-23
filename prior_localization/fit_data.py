@@ -62,8 +62,8 @@ def fit_session_ephys(
      List of sessions / pseudo sessions to decode, -1 represents decoding of the actual session, integers > 0 indicate
      pseudo_session ids.
     target: str
-     Target to be decoded, options are {pLeft, prior, choice, feedback, signcont}, default is pLeft,
-     meaning the prior probability that the stimulus  will appear on the left side
+     Target to be decoded, options are {pLeft, prior, choice, feedback, signcont, 'wheel-speed', 'wheel-velocity'},
+     default is pLeft, meaning the prior probability that the stimulus  will appear on the left side
     align_event: str
      Event to which we align the time window, default is stimOn_times (stimulus onset). Options are
      {"firstMovement_times", "goCue_times", "stimOn_times", "feedback_times"}
@@ -71,7 +71,7 @@ def fit_session_ephys(
      Time window in which neural activity is considered, relative to align_event, default is (-0.6, -0.1)
     binsize : float or None
      if None, sum spikes in time_window for decoding; if float, split time window into smaller bins
-    n_lags : int
+    n_bins_lag : int or None
      number of lagged timepoints (includes zero lag) for decoding wheel and DLC targets
     model: str
      Model to be decoded, options are {optBay, actKernel, stimKernel, oracle}, default is optBay
@@ -105,6 +105,8 @@ def fit_session_ephys(
     intervals = np.vstack([sl.trials[align_event] + time_window[0], sl.trials[align_event] + time_window[1]]).T
     if target in ['wheel-speed', 'wheel-velocity']:
         # add behavior signal to df and update trials mask to reflect trials with signal issues
+        if binsize is None:
+            raise ValueError(f"If target is wheel-speed or wheel-velocity, binsize cannot be None")
         sl.trials, trials_mask = add_target_to_trials(
             session_loader=sl, target=target, intervals=intervals, binsize=binsize,
             interval_len=time_window[1] - time_window[0], mask=trials_mask)
