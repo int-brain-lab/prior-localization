@@ -76,6 +76,23 @@ class TestEphysDecoding(unittest.TestCase):
         )
         self.assertEqual(len(results_fit_session), 5)
 
+    def test_wheel_target(self):
+        # if binsize is not explicitly set, this should raise a value error
+        with self.assertRaises(ValueError):
+            fit_session_ephys(
+                one=self.one, session_id=self.eid, subject=self.subject, probe_name=self.probe_names,
+                output_dir=Path(self.tmp_dir.name), pseudo_ids=self.pseudo_ids, target='wheel-velocity', n_runs=2,
+                integration_test=True
+            )
+        # now with binsize
+        results_fit_session = fit_session_ephys(
+            one=self.one, session_id=self.eid, subject=self.subject, probe_name=self.probe_names,
+            output_dir=Path(self.tmp_dir.name), pseudo_ids=self.pseudo_ids, target='wheel-velocity', binsize=0.05,
+            n_runs=2, integration_test=True
+        )
+
+        self.assertEqual(len(results_fit_session), 5)
+
     def tearDown(self) -> None:
         self.tmp_dir.cleanup()
 
