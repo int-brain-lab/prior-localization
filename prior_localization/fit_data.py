@@ -114,10 +114,17 @@ def fit_session_ephys(
     if sum(trials_mask) <= config['min_trials']:
         raise ValueError(f"Session {session_id} has {sum(trials_mask)} good trials, less than {config['min_trials']}.")
 
+    # Prepare ephys data
+    data_epoch, actual_regions, n_units, cluster_ids = prepare_ephys(
+        one, session_id, probe_name, config['regions'], intervals, binsize=binsize, n_bins_lag=n_bins_lag,
+        qc=config['unit_qc'], min_units=config['min_units'], stage_only=stage_only,
+    )
+    n_pseudo_sets = 1 if actual_regions is None else len(actual_regions)
+
     # Compute or load behavior targets
     all_trials, all_targets, trials_mask, all_neurometrics = prepare_behavior(
-        session_id, subject, sl.trials, trials_mask, pseudo_ids=pseudo_ids, output_dir=output_dir,
-        model=model, target=target, compute_neurometrics=compute_neurometrics,
+        session_id, subject, sl.trials, trials_mask, pseudo_ids=pseudo_ids, n_pseudo_sets=n_pseudo_sets,
+        output_dir=output_dir, model=model, target=target, compute_neurometrics=compute_neurometrics,
         integration_test=integration_test)
 
     # Remove the motor residuals from the targets if indicated
@@ -125,41 +132,34 @@ def fit_session_ephys(
         motor_signals = prepare_motor(one, session_id, time_window=time_window)
         all_targets, trials_mask = subtract_motor_residuals(motor_signals, all_targets, trials_mask)
 
-    # Prepare ephys data
-    data_epoch, actual_regions, n_units, cluster_ids = prepare_ephys(
-        one, session_id, probe_name, config['regions'], intervals, binsize=binsize, n_bins_lag=n_bins_lag,
-        qc=config['unit_qc'], min_units=config['min_units'], stage_only=stage_only,
-    )
-
     # If we are only staging data, we are done here
     if stage_only:
         return
-
-    # Apply mask to targets
-    if isinstance(all_targets[0], list):
-        all_targets_masked = [[t[m] for m in np.squeeze(np.where(trials_mask))] for t in all_targets]
-    else:
-        all_targets_masked = [t[trials_mask] for t in all_targets]
-
-    # Apply mask to ephys data
-    if isinstance(data_epoch[0], list):
-        data_epoch_masked = [[d[m] for m in np.squeeze(np.where(trials_mask))] for d in data_epoch]
-    else:
-        data_epoch_masked = [d[trials_mask] for d in data_epoch]
 
     # Create strings for saving
     pseudo_str = f'{pseudo_ids[0]}_{pseudo_ids[-1]}' if len(pseudo_ids) > 1 else str(pseudo_ids[0])
     probe_str = 'merged_probes' if (isinstance(probe_name, list) and len(probe_name) > 1) else probe_name
 
-    # Otherwise fit per region
+    # Fit per region
     filenames = []
-    for data_region, region, n_units_region, cluster_ids_region in zip(
-            data_epoch_masked, actual_regions, n_units, cluster_ids):
+    for i in range(len(data_epoch)):
+
+        # Apply mask to targets
+        if isinstance(all_targets[i][0], list):
+            targets_masked = [[t[m] for m in np.squeeze(np.where(trials_mask))] for t in all_targets[i]]
+        else:
+            targets_masked = [t[trials_mask] for t in all_targets[i]]
+
+        # Apply mask to ephys data
+        if isinstance(data_epoch[0], list):
+            data_masked = [data_epoch[i][m] for m in np.squeeze(np.where(trials_mask))]
+        else:
+            data_masked = data_epoch[i][trials_mask]
 
         # Fit
         fit_results = fit_target(
-            data_region, all_targets_masked, all_trials, n_runs, all_neurometrics, pseudo_ids, cluster_ids_region,
-            base_rng_seed=str2int(session_id + '_'.join(region)), integration_test=integration_test)
+            data_masked, targets_masked, all_trials[i], n_runs, all_neurometrics[i], pseudo_ids, cluster_ids[i],
+            base_rng_seed=str2int(session_id + '_'.join(actual_regions[i])), integration_test=integration_test)
 
         # Add the mask to fit results
         for fit_result in fit_results:
@@ -167,7 +167,7 @@ def fit_session_ephys(
 
         # Create output paths and save
         region_str = config['regions'] if (config['regions'] == 'all_regions') or (
-                config['regions'] in config['region_defaults'].keys()) else '_'.join(region)
+                config['regions'] in config['region_defaults'].keys()) else '_'.join(actual_regions[i])
         filename = output_dir.joinpath(subject, session_id, f'{region_str}_{probe_str}_pseudo_ids_{pseudo_str}.pkl')
         filename.parent.mkdir(parents=True, exist_ok=True)
 
@@ -176,8 +176,8 @@ def fit_session_ephys(
             "subject": subject,
             "eid": session_id,
             "probe": probe_str,
-            "region": region,
-            "N_units": n_units_region,
+            "region": actual_regions[i],
+            "N_units": n_units[i],
         }
         with open(filename, "wb") as fw:
             pickle.dump(outdict, fw)
@@ -250,11 +250,6 @@ def fit_session_widefield(
     if sum(trials_mask) <= config['min_trials']:
         raise ValueError(f"Session {session_id} has {sum(trials_mask)} good trials, less than {config['min_trials']}.")
 
-    # Compute or load behavior targets
-    all_trials, all_targets, trials_mask, all_neurometrics = prepare_behavior(
-        session_id, subject, sl.trials, trials_mask, pseudo_ids=pseudo_ids, output_dir=output_dir,
-        model=model, target=target, compute_neurometrics=compute_neurometrics, integration_test=integration_test)
-
     # Prepare widefield data
     if old_data is False:
         data_epoch, actual_regions = prepare_widefield(
@@ -265,6 +260,14 @@ def fit_session_widefield(
         data_epoch, actual_regions = prepare_widefield_old(old_data, hemisphere=hemisphere, regions=config['regions'],
                                                            align_event=align_event, frame_window=frame_window)
 
+    n_pseudo_sets = 1 if actual_regions is None else len(actual_regions)
+
+    # Compute or load behavior targets
+    all_trials, all_targets, trials_mask, all_neurometrics = prepare_behavior(
+        session_id, subject, sl.trials, trials_mask, pseudo_ids=pseudo_ids, n_pseudo_sets=n_pseudo_sets,
+        output_dir=output_dir, model=model, target=target, compute_neurometrics=compute_neurometrics,
+        integration_test=integration_test)
+
     # If we are only staging data, we are done here
     if stage_only:
         return
@@ -272,14 +275,16 @@ def fit_session_widefield(
     # Strings for saving
     pseudo_str = f'{pseudo_ids[0]}_{pseudo_ids[-1]}' if len(pseudo_ids) > 1 else str(pseudo_ids[0])
     hemi_str = 'both_hemispheres' if isinstance(hemisphere, tuple) or isinstance(hemisphere, list) else hemisphere
-    # Otherwise, fit data per region
+
+    # Fit data per region
     filenames = []
-    for data_region, region in zip(data_epoch, actual_regions):
+    for i in range(len(data_epoch)):
 
         # Fit
         fit_results = fit_target(
-            data_region[trials_mask], [t[trials_mask] for t in all_targets], all_trials, n_runs, all_neurometrics,
-            pseudo_ids, base_rng_seed=str2int(session_id + '_'.join(region)), integration_test=integration_test)
+            data_epoch[i][trials_mask], [t[trials_mask] for t in all_targets[i]], all_trials[i], n_runs,
+            all_neurometrics[i], pseudo_ids, base_rng_seed=str2int(session_id + '_'.join(actual_regions[i])),
+            integration_test=integration_test)
 
         # Add the mask to fit results
         for fit_result in fit_results:
@@ -287,7 +292,7 @@ def fit_session_widefield(
 
         # Create output paths and save
         region_str = config['regions'] if (config['regions'] == 'all_regions') or (
-                config['regions'] in config['region_defaults'].keys()) else '_'.join(region)
+                config['regions'] in config['region_defaults'].keys()) else '_'.join(actual_regions[i])
         filename = output_dir.joinpath(subject, session_id, f'{region_str}_{hemi_str}_pseudo_ids_{pseudo_str}.pkl')
         filename.parent.mkdir(parents=True, exist_ok=True)
 
@@ -296,8 +301,8 @@ def fit_session_widefield(
             "subject": subject,
             "eid": session_id,
             "hemisphere": hemisphere,
-            "region": region,
-            "N_units": data_region.shape[1],
+            "region": actual_regions[0],
+            "N_units": data_epoch[0].shape[1],
         }
 
         with open(filename, "wb") as fw:
@@ -362,7 +367,7 @@ def fit_session_pupil(
 
     # Compute or load behavior targets
     all_trials, all_targets, trials_mask, all_neurometrics = prepare_behavior(
-        session_id, subject, sl.trials, trials_mask, pseudo_ids=pseudo_ids, output_dir=output_dir,
+        session_id, subject, sl.trials, trials_mask, pseudo_ids=pseudo_ids, n_pseudo_sets=1, output_dir=output_dir,
         model=model, target=target, integration_test=integration_test)
 
     # Load the pupil data
@@ -376,7 +381,7 @@ def fit_session_pupil(
 
     # Fit
     fit_results = fit_target(
-        pupil_data[trials_mask], [t[trials_mask] for t in all_targets], all_trials, n_runs, all_neurometrics,
+        pupil_data[trials_mask], [t[trials_mask] for t in all_targets[0]], all_trials[0], n_runs, all_neurometrics[0],
         pseudo_ids, base_rng_seed=str2int(session_id), integration_test=integration_test)
 
     # Create output paths and save
@@ -452,8 +457,8 @@ def fit_session_motor(
 
     # Compute or load behavior targets
     all_trials, all_targets, trials_mask, all_neurometrics = prepare_behavior(
-        session_id, subject, sl.trials, trials_mask, pseudo_ids=pseudo_ids, output_dir=output_dir,
-        model=model, target=target, integration_test=integration_test)
+        session_id, subject, sl.trials, trials_mask, pseudo_ids=pseudo_ids, n_pseudo_sets=1,
+        output_dir=output_dir, model=model, target=target, integration_test=integration_test)
 
     # Load the motor data
     motor_data = prepare_motor(one, session_id=session_id, time_window=time_window, align_event=align_event)
@@ -466,7 +471,7 @@ def fit_session_motor(
 
     # Fit
     fit_results = fit_target(
-        motor_data[trials_mask], [t[trials_mask] for t in all_targets], all_trials, n_runs, all_neurometrics,
+        motor_data[trials_mask], [t[trials_mask] for t in all_targets[0]], all_trials[0], n_runs, all_neurometrics[0],
         pseudo_ids, base_rng_seed=str2int(session_id), integration_test=integration_test)
 
     # Create output paths and save

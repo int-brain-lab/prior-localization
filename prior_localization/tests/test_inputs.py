@@ -65,7 +65,7 @@ class TestBehaviorInputs(unittest.TestCase):
             model='optBay', target='pLeft'
         )
         expected_orig = np.load(self.fixtures_dir.joinpath('behav_target.npy'))
-        self.assertTrue(np.allclose(all_targets[0][mask], expected_orig, rtol=1e-4))
+        self.assertTrue(np.allclose(all_targets[0][0][mask], expected_orig, rtol=1e-4))
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
