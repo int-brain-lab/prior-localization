@@ -265,11 +265,14 @@ def subtract_motor_residuals(motor_signals, all_targets, trials_mask):
     trials_mask = trials_mask & ~np.any(np.isnan(motor_signals), axis=1)
     # Compute motor predictions and subtract them from targets
     new_targets = []
-    for target_data in all_targets:
-        clf = sklm.RidgeCV(alphas=[1e-3, 1e-2, 1e-1]).fit(motor_signals[trials_mask], target_data[trials_mask])
-        motor = np.full_like(trials_mask, np.nan)
-        motor[trials_mask] = clf.predict(motor_signals[trials_mask])
-        new_targets.append(target_data - motor)
+    for set_targets in all_targets:
+        new_set = []
+        for target_data in set_targets:
+            clf = sklm.RidgeCV(alphas=[1e-3, 1e-2, 1e-1]).fit(motor_signals[trials_mask], target_data[trials_mask])
+            motor = np.full_like(trials_mask, np.nan)
+            motor[trials_mask] = clf.predict(motor_signals[trials_mask])
+            new_set.append(target_data - motor)
+        new_targets.append(new_set)
 
     return new_targets, trials_mask
 

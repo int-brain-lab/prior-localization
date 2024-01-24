@@ -15,7 +15,7 @@ one = ONE()
 one.alyx.clear_rest_cache()
 
 # Get brainwidemap dataframe
-bwm_df = bwm_query() #, freeze='2022_10_initial')
+bwm_df = bwm_query(one=one, freeze='2023_12_bwm_release')
 
 # Loop over all sessions to stage ephys data
 failed = [] # ['a92c4b1d-46bd-457e-a1f4-414265f0e2d4']

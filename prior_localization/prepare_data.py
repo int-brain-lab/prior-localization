@@ -1,6 +1,5 @@
 import logging
 import numpy as np
-from pathlib import Path
 from scipy import stats
 import pandas as pd
 
@@ -184,7 +183,7 @@ def prepare_motor(one, session_id, align_event='stimOn_times', time_window=(-0.6
 
 
 def prepare_behavior(
-        session_id, subject, trials_df, trials_mask, pseudo_ids=None, output_dir=None, model='optBay',
+        session_id, subject, trials_df, trials_mask, pseudo_ids=None, n_pseudo_sets=1, output_dir=None, model='optBay',
         target='pLeft', compute_neurometrics=False, integration_test=False,
 ):
     if pseudo_ids is None:
@@ -204,69 +203,84 @@ def prepare_behavior(
             behavior_model.load_or_train(remove_old=False)
 
     # load imposter trials dataframe if required
-    if target in ['wheel-speed', 'wheel-velocity'] and np.any(pseudo_ids > 0):
+    if target in ['wheel-speed', 'wheel-velocity'] and np.any(np.array(pseudo_ids) > 0):
         assert config['imposter_df_path'] is not None, 'Must specify imposter_df_path in config.yaml file'
         imposter_df = pd.read_parquet(config['imposter_df_path'])
     else:
         imposter_df = None
 
+    # Compute the behavioral target for the actual session only once
+    if -1 in pseudo_ids:
+        actual_target = compute_beh_target(trials_df, session_id, subject, model, target, behavior_path)
+    # For all sessions (pseudo and or actual session) collect / compute the behavioral targets
+    # We might do this more than once if we want sets of pseudo sessions for e.g. several regions (sets)
     all_targets = []
     all_trials = []
-    # For all sessions (pseudo and or actual session) compute the behavioral targets
-    for pseudo_id in pseudo_ids:
-        if pseudo_id == -1:  # this is the actual session
-            all_trials.append(trials_df)
-            all_targets.append(compute_beh_target(trials_df, session_id, subject, model, target, behavior_path))
-        else:
-            if integration_test:  # for reproducing the test results we need to fix a seed in this case
-                np.random.seed(pseudo_id)
+    all_neurometrics = []
+    for n in range(n_pseudo_sets):
+        set_trials = []
+        set_targets = []
+        for pseudo_id in pseudo_ids:
+            if pseudo_id == -1:  # this is the actual session
+                set_trials.append(trials_df)
+                set_targets.append(actual_target)
             else:
-                np.random.seed(str2int(session_id) + pseudo_id)
+                if integration_test:  # for reproducing the test results we need to fix a seed in this case
+                    np.random.seed((n+1) * pseudo_id)
+                else:
+                    np.random.seed(str2int(session_id) + (n+1) * pseudo_id)
 
-            # compute initial pseudo targets
-            if target in ['wheel-speed', 'wheel-velocity']:
-                control_trials = generate_null_distribution_session_imposter(trials_df, session_id, imposter_df)
-            else:
-                # generate trial df from generative model of task (stimulus targets) or behavior (choice, feedback)
-                control_trials = generate_null_distribution_session(
-                    trials_df, session_id, subject, model, behavior_path)
-            control_targets = compute_beh_target(
-                control_trials, session_id, subject, model, target, behavior_path)
-
-            # when using logistic regression, ensure that the generated target array has enough members of each class
-            if isinstance(config['estimator'], sklm.LogisticRegression):
-                targets_masked = control_targets[trials_mask]
-                sample_pseudo_count = 0
-                while not logisticreg_criteria(targets_masked):
-                    assert sample_pseudo_count < 100  # must be a reasonable number of attempts or something is wrong
-                    sample_pseudo_count += 1
+                # compute initial pseudo targets
+                if target in ['wheel-speed', 'wheel-velocity']:
+                    control_trials = generate_null_distribution_session_imposter(trials_df, session_id, imposter_df)
+                else:
+                    # generate trial df from generative model of task (stimulus targets) or behavior (choice, feedback)
                     control_trials = generate_null_distribution_session(
                         trials_df, session_id, subject, model, behavior_path)
-                    control_targets = compute_beh_target(
-                        control_trials, session_id, subject, model, target, behavior_path)
+                control_targets = compute_beh_target(
+                    control_trials, session_id, subject, model, target, behavior_path)
+
+                # when using logistic regression, ensure that the generated target array has enough members of each class
+                if isinstance(config['estimator'], sklm.LogisticRegression):
                     targets_masked = control_targets[trials_mask]
+                    sample_pseudo_count = 0
+                    while not logisticreg_criteria(targets_masked):
+                        assert sample_pseudo_count < 100  # must be a reasonable number of attempts or something is wrong
+                        sample_pseudo_count += 1
+                        control_trials = generate_null_distribution_session(
+                            trials_df, session_id, subject, model, behavior_path)
+                        control_targets = compute_beh_target(
+                            control_trials, session_id, subject, model, target, behavior_path)
+                        targets_masked = control_targets[trials_mask]
 
-                if sample_pseudo_count > 1:
-                    print(f'sampled pseudo sessions {sample_pseudo_count} times to ensure valid target array')
+                    if sample_pseudo_count > 1:
+                        logger.info(f'sampled pseudo sessions {sample_pseudo_count} times to ensure valid target array')
 
-            all_trials.append(control_trials)
-            all_targets.append(control_targets)
+                set_trials.append(control_trials)
+                set_targets.append(control_targets)
 
-        # final check on binary target arrays
-        if isinstance(config['estimator'], sklm.LogisticRegression):
-            targets_masked = all_targets[-1][trials_mask]
-            if not logisticreg_criteria(targets_masked):
-                print(f'target failed logistic regression criteria for pseudo_id {pseudo_id}')
-                continue
+            # final check on binary target arrays
+            if isinstance(config['estimator'], sklm.LogisticRegression):
+                targets_masked = all_targets[-1][trials_mask]
+                if not logisticreg_criteria(targets_masked):
+                    logger.warning(f'Target failed logistic regression criteria for session {session_id}, '
+                                   f'region {n}, pseudo_id {pseudo_id}')
+                    continue
 
-    # Compute neurometrics if indicated
-    if compute_neurometrics:
-        all_neurometrics = []
-        for i in range(len(pseudo_ids)):
-            neurometrics = compute_neurometric_prior(all_trials[i], session_id, subject, model, behavior_path)
-            all_neurometrics.append(neurometrics[trials_mask].reset_index(drop=True))
-    else:
-        all_neurometrics = None
+        # Compute neurometrics if indicated
+        if compute_neurometrics:
+            set_neurometrics = []
+            for i in range(len(pseudo_ids)):
+                neurometrics = compute_neurometric_prior(all_trials[i], session_id, subject, model, behavior_path)
+                set_neurometrics.append(neurometrics[trials_mask].reset_index(drop=True))
+        else:
+            set_neurometrics = None
+
+        all_neurometrics.append(set_neurometrics)
+        all_trials.append(set_trials)
+        all_targets.append(set_targets)
+
+
 
     return all_trials, all_targets, trials_mask, all_neurometrics
 
