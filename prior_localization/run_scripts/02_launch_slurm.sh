@@ -1,30 +1,21 @@
 #!/bin/bash
+#SBATCH --job-name=decoding
+#SBATCH --output=logs/slurm/decoding.%A.%a.out
+#SBATCH --error=logs/slurm/decoding.%A.%a.err
+#SBATCH --partition=shared-cpu
+#SBATCH --array=1-5592%500
+#SBATCH --mem=20000
+#SBATCH --time=12:00:00
+# 1600/4=400
 
-#### USER SETTINGS, ADAPT THESE TO YOUR CLUSTER ###
-out_dir=/mnt/ibl/quarantine/prior/ephys
-###################################################
+source /home/users/f/findling/.bash_profile
+conda activate iblenv
 
-n_sessions=354  # number of unique eids in the dataframe that we will index in
-n_pseudo=200  # number of pseudo sessions to generate for each real session
-n_per_job=10  # number of (pseudo)sessions to fit per job on the cluster
+# extracting settings from $SLURM_ARRAY_TASK_ID
+echo index $SLURM_ARRAY_TASK_ID
 
-mkdir -p $out_dir
+export PYTHONPATH="$PWD":$PYTHONPATH
+# calling script
 
-# Create a file in which each line has an index for the eid to use, and a set of pseudo sessions to use
-idx_list="$out_dir/idx_list.txt"
-
-# TODO: write to idx_list.txt:
-#0 (-1 1 2 3 4 5 6 7 8 9 10)
-#0 (11 12 13 14 15 16 17 18 19 20)
-#...
-#0 (191 192 193 194 195 196 197 198 199 200)
-#1 (-1 1 2 3 4 5 6 7 8 9 10)
-#1 (11 12 13 14 15 16 17 18 19 20)
-#...
-#353 (191 192 193 194 195 196 197 198 199 200)
-
-# Get the total number of jobs
-n_jobs=$(wc -l $idx_list)
-
-# Launch a Slurm job array with $nfiles entries
-sbatch --array=1-$n_jobs job.slurm $idx_list $out_dir
+echo
+python 01_stage_decode.py $SLURM_ARRAY_TASK_ID

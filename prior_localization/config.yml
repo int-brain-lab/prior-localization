@@ -1,7 +1,7 @@
 # Data QC config
 unit_qc: 1  # minimum QC value for units to enter analysis (between 0 and 1)
-min_units: 1  # minimum number of units per region for a region to enter analysis
-min_trials: 1  # minimum number of trials for a session to be included in analysis
+min_units: 5  # minimum number of units per region for a region to enter analysis
+min_trials: 250  # minimum number of trials for a session to be included in analysis
 
 # Decoding config
 estimator: Lasso  # possible values: LinearRegression, Lasso, Ridge, LogisticRegression,
