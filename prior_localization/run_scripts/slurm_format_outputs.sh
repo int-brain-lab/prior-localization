@@ -20,4 +20,4 @@ echo
 # change to conda  => which python
 #python pipelines/01_cache_ephys_slurm.py
 #python pipelines/11_format_slurm_batched.py
-python  pipelines/06_format_slurm.py
+python  format_slurm_outputs.py
