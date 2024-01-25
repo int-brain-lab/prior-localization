@@ -32,6 +32,7 @@ session_id = bwm_df.eid.unique()[session_idx]
 subject = bwm_df[bwm_df.eid == session_id].subject.unique()[0]
 # We are merging probes per session, therefore using a list of all probe names of a session as input
 probe_name = list(bwm_df[bwm_df.eid == session_id].probe_name)
+probe_name = probe_name[0] if len(probe_name) == 1 else probe_name
 
 pseudo_ids = (
         np.arange(job_id * N_PSEUDO_PER_JOB, (job_id + 1) * N_PSEUDO_PER_JOB) + 1

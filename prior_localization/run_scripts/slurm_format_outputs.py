@@ -2,14 +2,13 @@
 #SBATCH --job-name=decoding
 #SBATCH --output=logs/slurm/decoding.%A.%a.out
 #SBATCH --error=logs/slurm/decoding.%A.%a.err
-#SBATCH --partition=shared-cpu
-#SBATCH --array=1-5592%500
-#SBATCH --mem=20000
-#SBATCH --time=12:00:00
-# 1600/4=400
+#SBATCH --partition=public-bigmem
+#SBATCH --array=1-1:1
+#SBATCH --mem=120000
+#SBATCH --time=72:00:00
 
 source /home/users/f/findling/.bash_profile
-conda activate iblenv2
+mamba activate iblenv
 
 # extracting settings from $SLURM_ARRAY_TASK_ID
 echo index $SLURM_ARRAY_TASK_ID
@@ -18,4 +17,7 @@ export PYTHONPATH="$PWD":$PYTHONPATH
 # calling script
 
 echo
-python run_ephys_decoding.py $SLURM_ARRAY_TASK_ID
+# change to conda  => which python
+#python pipelines/01_cache_ephys_slurm.py
+#python pipelines/11_format_slurm_batched.py
+python  pipelines/06_format_slurm.py
