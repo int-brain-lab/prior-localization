@@ -26,9 +26,6 @@ class TestEphysDecoding(unittest.TestCase):
     def compare_target_test(self, results_fit_session, probe):
         for f in results_fit_session:
             region = f.name.split('_')[0]
-            # This failed for uninteresting regions
-            if region == 'VPM':
-                continue
             with open(f, 'rb') as fb:
                 predicted_fit = pickle.load(fb)['fit']
             for key in ['Rsquared_test_full', 'predictions_test']:
