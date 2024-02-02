@@ -2,9 +2,9 @@
 #SBATCH --account=stats
 #SBATCH -c 8
 #SBATCH --job-name=decoding
-#SBATCH --output=logs/slurm/decoding.%A.%a.out
-#SBATCH --error=logs/slurm/decoding.%A.%a.err
-#SBATCH --array=1-5
+#SBATCH --output=/moto/stats/users/mw3323/logs/slurm/decoding.%A.%a.out
+#SBATCH --error=/moto/stats/users/mw3323/logs/slurm/decoding.%A.%a.err
+#SBATCH --array=1-3
 #SBATCH --mem=32GB
 #SBATCH --time=1:00:00
 

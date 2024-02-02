@@ -44,6 +44,8 @@ binsize = None
 n_bins_lag = None
 n_runs = 10
 
+target = 'stimside'
+
 if target == 'stimside':
     align_event = 'stimOn_times'
     time_window = (0.0, 0.1)
