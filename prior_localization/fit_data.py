@@ -38,8 +38,8 @@ config = check_config()
 
 def fit_session_ephys(
         one, session_id, subject, probe_name, output_dir, pseudo_ids=None, target='pLeft', align_event='stimOn_times',
-        time_window=(-0.6, -0.1), binsize=None, n_bins_lag=None, model='optBay', n_runs=10, compute_neurometrics=False,
-        motor_residuals=False, stage_only=False, integration_test=False,
+        time_window=(-0.6, -0.1), binsize=None, n_bins_lag=None, model='optBay', n_runs=10, estimator=None,
+        compute_neurometrics=False, motor_residuals=False, stage_only=False, integration_test=False,
 ):
     """
     Fits a single session for ephys data.
@@ -76,6 +76,8 @@ def fit_session_ephys(
      Model to be decoded, options are {optBay, actKernel, stimKernel, oracle}, default is optBay
     n_runs: int
      Number of times to repeat full nested cross validation with different folds
+    estimator : str
+     Ridge, LogisticRegression, Lasso
     compute_neurometrics: bool
      Whether to compute neurometric shift and slopes (cf. Fig 3 of the paper)
     motor_residuals: bool
@@ -92,15 +94,22 @@ def fit_session_ephys(
      List of paths to the results files
     """
 
+    np.random.seed(str2int(session_id) + np.sum(pseudo_ids))
+
     # Check some inputs
     pseudo_ids, output_dir = check_inputs(
         model, pseudo_ids, target, output_dir, config, logger, compute_neurometrics, motor_residuals
     )
 
+    # Overwrite config
+    if estimator is not None:
+        config['estimator'] = estimator
+        config = check_config(config)
+
     # Load trials data and compute mask
     sl = SessionLoader(one, session_id)
     sl.load_trials()
-    trials_mask = compute_mask(sl.trials, align_event=align_event, min_rt=0.08, max_rt=None, n_trials_crop_end=0)
+    trials_mask = compute_mask(sl.trials, align_event=align_event, min_rt=0.08, max_rt=2.0, n_trials_crop_end=0)
     intervals = np.vstack([sl.trials[align_event] + time_window[0], sl.trials[align_event] + time_window[1]]).T
     if target in ['wheel-speed', 'wheel-velocity']:
         # add behavior signal to df and update trials mask to reflect trials with signal issues

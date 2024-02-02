@@ -5,7 +5,7 @@ from brainwidemap.bwm_loading import bwm_query
 from prior_localization.fit_data import fit_session_ephys
 
 #### USER SETTINGS, ADAPT THESE TO YOUR CLUSTER ###
-input_dir = Path.home().joinpath('prior', 'inputs')
+input_dir = Path('/moto/stats/users/mw3323/data')
 ###################################################
 
 # Here we use and online ONE instance because we need to actually access the database

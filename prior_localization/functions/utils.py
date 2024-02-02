@@ -187,11 +187,13 @@ def check_inputs(
     return pseudo_ids, output_dir
 
 
-def check_config():
+def check_config(config=None):
     """Load config yaml and perform some basic checks"""
     # Get config
-    with open(Path(__file__).parent.parent.joinpath('config.yml'), "r") as config_yml:
-        config = yaml.safe_load(config_yml)
+    if config is None:
+        with open(Path(__file__).parent.parent.joinpath('config.yml'), "r") as config_yml:
+            config = yaml.safe_load(config_yml)
+
     # Estimator from scikit learn
     try:
         config['estimator'] = getattr(sklm, config['estimator'])
@@ -201,6 +203,8 @@ def check_config():
         raise e
     if config['estimator'] == sklm.LogisticRegression:
         config['estimator_kwargs'] = {**config['estimator_kwargs'], 'penalty': 'l1', 'solver': 'liblinear'}
+        config['balanced_weighting'] = True
+
     # Hyperparameter estimation
     config['use_native_sklearn_for_hyperparam_estimation'] = (config['estimator'] == sklm.Ridge)
     config['hparam_grid'] = ({"C": np.array([0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10])}

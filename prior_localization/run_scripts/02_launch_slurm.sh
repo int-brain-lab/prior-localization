@@ -1,12 +1,13 @@
 #!/bin/bash
 
 #### USER SETTINGS, ADAPT THESE TO YOUR CLUSTER ###
-out_dir=/mnt/ibl/quarantine/prior/ephys
+out_dir=/moto/stats/users/mw3323/results
 ###################################################
 
 n_sessions=354  # number of unique eids in the dataframe that we will index in
 n_pseudo=200  # number of pseudo sessions to generate for each real session
 n_per_job=10  # number of (pseudo)sessions to fit per job on the cluster
+target=stimside
 
 mkdir -p $out_dir
 
@@ -27,4 +28,4 @@ idx_list="$out_dir/idx_list.txt"
 n_jobs=$(wc -l $idx_list)
 
 # Launch a Slurm job array with $nfiles entries
-sbatch --array=1-$n_jobs job.slurm $idx_list $out_dir
+sbatch --array=1-$n_jobs job.slurm $idx_list $out_dir $target
