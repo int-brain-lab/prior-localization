@@ -4,7 +4,7 @@
 #SBATCH --job-name=decoding
 #SBATCH --output=/moto/stats/users/mw3323/logs/slurm/decoding.%A.%a.out
 #SBATCH --error=/moto/stats/users/mw3323/logs/slurm/decoding.%A.%a.err
-#SBATCH --array=1-3
+#SBATCH --array=1-51
 #SBATCH --mem=32GB
 #SBATCH --time=1:00:00
 
@@ -14,7 +14,6 @@ module load anaconda
 echo index $SLURM_ARRAY_TASK_ID
 
 export PYTHONPATH="$PWD":$PYTHONPATH
-# calling script
 
 echo
 python run_ephys_decoding_tmp.py $SLURM_ARRAY_TASK_ID

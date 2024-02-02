@@ -14,7 +14,9 @@ except:
 
 
 N_PSEUDO_PER_JOB = 10
-output_dir = "/moto/stats/users/mw3323/results"
+
+target = 'stimside'
+output_dir = f"/moto/stats/users/mw3323/results/{target}"
 
 # Create an offline ONE instance, we don't want to hit the database when running so many jobs in parallel and have
 # downloaded the data before
@@ -43,8 +45,6 @@ if 1 in pseudo_ids:
 binsize = None
 n_bins_lag = None
 n_runs = 10
-
-target = 'stimside'
 
 if target == 'stimside':
     align_event = 'stimOn_times'
