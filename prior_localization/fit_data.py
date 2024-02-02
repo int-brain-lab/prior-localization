@@ -104,7 +104,8 @@ def fit_session_ephys(
     # Overwrite config
     if estimator is not None:
         config['estimator'] = estimator
-        config = check_config(config)
+        check_config(config)
+        print(config)
 
     # Load trials data and compute mask
     sl = SessionLoader(one, session_id)
