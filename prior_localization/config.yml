@@ -5,7 +5,7 @@ min_trials: 1  # minimum number of trials for a session to be included in analys
 
 # Decoding config
 estimator: Ridge  # possible values: LinearRegression, Lasso, Ridge, LogisticRegression,
-estimator_kwargs: {tol: 0.0001, max_iter: 20000, fit_intercept: True}
+estimator_kwargs: {tol: 0.0001, max_iter: 1000, fit_intercept: True}
 binarization_value: null # threshold to binarize the target -> could be useful with logistic regression estimator
 shuffle: True
 balanced_weighting: True
