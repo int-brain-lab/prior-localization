@@ -93,6 +93,38 @@ def compute_mask(trials_df, align_event, min_rt=0.08, max_rt=None, n_trials_crop
     return mask
 
 
+def compute_target_mask(target_vals, target):
+    """
+    Computes a boolean array which is False where target indicies should be excluded and True otherwise.
+
+    Parameters
+    ----------
+    target_vals : array of scalar values for each trial. does not allow for multiple values per trial
+    target : str
+
+    Returns
+    ----------
+    boolean numpy array
+
+    """
+    if target == 'stimside':
+        valwin = (-0.01, 0.01)  # remove 0-contrast trials when decoding stimulus side
+    else:
+        valwin = (None, None)
+
+    target_mask_lb = None if valwin[0] is None else target_vals < valwin[0]
+    target_mask_ub = None if valwin[1] is None else target_vals > valwin[1]
+    if (target_mask_lb is not None) and (target_mask_ub is not None):
+        target_mask = target_mask_lb | target_mask_ub
+    elif target_mask_lb is not None:
+        target_mask = target_mask_lb
+    elif target_mask_ub is not None:
+        target_mask = target_mask_ub
+    else:
+        target_mask = np.ones(len(target_vals), dtype=bool)
+    return target_mask
+
+
 def average_data_in_epoch(times, values, trials_df, align_event='stimOn_times', epoch=(-0.6, -0.1)):
     """
     Aggregate values in a given epoch relative to align_event for each trial. For trials for which the align_event
@@ -187,12 +219,11 @@ def check_inputs(
     return pseudo_ids, output_dir
 
 
-def check_config(config=None):
+def check_config():
     """Load config yaml and perform some basic checks"""
     # Get config
-    if config is None:
-        with open(Path(__file__).parent.parent.joinpath('config.yml'), "r") as config_yml:
-            config = yaml.safe_load(config_yml)
+    with open(Path(__file__).parent.parent.joinpath('config.yml'), "r") as config_yml:
+        config = yaml.safe_load(config_yml)
 
     # Estimator from scikit learn
     try:
@@ -263,22 +294,26 @@ def spatial_down_sample(stack, pixelSize=20):
     return downsampled_im
 
 
-def subtract_motor_residuals(motor_signals, all_targets, trials_mask):
+def subtract_motor_residuals(motor_signals, all_targets, all_masks):
     """Subtract predictions based on motor signal from predictions as residuals from the behavioural targets"""
-    # Update trials mask with possible nans from motor signal
-    trials_mask = trials_mask & ~np.any(np.isnan(motor_signals), axis=1)
     # Compute motor predictions and subtract them from targets
     new_targets = []
-    for set_targets in all_targets:
-        new_set = []
-        for target_data in set_targets:
-            clf = sklm.RidgeCV(alphas=[1e-3, 1e-2, 1e-1]).fit(motor_signals[trials_mask], target_data[trials_mask])
-            motor = np.full_like(trials_mask, np.nan)
-            motor[trials_mask] = clf.predict(motor_signals[trials_mask])
-            new_set.append(target_data - motor)
-        new_targets.append(new_set)
+    new_masks = []
+    for set_targets, set_masks in zip(all_targets, all_masks):
+        new_set_targets = []
+        new_set_masks = []
+        for target_data, target_mask in zip(set_targets, set_masks):
+            # update mask with possible nans from motor signal
+            target_mask = target_mask & ~np.any(np.isnan(motor_signals), axis=1)
+            clf = sklm.RidgeCV(alphas=[1e-3, 1e-2, 1e-1]).fit(motor_signals[target_mask], target_data[target_mask])
+            motor = np.full_like(target_mask, np.nan)
+            motor[target_mask] = clf.predict(motor_signals[target_mask])
+            new_set_targets.append(target_data - motor)
+            new_set_masks.append(target_mask)
+        new_targets.append(new_set_targets)
+        new_masks.append(new_set_masks)
 
-    return new_targets, trials_mask
+    return new_targets, new_masks
 
 
 def format_data_for_decoding(ys, Xs):

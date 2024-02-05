@@ -101,12 +101,6 @@ def fit_session_ephys(
         model, pseudo_ids, target, output_dir, config, logger, compute_neurometrics, motor_residuals
     )
 
-    # # Overwrite config
-    # if estimator is not None:
-    #     config['estimator'] = estimator
-    #     check_config(config)
-    #     print(config)
-
     # Load trials data and compute mask
     sl = SessionLoader(one, session_id)
     sl.load_trials()
@@ -131,7 +125,7 @@ def fit_session_ephys(
     n_pseudo_sets = 1 if actual_regions is None else len(actual_regions)
 
     # Compute or load behavior targets
-    all_trials, all_targets, trials_mask, all_neurometrics = prepare_behavior(
+    all_trials, all_targets, all_masks, all_neurometrics = prepare_behavior(
         session_id, subject, sl.trials, trials_mask, pseudo_ids=pseudo_ids, n_pseudo_sets=n_pseudo_sets,
         output_dir=output_dir, model=model, target=target, compute_neurometrics=compute_neurometrics,
         integration_test=integration_test)
@@ -139,7 +133,7 @@ def fit_session_ephys(
     # Remove the motor residuals from the targets if indicated
     if motor_residuals:
         motor_signals = prepare_motor(one, session_id, time_window=time_window)
-        all_targets, trials_mask = subtract_motor_residuals(motor_signals, all_targets, trials_mask)
+        all_targets, all_masks = subtract_motor_residuals(motor_signals, all_targets, all_masks)
 
     # If we are only staging data, we are done here
     if stage_only:
@@ -155,19 +149,23 @@ def fit_session_ephys(
 
         # Apply mask to targets
         if isinstance(all_targets[i][0], list):
-            targets_masked = [[t[m] for m in np.squeeze(np.where(trials_mask))] for t in all_targets[i]]
+            targets_masked = [
+                [t[m_] for m_ in np.squeeze(np.where(m))] for t, m in zip(all_targets[i], all_masks[i])
+            ]
         else:
-            targets_masked = [t[trials_mask] for t in all_targets[i]]
+            targets_masked = [t[m] for t, m in zip(all_targets[i], all_masks[i])]
 
         # Apply mask to ephys data
         if isinstance(data_epoch[0], list):
-            data_masked = [data_epoch[i][m] for m in np.squeeze(np.where(trials_mask))]
+            data_masked = [
+                [data_epoch[i][m_] for m_ in np.squeeze(np.where(m))] for m in all_masks[i]
+            ]
         else:
-            data_masked = data_epoch[i][trials_mask]
+            data_masked = [data_epoch[i][m] for m in all_masks[i]]
 
         # Fit
         fit_results = fit_target(
-            data_to_fit=data_masked,
+            all_data=data_masked,
             all_targets=targets_masked,
             all_trials=all_trials[i],
             n_runs=n_runs,
@@ -180,7 +178,7 @@ def fit_session_ephys(
 
         # Add the mask to fit results
         for fit_result in fit_results:
-            fit_result['mask'] = trials_mask if config['save_predictions'] else None
+            fit_result['mask'] = all_masks[i] if config['save_predictions'] else None
 
         # Create output paths and save
         region_str = config['regions'] if (config['regions'] == 'all_regions') or (
@@ -508,7 +506,7 @@ def fit_session_motor(
 
 
 def fit_target(
-        data_to_fit, all_targets, all_trials, n_runs, all_neurometrics=None, pseudo_ids=None, cluster_ids=None,
+        all_data, all_targets, all_trials, n_runs, all_neurometrics=None, pseudo_ids=None, cluster_ids=None,
         base_rng_seed=0, integration_test=False,
 ):
     """
@@ -516,7 +514,7 @@ def fit_target(
 
     Parameters
     ----------
-    data_to_fit : list of np.ndarray
+    all_data : list of np.ndarray
         List of neural or other data, each element is a (n_trials, n_units) array with the averaged neural activity
     all_targets : list of np.ndarray
         List of behavior targets, each element is a (n_trials,) array with the behavior targets for one (pseudo)session
@@ -544,7 +542,8 @@ def fit_target(
     if not all_neurometrics:
         all_neurometrics = [None] * len(all_targets)
     fit_results = []
-    for targets, trials, neurometrics, pseudo_id in zip(all_targets, all_trials, all_neurometrics, pseudo_ids):
+    for targets, data, trials, neurometrics, pseudo_id in zip(
+            all_targets, all_data, all_trials, all_neurometrics, pseudo_ids):
         # run decoders
         for i_run in range(n_runs):
             # set seed for reproducibility
@@ -557,7 +556,7 @@ def fit_target(
                     rng_seed = base_rng_seed + pseudo_id * n_runs + i_run
             fit_result = decode_cv(
                 ys=targets,
-                Xs=data_to_fit,
+                Xs=data,
                 estimator=config['estimator'],
                 estimator_kwargs=config['estimator_kwargs'],
                 hyperparam_grid=config['hparam_grid'],

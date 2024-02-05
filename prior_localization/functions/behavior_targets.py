@@ -144,8 +144,11 @@ def compute_beh_target(trials_df, session_id, subject, model, target, behavior_p
         if target == 'signcont':
             return out
         elif target == 'stimside':
-            out = (out > 0) * 1
-            return out
+            # return vals in {-1, 0, 1}
+            out_1 = out.copy()
+            out_1[out < 0] = -1
+            out_1[out > 0] = 1
+            return out_1
         else:
             return np.abs(out)
     if target == 'choice':
