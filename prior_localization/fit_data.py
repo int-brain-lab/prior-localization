@@ -9,6 +9,7 @@ from sklearn.linear_model import RidgeCV, Ridge, Lasso, LassoCV
 from sklearn.utils.class_weight import compute_sample_weight
 
 from brainbox.io.one import SessionLoader
+from brainwidemap.bwm_loading import load_trials_and_mask
 
 from prior_localization.prepare_data import (
     prepare_ephys,
@@ -104,7 +105,12 @@ def fit_session_ephys(
     # Load trials data and compute mask
     sl = SessionLoader(one, session_id)
     sl.load_trials()
-    trials_mask = compute_mask(sl.trials, align_event=align_event, min_rt=0.08, max_rt=2.0, n_trials_crop_end=0)
+    # trials_mask = compute_mask(sl.trials, align_event=align_event, min_rt=0.08, max_rt=2.0, n_trials_crop_end=0)
+    _, trials_mask = load_trials_and_mask(
+        one=one, eid=session_id, sess_loader=sl, min_rt=0.08, max_rt=2.0,
+        min_trial_len=None, max_trial_len=None,
+        exclude_nochoice=True, exclude_unbiased=False,
+    )
     intervals = np.vstack([sl.trials[align_event] + time_window[0], sl.trials[align_event] + time_window[1]]).T
     if target in ['wheel-speed', 'wheel-velocity']:
         # add behavior signal to df and update trials mask to reflect trials with signal issues
@@ -171,7 +177,6 @@ def fit_session_ephys(
             n_runs=n_runs,
             all_neurometrics=all_neurometrics[i],
             pseudo_ids=pseudo_ids,
-            cluster_ids=cluster_ids[i],
             base_rng_seed=0,  # str2int(session_id + '_'.join(actual_regions[i])),
             integration_test=integration_test,
         )
@@ -193,6 +198,7 @@ def fit_session_ephys(
             "probe": probe_str,
             "region": actual_regions[i],
             "N_units": n_units[i],
+            "cluster_uuids": cluster_ids[i],
         }
         with open(filename, "wb") as fw:
             pickle.dump(outdict, fw)
@@ -506,7 +512,7 @@ def fit_session_motor(
 
 
 def fit_target(
-        all_data, all_targets, all_trials, n_runs, all_neurometrics=None, pseudo_ids=None, cluster_ids=None,
+        all_data, all_targets, all_trials, n_runs, all_neurometrics=None, pseudo_ids=None,
         base_rng_seed=0, integration_test=False,
 ):
     """
@@ -528,8 +534,6 @@ def fit_target(
     pseudo_ids : list of int or None
         List of pseudo session ids, -1 indicates the actual session. If None, run only on actual session.
         Default is None.
-    cluster_ids : list of str or None
-        cluster uuids for the provided neural data
     base_rng_seed : int
         seed that will be added to run- and pseudo_id-specific seeds
     integration_test : bool
@@ -571,7 +575,6 @@ def fit_target(
             fit_result["trials_df"] = trials
             fit_result["pseudo_id"] = pseudo_id
             fit_result["run_id"] = i_run
-            fit_result["cluster_uuids"] = cluster_ids
 
             if neurometrics:
                 fit_result["full_neurometric"], fit_result["fold_neurometric"] = get_neurometric_parameters(

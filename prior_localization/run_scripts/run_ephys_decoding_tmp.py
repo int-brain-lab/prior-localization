@@ -15,9 +15,9 @@ except:
 
 N_PSEUDO_PER_JOB = 1  # 10
 
-target = 'stimside'
+target = 'choice'
 output_dir = f"/moto/stats/users/mw3323/results/{target}"
-# output_dir = f"/media/mattw/ibl2/decoding_bwm/prior_codebase_v2/{target}"
+# output_dir = f"/media/mattw/ibl2/decoding_bwm/prior_codebase/{target}"
 
 # Create an offline ONE instance, we don't want to hit the database when running so many jobs in parallel and have
 # downloaded the data before
