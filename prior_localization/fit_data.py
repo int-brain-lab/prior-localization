@@ -101,11 +101,11 @@ def fit_session_ephys(
         model, pseudo_ids, target, output_dir, config, logger, compute_neurometrics, motor_residuals
     )
 
-    # Overwrite config
-    if estimator is not None:
-        config['estimator'] = estimator
-        check_config(config)
-        print(config)
+    # # Overwrite config
+    # if estimator is not None:
+    #     config['estimator'] = estimator
+    #     check_config(config)
+    #     print(config)
 
     # Load trials data and compute mask
     sl = SessionLoader(one, session_id)
@@ -167,8 +167,16 @@ def fit_session_ephys(
 
         # Fit
         fit_results = fit_target(
-            data_masked, targets_masked, all_trials[i], n_runs, all_neurometrics[i], pseudo_ids, cluster_ids[i],
-            base_rng_seed=str2int(session_id + '_'.join(actual_regions[i])), integration_test=integration_test)
+            data_to_fit=data_masked,
+            all_targets=targets_masked,
+            all_trials=all_trials[i],
+            n_runs=n_runs,
+            all_neurometrics=all_neurometrics[i],
+            pseudo_ids=pseudo_ids,
+            cluster_ids=cluster_ids[i],
+            base_rng_seed=0,  # str2int(session_id + '_'.join(actual_regions[i])),
+            integration_test=integration_test,
+        )
 
         # Add the mask to fit results
         for fit_result in fit_results:
