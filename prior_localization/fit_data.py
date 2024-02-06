@@ -1,7 +1,6 @@
 import logging
 import pickle
 import numpy as np
-import pandas as pd
 
 from sklearn import linear_model as sklm
 from sklearn.metrics import accuracy_score, balanced_accuracy_score, r2_score

@@ -43,7 +43,7 @@ if 1 in pseudo_ids:
 
 # Run the decoding for the current set of pseudo ids.
 results = fit_session_ephys(
-        one, session_id, subject, probe_name, output_dir=output_dir, pseudo_ids=pseudo_ids, target='pLeft',
+        one, session_id, subject, probe_name, output_dir=output_dir, pseudo_ids=pseudo_ids, target=target,
         align_event='stimOn_times', time_window=(-0.6, -0.1), model='optBay', n_runs=10, compute_neurometrics=False,
         motor_residuals=False
 )
