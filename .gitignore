@@ -108,6 +108,7 @@ coverage.xml
 *.py,cover
 .hypothesis/
 .pytest_cache/
+prior_localization/tests/fixtures/
 
 # Translations
 *.mo
