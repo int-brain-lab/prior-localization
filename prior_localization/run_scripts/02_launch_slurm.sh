@@ -1,17 +1,20 @@
 #!/bin/bash
+#SBATCH --account=stats
+#SBATCH -c 8
 #SBATCH --job-name=decoding
-#SBATCH --output=logs/slurm/decoding.%A.%a.out
-#SBATCH --error=logs/slurm/decoding.%A.%a.err
-#SBATCH --partition=shared-cpu
-#SBATCH --mem=128G
-#SBATCH --ntasks=1  # run one thing per job
-#SBATCH --time=12:00:00
+#SBATCH --output=/moto/stats/users/mw3323/logs/slurm/decoding.%A.%a.out
+#SBATCH --error=/moto/stats/users/mw3323/logs/slurm/decoding.%A.%a.err
+#SBATCH --array=1-51
+#SBATCH --mem=32GB
+#SBATCH --time=1:00:00
 
-out_dir=/mnt/ibl/quarantine/prior/ephys
+module load anaconda
+
+out_dir=/moto/stats/users/m23323/results
 n_sessions=354  # number of unique eids in the dataframe that we will index in
 n_pseudo=200  # number of pseudo sessions to generate for each real session
 n_per_job=10  # number of (pseudo)sessions to fit per job on the cluster
-target=pLeft  # target to fit
+target=stimside  # target to fit
 
 # Potentially activate env here
 

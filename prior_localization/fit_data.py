@@ -104,7 +104,7 @@ def fit_session_ephys(
     sl = SessionLoader(one, session_id)
     sl.load_trials()
     _, trials_mask = load_trials_and_mask(
-        one=one, eid=session_id, sess_loader=sl, min_rt=0.08, max_rt=None,
+        one=one, eid=session_id, sess_loader=sl, min_rt=0.08, max_rt=2.0,
         min_trial_len=None, max_trial_len=None,
         exclude_nochoice=True, exclude_unbiased=False,
     )

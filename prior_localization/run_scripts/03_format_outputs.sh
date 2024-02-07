@@ -1,20 +1,20 @@
 #!/bin/bash
+#SBATCH --account=stats
+#SBATCH -c 8
 #SBATCH --job-name=formatting
-#SBATCH --output=logs/slurm/formatting.%A.%a.out
-#SBATCH --error=logs/slurm/formatting.%A.%a.err
-#SBATCH --partition=shared-cpu
-#SBATCH --mem=128G
-#SBATCH --ntasks=1  # run one thing per job
-#SBATCH --time=1:00:00
+#SBATCH --output=/moto/stats/users/mw3323/logs/slurm/formatting.%A.%a.out
+#SBATCH --error=/moto/stats/users/mw3323/logs/slurm/formatting.%A.%a.err
+#SBATCH --mem=128GB
+#SBATCH --time=2:00:00
 
-# Potentially activate env here
+module load anaconda
 
 ################################################################################################################
 # ADAPT SETTINGS ABOVE THIS
 ################################################################################################################
 
-out_dir=/mnt/ibl/quarantine/prior/ephys
-target=pLeft  # target to fit
+out_dir=/moto/stats/users/m23323/results
+target=stimside  # target to fit
 
 # Launch slurm job
 sbatch python .format_outputs "$out_dir" "$target"
