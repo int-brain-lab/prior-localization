@@ -14,7 +14,8 @@ args = parser.parse_args()
 output_dir = str(args.output_dir)
 target = str(args.target)
 
-finished = glob.glob(str(Path(output_dir).joinpath(target, "*", "*", "*")))
+output_dir = Path(output_dir).joinpath(target)
+finished = glob.glob(str(output_dir.joinpath("*", "*", "*")))
 
 print("nb files:", len(finished))
 

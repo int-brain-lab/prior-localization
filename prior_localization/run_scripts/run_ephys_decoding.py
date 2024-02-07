@@ -1,5 +1,6 @@
 import argparse
 import numpy as np
+import os
 
 from one.api import ONE
 from brainwidemap.bwm_loading import bwm_query
@@ -20,22 +21,28 @@ n_per_job = int(args.n_per_job)
 output_dir = str(args.output_dir)
 target = str(args.target)
 
+output_dir = os.path.join(output_dir, target)
+
 # Get session idx
 session_idx = int(np.ceil(job_idx / (n_pseudo / n_per_job)) - 1)
 
-# Set of pseudo sessions for one session, first session is always the real one, indicated by -1
+# Set of pseudo sessions for one session
 all_pseudo = list(range(n_pseudo))
-all_pseudo[0] = -1
 # Select relevant pseudo sessions for this job
 pseudo_idx = int((job_idx - 1) % (n_pseudo / n_per_job) * n_per_job)
 pseudo_ids = all_pseudo[pseudo_idx:pseudo_idx+n_per_job]
+# Shift by 1; old array starts at 0, pseudo ids should start at 1
+pseudo_ids = list(np.array(pseudo_ids) + 1)
+# Add real session to first pseudo block
+if pseudo_idx == 0:
+    pseudo_ids = [-1] + pseudo_ids
 
 # Create an offline ONE instance, we don't want to hit the database when running so many jobs in parallel and have
 # downloaded the data before
 one = ONE(base_url='https://openalyx.internationalbrainlab.org', mode='local')
 
 # Get info for respective eid from bwm_dataframe
-bwm_df = bwm_query(one=one, freeze='2023_12_bwm_release')
+bwm_df = bwm_query(one=one, freeze='2022_10_bwm_release')
 session_id = bwm_df.eid.unique()[session_idx]
 subject = bwm_df[bwm_df.eid == session_id].subject.unique()[0]
 # We are merging probes per session, therefore using a list of all probe names of a session as input
@@ -95,3 +102,6 @@ results = fit_session_ephys(
     align_event=align_event, time_window=time_window, model=model, n_runs=n_runs,
     compute_neurometrics=False, motor_residuals=False,
 )
+
+# Print out success string so we can easily sweep through error logs
+print('Job successful')

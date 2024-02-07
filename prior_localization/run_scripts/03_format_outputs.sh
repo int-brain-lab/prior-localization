@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #SBATCH --account=stats
 #SBATCH -c 8
 #SBATCH --job-name=formatting
@@ -13,8 +13,8 @@ module load anaconda
 # ADAPT SETTINGS ABOVE THIS
 ################################################################################################################
 
-out_dir=/moto/stats/users/m23323/results
+out_dir=/moto/stats/users/mw3323/results
 target=stimside  # target to fit
 
 # Launch slurm job
-sbatch python .format_outputs "$out_dir" "$target"
+python format_outputs.py "$out_dir" "$target"
