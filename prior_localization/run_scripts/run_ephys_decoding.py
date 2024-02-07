@@ -1,21 +1,36 @@
 import argparse
+import numpy as np
 
 from one.api import ONE
 from brainwidemap.bwm_loading import bwm_query
 from prior_localization.fit_data import fit_session_ephys
 
-
 # Parse input arguments
 parser = argparse.ArgumentParser(description='Run decoding')
+parser.add_argument('job_idx')
+parser.add_argument('n_pseudo')
+parser.add_argument('n_per_job')
 parser.add_argument('output_dir')
-parser.add_argument('session_idx')
-parser.add_argument('pseudo_ids', nargs='+')
 parser.add_argument('target')
+
 args = parser.parse_args()
+job_idx = int(args.job_idx)
+n_pseudo = int(args.n_pseudo)
+n_per_job = int(args.n_per_job)
 output_dir = str(args.output_dir)
-session_idx = int(args.session_idx)
-pseudo_ids = [int(p) for p in args.pseudo_id]
-target = str(args.target)
+target = str(args.output_dir)
+
+# TODO: settings for the particular target
+
+# Get session idx
+session_idx = int(np.ceil(job_idx / (n_pseudo / n_per_job)) - 1)
+
+# Set of pseudo sessions for one session, first session is always the real one, indicated by -1
+all_pseudo = list(range(n_pseudo))
+all_pseudo[0] = -1
+# Select relevant pseudo sessions for this job
+pseudo_idx = int((job_idx - 1) % (n_pseudo / n_per_job) * n_per_job)
+pseudo_ids = all_pseudo[pseudo_idx:pseudo_idx+n_per_job]
 
 # Create an offline ONE instance, we don't want to hit the database when running so many jobs in parallel and have
 # downloaded the data before
