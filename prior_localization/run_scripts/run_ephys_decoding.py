@@ -18,9 +18,7 @@ job_idx = int(args.job_idx)
 n_pseudo = int(args.n_pseudo)
 n_per_job = int(args.n_per_job)
 output_dir = str(args.output_dir)
-target = str(args.output_dir)
-
-# TODO: settings for the particular target
+target = str(args.target)
 
 # Get session idx
 session_idx = int(np.ceil(job_idx / (n_pseudo / n_per_job)) - 1)
@@ -94,6 +92,6 @@ else:
 # Run the decoding for the current set of pseudo ids.
 results = fit_session_ephys(
     one, session_id, subject, probe_name, output_dir=output_dir, pseudo_ids=pseudo_ids, target=target,
-    align_event=align_event, time_window=time_window, model=model, n_runs=n_runs, estimator=estimator,
+    align_event=align_event, time_window=time_window, model=model, n_runs=n_runs,
     compute_neurometrics=False, motor_residuals=False,
 )

@@ -7,7 +7,6 @@
 #SBATCH --ntasks=1  # run one thing per job
 #SBATCH --time=12:00:00
 
-out_dir=/moto/stats/users/mw3323/results
 out_dir=/mnt/ibl/quarantine/prior/ephys
 n_sessions=354  # number of unique eids in the dataframe that we will index in
 n_pseudo=200  # number of pseudo sessions to generate for each real session

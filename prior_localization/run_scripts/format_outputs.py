@@ -1,3 +1,4 @@
+import argparse
 import pickle
 import pandas as pd
 import glob
@@ -5,10 +6,15 @@ from tqdm import tqdm
 import gc
 from pathlib import Path
 
-target = 'stimside'
-output_dir = f"/moto/stats/users/mw3323/results/{target}"
+parser = argparse.ArgumentParser(description='Format outputs')
+parser.add_argument('output_dir')
+parser.add_argument('target')
 
-finished = glob.glob(str(Path(output_dir).joinpath("*", "*", "*")))
+args = parser.parse_args()
+output_dir = str(args.output_dir)
+target = str(args.target)
+
+finished = glob.glob(str(Path(output_dir).joinpath(target, "*", "*", "*")))
 
 print("nb files:", len(finished))
 
