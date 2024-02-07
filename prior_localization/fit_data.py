@@ -330,9 +330,6 @@ def fit_session_widefield(
             base_rng_seed=str2int(session_id + '_'.join(actual_regions[i])),
             integration_test=integration_test,
         )
-        # fit_results = fit_target(
-        #     data_epoch[i]
-        # )
 
         # Add the mask to fit results
         for fit_result in fit_results:
