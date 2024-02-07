@@ -5,8 +5,9 @@ import numpy as np
 
 from one.api import ONE
 from brainbox.io.one import SessionLoader
+from brainwidemap.bwm_loading import load_trials_and_mask
 from prior_localization.prepare_data import prepare_ephys, prepare_behavior, prepare_motor, prepare_pupil
-from prior_localization.functions.utils import average_data_in_epoch, compute_mask
+from prior_localization.functions.utils import average_data_in_epoch
 
 
 class TestEphysInput(unittest.TestCase):
@@ -59,11 +60,16 @@ class TestBehaviorInputs(unittest.TestCase):
     def test_behav_targets(self):
         sl = SessionLoader(self.one, self.eid)
         sl.load_trials()
-        trials_mask = compute_mask(sl.trials, align_event='stimOn_times', min_rt=0.08, max_rt=None, n_trials_crop_end=0)
-        _, all_targets, mask, _ = prepare_behavior(
+        _, trials_mask = load_trials_and_mask(
+            one=self.one, eid=self.eid, sess_loader=sl, min_rt=0.08, max_rt=None,
+            min_trial_len=None, max_trial_len=None,
+            exclude_nochoice=True, exclude_unbiased=False,
+        )
+        _, all_targets, all_masks, _ = prepare_behavior(
             self.eid, self.subject, sl.trials, trials_mask, pseudo_ids=None, output_dir=Path(self.temp_dir.name),
             model='optBay', target='pLeft'
         )
+        mask = all_masks[0][0]
         expected_orig = np.load(self.fixtures_dir.joinpath('behav_target.npy'))
         self.assertTrue(np.allclose(all_targets[0][0][mask], expected_orig, rtol=1e-4))
 
