@@ -23,12 +23,16 @@ target = str(args.target)
 # Get session idx
 session_idx = int(np.ceil(job_idx / (n_pseudo / n_per_job)) - 1)
 
-# Set of pseudo sessions for one session, first session is always the real one, indicated by -1
+# Set of pseudo sessions for one session
 all_pseudo = list(range(n_pseudo))
-all_pseudo[0] = -1
 # Select relevant pseudo sessions for this job
 pseudo_idx = int((job_idx - 1) % (n_pseudo / n_per_job) * n_per_job)
 pseudo_ids = all_pseudo[pseudo_idx:pseudo_idx+n_per_job]
+# Shift by 1; old array starts at 0, pseudo ids should start at 1
+pseudo_ids = list(np.array(pseudo_ids) + 1)
+# Add real session to first pseudo block
+if pseudo_idx == 0:
+    pseudo_ids = [-1] + pseudo_ids
 
 # Create an offline ONE instance, we don't want to hit the database when running so many jobs in parallel and have
 # downloaded the data before
@@ -95,3 +99,6 @@ results = fit_session_ephys(
     align_event=align_event, time_window=time_window, model=model, n_runs=n_runs,
     compute_neurometrics=False, motor_residuals=False,
 )
+
+# Print out success string so we can easily sweep through error logs
+print('Job successful')

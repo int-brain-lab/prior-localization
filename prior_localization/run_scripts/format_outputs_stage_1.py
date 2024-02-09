@@ -1,4 +1,5 @@
 import argparse
+import os
 import pickle
 import pandas as pd
 import glob
@@ -14,7 +15,8 @@ args = parser.parse_args()
 output_dir = str(args.output_dir)
 target = str(args.target)
 
-finished = glob.glob(str(Path(output_dir).joinpath(target, "*", "*", "*")))
+output_dir = Path(output_dir).joinpath(target)
+finished = glob.glob(str(output_dir.joinpath("*", "*", "*")))
 
 print("nb files:", len(finished))
 
@@ -24,6 +26,8 @@ resultslist = []
 
 failed_load = 0
 for fn in tqdm(finished):
+    if os.path.isdir(fn):
+        continue
     try:
         fo = open(fn, "rb")
         result = pickle.load(fo)
@@ -39,10 +43,12 @@ for fn in tqdm(finished):
                 "score_test": result["fit"][i_decoding]["scores_test_full"],
             }
             resultslist.append(tmpdict)
-    except:
+    except Exception as e:
         print(failed_load)
+        print(e)
         failed_load += 1
         pass
+
 print("loading of %i files failed" % failed_load)
 
 resultsdf = pd.DataFrame(resultslist)

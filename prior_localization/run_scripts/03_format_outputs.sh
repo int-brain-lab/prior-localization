@@ -17,4 +17,4 @@ out_dir=/mnt/ibl/quarantine/prior/ephys
 target=pLeft  # target to fit
 
 # Launch slurm job
-sbatch python .format_outputs "$out_dir" "$target"
+python format_outputs.py "$out_dir" "$target"
