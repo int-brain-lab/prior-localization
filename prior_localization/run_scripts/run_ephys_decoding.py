@@ -11,6 +11,7 @@ parser = argparse.ArgumentParser(description='Run decoding')
 parser.add_argument('job_idx')
 parser.add_argument('n_pseudo')
 parser.add_argument('n_per_job')
+parser.add_argument('base_idx')
 parser.add_argument('output_dir')
 parser.add_argument('target')
 
@@ -18,10 +19,13 @@ args = parser.parse_args()
 job_idx = int(args.job_idx)
 n_pseudo = int(args.n_pseudo)
 n_per_job = int(args.n_per_job)
+base_idx = int(args.base_idx)
 output_dir = str(args.output_dir)
 target = str(args.target)
 
 output_dir = os.path.join(output_dir, target)
+
+job_idx += base_idx
 
 # Get session idx
 session_idx = int(np.ceil(job_idx / (n_pseudo / n_per_job)) - 1)

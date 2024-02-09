@@ -1,4 +1,5 @@
 import argparse
+import os
 import pickle
 import pandas as pd
 import glob
@@ -25,6 +26,10 @@ resultslist = []
 
 failed_load = 0
 for fn in tqdm(finished):
+
+    if os.path.isdir(fn):
+        continue
+
     try:
         fo = open(fn, "rb")
         result = pickle.load(fo)
@@ -38,10 +43,12 @@ for fn in tqdm(finished):
                 "pseudo_id": result["fit"][i_decoding]["pseudo_id"],
                 "run_id": result["fit"][i_decoding]["run_id"] + 1,
                 "score_test": result["fit"][i_decoding]["scores_test_full"],
+                "n_trials": sum(result['fit'][i_decoding]['mask'][0]),
             }
             resultslist.append(tmpdict)
-    except:
+    except Exception as e:
         print(failed_load)
+        print(e)
         failed_load += 1
         pass
 print("loading of %i files failed" % failed_load)

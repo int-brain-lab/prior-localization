@@ -14,6 +14,10 @@ fs = [f for f in os.listdir(SLURM_DIR) if check_filename(f, job_name, "err")]
 fs_out = [f for f in os.listdir(SLURM_DIR) if check_filename(f, job_name, "out")]
 print(f'found {len(fs)} matching error files in {SLURM_DIR}')
 print(f'found {len(fs_out)} matching output files in {SLURM_DIR}')
+
+fs.sort()
+fs_out.sort()
+
 conv_warn_files = []
 cancel_files = []
 for f in fs:
