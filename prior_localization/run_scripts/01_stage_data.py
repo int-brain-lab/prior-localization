@@ -25,4 +25,5 @@ for i, session_id in enumerate(bwm_df.eid.unique()):
     probe_name = probe_name[0] if len(probe_name) == 1 else probe_name
     # Run the fit session function with stage only flag to download all needed data, but not perform the decoding
     # No data will be output, but since an output_dir is required, we just use the input dir as a front
-    _ = fit_session_ephys(one, session_id, subject, probe_name, output_dir=input_dir, stage_only=True)
+    # _ = fit_session_ephys(one, session_id, subject, probe_name, output_dir=input_dir, stage_only=True)
+    _ = fit_session_ephys(one, session_id, subject, probe_name, output_dir=input_dir, target='wheel-speed', binsize=0.02, n_bins_lag=1, stage_only=True)

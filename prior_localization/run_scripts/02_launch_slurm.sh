@@ -16,7 +16,7 @@ out_dir=/moto/stats/users/mw3323/results
 n_sessions=354  # number of unique eids in the dataframe that we will index in
 n_pseudo=200  # number of pseudo sessions to generate for each real session
 n_per_job=50  # number of (pseudo)sessions to fit per job on the cluster
-base_idx=0  #708  # add this to the task id; terremoto doesn't allow array values >1000
+base_idx=708  #708  # add this to the task id; terremoto doesn't allow array values >1000
 
 target=choice  # target to fit
 
