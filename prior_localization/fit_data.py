@@ -93,12 +93,12 @@ def fit_session_ephys(
      List of paths to the results files
     """
 
-    np.random.seed(str2int(session_id) + np.sum(pseudo_ids))
-
     # Check some inputs
     pseudo_ids, output_dir = check_inputs(
         model, pseudo_ids, target, output_dir, config, logger, compute_neurometrics, motor_residuals
     )
+
+    np.random.seed(str2int(session_id) + np.sum(pseudo_ids))
 
     # Load trials data and compute mask
     sl = SessionLoader(one, session_id)
