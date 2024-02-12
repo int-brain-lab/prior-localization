@@ -104,6 +104,7 @@ else:
 results = fit_session_ephys(
     one, session_id, subject, probe_name, output_dir=output_dir, pseudo_ids=pseudo_ids, target=target,
     align_event=align_event, time_window=time_window, model=model, n_runs=n_runs,
+    binsize=binsize, n_bins_lag=n_bins_lag,
     compute_neurometrics=False, motor_residuals=False,
 )
 
