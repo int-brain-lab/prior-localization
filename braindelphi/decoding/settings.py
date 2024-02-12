@@ -15,7 +15,7 @@ logger = logging.getLogger("ibllib")
 logger.disabled = True
 
 NEURAL_DTYPE = "ephys" #"widefield"  # 'ephys' or 'widefield'
-DATE = "04-01-2024"  # date 02 with imposter, 03 with fictive
+DATE = "12-02-2024"  # date 02 with imposter, 03 with fictive
 
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
@@ -39,11 +39,11 @@ BINARIZATION_VALUE = (
    None  # to binarize the target -> could be useful with logistic regression estimator
 )
 ESTIMATOR_KWARGS = {"tol": 0.0001, "max_iter": 20000, "fit_intercept": True}
-N_PSEUDO = 400
-N_PSEUDO_PER_JOB = 50
+N_PSEUDO = 500
+N_PSEUDO_PER_JOB = 250
 N_JOBS_PER_SESSION = N_PSEUDO // N_PSEUDO_PER_JOB
 N_RUNS = 10
-MIN_UNITS = 1
+MIN_UNITS = 5
 NB_TRIALS_TAKEOUT_END = 0
 MIN_BEHAV_TRIAS = (
     1 if NEURAL_DTYPE == "ephys" else 1
@@ -51,7 +51,7 @@ MIN_BEHAV_TRIAS = (
 MIN_RT = 0.08  # 0.08  # Float (s) or None
 MAX_RT = 2.0
 SINGLE_REGION = (
-   True # "Widefield" # False  # True  # perform decoding on region-wise or whole brain analysis
+   False # "Widefield" # False  # True  # perform decoding on region-wise or whole brain analysis
 )
 MERGED_PROBES = True # merge probes before performing analysis
 NO_UNBIAS = False  # take out unbiased trials
@@ -62,7 +62,7 @@ FORCE_POSITIVE_NEURO_SLOPES = False
 SAVE_PREDICTIONS = False
 
 # Basically, quality metric on the stability of a single unit. Should have 1 metric per neuron
-QC_CRITERIA = 3 / 3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
+QC_CRITERIA = 3/3  #3 / 3  # 3 / 3  # In {0, 1/3, 2/3, 3/3}
 NORMALIZE_INPUT = False  # take out mean of the neural activity per unit across trials
 NORMALIZE_OUTPUT = False  # take out mean of output to predict
 if NORMALIZE_INPUT or NORMALIZE_OUTPUT:

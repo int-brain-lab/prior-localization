@@ -9,7 +9,7 @@ import gc
 
 SAVE_KFOLDS = False
 
-date =  "03-01-2024" #"02-07-2023" #"06-01-2025"
+date ="06-01-2024" #"02-07-2023" #"06-01-2025"
 finished = glob.glob(
     str(FIT_PATH.joinpath(kwargs["neural_dtype"], "*", "*", "*", "*%s*" % date))
 )

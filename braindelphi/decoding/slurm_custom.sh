@@ -2,10 +2,10 @@
 #SBATCH --job-name=decoding
 #SBATCH --output=logs/slurm/decoding.%A.%a.out
 #SBATCH --error=logs/slurm/decoding.%A.%a.err
-#SBATCH --partition=public-bigmem,shared-bigmem
+#SBATCH --partition=public-bigmem
 #SBATCH --array=1-1:1
 #SBATCH --mem=120000
-#SBATCH --time=12:00:00
+#SBATCH --time=72:00:00
 
 source /home/users/f/findling/.bash_profile
 mamba activate iblenv

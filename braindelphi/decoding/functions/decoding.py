@@ -109,6 +109,8 @@ def fit_eid(neural_dict, trials_df, metadata, dlc_dict=None, pseudo_ids=[-1], **
             set to True for sanity check on being able to predict the next contrast (default False)
     """
 
+    np.random.seed(metadata['my_seed'] + np.sum(pseudo_ids))
+
     print(f"Working on eid : %s" % metadata["eid"])
     filenames = []  # this will contain paths to saved decoding results for this eid
 

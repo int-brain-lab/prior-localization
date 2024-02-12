@@ -19,7 +19,8 @@ except:
 #bwmdf, _ = load_metadata(
 #    CACHE_PATH.joinpath("*_%s_metadata.pkl" % kwargs["neural_dtype"]).as_posix()
 #)
-mypath = "/home/share/pouget_lab/cache_final/2023-12-25 10:10:17.809664_ephys_metadata_BWM_unmerged_final.pkl"
+mypath = "/home/share/pouget_lab/cache_final/2023-12-22 09:43:59.319410_ephys_metadata_BWM_merged_final.pkl"
+#mypath = "/home/share/pouget_lab/cache_final/2023-12-25 10:10:17.809664_ephys_metadata_BWM_unmerged_final.pkl"
 bwmdf = pickle.load(open(mypath, "rb")) 
 
 #eids = [
@@ -48,6 +49,8 @@ if kwargs["neural_dtype"] == "widefield":
     trials_df, neural_dict = regressors
 else:
     trials_df, neural_dict = regressors["trials_df"], regressors
+
+metadata['my_seed'] = index
 
 # metadata['probe_name'] = 'probe00'
 if (job_id + 1) * N_PSEUDO_PER_JOB <= N_PSEUDO:
