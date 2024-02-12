@@ -184,7 +184,7 @@ def check_inputs(
     output_dir = Path(output_dir)
     if not output_dir.exists():
         try:
-           output_dir.mkdir(parents=True)
+           output_dir.mkdir(parents=True, exist_ok=True)
            logger.info(f"Created output_dir: {output_dir}")
         except PermissionError:
             raise PermissionError(f"Following output_dir cannot be created, insufficient permissions: {output_dir}")
