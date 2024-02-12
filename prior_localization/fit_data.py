@@ -39,7 +39,7 @@ config = check_config()
 
 def fit_session_ephys(
         one, session_id, subject, probe_name, output_dir, pseudo_ids=None, target='pLeft', align_event='stimOn_times',
-        time_window=(-0.6, -0.1), binsize=None, n_bins_lag=None, model='optBay', n_runs=10,
+        time_window=(-0.6, -0.1), binsize=None, n_bins_lag=None, n_bins=None, model='optBay', n_runs=10,
         compute_neurometrics=False, motor_residuals=False, stage_only=False, integration_test=False,
 ):
     """
@@ -73,6 +73,8 @@ def fit_session_ephys(
      if None, sum spikes in time_window for decoding; if float, split time window into smaller bins
     n_bins_lag : int or None
      number of lagged timepoints (includes zero lag) for decoding wheel and DLC targets
+    n_bins : int or None
+     number of bins; should be computable from intervals and binsize, but there are occasional rounding errors
     model: str
      Model to be decoded, options are {optBay, actKernel, stimKernel, oracle}, default is optBay
     n_runs: int
@@ -122,7 +124,8 @@ def fit_session_ephys(
 
     # Prepare ephys data
     data_epoch, actual_regions, n_units, cluster_ids = prepare_ephys(
-        one, session_id, probe_name, config['regions'], intervals, binsize=binsize, n_bins_lag=n_bins_lag,
+        one, session_id, probe_name, config['regions'], intervals,
+        binsize=binsize, n_bins_lag=n_bins_lag, n_bins=n_bins,
         qc=config['unit_qc'], min_units=config['min_units'], stage_only=stage_only,
     )
     n_pseudo_sets = 1 if actual_regions is None else len(actual_regions)
