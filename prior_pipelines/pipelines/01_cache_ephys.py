@@ -3,8 +3,8 @@ import logging
 import pickle
 from datetime import datetime as dt
 from pathlib import Path
-from prior_pipelines.pipelines.utils_common_pipelines import load_ephys
-from prior_pipelines.pipelines.utils_common_pipelines import cache_regressors
+from prior_pipelines.pipelines.utils_ephys import load_ephys
+from prior_pipelines.pipelines.utils_ephys import cache_regressors
 
 
 # Third party libraries
@@ -66,8 +66,8 @@ dataset = [
         "subject": x[0],
         "eid": x[1],
         "probe_name": x[2],
-        "meta_file": dataset_futures[-1][0],
-        "reg_file": dataset_futures[-1][1],
+        "meta_file": x[-1][0],
+        "reg_file": x[-1][1],
     }
     for i, x in enumerate(dataset_futures)
 ]
