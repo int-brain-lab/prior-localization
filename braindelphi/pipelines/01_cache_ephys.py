@@ -44,7 +44,7 @@ ALGN_RESOLVED = True
 DATE = str(dt.today())
 QC = True
 TYPE = "primaries"
-MERGE_PROBES = False
+MERGE_PROBES = True
 # End parameters
 
 # Construct params dict from above
@@ -67,21 +67,24 @@ for eid in tqdm(bwm_df.index.unique(level="eid")):
     pids = session_df.pid.to_list()
     probe_names = session_df.probe_name.to_list()
     if MERGE_PROBES:
-        load_outputs = delayed_load(eid, pids, params)
-        save_future = delayed_save(
+        load_outputs = load_ephys(eid, pids, one=one, **params) #delayed_load(eid, pids, params)
+        save_future = cache_regressors(
             subject, eid, "merged_probes", {**params, "type": TYPE}, load_outputs
         )
         dataset_futures.append([subject, eid, "merged_probes", save_future])
     else:
         for (pid, probe_name) in zip(pids, probe_names):
-            # load_outputs = load_ephys(eid, [pid], one=one, **params)
-            # save_future = cache_regressors(subject, eid, probe_name, {**params, "type": TYPE}, load_outputs)
-            load_outputs = delayed_load(eid, [pid], params)
-            save_future = delayed_save(
+            load_outputs = load_ephys(eid, [pid], one=one, **params)
+            save_future = cache_regressors(
                 subject, eid, probe_name, {**params, "type": TYPE}, load_outputs
             )
+            # load_outputs = delayed_load(eid, [pid], params)
+            # save_future = delayed_save(
+            #    subject, eid, probe_name, {**params, "type": TYPE}, load_outputs
+            # )
             dataset_futures.append([subject, eid, probe_name, save_future])
 
+"""
 N_CORES = 5
 
 cluster = SLURMCluster(
@@ -117,6 +120,18 @@ dataset = [
     }
     for i, x in enumerate(dataset_futures)
     if tmp_futures[i].status == "finished"
+]
+"""
+
+dataset = [
+    {
+        "subject": x[0],
+        "eid": x[1],
+        "probe_name": x[2],
+        "meta_file": x[-1][0],
+        "reg_file": x[-1][1],
+    }
+    for i, x in enumerate(dataset_futures)
 ]
 dataset = pd.DataFrame(dataset)
 

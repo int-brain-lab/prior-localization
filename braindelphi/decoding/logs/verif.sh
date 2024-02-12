@@ -1,4 +1,4 @@
-for file in slurm/*61891657*
+for file in slurm/*
 do
         if cat ${file} | grep ERROR
         then echo ${file}

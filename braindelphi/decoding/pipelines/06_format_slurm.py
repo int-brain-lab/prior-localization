@@ -9,7 +9,7 @@ import gc
 
 SAVE_KFOLDS = False
 
-date = "30-01-2023"
+date =  "03-01-2024" #"02-07-2023" #"06-01-2025"
 finished = glob.glob(
     str(FIT_PATH.joinpath(kwargs["neural_dtype"], "*", "*", "*", "*%s*" % date))
 )
@@ -53,17 +53,18 @@ for fn in tqdm(finished):
                 "pseudo_id": result["fit"][i_decoding]["pseudo_id"],
                 "N_units": result["N_units"],
                 "run_id": result["fit"][i_decoding]["run_id"] + 1,
-                "mask": "".join(
-                    [
-                        str(item)
-                        for item in list(result["fit"][i_decoding]["mask"].values * 1)
-                    ]
-                ),
+                #"mask": "".join(
+                #    [
+                #        str(item)
+                #        for item in list(result["fit"][i_decoding]["mask"].values * 1)
+                #    ]
+                #),
                 "R2_test": result["fit"][i_decoding]["Rsquared_test_full"],
-                "prediction": list(result["fit"][i_decoding]["predictions_test"]),
-                "target": list(result["fit"][i_decoding]["target"]),
-                "weights": np.vstack(result["fit"][i_decoding]["weights"]).mean(axis=0).tolist(),
-                "intercepts": np.mean(result["fit"][i_decoding]["intercepts"]),
+                "nb_trials_decoded": result["fit"][i_decoding]["nb_trials_decoded"],
+                #"prediction": list(result["fit"][i_decoding]["predictions_test"]),
+                #"target": list(result["fit"][i_decoding]["target"]),
+                #"weights": np.vstack(result["fit"][i_decoding]["weights"]).mean(axis=0).tolist(),
+                #"intercepts": np.mean(result["fit"][i_decoding]["intercepts"]),
                 # 'perf_allcontrast': perf_allcontrasts,
                 # 'perf_allcontrasts_prevtrial': perf_allcontrasts_prevtrial,
                 # 'perf_0contrast': perf_0contrasts,
@@ -76,16 +77,16 @@ for fn in tqdm(finished):
             #            if 'acc_test_full' in result['fit'][i_decoding].keys():
             #                tmpdict = {**tmpdict, 'acc_test': result['fit'][i_decoding]['acc_test_full'],
             #                           'balanced_acc_test': result['fit'][i_decoding]['balanced_acc_test_full']}
-            if result["fit"][i_decoding]["full_neurometric"] is not None:
-                tmpdict = {
-                    **tmpdict,
-                    **{
-                        idx_neuro: result["fit"][i_decoding]["full_neurometric"][
-                            idx_neuro
-                        ]
-                        for idx_neuro in indexers_neurometric
-                    },
-                }
+            #if result["fit"][i_decoding]["full_neurometric"] is not None:
+            #    tmpdict = {
+            #        **tmpdict,
+            #        **{
+            #            idx_neuro: result["fit"][i_decoding]["full_neurometric"][
+            #                idx_neuro
+            #            ]
+            #            for idx_neuro in indexers_neurometric
+            #        },
+            #    }
             resultslist.append(tmpdict)
 
             if SAVE_KFOLDS:

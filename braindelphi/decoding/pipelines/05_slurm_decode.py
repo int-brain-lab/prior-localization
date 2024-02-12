@@ -13,34 +13,26 @@ except:
     index = 129
     pass
 
-# import most recent cached data
-bwmdf, _ = load_metadata(
-    CACHE_PATH.joinpath("*_%s_metadata.pkl" % kwargs["neural_dtype"]).as_posix()
-)
+#index = np.array([40, 41, 42, 59, 60, 61, 86, 87, 88])[index]
 
-eids = [
-    "07dc4b76-5b93-4a03-82a0-b3d9cc73f412",
-    "09b2c4d1-058d-4c84-9fd4-97530f85baf6",
-    "0c828385-6dd6-4842-a702-c5075f5f5e81",
-    "111c1762-7908-47e0-9f40-2f2ee55b6505",
-    "413a6825-2144-4a50-b3fc-cf38ddd6fd1a",
-    "41431f53-69fd-4e3b-80ce-ea62e03bf9c7",
-    "58b1e920-cfc8-467e-b28b-7654a55d0977",
-    "5d01d14e-aced-4465-8f8e-9a1c674f62ec",
-    "6274dda8-3a59-4aa1-95f8-a8a549c46a26",
-    "8a3a0197-b40a-449f-be55-c00b23253bbf",
-    "90d1e82c-c96f-496c-ad4e-ee3f02067f25",
-    "bda2faf5-9563-4940-a80f-ce444259e47b",
-    "e0928e11-2b86-4387-a203-80c77fab5d52",
-    "e0928e11-2b86-4387-a203-80c77fab5d52",
-]
-bwmdf["dataset_filenames"] = bwmdf["dataset_filenames"][
-    bwmdf["dataset_filenames"].eid.isin(eids)
-]
+# import most recent cached data
+#bwmdf, _ = load_metadata(
+#    CACHE_PATH.joinpath("*_%s_metadata.pkl" % kwargs["neural_dtype"]).as_posix()
+#)
+mypath = "/home/share/pouget_lab/cache_final/2023-12-25 10:10:17.809664_ephys_metadata_BWM_unmerged_final.pkl"
+bwmdf = pickle.load(open(mypath, "rb")) 
+
+#eids = [
+#    "1ec23a70-b94b-4e9c-a0df-8c2151da3761",
+#]
+#bwmdf["dataset_filenames"] = bwmdf["dataset_filenames"][
+#    bwmdf["dataset_filenames"].eid.isin(eids)
+#]
 
 if kwargs["use_imposter_session"]:
     kwargs["imposterdf"] = pd.read_parquet(
         IMPOSTER_SESSION_PATH.joinpath("imposterSessions_beforeRecordings.pqt")
+	#IMPOSTER_SESSION_PATH.joinpath("imposterSessions_ephysWorld.pqt")
     )
 else:
     kwargs["imposterdf"] = None

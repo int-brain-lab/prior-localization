@@ -24,6 +24,7 @@ SETTINGS_PATH = out_dir.joinpath('decoding', 'settings.yaml')
 
 # store cached data for simpler loading
 CACHE_PATH = out_dir.joinpath('cache')
+CACHE_PATH = Path('/home/share/pouget_lab/cache_final/')
 
 # store neural decoding models
 FIT_PATH = out_dir.joinpath('decoding', 'results', 'neural')

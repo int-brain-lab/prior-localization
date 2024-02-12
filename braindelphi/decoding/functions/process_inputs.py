@@ -170,7 +170,7 @@ def preprocess_widefield_imaging(neural_dict, reg_mask, **kwargs):
 
 def select_ephys_regions(regressors, beryl_reg, region, **kwargs):
     """Select units based on QC criteria and brain region."""
-    qc_pass = (regressors['clu_qc']['label'] >= kwargs['qc_criteria'])
+    qc_pass = (regressors['clu_df']['label'].values >= kwargs['qc_criteria'])
     reg_mask = np.isin(beryl_reg, region)
     reg_clu_ids = np.argwhere(reg_mask & qc_pass).flatten()
     return reg_clu_ids

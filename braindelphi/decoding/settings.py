@@ -14,8 +14,8 @@ BEHAVIOR_MOD_PATH.mkdir(parents=True, exist_ok=True)
 logger = logging.getLogger("ibllib")
 logger.disabled = True
 
-NEURAL_DTYPE = "widefield" #"widefield"  # 'ephys' or 'widefield'
-DATE = "30-01-2023"  # date 12 prev, 13 next, 14 prev
+NEURAL_DTYPE = "ephys" #"widefield"  # 'ephys' or 'widefield'
+DATE = "04-01-2024"  # date 02 with imposter, 03 with fictive
 
 # aligned -> histology was performed by one experimenter
 # resolved -> histology was performed by 2-3 experiments
@@ -28,38 +28,38 @@ if TARGET not in ["pLeft", "signcont", "strengthcont", "choice", "feedback"]:
     )
 # NB: if TARGET='signcont', MODEL with define how the neurometric curves will be generated. else MODEL computes TARGET
 # if MODEL is a path, this will be the interindividual results
-MODEL = optimal_Bayesian  # 'population_level_Nmice101_NmodelsClasses7_processed.pkl' #expSmoothing_stimside, expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
+MODEL = optimal_Bayesian # 'population_level_Nmice101_NmodelsClasses7_processed.pkl' #expSmoothing_stimside, expSmoothing_prevAction, optimal_Bayesian or None(=Oracle)
 BEH_MOUSELEVEL_TRAINING = (
     False  # if True, trains the behavioral model session-wise else mouse-wise
 )
 TIME_WINDOW = (-0.6, -0.1)  # (0, 0.1)  #
-ESTIMATOR = sklm.Ridge # Must be in keys of strlut above
-USE_NATIVE_SKLEARN_FOR_HYPERPARAMETER_ESTIMATION = True
+ESTIMATOR = sklm.Lasso # Must be in keys of strlut above
+USE_NATIVE_SKLEARN_FOR_HYPERPARAMETER_ESTIMATION = False
 BINARIZATION_VALUE = (
-    None  # to binarize the target -> could be useful with logistic regression estimator
+   None  # to binarize the target -> could be useful with logistic regression estimator
 )
 ESTIMATOR_KWARGS = {"tol": 0.0001, "max_iter": 20000, "fit_intercept": True}
-N_PSEUDO = 200
+N_PSEUDO = 400
 N_PSEUDO_PER_JOB = 50
 N_JOBS_PER_SESSION = N_PSEUDO // N_PSEUDO_PER_JOB
 N_RUNS = 10
-MIN_UNITS = 10
+MIN_UNITS = 1
 NB_TRIALS_TAKEOUT_END = 0
 MIN_BEHAV_TRIAS = (
-    150 if NEURAL_DTYPE == "ephys" else 150
+    1 if NEURAL_DTYPE == "ephys" else 1
 )  # default BWM setting is 400. 200 must remain after filtering
 MIN_RT = 0.08  # 0.08  # Float (s) or None
-MAX_RT = None
+MAX_RT = 2.0
 SINGLE_REGION = (
    True # "Widefield" # False  # True  # perform decoding on region-wise or whole brain analysis
 )
 MERGED_PROBES = True # merge probes before performing analysis
 NO_UNBIAS = False  # take out unbiased trials
 SHUFFLE = True  # interleaved cross validation
-BORDER_QUANTILES_NEUROMETRIC = [0.3, 0.7]  # [.3, .4, .5, .6, .7]
-COMPUTE_NEUROMETRIC = True
+BORDER_QUANTILES_NEUROMETRIC = [.5]  # [.3, .4, .5, .6, .7]
+COMPUTE_NEUROMETRIC = False
 FORCE_POSITIVE_NEURO_SLOPES = False
-SAVE_PREDICTIONS = True
+SAVE_PREDICTIONS = False
 
 # Basically, quality metric on the stability of a single unit. Should have 1 metric per neuron
 QC_CRITERIA = 3 / 3  # 3 / 3  # In {None, 1/3, 2/3, 3/3}
@@ -67,7 +67,7 @@ NORMALIZE_INPUT = False  # take out mean of the neural activity per unit across 
 NORMALIZE_OUTPUT = False  # take out mean of output to predict
 if NORMALIZE_INPUT or NORMALIZE_OUTPUT:
     warnings.warn("This feature has not been tested")
-USE_IMPOSTER_SESSION = False  # if false, it uses pseudosessions and simulates the model when action are necessary
+USE_IMPOSTER_SESSION = False # if false, it uses pseudosessions and simulates the model when action are necessary
 FILTER_PSEUDOSESSIONS_ON_MUTUALINFORMATION = False
 STITCHING_FOR_IMPORTER_SESSION = False  # if true, stitches sessions to create importers
 MAX_NUMBER_TRIALS_WHEN_NO_STITCHING_FOR_IMPORTER_SESSION = (
@@ -82,7 +82,7 @@ USE_IMPOSTER_SESSION_FOR_BALANCING = (
 SIMULATE_NEURAL_DATA = False
 QUASI_RANDOM = False  # if TRUE, decoding is launched in a quasi-random, reproducible way => it sets the seed
 
-BALANCED_WEIGHT = True  # seems to work better with BALANCED_WEIGHT=False, but putting True is important
+BALANCED_WEIGHT = False  # seems to work better with BALANCED_WEIGHT=False, but putting True is important
 BALANCED_CONTINUOUS_TARGET = (
     False  # is target continuous or discrete FOR BALANCED WEIGHTING
 )
