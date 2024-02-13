@@ -7,9 +7,8 @@ from braindelphi.decoding.settings import modeldispatcher
 from tqdm import tqdm
 import gc
 
-SAVE_KFOLDS = False
+date = "12-02-2024"
 
-date ="06-01-2024" #"02-07-2023" #"06-01-2025"
 finished = glob.glob(
     str(FIT_PATH.joinpath(kwargs["neural_dtype"], "*", "*", "*", "*%s*" % date))
 )
@@ -53,18 +52,19 @@ for fn in tqdm(finished):
                 "pseudo_id": result["fit"][i_decoding]["pseudo_id"],
                 "N_units": result["N_units"],
                 "run_id": result["fit"][i_decoding]["run_id"] + 1,
-                #"mask": "".join(
-                #    [
-                #        str(item)
-                #        for item in list(result["fit"][i_decoding]["mask"].values * 1)
-                #    ]
-                #),
+                "mask": (result["fit"][i_decoding]["mask"].values * 1).tolist(),
                 "R2_test": result["fit"][i_decoding]["Rsquared_test_full"],
-                "nb_trials_decoded": result["fit"][i_decoding]["nb_trials_decoded"],
-                #"prediction": list(result["fit"][i_decoding]["predictions_test"]),
-                #"target": list(result["fit"][i_decoding]["target"]),
-                #"weights": np.vstack(result["fit"][i_decoding]["weights"]).mean(axis=0).tolist(),
-                #"intercepts": np.mean(result["fit"][i_decoding]["intercepts"]),
+                "prediction": list(result["fit"][i_decoding]["predictions_test"]),
+                "target": list(result["fit"][i_decoding]["target"]),
+                "weights": np.vstack(result["fit"][i_decoding]["weights"]).mean(axis=0).tolist(),
+                "intercepts": np.mean(result["fit"][i_decoding]["intercepts"]),
+                "probabilityLeft": result["fit"][i_decoding]['df'].probabilityLeft.values.tolist(),
+                "contrastLeft": result["fit"][i_decoding]['df'].contrastLeft.values.tolist(),
+                "stim_side": result["fit"][i_decoding]['df'].stim_side.values.tolist(),
+                "contrastRight": result["fit"][i_decoding]['df'].contrastRight.values.tolist(),
+                "signed_contrast": result["fit"][i_decoding]['df'].signed_contrast.values.tolist(),
+                "choice": result["fit"][i_decoding]['df'].choice.values.tolist(),
+                "nb_trials_decoded": result["fit"][i_decoding]['nb_trials_decoded']
                 # 'perf_allcontrast': perf_allcontrasts,
                 # 'perf_allcontrasts_prevtrial': perf_allcontrasts_prevtrial,
                 # 'perf_0contrast': perf_0contrasts,
@@ -88,31 +88,6 @@ for fn in tqdm(finished):
             #        },
             #    }
             resultslist.append(tmpdict)
-
-            if SAVE_KFOLDS:
-                for kfold in range(result["fit"][i_decoding]["n_folds"]):
-                    tmpdict = {
-                        **{x: result[x] for x in indexers},
-                        "fold": kfold,
-                        "pseudo_id": result["fit"][i_decoding]["pseudo_id"],
-                        "N_units": result["N_units"],
-                        "run_id": result["fit"][i_decoding]["run_id"] + 1,
-                        "R2_test": result["fit"][i_decoding]["scores_test"][kfold],
-                        "Best_regulCoef": result["fit"][i_decoding]["best_params"][
-                            kfold
-                        ],
-                    }
-                    if result["fit"][i_decoding]["fold_neurometric"] is not None:
-                        tmpdict = {
-                            **tmpdict,
-                            **{
-                                idx_neuro: result["fit"][i_decoding][
-                                    "fold_neurometric"
-                                ][kfold][idx_neuro]
-                                for idx_neuro in indexers_neurometric
-                            },
-                        }
-                    resultslist.append(tmpdict)
     except:
         print(failed_load)
         failed_load += 1
