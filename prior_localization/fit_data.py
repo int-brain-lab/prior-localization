@@ -98,8 +98,6 @@ def fit_session_ephys(
         model, pseudo_ids, target, output_dir, config, logger, compute_neurometrics, motor_residuals
     )
 
-    np.random.seed(str2int(session_id) + np.sum(pseudo_ids))
-
     # Load trials data and compute mask
     sl = SessionLoader(one, session_id)
     sl.load_trials()
@@ -426,6 +424,8 @@ def fit_session_pupil(
         return
 
     # For trials where there was no pupil data recording (start/end), add these to the trials_mask
+    # `all_masks` is a list returned from prepare_behavior(), and generally has an entry for each region we are decoding
+    # from. Here we're only decoding from the pupil, so len(all_masks) = 1.
     all_masks[0] = [a & ~np.any(np.isnan(pupil_data), axis=1) for a in all_masks[0]]
 
     # Apply mask to targets
@@ -533,12 +533,14 @@ def fit_session_motor(
         return
 
     # For trials where there was no pupil data recording (start/end), add these to the trials_mask
+    # `all_masks` is a list returned from prepare_behavior(), and generally has an entry for each region we are decoding
+    # from. Here we're only decoding from pose estimation traces, so len(all_masks) = 1.
     all_masks[0] = [a & ~np.any(np.isnan(motor_data), axis=1) for a in all_masks[0]]
 
     # Apply mask to targets
     targets_masked = [t[m] for t, m in zip(all_targets[0], all_masks[0])]
 
-    # Apply mask to ephys data
+    # Apply mask to motor data
     motor_masked = [motor_data[m] for m in all_masks[0]]
 
     # Fit

@@ -4,7 +4,7 @@ import os
 import pandas as pd
 
 
-def custom_func(group):
+def compute_stats_over_pseudo_ids(group):
     """Aggregate info over pseudo_ids."""
     result = pd.Series()
     a = group.loc[group['pseudo_id'] == -1, 'score_test'].values
@@ -32,7 +32,9 @@ def reformat_df(df):
         ['subject', 'eid', 'region', 'N_units', 'pseudo_id', 'n_trials'], as_index=False
     )['score_test'].mean()
 
-    df_new = df_tmp.groupby(['subject', 'eid', 'region', 'N_units']).apply(lambda x: custom_func(x)).reset_index()
+    df_new = df_tmp.groupby(['subject', 'eid', 'region', 'N_units']).apply(
+        lambda x: compute_stats_over_pseudo_ids(x)
+    ).reset_index()
     df_new = df_new.rename(columns={"N_units": "n_units"})
 
     return df_new

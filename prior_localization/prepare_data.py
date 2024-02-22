@@ -283,8 +283,8 @@ def prepare_behavior(
         if compute_neurometrics:
             set_neurometrics = []
             for i in range(len(pseudo_ids)):
-                neurometrics = compute_neurometric_prior(all_trials[i], session_id, subject, model, behavior_path)
-                set_neurometrics.append(neurometrics[trials_mask].reset_index(drop=True))  # TODO: need to update mask
+                neurometrics = compute_neurometric_prior(set_trials[i], session_id, subject, model, behavior_path)
+                set_neurometrics.append(neurometrics[set_masks[i]].reset_index(drop=True))
         else:
             set_neurometrics = None
 
