@@ -18,19 +18,21 @@ job_idx = int(args.job_idx)
 n_pseudo = int(args.n_pseudo)
 n_per_job = int(args.n_per_job)
 output_dir = str(args.output_dir)
-target = str(args.output_dir)
-
-# TODO: settings for the particular target
+target = str(args.target)
 
 # Get session idx
 session_idx = int(np.ceil(job_idx / (n_pseudo / n_per_job)) - 1)
 
-# Set of pseudo sessions for one session, first session is always the real one, indicated by -1
+# Set of pseudo sessions for one session
 all_pseudo = list(range(n_pseudo))
-all_pseudo[0] = -1
 # Select relevant pseudo sessions for this job
 pseudo_idx = int((job_idx - 1) % (n_pseudo / n_per_job) * n_per_job)
 pseudo_ids = all_pseudo[pseudo_idx:pseudo_idx+n_per_job]
+# Shift by 1; old array starts at 0, pseudo ids should start at 1
+pseudo_ids = list(np.array(pseudo_ids) + 1)
+# Add real session to first pseudo block
+if pseudo_idx == 0:
+    pseudo_ids = [-1] + pseudo_ids
 
 # Create an offline ONE instance, we don't want to hit the database when running so many jobs in parallel and have
 # downloaded the data before
@@ -44,9 +46,59 @@ subject = bwm_df[bwm_df.eid == session_id].subject.unique()[0]
 probe_name = list(bwm_df[bwm_df.eid == session_id].probe_name)
 probe_name = probe_name[0] if len(probe_name) == 1 else probe_name
 
+# set BWM defaults here
+binsize = None
+n_bins_lag = None
+n_runs = 10
+
+if target == 'stimside':
+    align_event = 'stimOn_times'
+    time_window = (0.0, 0.1)
+    model = 'oracle'
+    estimator = 'LogisticRegression'
+
+elif target == 'signcont':
+    align_event = 'stimOn_times'
+    time_window = (0.0, 0.1)
+    model = 'oracle'
+    estimator = 'Lasso'
+
+elif target == 'choice':
+    align_event = 'firstMovement_times'
+    time_window = (-0.1, 0.0)
+    model = 'actKernel'
+    estimator = 'LogisticRegression'
+
+elif target == 'feedback':
+    align_event = 'feedback_times'
+    time_window = (0.0, 0.2)
+    model = 'actKernel'
+    estimator = 'LogisticRegression'
+
+elif target == 'pLeft':
+    align_event = 'stimOn_times'
+    time_window = (-0.6, -0.1)
+    model = 'optBay'
+    estimator = 'LogisticRegression'
+
+elif target in ['wheel-speed', 'wheel-velocity']:
+    align_event = 'firstMovement_times'
+    time_window = (-0.2, 1.0)
+    model = 'oracle'
+    estimator = 'Lasso'
+    binsize = 0.02
+    n_bins_lag = 10
+    n_runs = 2
+
+else:
+    raise ValueError(f'{target} is an invalid target value')
+
 # Run the decoding for the current set of pseudo ids.
 results = fit_session_ephys(
-        one, session_id, subject, probe_name, output_dir=output_dir, pseudo_ids=pseudo_ids, target=target,
-        align_event='stimOn_times', time_window=(-0.6, -0.1), model='optBay', n_runs=10, compute_neurometrics=False,
-        motor_residuals=False
+    one, session_id, subject, probe_name, output_dir=output_dir, pseudo_ids=pseudo_ids, target=target,
+    align_event=align_event, time_window=time_window, model=model, n_runs=n_runs,
+    compute_neurometrics=False, motor_residuals=False,
 )
+
+# Print out success string so we can easily sweep through error logs
+print('Job successful')
