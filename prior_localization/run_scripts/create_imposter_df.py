@@ -34,7 +34,7 @@ def run_main(args):
 
     # ephys sessions from one of 12 templates
     one = ONE(base_url='https://openalyx.internationalbrainlab.org')  # , mode='local')
-    bwm_df = bwm_query(freeze='2022_10_bwm_release')
+    bwm_df = bwm_query(freeze='2022_12_bwm_release')
     eids = bwm_df['eid'].unique()
 
     # basic columns that we want to keep
