@@ -1,5 +1,6 @@
 import logging
 import numpy as np
+import os
 from scipy import stats
 import pandas as pd
 
@@ -208,7 +209,7 @@ def prepare_behavior(
     # load imposter trials dataframe if required
     if target in ['wheel-speed', 'wheel-velocity'] and np.any(np.array(pseudo_ids) > 0):
         assert config['imposter_df_path'] is not None, 'Must specify imposter_df_path in config.yaml file'
-        imposter_df = pd.read_parquet(config['imposter_df_path'])
+        imposter_df = pd.read_parquet(os.path.join(config['imposter_df_path'], f'imposterSessions_{target}.pqt'))
     else:
         imposter_df = None
 

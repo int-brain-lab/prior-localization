@@ -46,7 +46,7 @@ if pseudo_idx == 0:
 one = ONE(base_url='https://openalyx.internationalbrainlab.org', mode='local')
 
 # Get info for respective eid from bwm_dataframe
-bwm_df = bwm_query(one=one, freeze='2022_10_bwm_release')
+bwm_df = bwm_query(one=one, freeze='2023_12_bwm_release')
 session_id = bwm_df.eid.unique()[session_idx]
 subject = bwm_df[bwm_df.eid == session_id].subject.unique()[0]
 # We are merging probes per session, therefore using a list of all probe names of a session as input
