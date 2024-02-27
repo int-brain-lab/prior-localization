@@ -7,7 +7,7 @@ from tqdm import tqdm
 import gc
 from pathlib import Path
 
-parser = argparse.ArgumentParser(description='Format outputs')
+parser = argparse.ArgumentParser(description='Format outputs stage 1')
 parser.add_argument('output_dir')
 parser.add_argument('target')
 
@@ -41,6 +41,7 @@ for fn in tqdm(finished):
                 "pseudo_id": result["fit"][i_decoding]["pseudo_id"],
                 "run_id": result["fit"][i_decoding]["run_id"] + 1,
                 "score_test": result["fit"][i_decoding]["scores_test_full"],
+                "n_trials": sum(result['fit'][i_decoding]['mask'][0]),
             }
             resultslist.append(tmpdict)
     except Exception as e:
@@ -53,7 +54,7 @@ print("loading of %i files failed" % failed_load)
 
 resultsdf = pd.DataFrame(resultslist)
 
-fn = str(Path(output_dir).joinpath('collected_results.pqt'))
+fn = str(Path(output_dir).joinpath('collected_results_stage1.pqt'))
 print("saving parquet")
 resultsdf.to_parquet(fn)
 print("parquet saved")
