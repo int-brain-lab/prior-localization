@@ -182,8 +182,9 @@ def fit_session_ephys(
         )
 
         # Add the mask to fit results
+        save_predictions = True if pseudo_ids[0] == -1 else config['save_predictions']
         for fit_result in fit_results:
-            fit_result['mask'] = all_masks[i] if config['save_predictions'] else None
+            fit_result['mask'] = all_masks[i] if save_predictions else None
 
         # Create output paths and save
         region_str = config['regions'] if (config['regions'] == 'all_regions') or (
@@ -626,7 +627,7 @@ def fit_target(
                 estimator_kwargs=config['estimator_kwargs'],
                 hyperparam_grid=config['hparam_grid'],
                 save_binned=False,
-                save_predictions=config['save_predictions'],
+                save_predictions=True if pseudo_id == -1 else config['save_predictions'],
                 shuffle=config['shuffle'],
                 balanced_weight=config['balanced_weighting'],
                 rng_seed=rng_seed,
