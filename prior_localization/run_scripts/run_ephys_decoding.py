@@ -1,6 +1,6 @@
 import argparse
 import numpy as np
-import os
+from pathlib import Path
 
 from one.api import ONE
 from brainwidemap.bwm_loading import bwm_query
@@ -21,7 +21,7 @@ n_per_job = int(args.n_per_job)
 output_dir = str(args.output_dir)
 target = str(args.target)
 
-output_dir = os.path.join(output_dir, target)
+output_dir = Path(output_dir).joinpath(target)
 
 # Get session idx
 session_idx = int(np.ceil(job_idx / (n_pseudo / n_per_job)) - 1)
