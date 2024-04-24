@@ -184,7 +184,7 @@ def check_inputs(
     output_dir = Path(output_dir)
     if not output_dir.exists():
         try:
-           output_dir.mkdir(parents=True)
+           output_dir.mkdir(parents=True, exist_ok=True)  # need exist_ok when launching many jobs in parallel
            logger.info(f"Created output_dir: {output_dir}")
         except PermissionError:
             raise PermissionError(f"Following output_dir cannot be created, insufficient permissions: {output_dir}")
@@ -373,7 +373,7 @@ def logisticreg_criteria(array, min_unique_counts=3):
     return len(y_uniquecounts) == 2 and np.min(y_uniquecounts) >= min_unique_counts
 
 
-def get_spike_data_per_trial(times, clusters, intervals, binsize):
+def get_spike_data_per_trial(times, clusters, intervals, binsize, n_bins=None):
     """Select spiking data for specified interval on each trial.
 
     Parameters
@@ -386,6 +386,8 @@ def get_spike_data_per_trial(times, clusters, intervals, binsize):
         shape (n_trials, 2) where columns indicate interval onset/offset (seconds)
     binsize : float
         width of each bin in seconds
+    n_bins : int
+        number of bins; should be computable from intervals and binsize, but there are occasional rounding errors
 
     Returns
     -------
@@ -401,7 +403,8 @@ def get_spike_data_per_trial(times, clusters, intervals, binsize):
     n_trials = intervals.shape[0]
 
     # np.ceil because we want to make sure our bins contain all data
-    n_bins = int(np.median(np.ceil(interval_len / binsize).astype('int')))
+    if n_bins is None:
+        n_bins = int(np.median(np.ceil(interval_len / binsize).astype('int')))
 
     cluster_ids = np.unique(clusters)
     n_clusters_in_region = len(cluster_ids)
