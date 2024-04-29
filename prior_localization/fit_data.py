@@ -101,7 +101,7 @@ def fit_session_ephys(
     )
 
     # Load trials data and compute mask
-    sl = SessionLoader(one, session_id)
+    sl = SessionLoader(one, eid=session_id)
     sl.load_trials()
     _, trials_mask = load_trials_and_mask(
         one=one, eid=session_id, sess_loader=sl, min_rt=0.08, max_rt=None,
@@ -263,7 +263,7 @@ def fit_session_widefield(
     pseudo_ids, output_dir = check_inputs(model, pseudo_ids, target, output_dir, config, logger, compute_neurometrics)
 
     # Load trials data
-    sl = SessionLoader(one, session_id)
+    sl = SessionLoader(one, eid=session_id)
     sl.load_trials()
     trials_mask = compute_mask(sl.trials, align_event=align_event, min_rt=0.08, max_rt=None, n_trials_crop_end=1)
     # _, trials_mask = load_trials_and_mask(
@@ -405,7 +405,7 @@ def fit_session_pupil(
     pseudo_ids, output_dir = check_inputs(model, pseudo_ids, target, output_dir, config, logger)
 
     # Load trials data
-    sl = SessionLoader(one, session_id)
+    sl = SessionLoader(one, eid=session_id)
     sl.load_trials()
     _, trials_mask = load_trials_and_mask(
         one=one, eid=session_id, sess_loader=sl, min_rt=0.08, max_rt=None,
@@ -514,7 +514,7 @@ def fit_session_motor(
     pseudo_ids, output_dir = check_inputs(model, pseudo_ids, target, output_dir, config, logger)
 
     # Load trials data
-    sl = SessionLoader(one, session_id)
+    sl = SessionLoader(one, eid=session_id)
     sl.load_trials()
     _, trials_mask = load_trials_and_mask(
         one=one, eid=session_id, sess_loader=sl, min_rt=0.08, max_rt=None,
