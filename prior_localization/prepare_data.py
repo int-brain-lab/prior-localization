@@ -188,7 +188,7 @@ def prepare_motor(one, session_id, align_event='stimOn_times', time_window=(-0.6
 
 def prepare_behavior(
         session_id, subject, trials_df, trials_mask, pseudo_ids=None, n_pseudo_sets=1, output_dir=None, model='optBay',
-        target='pLeft', compute_neurometrics=False, integration_test=False,
+        target='pLeft', compute_neurometrics=False
 ):
     if pseudo_ids is None:
         pseudo_ids = [-1]  # -1 is always the actual session
@@ -235,10 +235,7 @@ def prepare_behavior(
                 set_targets.append(actual_target)
                 set_masks.append(trials_mask & actual_target_mask)
             else:
-                if integration_test:  # for reproducing the test results we need to fix a seed in this case
-                    np.random.seed((n+1) * pseudo_id)
-                else:
-                    np.random.seed(str2int(session_id) + (n+1) * pseudo_id)
+                np.random.seed(str2int(session_id) + (n+1) * pseudo_id)
 
                 # compute initial pseudo targets
                 if target in ['wheel-speed', 'wheel-velocity']:
