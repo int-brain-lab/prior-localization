@@ -1,5 +1,6 @@
 import argparse
 import numpy as np
+from pathlib import Path
 
 from one.api import ONE
 from brainwidemap.bwm_loading import bwm_query
@@ -19,6 +20,8 @@ n_pseudo = int(args.n_pseudo)
 n_per_job = int(args.n_per_job)
 output_dir = str(args.output_dir)
 target = str(args.target)
+
+output_dir = Path(output_dir).joinpath(target)
 
 # Get session idx
 session_idx = int(np.ceil(job_idx / (n_pseudo / n_per_job)) - 1)
@@ -49,6 +52,7 @@ probe_name = probe_name[0] if len(probe_name) == 1 else probe_name
 # set BWM defaults here
 binsize = None
 n_bins_lag = None
+n_bins = None
 n_runs = 10
 
 if target == 'stimside':
@@ -88,6 +92,7 @@ elif target in ['wheel-speed', 'wheel-velocity']:
     estimator = 'Lasso'
     binsize = 0.02
     n_bins_lag = 10
+    n_bins = 60
     n_runs = 2
 
 else:
@@ -97,6 +102,7 @@ else:
 results = fit_session_ephys(
     one, session_id, subject, probe_name, output_dir=output_dir, pseudo_ids=pseudo_ids, target=target,
     align_event=align_event, time_window=time_window, model=model, n_runs=n_runs,
+    binsize=binsize, n_bins_lag=n_bins_lag, n_bins=n_bins,
     compute_neurometrics=False, motor_residuals=False,
 )
 

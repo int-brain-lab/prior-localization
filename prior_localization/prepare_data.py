@@ -2,6 +2,7 @@ import logging
 import numpy as np
 from scipy import stats
 import pandas as pd
+from pathlib import Path
 
 import wfield
 import sklearn.linear_model as sklm
@@ -48,7 +49,7 @@ config = check_config()
 
 
 def prepare_ephys(
-        one, session_id, probe_name, regions, intervals, binsize=None, n_bins_lag=None, qc=1, min_units=10,
+        one, session_id, probe_name, regions, intervals, binsize=None, n_bins_lag=None, n_bins=None, qc=1, min_units=10,
         stage_only=False,
 ):
 
@@ -108,7 +109,9 @@ def prepare_ephys(
                 intervals_for_lags[:, 0] = intervals_for_lags[:, 0] - n_bins_lag * binsize
                 # count spikes in multiple bins per interval
                 binned_2d, _ = get_spike_data_per_trial(
-                    times=times_masked, clusters=clusters_masked, intervals=intervals_for_lags, binsize=binsize)
+                    times=times_masked, clusters=clusters_masked, intervals=intervals_for_lags,
+                    binsize=binsize, n_bins=n_bins + n_bins_lag,
+                )
                 # include lagged timepoints for each sample
                 binned = [build_lagged_predictor_matrix(b.T, n_bins_lag) for b in binned_2d]
 
@@ -206,7 +209,7 @@ def prepare_behavior(
     # load imposter trials dataframe if required
     if target in ['wheel-speed', 'wheel-velocity'] and np.any(np.array(pseudo_ids) > 0):
         assert config['imposter_df_path'] is not None, 'Must specify imposter_df_path in config.yaml file'
-        imposter_df = pd.read_parquet(config['imposter_df_path'])
+        imposter_df = pd.read_parquet(Path(config['imposter_df_path']).joinpath(f'imposterSessions_{target}.pqt'))
     else:
         imposter_df = None
 
