@@ -147,14 +147,6 @@ class TestWidefieldDecoding(unittest.TestCase):
         )
         self.compare_target_test(results_fit_session, self.fixtures_dir.joinpath('new'))
 
-    #@unittest.skip("Currently only testing this on my machine because the test data is too big to ship on github")
-    def test_chris_data(self):
-        results_fit_session = fit_session_widefield(
-            one=self.one, session_id=self.eid, subject=self.subject, output_dir=Path(self.tmp_dir.name),
-            pseudo_ids=self.pseudo_ids, n_runs=2, integration_test=False, old_data=self.fixtures_dir.joinpath('old')
-        )
-        self.compare_target_test(results_fit_session, self.fixtures_dir.joinpath('old'))
-
     def tearDown(self) -> None:
         self.tmp_dir.cleanup()
 
