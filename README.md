@@ -66,7 +66,6 @@ python -m unittest discover -s prior_localization/tests
 ```
 
 ## Code Description
-The code heavily relies on the fitting functions in `prior_localication/functions/decoding.py`. 
-The inputs of this function are described in the function's description and in the tutorial file.
-This codes outputs the paths of the folders which contain the decoding results. See the tutorial file
-to plot output predictions of the decoding results.
+The main fitting functions can be found in `prior_localication/fit_data.py`. 
+The inputs of these functions are described in the docstrings. The functions return paths to the folders containing the 
+decoding results. See the [example notebook](https://github.com/int-brain-lab/prior-localization/blob/main/prior_localization/decode_single_session.ipynb) for more details and examples on how to inspect the outputs.

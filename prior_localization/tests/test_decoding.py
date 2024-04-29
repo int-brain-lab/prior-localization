@@ -36,7 +36,7 @@ class TestEphysDecoding(unittest.TestCase):
     def test_merged_probes(self):
         results_fit_session = fit_session_ephys(
             one=self.one, session_id=self.eid, subject=self.subject, probe_name=self.probe_names,
-            output_dir=Path(self.tmp_dir.name), pseudo_ids=self.pseudo_ids, n_runs=2, integration_test=True
+            output_dir=Path(self.tmp_dir.name), pseudo_ids=self.pseudo_ids, n_runs=2
         )
         self.compare_target_test(results_fit_session, 'merged')
 
@@ -44,23 +44,21 @@ class TestEphysDecoding(unittest.TestCase):
         for probe_name in self.probe_names:
             results_fit_session = fit_session_ephys(
                 one=self.one, session_id=self.eid, subject=self.subject, probe_name=probe_name,
-                output_dir=Path(self.tmp_dir.name), pseudo_ids=self.pseudo_ids, n_runs=2, integration_test=True
+                output_dir=Path(self.tmp_dir.name), pseudo_ids=self.pseudo_ids, n_runs=2
             )
             self.compare_target_test(results_fit_session, probe_name)
 
     def test_stage_only(self):
         results_fit_session = fit_session_ephys(
             one=self.one, session_id=self.eid, subject=self.subject, probe_name=self.probe_names,
-            output_dir=Path(self.tmp_dir.name), pseudo_ids=self.pseudo_ids, n_runs=2, stage_only=True,
-            integration_test=True
+            output_dir=Path(self.tmp_dir.name), pseudo_ids=self.pseudo_ids, n_runs=2, stage_only=True
         )
         self.assertIsNone(results_fit_session)
 
     def test_actKernel(self):
         results_fit_session = fit_session_ephys(
             one=self.one, session_id=self.eid, subject=self.subject, probe_name=self.probe_names,
-            output_dir=Path(self.tmp_dir.name), pseudo_ids=self.pseudo_ids, model='actKernel', n_runs=2,
-            integration_test=True
+            output_dir=Path(self.tmp_dir.name), pseudo_ids=self.pseudo_ids, model='actKernel', n_runs=2
         )
         self.assertEqual(len(results_fit_session), 5)
 
@@ -68,8 +66,7 @@ class TestEphysDecoding(unittest.TestCase):
         # TODO: get actual results?
         results_fit_session = fit_session_ephys(
             one=self.one, session_id=self.eid, subject=self.subject, probe_name=self.probe_names,
-            output_dir=Path(self.tmp_dir.name), pseudo_ids=self.pseudo_ids, n_runs=2, motor_residuals=True,
-            integration_test=True
+            output_dir=Path(self.tmp_dir.name), pseudo_ids=self.pseudo_ids, n_runs=2, motor_residuals=True
         )
         self.assertEqual(len(results_fit_session), 5)
 
@@ -94,7 +91,7 @@ class TestMotorEyeDecoding(unittest.TestCase):
         # We need an eid that has LP data
         results_fit_session = fit_session_pupil(
             one=self.one, session_id=self.eid, subject=self.subject, output_dir=Path(self.tmp_dir.name),
-            n_runs=2, integration_test=True
+            n_runs=2
         )
         self.assertTrue(results_fit_session.name.startswith('pupil'))
         with open(results_fit_session, 'rb') as fb:
@@ -106,7 +103,7 @@ class TestMotorEyeDecoding(unittest.TestCase):
     def test_decode_motor(self):
         results_fit_session = fit_session_motor(
             one=self.one, session_id=self.eid, subject=self.subject, output_dir=Path(self.tmp_dir.name),
-            n_runs=2, integration_test=True
+            n_runs=2
         )
         self.assertTrue(results_fit_session.name.startswith('motor'))
         with open(results_fit_session, 'rb') as fb:
@@ -143,17 +140,9 @@ class TestWidefieldDecoding(unittest.TestCase):
     def test_ONE_data(self):
         results_fit_session = fit_session_widefield(
             one=self.one, session_id=self.eid, subject=self.subject, output_dir=Path(self.tmp_dir.name),
-            pseudo_ids=self.pseudo_ids, n_runs=2, integration_test=True
+            pseudo_ids=self.pseudo_ids, n_runs=2
         )
         self.compare_target_test(results_fit_session, self.fixtures_dir.joinpath('new'))
-
-    @unittest.skip("Currently only testing this on my machine because the test data is too big to ship on github")
-    def test_chris_data(self):
-        results_fit_session = fit_session_widefield(
-            one=self.one, session_id=self.eid, subject=self.subject, output_dir=Path(self.tmp_dir.name),
-            pseudo_ids=self.pseudo_ids, n_runs=2, integration_test=True, old_data=self.fixtures_dir.joinpath('old')
-        )
-        self.compare_target_test(results_fit_session, self.fixtures_dir.joinpath('old'))
 
     def tearDown(self) -> None:
         self.tmp_dir.cleanup()

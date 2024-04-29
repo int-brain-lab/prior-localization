@@ -40,7 +40,7 @@ config = check_config()
 def fit_session_ephys(
         one, session_id, subject, probe_name, output_dir, pseudo_ids=None, target='pLeft', align_event='stimOn_times',
         time_window=(-0.6, -0.1), binsize=None, n_bins_lag=None, n_bins=None, model='optBay', n_runs=10,
-        compute_neurometrics=False, motor_residuals=False, stage_only=False, integration_test=False,
+        compute_neurometrics=False, motor_residuals=False, stage_only=False
 ):
     """
     Fits a single session for ephys data.
@@ -86,8 +86,6 @@ def fit_session_ephys(
      corresponding to figure 2f, default is False
     stage_only: bool
      If true, only download all required data, don't perform the actual decoding
-    integration_test: bool
-     If true set random seeds for integration testing. Do not use this when running actual decoding
 
     Returns
     -------
@@ -131,8 +129,7 @@ def fit_session_ephys(
     # Compute or load behavior targets
     all_trials, all_targets, all_masks, all_neurometrics = prepare_behavior(
         session_id, subject, sl.trials, trials_mask, pseudo_ids=pseudo_ids, n_pseudo_sets=n_pseudo_sets,
-        output_dir=output_dir, model=model, target=target, compute_neurometrics=compute_neurometrics,
-        integration_test=integration_test)
+        output_dir=output_dir, model=model, target=target, compute_neurometrics=compute_neurometrics)
 
     # Remove the motor residuals from the targets if indicated
     if motor_residuals:
@@ -176,7 +173,6 @@ def fit_session_ephys(
             all_neurometrics=all_neurometrics[i],
             pseudo_ids=pseudo_ids,
             base_rng_seed=str2int(session_id + '_'.join(actual_regions[i])),
-            integration_test=integration_test,
         )
 
         # Add the mask to fit results
@@ -207,7 +203,7 @@ def fit_session_ephys(
 def fit_session_widefield(
         one, session_id, subject, output_dir, pseudo_ids=None, hemisphere=("left", "right"), target='pLeft',
         align_event='stimOn_times', frame_window=(-2, -2), model='optBay', n_runs=10, compute_neurometrics=False,
-        stage_only=False, integration_test=False, old_data=False
+        stage_only=False, old_data=False
 ):
 
     """
@@ -247,8 +243,6 @@ def fit_session_widefield(
      Whether to compute neurometric shift and slopes (cf. Fig 3 of the paper)
     stage_only: bool
      If true, only download all required data, don't perform the actual decoding
-    integration_test: bool
-     If true set random seeds for integration testing. Do not use this when running actual decoding
     old_data: False or str
      Only used for sanity check, if false, use updated way of loading data from ONE. If str it should be a path
      to local copies of the previously used version of the data.
@@ -289,8 +283,7 @@ def fit_session_widefield(
     # Compute or load behavior targets
     all_trials, all_targets, all_masks, all_neurometrics = prepare_behavior(
         session_id, subject, sl.trials, trials_mask, pseudo_ids=pseudo_ids, n_pseudo_sets=n_pseudo_sets,
-        output_dir=output_dir, model=model, target=target, compute_neurometrics=compute_neurometrics,
-        integration_test=integration_test)
+        output_dir=output_dir, model=model, target=target, compute_neurometrics=compute_neurometrics)
 
     # If we are only staging data, we are done here
     if stage_only:
@@ -329,7 +322,6 @@ def fit_session_widefield(
             all_neurometrics=all_neurometrics[i],
             pseudo_ids=pseudo_ids,
             base_rng_seed=str2int(session_id + '_'.join(actual_regions[i])),
-            integration_test=integration_test,
         )
 
         # Add the mask to fit results
@@ -359,7 +351,7 @@ def fit_session_widefield(
 
 def fit_session_pupil(
         one, session_id, subject, output_dir, pseudo_ids=None, target='pLeft', align_event='stimOn_times',
-        time_window=(-0.6, -0.1), model='optBay', n_runs=10, stage_only=False, integration_test=False
+        time_window=(-0.6, -0.1), model='optBay', n_runs=10, stage_only=False
 ):
     """
     Fit pupil tracking data to behavior (instead of neural activity)
@@ -393,8 +385,6 @@ def fit_session_pupil(
      Number of times to repeat full nested cross validation with different folds
     stage_only: bool
      If true, only download all required data, don't perform the actual decoding
-    integration_test: bool
-     If true set random seeds for integration testing. Do not use this when running actual decoding
 
     Returns
     -------
@@ -418,7 +408,7 @@ def fit_session_pupil(
     # Compute or load behavior targets
     all_trials, all_targets, all_masks, all_neurometrics = prepare_behavior(
         session_id, subject, sl.trials, trials_mask, pseudo_ids=pseudo_ids, n_pseudo_sets=1, output_dir=output_dir,
-        model=model, target=target, integration_test=integration_test)
+        model=model, target=target)
 
     # Load the pupil data
     pupil_data = prepare_pupil(one, session_id=session_id, time_window=time_window, align_event=align_event)
@@ -446,7 +436,6 @@ def fit_session_pupil(
         all_neurometrics=all_neurometrics[0],
         pseudo_ids=pseudo_ids,
         base_rng_seed=str2int(session_id),
-        integration_test=integration_test,
     )
 
     # Create output paths and save
@@ -467,7 +456,7 @@ def fit_session_pupil(
 
 def fit_session_motor(
         one, session_id, subject, output_dir, pseudo_ids=None, target='pLeft', align_event='stimOn_times',
-        time_window=(-0.6, -0.1), model='optBay', n_runs=10, stage_only=False, integration_test=False
+        time_window=(-0.6, -0.1), model='optBay', n_runs=10, stage_only=False
 ):
     """
     Fit movement tracking data to behavior (instead of neural actvity)
@@ -501,8 +490,6 @@ def fit_session_motor(
      Number of times to repeat full nested cross validation with different folds
     stage_only: bool
      If true, only download all required data, don't perform the actual decoding
-    integration_test: bool
-     If true set random seeds for integration testing. Do not use this when running actual decoding
 
     Returns
     -------
@@ -527,7 +514,7 @@ def fit_session_motor(
     # Compute or load behavior targets
     all_trials, all_targets, all_masks, all_neurometrics = prepare_behavior(
         session_id, subject, sl.trials, trials_mask, pseudo_ids=pseudo_ids, n_pseudo_sets=1,
-        output_dir=output_dir, model=model, target=target, integration_test=integration_test)
+        output_dir=output_dir, model=model, target=target)
 
     # Load the motor data
     motor_data = prepare_motor(one, session_id=session_id, time_window=time_window, align_event=align_event)
@@ -555,7 +542,6 @@ def fit_session_motor(
         all_neurometrics=all_neurometrics[0],
         pseudo_ids=pseudo_ids,
         base_rng_seed=str2int(session_id),
-        integration_test=integration_test,
     )
 
     # Create output paths and save
@@ -576,7 +562,7 @@ def fit_session_motor(
 
 def fit_target(
         all_data, all_targets, all_trials, n_runs, all_neurometrics=None, pseudo_ids=None,
-        base_rng_seed=0, integration_test=False,
+        base_rng_seed=0
 ):
     """
     Fits data (neural, motor, etc) to behavior targets.
@@ -599,8 +585,6 @@ def fit_target(
         Default is None.
     base_rng_seed : int
         seed that will be added to run- and pseudo_id-specific seeds
-    integration_test : bool
-        Whether to run in integration test mode with fixed random seeds. Default is False.
     """
 
     # Loop over (pseudo) sessions and then over runs
@@ -614,13 +598,10 @@ def fit_target(
         # run decoders
         for i_run in range(n_runs):
             # set seed for reproducibility
-            if integration_test:  # integration tests use old way of setting seed
-                rng_seed = i_run
+            if pseudo_id == -1:
+                rng_seed = base_rng_seed + i_run
             else:
-                if pseudo_id == -1:
-                    rng_seed = base_rng_seed + i_run
-                else:
-                    rng_seed = base_rng_seed + pseudo_id * n_runs + i_run
+                rng_seed = base_rng_seed + pseudo_id * n_runs + i_run
             fit_result = decode_cv(
                 ys=targets,
                 Xs=data,
