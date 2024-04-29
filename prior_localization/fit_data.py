@@ -33,7 +33,6 @@ from prior_localization.functions.utils import (
 
 # Set up logger
 logger = logging.getLogger('prior_localization')
-logger.setLevel(logging.WARNING)
 # Load and check configuration file
 config = check_config()
 

@@ -8,5 +8,6 @@ ONE-api
 ibl-neuropixel
 iblatlas
 psychofit
+wfield
 behavior_models @ git+https://github.com/int-brain-lab/behavior_models.git
 brainwidemap @ git+https://github.com/int-brain-lab/paper-brain-wide-map.git
