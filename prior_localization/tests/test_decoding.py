@@ -121,7 +121,7 @@ class TestWidefieldDecoding(unittest.TestCase):
     """
     def setUp(self) -> None:
         self.one = ONE(base_url='https://openalyx.internationalbrainlab.org')
-        self.eid = 'ff7a70f5-a2b6-4e7e-938e-e7208e0678c2'
+        self.eid = '4b8c22d7-a4d2-4924-84b0-76ec242a2f3b'
         self.subject = self.one.eid2ref(self.eid)['subject']
         self.pseudo_ids = [-1, 1, 2]
         self.tmp_dir = tempfile.TemporaryDirectory()
