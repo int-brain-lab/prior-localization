@@ -39,8 +39,8 @@ config = check_config()
 
 def fit_session_ephys(
         one, session_id, subject, probe_name, output_dir, pseudo_ids=None, target='pLeft', align_event='stimOn_times',
-        time_window=(-0.6, -0.1), binsize=None, n_bins_lag=None, n_bins=None, model='optBay', n_runs=10,
-        compute_neurometrics=False, motor_residuals=False, stage_only=False
+        min_rt=0.08 , max_rt=None, time_window=(-0.6, -0.1), binsize=None, n_bins_lag=None, n_bins=None, model='optBay',
+        n_runs=10, compute_neurometrics=False, motor_residuals=False, stage_only=False
 ):
     """
     Fits a single session for ephys data.
@@ -67,6 +67,10 @@ def fit_session_ephys(
     align_event: str
      Event to which we align the time window, default is stimOn_times (stimulus onset). Options are
      {"firstMovement_times", "goCue_times", "stimOn_times", "feedback_times"}
+    min_rt: float or None
+        Minimum admissible reaction time in seconds for a trial to be included. Default is 0.08. If None, don't apply.
+    max_rt: float or None
+        Maximum admissible reaction time in seconds for a trial to be included. Default is None. If None, don't apply.
     time_window: tuple of float
      Time window in which neural activity is considered, relative to align_event, default is (-0.6, -0.1)
     binsize : float or None
@@ -102,7 +106,7 @@ def fit_session_ephys(
     sl = SessionLoader(one, eid=session_id)
     sl.load_trials()
     _, trials_mask = load_trials_and_mask(
-        one=one, eid=session_id, sess_loader=sl, min_rt=0.08, max_rt=None,
+        one=one, eid=session_id, sess_loader=sl, min_rt=min_rt, max_rt=max_rt,
         min_trial_len=None, max_trial_len=None,
         exclude_nochoice=True, exclude_unbiased=False,
     )
@@ -202,8 +206,8 @@ def fit_session_ephys(
 
 def fit_session_widefield(
         one, session_id, subject, output_dir, pseudo_ids=None, hemisphere=("left", "right"), target='pLeft',
-        align_event='stimOn_times', frame_window=(-2, -2), model='optBay', n_runs=10, compute_neurometrics=False,
-        stage_only=False, old_data=False
+        align_event='stimOn_times', min_rt=0.08, max_rt=None, frame_window=(-2, -2), model='optBay', n_runs=10,
+        compute_neurometrics=False, stage_only=False, old_data=False
 ):
 
     """
@@ -232,6 +236,10 @@ def fit_session_widefield(
     align_event: str
      Event to which we align the time window, default is stimOn_times (stimulus onset). Options are
      {"firstMovement_times", "goCue_times", "stimOn_times", "feedback_times"}
+    min_rt: float or None
+        Minimum admissible reaction time in seconds for a trial to be included. Default is 0.08. If None, don't apply.
+    max_rt: float or None
+        Maximum admissible reaction time in seconds for a trial to be included. Default is None. If None, don't apply.
     frame_window: tuple of int
      Window in which neural activity is considered, in frames relative to align_event, default is (-2, -2) i.e. only a
      single frame is considered
@@ -259,9 +267,9 @@ def fit_session_widefield(
     # Load trials data
     sl = SessionLoader(one, eid=session_id)
     sl.load_trials()
-    trials_mask = compute_mask(sl.trials, align_event=align_event, min_rt=0.08, max_rt=None, n_trials_crop_end=1)
+    trials_mask = compute_mask(sl.trials, align_event=align_event, min_rt=min_rt, max_rt=max_rt, n_trials_crop_end=1)
     # _, trials_mask = load_trials_and_mask(
-    #     one=one, eid=session_id, sess_loader=sl, min_rt=0.08, max_rt=None,
+    #     one=one, eid=session_id, sess_loader=sl, min_rt=min_rt, max_rt=max_rt,
     #     min_trial_len=None, max_trial_len=None,
     #     exclude_nochoice=True, exclude_unbiased=False,
     # )
@@ -351,7 +359,7 @@ def fit_session_widefield(
 
 def fit_session_pupil(
         one, session_id, subject, output_dir, pseudo_ids=None, target='pLeft', align_event='stimOn_times',
-        time_window=(-0.6, -0.1), model='optBay', n_runs=10, stage_only=False
+        min_rt=0.08, max_rt=None, time_window=(-0.6, -0.1), model='optBay', n_runs=10, stage_only=False
 ):
     """
     Fit pupil tracking data to behavior (instead of neural activity)
@@ -377,6 +385,10 @@ def fit_session_pupil(
     align_event: str
      Event to which we align the time window, default is stimOn_times (stimulus onset). Options are
      {"firstMovement_times", "goCue_times", "stimOn_times", "feedback_times"}
+    min_rt: float or None
+        Minimum admissible reaction time in seconds for a trial to be included. Default is 0.08. If None, don't apply.
+    max_rt: float or None
+        Maximum admissible reaction time in seconds for a trial to be included. Default is None. If None, don't apply.
     time_window: tuple of float
      Time window in which pupil movement is considered, relative to align_event, default is (-0.6, -0.1)
     model: str
@@ -398,7 +410,7 @@ def fit_session_pupil(
     sl = SessionLoader(one, eid=session_id)
     sl.load_trials()
     _, trials_mask = load_trials_and_mask(
-        one=one, eid=session_id, sess_loader=sl, min_rt=0.08, max_rt=None,
+        one=one, eid=session_id, sess_loader=sl, min_rt=min_rt, max_rt=max_rt,
         min_trial_len=None, max_trial_len=None,
         exclude_nochoice=True, exclude_unbiased=False,
     )
@@ -456,7 +468,7 @@ def fit_session_pupil(
 
 def fit_session_motor(
         one, session_id, subject, output_dir, pseudo_ids=None, target='pLeft', align_event='stimOn_times',
-        time_window=(-0.6, -0.1), model='optBay', n_runs=10, stage_only=False
+        min_rt=0.08, max_rt=None, time_window=(-0.6, -0.1), model='optBay', n_runs=10, stage_only=False
 ):
     """
     Fit movement tracking data to behavior (instead of neural actvity)
@@ -482,6 +494,10 @@ def fit_session_motor(
     align_event: str
      Event to which we align the time window, default is stimOn_times (stimulus onset). Options are
      {"firstMovement_times", "goCue_times", "stimOn_times", "feedback_times"}
+    min_rt: float or None
+        Minimum admissible reaction time in seconds for a trial to be included. Default is 0.08. If None, don't apply.
+    max_rt: float or None
+        Maximum admissible reaction time in seconds for a trial to be included. Default is None. If None, don't apply.
     time_window: tuple of float
      Time window in which movement is considered, relative to align_event, default is (-0.6, -0.1)
     model: str
@@ -504,7 +520,7 @@ def fit_session_motor(
     sl = SessionLoader(one, eid=session_id)
     sl.load_trials()
     _, trials_mask = load_trials_and_mask(
-        one=one, eid=session_id, sess_loader=sl, min_rt=0.08, max_rt=None,
+        one=one, eid=session_id, sess_loader=sl, min_rt=min_rt, max_rt=max_rt,
         min_trial_len=None, max_trial_len=None,
         exclude_nochoice=True, exclude_unbiased=False,
     )
