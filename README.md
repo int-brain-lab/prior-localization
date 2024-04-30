@@ -17,7 +17,7 @@ Then clone this repository and install it along with its dependencies
 ```shell
 git clone https://github.com/int-brain-lab/prior-localization.git
 cd prior-localization
-pip install .
+pip install -e .
 ```
 
 In a Python console, test if you can import functions from prior_localization
