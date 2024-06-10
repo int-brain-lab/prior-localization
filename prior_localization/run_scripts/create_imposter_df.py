@@ -33,7 +33,7 @@ def run_main(args):
         binsize = 0.02
 
     # ephys sessions from one of 12 templates
-    one = ONE(base_url='https://openalyx.internationalbrainlab.org')  # , mode='local')
+    one = ONE(base_url='https://openalyx.internationalbrainlab.org', mode='local')
     bwm_df = bwm_query(freeze='2023_12_bwm_release')
     eids = bwm_df['eid'].unique()
 
@@ -108,7 +108,7 @@ def run_main(args):
 
 
 if __name__ == '__main__':
-    """python create_imposter_df.py --target=wheel-speed --save_path=/path/to/folder"""
+    """python create_imposter_df.py --target=wheel-speed --save_dir=/path/to/folder"""
 
     parser = argparse.ArgumentParser()
 

@@ -11,6 +11,7 @@ parser = argparse.ArgumentParser(description='Run decoding')
 parser.add_argument('job_idx')
 parser.add_argument('n_pseudo')
 parser.add_argument('n_per_job')
+parser.add_argument('base_idx')
 parser.add_argument('output_dir')
 parser.add_argument('target')
 
@@ -18,10 +19,13 @@ args = parser.parse_args()
 job_idx = int(args.job_idx)
 n_pseudo = int(args.n_pseudo)
 n_per_job = int(args.n_per_job)
+base_idx = int(args.base_idx)
 output_dir = str(args.output_dir)
 target = str(args.target)
 
 output_dir = Path(output_dir).joinpath(target)
+
+job_idx += base_idx
 
 # Get session idx
 session_idx = int(np.ceil(job_idx / (n_pseudo / n_per_job)) - 1)
@@ -50,6 +54,8 @@ probe_name = list(bwm_df[bwm_df.eid == session_id].probe_name)
 probe_name = probe_name[0] if len(probe_name) == 1 else probe_name
 
 # set BWM defaults here
+min_rt = 0.08
+max_rt = 2.0
 binsize = None
 n_bins_lag = None
 n_bins = None
@@ -101,7 +107,7 @@ else:
 # Run the decoding for the current set of pseudo ids.
 results = fit_session_ephys(
     one, session_id, subject, probe_name, output_dir=output_dir, pseudo_ids=pseudo_ids, target=target,
-    align_event=align_event, time_window=time_window, model=model, n_runs=n_runs,
+    align_event=align_event, min_rt=min_rt, max_rt=max_rt, time_window=time_window, model=model, n_runs=n_runs,
     binsize=binsize, n_bins_lag=n_bins_lag, n_bins=n_bins,
     compute_neurometrics=False, motor_residuals=False,
 )

@@ -39,7 +39,7 @@ config = check_config()
 
 def fit_session_ephys(
         one, session_id, subject, probe_name, output_dir, pseudo_ids=None, target='pLeft', align_event='stimOn_times',
-        min_rt=0.08 , max_rt=None, time_window=(-0.6, -0.1), binsize=None, n_bins_lag=None, n_bins=None, model='optBay',
+        min_rt=0.08, max_rt=None, time_window=(-0.6, -0.1), binsize=None, n_bins_lag=None, n_bins=None, model='optBay',
         n_runs=10, compute_neurometrics=False, motor_residuals=False, stage_only=False
 ):
     """
@@ -101,6 +101,8 @@ def fit_session_ephys(
     pseudo_ids, output_dir = check_inputs(
         model, pseudo_ids, target, output_dir, config, logger, compute_neurometrics, motor_residuals
     )
+
+    np.random.seed(str2int(session_id) + np.sum(pseudo_ids))
 
     # Load trials data and compute mask
     sl = SessionLoader(one, eid=session_id)
@@ -180,8 +182,9 @@ def fit_session_ephys(
         )
 
         # Add the mask to fit results
+        save_predictions = True if pseudo_ids[0] == -1 else config['save_predictions']
         for fit_result in fit_results:
-            fit_result['mask'] = all_masks[i] if config['save_predictions'] else None
+            fit_result['mask'] = all_masks[i] if save_predictions else None
 
         # Create output paths and save
         region_str = config['regions'] if (config['regions'] == 'all_regions') or (
@@ -625,7 +628,7 @@ def fit_target(
                 estimator_kwargs=config['estimator_kwargs'],
                 hyperparam_grid=config['hparam_grid'],
                 save_binned=False,
-                save_predictions=config['save_predictions'],
+                save_predictions=True if pseudo_id == -1 else config['save_predictions'],
                 shuffle=config['shuffle'],
                 balanced_weight=config['balanced_weighting'],
                 rng_seed=rng_seed,
