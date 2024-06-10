@@ -1,4 +1,5 @@
 import argparse
+import numpy as np
 import os
 import pickle
 import pandas as pd
@@ -43,7 +44,7 @@ for fn in tqdm(finished):
                 "pseudo_id": result["fit"][i_decoding]["pseudo_id"],
                 "run_id": result["fit"][i_decoding]["run_id"] + 1,
                 "score_test": result["fit"][i_decoding]["scores_test_full"],
-                "n_trials": sum(result['fit'][i_decoding]['mask'][0]),
+                "n_trials": len(result["fit"][i_decoding]["predictions_test"]),
             }
             resultslist.append(tmpdict)
     except Exception as e:

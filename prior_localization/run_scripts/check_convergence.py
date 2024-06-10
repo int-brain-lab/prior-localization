@@ -3,8 +3,9 @@ from pathlib import Path
 import re
 import sys
 
-job_name = sys.argv[1]
-SLURM_DIR = Path(sys.argv[2])
+
+SLURM_DIR = Path(sys.argv[1])
+job_name = sys.argv[2]
 
 def check_filename(filename, job_id, string):
     pattern = r'\b{}\b.*\b{}\b'.format(job_id, string)
