@@ -39,8 +39,9 @@ config = check_config()
 
 def fit_session_ephys(
         one, session_id, subject, probe_name, output_dir, pseudo_ids=None, target='pLeft', align_event='stimOn_times',
-        time_window=(-0.6, -0.1), binsize=None, n_bins_lag=None, n_bins=None, model='optBay', n_runs=10,
-        compute_neurometrics=False, motor_residuals=False, stage_only=False, integration_test=False,
+        time_window=(-0.6, -0.1), saturation_intervals=None,
+        binsize=None, n_bins_lag=None, n_bins=None, model='optBay',
+        n_runs=10, compute_neurometrics=False, motor_residuals=False, stage_only=False, integration_test=False,
 ):
     """
     Fits a single session for ephys data.
@@ -68,7 +69,17 @@ def fit_session_ephys(
      Event to which we align the time window, default is stimOn_times (stimulus onset). Options are
      {"firstMovement_times", "goCue_times", "stimOn_times", "feedback_times"}
     time_window: tuple of float
-     Time window in which neural activity is considered, relative to align_event, default is (-0.6, -0.1)
+        Time window in which neural activity is considered, relative to align_event, default is (-0.6, -0.1)
+        saturation_intervals: str or list of str or None
+        If str or list of str, the name of the interval(s) to be used to exclude trials if the ephys signal shows
+        saturation in the interval(s). Default is None. Possible values are:
+            saturation_stim_plus04
+            saturation_feedback_plus04
+            saturation_move_minus02
+            saturation_stim_minus04_minus01
+            saturation_stim_plus06
+            saturation_stim_minus06_plus06
+            saturation_stim_plus01
     binsize : float or None
      if None, sum spikes in time_window for decoding; if float, split time window into smaller bins
     n_bins_lag : int or None
@@ -108,6 +119,7 @@ def fit_session_ephys(
     _, trials_mask = load_trials_and_mask(
         one=one, eid=session_id, sess_loader=sl, min_rt=0.08, max_rt=2.0,
         min_trial_len=None, max_trial_len=None,
+        saturation_intervals=saturation_intervals,
         exclude_nochoice=True, exclude_unbiased=False,
     )
     intervals = np.vstack([sl.trials[align_event] + time_window[0], sl.trials[align_event] + time_window[1]]).T

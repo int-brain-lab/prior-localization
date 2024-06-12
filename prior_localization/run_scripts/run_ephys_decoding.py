@@ -43,7 +43,7 @@ if pseudo_idx == 0:
 
 # Create an offline ONE instance, we don't want to hit the database when running so many jobs in parallel and have
 # downloaded the data before
-one = ONE(base_url='https://openalyx.internationalbrainlab.org', mode='local')
+one = ONE(base_url='https://alyx.internationalbrainlab.org', mode='local')
 
 # Get info for respective eid from bwm_dataframe
 bwm_df = bwm_query(one=one, freeze='2023_12_bwm_release')
@@ -62,36 +62,42 @@ n_runs = 10
 if target == 'stimside':
     align_event = 'stimOn_times'
     time_window = (0.0, 0.1)
+    saturation_intervals = 'saturation_stim_plus01'
     model = 'oracle'
     estimator = 'LogisticRegression'
 
 elif target == 'signcont':
     align_event = 'stimOn_times'
     time_window = (0.0, 0.1)
+    saturation_intervals = 'saturation_stim_plus01'
     model = 'oracle'
     estimator = 'Lasso'
 
 elif target == 'choice':
     align_event = 'firstMovement_times'
     time_window = (-0.1, 0.0)
+    saturation_intervals = 'saturation_move_minus02'
     model = 'actKernel'
     estimator = 'LogisticRegression'
 
 elif target == 'feedback':
     align_event = 'feedback_times'
     time_window = (0.0, 0.2)
+    saturation_intervals = 'saturation_feedback_plus04'
     model = 'actKernel'
     estimator = 'LogisticRegression'
 
 elif target == 'pLeft':
     align_event = 'stimOn_times'
     time_window = (-0.6, -0.1)
+    saturation_intervals = 'saturation_stim_minus06_plus06'
     model = 'optBay'
     estimator = 'LogisticRegression'
 
 elif target in ['wheel-speed', 'wheel-velocity']:
     align_event = 'firstMovement_times'
     time_window = (-0.2, 1.0)
+    saturation_intervals = 'saturation_move_minus02'
     model = 'oracle'
     estimator = 'Lasso'
     binsize = 0.02
@@ -105,7 +111,9 @@ else:
 # Run the decoding for the current set of pseudo ids.
 results = fit_session_ephys(
     one, session_id, subject, probe_name, output_dir=output_dir, pseudo_ids=pseudo_ids, target=target,
-    align_event=align_event, time_window=time_window, model=model, n_runs=n_runs,
+    align_event=align_event, time_window=time_window,
+    saturation_intervals=saturation_intervals,
+    model=model, n_runs=n_runs,
     binsize=binsize, n_bins_lag=n_bins_lag, n_bins=n_bins,
     compute_neurometrics=False, motor_residuals=False,
 )
