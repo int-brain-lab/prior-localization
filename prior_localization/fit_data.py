@@ -114,7 +114,7 @@ def fit_session_ephys(
     np.random.seed(str2int(session_id) + np.sum(pseudo_ids))
 
     # Load trials data and compute mask
-    sl = SessionLoader(one, session_id)
+    sl = SessionLoader(one=one, eid=session_id)
     sl.load_trials()
     _, trials_mask = load_trials_and_mask(
         one=one, eid=session_id, sess_loader=sl, min_rt=0.08, max_rt=2.0,
