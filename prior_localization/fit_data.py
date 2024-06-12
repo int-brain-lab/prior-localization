@@ -39,7 +39,8 @@ config = check_config()
 
 def fit_session_ephys(
         one, session_id, subject, probe_name, output_dir, pseudo_ids=None, target='pLeft', align_event='stimOn_times',
-        min_rt=0.08 , max_rt=None, time_window=(-0.6, -0.1), binsize=None, n_bins_lag=None, n_bins=None, model='optBay',
+        min_rt=0.08, max_rt=None, time_window=(-0.6, -0.1), saturation_intervals=None,
+        binsize=None, n_bins_lag=None, n_bins=None, model='optBay',
         n_runs=10, compute_neurometrics=False, motor_residuals=False, stage_only=False
 ):
     """
@@ -73,6 +74,16 @@ def fit_session_ephys(
         Maximum admissible reaction time in seconds for a trial to be included. Default is None. If None, don't apply.
     time_window: tuple of float
      Time window in which neural activity is considered, relative to align_event, default is (-0.6, -0.1)
+    saturation_intervals: str or list of str or None
+         If str or list of str, the name of the interval(s) to be used to exclude trials if the ephys signal shows
+         saturation in the interval(s). Default is None. Possible values are:
+            saturation_stim_plus04
+            saturation_feedback_plus04
+            saturation_move_minus02
+            saturation_stim_minus04_minus01
+            saturation_stim_plus06
+            saturation_stim_minus06_plus06
+            saturation_stim_plus01
     binsize : float or None
      if None, sum spikes in time_window for decoding; if float, split time window into smaller bins
     n_bins_lag : int or None
@@ -102,12 +113,15 @@ def fit_session_ephys(
         model, pseudo_ids, target, output_dir, config, logger, compute_neurometrics, motor_residuals
     )
 
+    np.random.seed(str2int(session_id) + np.sum(pseudo_ids))
+
     # Load trials data and compute mask
     sl = SessionLoader(one, eid=session_id)
     sl.load_trials()
     _, trials_mask = load_trials_and_mask(
         one=one, eid=session_id, sess_loader=sl, min_rt=min_rt, max_rt=max_rt,
         min_trial_len=None, max_trial_len=None,
+        saturation_intervals=saturation_intervals,
         exclude_nochoice=True, exclude_unbiased=False,
     )
     intervals = np.vstack([sl.trials[align_event] + time_window[0], sl.trials[align_event] + time_window[1]]).T
@@ -180,8 +194,9 @@ def fit_session_ephys(
         )
 
         # Add the mask to fit results
+        save_predictions = True if pseudo_ids[0] == -1 else config['save_predictions']
         for fit_result in fit_results:
-            fit_result['mask'] = all_masks[i] if config['save_predictions'] else None
+            fit_result['mask'] = all_masks[i] if save_predictions else None
 
         # Create output paths and save
         region_str = config['regions'] if (config['regions'] == 'all_regions') or (
@@ -625,7 +640,7 @@ def fit_target(
                 estimator_kwargs=config['estimator_kwargs'],
                 hyperparam_grid=config['hparam_grid'],
                 save_binned=False,
-                save_predictions=config['save_predictions'],
+                save_predictions=True if pseudo_id == -1 else config['save_predictions'],
                 shuffle=config['shuffle'],
                 balanced_weight=config['balanced_weighting'],
                 rng_seed=rng_seed,

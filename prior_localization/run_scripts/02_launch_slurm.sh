@@ -11,6 +11,7 @@ out_dir=/mnt/ibl/quarantine/prior/ephys
 n_sessions=354  # number of unique eids in the dataframe that we will index in
 n_pseudo=200  # number of pseudo sessions to generate for each real session
 n_per_job=10  # number of (pseudo)sessions to fit per job on the cluster
+base_idx=0    # add this to the task id; some clusters don't allow array values >1000
 target=pLeft  # target to fit
 
 # Potentially activate env here
@@ -22,8 +23,5 @@ target=pLeft  # target to fit
 # Make sure output dir exists
 mkdir -p $out_dir
 
-# Get the total number of jobs
-n_jobs=n_jobs=$(($n_sessions * $n_pseudo / $n_per_job))
-
-# Launch slurm job array
-sbatch --array=1-$n_jobs python .run_ephys_decoding "$SLURM_ARRAY_TASK_ID" "$n_pseudo" "$n_per_job" "$out_dir" "$target"
+# After the job is submitted, run the python script
+python run_ephys_decoding.py "$SLURM_ARRAY_TASK_ID" "$n_pseudo" "$n_per_job" "$base_idx" "$out_dir" "$target"

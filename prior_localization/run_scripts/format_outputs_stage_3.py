@@ -12,6 +12,7 @@ parser.add_argument('target')
 parser.add_argument('--min_units', default=5, required=False)
 parser.add_argument('--min_trials', default=250, required=False)
 parser.add_argument('--min_sessions_per_region', default=2, required=False)
+parser.add_argument('--n_pseudo', default=200, required=False)
 parser.add_argument('--alpha_level', default=0.05, required=False)
 parser.add_argument('--q_level', default=0.01, required=False)
 
@@ -22,6 +23,7 @@ target = str(args.target)
 MIN_UNITS = args.min_units
 MIN_TRIALS = args.min_trials
 MIN_SESSIONS_PER_REGION = args.min_sessions_per_region
+N_PSEUDO = args.n_pseudo
 ALPHA_LEVEL = args.alpha_level
 Q_LEVEL = args.q_level
 
