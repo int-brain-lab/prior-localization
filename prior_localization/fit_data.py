@@ -41,7 +41,8 @@ def fit_session_ephys(
         one, session_id, subject, probe_name, output_dir, pseudo_ids=None, target='pLeft', align_event='stimOn_times',
         time_window=(-0.6, -0.1), saturation_intervals=None,
         binsize=None, n_bins_lag=None, n_bins=None, model='optBay',
-        n_runs=10, compute_neurometrics=False, motor_residuals=False, stage_only=False, integration_test=False,
+        n_runs=10, compute_neurometrics=False, motor_residuals=False,
+        overwrite=False, stage_only=False, integration_test=False,
 ):
     """
     Fits a single session for ephys data.
@@ -95,6 +96,8 @@ def fit_session_ephys(
     motor_residuals: bool
      Whether ot compute the motor residual before performing neural decoding. This argument is used to study embodiment
      corresponding to figure 2f, default is False
+    overwrite: bool
+     overwrite the decoding results if they exist already
     stage_only: bool
      If true, only download all required data, don't perform the actual decoding
     integration_test: bool
@@ -181,41 +184,46 @@ def fit_session_ephys(
         else:
             data_masked = [data_epoch[i][m] for m in all_masks[i]]
 
-        # Fit
-        fit_results = fit_target(
-            all_data=data_masked,
-            all_targets=targets_masked,
-            all_trials=all_trials[i],
-            n_runs=n_runs,
-            all_neurometrics=all_neurometrics[i],
-            pseudo_ids=pseudo_ids,
-            base_rng_seed=str2int(session_id + '_'.join(actual_regions[i])),
-            integration_test=integration_test,
-        )
-
-        # Add the mask to fit results
-        save_predictions = True if pseudo_ids[0] == -1 else config['save_predictions']
-        for fit_result in fit_results:
-            fit_result['mask'] = all_masks[i] if save_predictions else None
-
-        # Create output paths and save
+        # Create output paths
         region_str = config['regions'] if (config['regions'] == 'all_regions') or (
                 config['regions'] in config['region_defaults'].keys()) else '_'.join(actual_regions[i])
         filename = output_dir.joinpath(subject, session_id, f'{region_str}_{probe_str}_pseudo_ids_{pseudo_str}.pkl')
         filename.parent.mkdir(parents=True, exist_ok=True)
 
-        outdict = {
-            "fit": fit_results,
-            "subject": subject,
-            "eid": session_id,
-            "probe": probe_str,
-            "region": actual_regions[i],
-            "N_units": n_units[i],
-            "cluster_uuids": cluster_ids[i],
-        }
-        with open(filename, "wb") as fw:
-            pickle.dump(outdict, fw)
+        if (not filename.exists()) or (filename.exists() and overwrite):
+
+            # Fit
+            fit_results = fit_target(
+                all_data=data_masked,
+                all_targets=targets_masked,
+                all_trials=all_trials[i],
+                n_runs=n_runs,
+                all_neurometrics=all_neurometrics[i],
+                pseudo_ids=pseudo_ids,
+                base_rng_seed=str2int(session_id + '_'.join(actual_regions[i])),
+                integration_test=integration_test,
+            )
+
+            # Add the mask to fit results
+            save_predictions = True if pseudo_ids[0] == -1 else config['save_predictions']
+            for fit_result in fit_results:
+                fit_result['mask'] = all_masks[i] if save_predictions else None
+
+            # Save outputs
+            outdict = {
+                "fit": fit_results,
+                "subject": subject,
+                "eid": session_id,
+                "probe": probe_str,
+                "region": actual_regions[i],
+                "N_units": n_units[i],
+                "cluster_uuids": cluster_ids[i],
+            }
+            with open(filename, "wb") as fw:
+                pickle.dump(outdict, fw)
+
         filenames.append(filename)
+
     return filenames
 
 
