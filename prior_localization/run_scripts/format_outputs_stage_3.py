@@ -20,12 +20,12 @@ args = parser.parse_args()
 output_dir = str(args.output_dir)
 target = str(args.target)
 
-MIN_UNITS = args.min_units
-MIN_TRIALS = args.min_trials
-MIN_SESSIONS_PER_REGION = args.min_sessions_per_region
-N_PSEUDO = args.n_pseudo
-ALPHA_LEVEL = args.alpha_level
-Q_LEVEL = args.q_level
+MIN_UNITS = int(args.min_units)
+MIN_TRIALS = int(args.min_trials)
+MIN_SESSIONS_PER_REGION = int(args.min_sessions_per_region)
+N_PSEUDO = int(args.n_pseudo)
+ALPHA_LEVEL = float(args.alpha_level)
+Q_LEVEL = float(args.q_level)
 
 
 def significance_by_region(group):
