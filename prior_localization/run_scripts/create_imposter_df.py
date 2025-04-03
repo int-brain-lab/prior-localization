@@ -13,6 +13,8 @@ from pathlib import Path
 from brainwidemap import bwm_query, load_trials_and_mask
 from prior_localization.functions.behavior_targets import add_target_to_trials
 
+REVISION='2024-07-10'
+
 
 def run_main(args):
 
@@ -62,7 +64,7 @@ def run_main(args):
 
         print('%i: %s' % (i, eid))
         try:
-            sess_loader = SessionLoader(one=one, eid=eid)
+            sess_loader = SessionLoader(one=one, eid=eid, revision=REVISION)
             sess_loader.load_trials()
             trials_df = sess_loader.trials
         except Exception as e:

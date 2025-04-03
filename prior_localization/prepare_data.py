@@ -126,7 +126,7 @@ def prepare_ephys(
 def prepare_motor(one, session_id, align_event='stimOn_times', time_window=(-0.6, -0.1), lick_bins=0.02):
 
     # Initiate session loader, load trials, wheel, motion energy and pose estimates
-    sl = SessionLoader(one, session_id)
+    sl = SessionLoader(one=one, eid=session_id, revision=config['revision'])
     sl.load_trials()
     sl.load_wheel()
     sl.load_motion_energy(views=['left', 'right'])
@@ -301,7 +301,7 @@ def prepare_behavior(
 
 def prepare_pupil(one, session_id, time_window=(-0.6, -0.1), align_event='stimOn_times', camera='left'):
     # Load the trials data
-    sl = SessionLoader(one, session_id)
+    sl = SessionLoader(one=one, eid=session_id, revision=config['revision'])
     sl.load_trials()
     # TODO: replace this with SessionLoader ones that loads lightning pose
     pupil_data = one.load_object(session_id, f'{camera}Camera', attribute=['lightningPose', 'times'])
