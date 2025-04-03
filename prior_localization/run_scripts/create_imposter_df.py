@@ -29,14 +29,15 @@ def run_main(args):
     # TODO: what is the best way to pass these params?
     min_rt = 0.08
     max_rt = 2.0
+
     if target in ['wheel-speed', 'wheel-velocity']:
         align_event = 'firstMovement_times'
         time_window = (-0.2, 1.0)
         binsize = 0.02
 
     # ephys sessions from one of 12 templates
-    one = ONE(base_url='https://openalyx.internationalbrainlab.org', mode='local')
-    bwm_df = bwm_query(freeze='2023_12_bwm_release')
+    one = ONE(base_url='https://openalyx.internationalbrainlab.org')  # , mode='local')
+    bwm_df = bwm_query(one=one, freeze='2023_12_bwm_release')
     eids = bwm_df['eid'].unique()
 
     # basic columns that we want to keep
