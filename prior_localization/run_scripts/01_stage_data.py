@@ -1,3 +1,4 @@
+# %%
 from pathlib import Path
 from one.api import ONE
 from brainwidemap.bwm_loading import bwm_query
@@ -5,12 +6,12 @@ from brainwidemap.bwm_loading import bwm_query
 from prior_localization.fit_data import fit_session_ephys
 
 #### USER SETTINGS, ADAPT THESE TO YOUR CLUSTER ###
-input_dir = Path('/moto/stats/users/mw3323/data')
+input_dir = Path('/mnt/s0/bwm/wheel_rerun')
 ###################################################
 
 # Here we use and online ONE instance because we need to actually access the database
 # We set it up to download to our chosen input_dir
-ONE.setup(base_url='https://openalyx.internationalbrainlab.org', cache_dir=input_dir, silent=True)
+# ONE.setup(base_url='https://openalyx.internationalbrainlab.org', cache_dir=input_dir, silent=True)
 one = ONE(base_url='https://openalyx.internationalbrainlab.org')
 
 # Get brainwidemap dataframe
