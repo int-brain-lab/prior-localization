@@ -13,6 +13,8 @@ from pathlib import Path
 from brainwidemap import bwm_query, load_trials_and_mask
 from prior_localization.functions.behavior_targets import add_target_to_trials
 
+REVISION='2024-07-10'
+
 
 def run_main(args):
 
@@ -27,14 +29,15 @@ def run_main(args):
     # TODO: what is the best way to pass these params?
     min_rt = 0.08
     max_rt = 2.0
+
     if target in ['wheel-speed', 'wheel-velocity']:
         align_event = 'firstMovement_times'
         time_window = (-0.2, 1.0)
         binsize = 0.02
 
     # ephys sessions from one of 12 templates
-    one = ONE(base_url='https://openalyx.internationalbrainlab.org', mode='local')
-    bwm_df = bwm_query(freeze='2023_12_bwm_release')
+    one = ONE(base_url='https://openalyx.internationalbrainlab.org')  # , mode='local')
+    bwm_df = bwm_query(one=one, freeze='2023_12_bwm_release')
     eids = bwm_df['eid'].unique()
 
     # basic columns that we want to keep
@@ -62,7 +65,7 @@ def run_main(args):
 
         print('%i: %s' % (i, eid))
         try:
-            sess_loader = SessionLoader(one=one, eid=eid)
+            sess_loader = SessionLoader(one=one, eid=eid, revision=REVISION)
             sess_loader.load_trials()
             trials_df = sess_loader.trials
         except Exception as e:

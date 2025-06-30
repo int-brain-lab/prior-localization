@@ -58,7 +58,7 @@ class TestBehaviorInputs(unittest.TestCase):
         self.fixtures_dir = Path(__file__).parent.joinpath('fixtures', 'inputs')
 
     def test_behav_targets(self):
-        sl = SessionLoader(self.one, self.eid)
+        sl = SessionLoader(self.one, self.eid, revision='2024-07-10')
         sl.load_trials()
         _, trials_mask = load_trials_and_mask(
             one=self.one, eid=self.eid, sess_loader=sl, min_rt=0.08, max_rt=None,
@@ -111,7 +111,7 @@ class TestAverageDataInEpoch(unittest.TestCase):
     def setUp(self) -> None:
         self.one = ONE(base_url='https://openalyx.internationalbrainlab.org')
         self.eid = 'fc14c0d6-51cf-48ba-b326-56ed5a9420c3'
-        self.sl = SessionLoader(self.one, self.eid)
+        self.sl = SessionLoader(self.one, self.eid, revision='2024-07-10')
         self.sl.load_trials()
         self.ts = 1 / 30
         self.epoch = [-0.6, -0.1]

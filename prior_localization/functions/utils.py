@@ -242,6 +242,7 @@ def check_config():
                              if config['estimator'] == sklm.LogisticRegression
                              else {"alpha": np.array([0.00001, 0.0001, 0.001, 0.01, 0.1])})
 
+    config['revision'] = '2024-07-10'
     return config
 
 
