@@ -3,6 +3,7 @@ import numpy as np
 import os
 from scipy import stats
 import pandas as pd
+from pathlib import Path
 
 import wfield
 import sklearn.linear_model as sklm
@@ -188,7 +189,7 @@ def prepare_motor(one, session_id, align_event='stimOn_times', time_window=(-0.6
 
 def prepare_behavior(
         session_id, subject, trials_df, trials_mask, pseudo_ids=None, n_pseudo_sets=1, output_dir=None, model='optBay',
-        target='pLeft', compute_neurometrics=False, integration_test=False,
+        target='pLeft', compute_neurometrics=False,
 ):
     if pseudo_ids is None:
         pseudo_ids = [-1]  # -1 is always the actual session
@@ -209,7 +210,7 @@ def prepare_behavior(
     # load imposter trials dataframe if required
     if target in ['wheel-speed', 'wheel-velocity'] and np.any(np.array(pseudo_ids) > 0):
         assert config['imposter_df_path'] is not None, 'Must specify imposter_df_path in config.yaml file'
-        imposter_df = pd.read_parquet(os.path.join(config['imposter_df_path'], f'imposterSessions_{target}.pqt'))
+        imposter_df = pd.read_parquet(Path(config['imposter_df_path']).joinpath(f'imposterSessions_{target}.pqt'))
     else:
         imposter_df = None
 
@@ -235,10 +236,7 @@ def prepare_behavior(
                 set_targets.append(actual_target)
                 set_masks.append(trials_mask & actual_target_mask)
             else:
-                if integration_test:  # for reproducing the test results we need to fix a seed in this case
-                    np.random.seed((n+1) * pseudo_id)
-                else:
-                    np.random.seed(str2int(session_id) + (n+1) * pseudo_id)
+                np.random.seed(str2int(session_id) + (n+1) * pseudo_id)
 
                 # compute initial pseudo targets
                 if target in ['wheel-speed', 'wheel-velocity']:
@@ -286,8 +284,8 @@ def prepare_behavior(
         if compute_neurometrics:
             set_neurometrics = []
             for i in range(len(pseudo_ids)):
-                neurometrics = compute_neurometric_prior(all_trials[i], session_id, subject, model, behavior_path)
-                set_neurometrics.append(neurometrics[trials_mask].reset_index(drop=True))  # TODO: need to update mask
+                neurometrics = compute_neurometric_prior(set_trials[i], session_id, subject, model, behavior_path)
+                set_neurometrics.append(neurometrics[set_masks[i]].reset_index(drop=True))
         else:
             set_neurometrics = None
 

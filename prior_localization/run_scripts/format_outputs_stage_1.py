@@ -8,7 +8,7 @@ from tqdm import tqdm
 import gc
 from pathlib import Path
 
-parser = argparse.ArgumentParser(description='Format outputs')
+parser = argparse.ArgumentParser(description='Format outputs stage 1')
 parser.add_argument('output_dir')
 parser.add_argument('target')
 
@@ -27,10 +27,15 @@ resultslist = []
 
 failed_load = 0
 for fn in tqdm(finished):
+<<<<<<<< HEAD:prior_localization/run_scripts/format_outputs_stage1.py
 
     if os.path.isdir(fn):
         continue
 
+========
+    if os.path.isdir(fn):
+        continue
+>>>>>>>> cluster-updates:prior_localization/run_scripts/format_outputs_stage_1.py
     try:
         fo = open(fn, "rb")
         result = pickle.load(fo)
@@ -52,6 +57,7 @@ for fn in tqdm(finished):
         print(e)
         failed_load += 1
         pass
+
 print("loading of %i files failed" % failed_load)
 
 resultsdf = pd.DataFrame(resultslist)

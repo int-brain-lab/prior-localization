@@ -111,7 +111,7 @@ def run_main(args):
 
 
 if __name__ == '__main__':
-    """python create_imposter_df.py --target=wheel-speed --save_path=/path/to/folder"""
+    """python create_imposter_df.py --target=wheel-speed --save_dir=/path/to/folder"""
 
     parser = argparse.ArgumentParser()
 
