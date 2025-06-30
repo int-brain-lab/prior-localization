@@ -39,7 +39,7 @@ config = check_config()
 
 def fit_session_ephys(
         one, session_id, subject, probe_name, output_dir, pseudo_ids=None, target='pLeft', align_event='stimOn_times',
-        time_window=(-0.6, -0.1), saturation_intervals=None,
+        min_rt=0.08, max_rt=None, time_window=(-0.6, -0.1), saturation_intervals=None,
         binsize=None, n_bins_lag=None, n_bins=None, model='optBay',
         n_runs=10, compute_neurometrics=False, motor_residuals=False,
         overwrite=False, stage_only=False,
@@ -69,6 +69,10 @@ def fit_session_ephys(
     align_event: str
         Event to which we align the time window, default is stimOn_times (stimulus onset). Options are
         {"firstMovement_times", "goCue_times", "stimOn_times", "feedback_times"}
+    min_rt: float or None
+        Minimum admissible reaction time in seconds for a trial to be included. Default is 0.08. If None, don't apply.
+    max_rt: float or None
+        Maximum admissible reaction time in seconds for a trial to be included. Default is None. If None, don't apply.
     time_window: tuple of float
         Time window in which neural activity is considered, relative to align_event, default is (-0.6, -0.1)
     saturation_intervals: str or list of str or None
@@ -119,7 +123,7 @@ def fit_session_ephys(
     sl = SessionLoader(one=one, eid=session_id, revision=config['revision'])
     sl.load_trials()
     _, trials_mask = load_trials_and_mask(
-        one=one, eid=session_id, sess_loader=sl, min_rt=0.08, max_rt=2.0,
+        one=one, eid=session_id, sess_loader=sl, min_rt=min_rt, max_rt=max_rt,
         min_trial_len=None, max_trial_len=None,
         saturation_intervals=saturation_intervals,
         exclude_nochoice=True, exclude_unbiased=False,

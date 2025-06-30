@@ -13,7 +13,7 @@ from pathlib import Path
 from brainwidemap import bwm_query, load_trials_and_mask
 from prior_localization.functions.behavior_targets import add_target_to_trials
 
-REVISION='2024-07-10'
+REVISION = '2024-07-10'
 
 
 def run_main(args):
@@ -36,7 +36,7 @@ def run_main(args):
         binsize = 0.02
 
     # ephys sessions from one of 12 templates
-    one = ONE(base_url='https://openalyx.internationalbrainlab.org')  # , mode='local')
+    one = ONE(base_url='https://openalyx.internationalbrainlab.org', mode='local')
     bwm_df = bwm_query(one=one, freeze='2023_12_bwm_release')
     eids = bwm_df['eid'].unique()
 
