@@ -24,7 +24,8 @@ class TestEphysInput(unittest.TestCase):
     def test_prepare_ephys_merged(self):
         binned_spikes, actual_regions, n_units, cluster_ids = prepare_ephys(
             one=self.one, session_id=self.eid, probe_name=self.probe_names, regions='single_regions',
-            intervals=self.intervals)
+            intervals=self.intervals, qc=1, min_units=10,
+        )
         for spikes, region in zip(binned_spikes, actual_regions):
             # this failed for uninteresting reasons
             if region[0] == 'VPM':
@@ -36,7 +37,8 @@ class TestEphysInput(unittest.TestCase):
         for probe_name in self.probe_names:
             binned_spikes, actual_regions, n_units, cluster_ids = prepare_ephys(
                 one=self.one, session_id=self.eid, probe_name=probe_name, regions='single_regions',
-                intervals=self.intervals)
+                intervals=self.intervals, qc=1, min_units=10,
+            )
             for spikes, region in zip(binned_spikes, actual_regions):
                 # this failed for uninteresting reasons
                 if region[0] == 'VPM':

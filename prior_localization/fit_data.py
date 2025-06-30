@@ -203,7 +203,6 @@ def fit_session_ephys(
                 all_neurometrics=all_neurometrics[i],
                 pseudo_ids=pseudo_ids,
                 base_rng_seed=str2int(session_id + '_'.join(actual_regions[i])),
-                integration_test=integration_test,
             )
 
             # Add the mask to fit results
