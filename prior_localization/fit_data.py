@@ -290,12 +290,11 @@ def fit_session_widefield(
     # Load trials data
     sl = SessionLoader(one=one, eid=session_id, revision=config['revision'])
     sl.load_trials()
-    trials_mask = compute_mask(sl.trials, align_event=align_event, min_rt=min_rt, max_rt=max_rt, n_trials_crop_end=1)
-    # _, trials_mask = load_trials_and_mask(
-    #     one=one, eid=session_id, sess_loader=sl, min_rt=min_rt, max_rt=max_rt,
-    #     min_trial_len=None, max_trial_len=None,
-    #     exclude_nochoice=True, exclude_unbiased=False,
-    # )
+    _, trials_mask = load_trials_and_mask(
+        one=one, eid=session_id, sess_loader=sl, min_rt=min_rt, max_rt=max_rt,
+        min_trial_len=None, max_trial_len=None,
+        exclude_nochoice=True, exclude_unbiased=False,
+    )
     if sum(trials_mask) <= config['min_trials']:
         raise ValueError(f"Session {session_id} has {sum(trials_mask)} good trials, less than {config['min_trials']}.")
 
