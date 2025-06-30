@@ -27,15 +27,8 @@ resultslist = []
 
 failed_load = 0
 for fn in tqdm(finished):
-<<<<<<<< HEAD:prior_localization/run_scripts/format_outputs_stage1.py
-
     if os.path.isdir(fn):
         continue
-
-========
-    if os.path.isdir(fn):
-        continue
->>>>>>>> cluster-updates:prior_localization/run_scripts/format_outputs_stage_1.py
     try:
         fo = open(fn, "rb")
         result = pickle.load(fo)

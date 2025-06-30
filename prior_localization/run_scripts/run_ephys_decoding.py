@@ -43,7 +43,7 @@ if pseudo_idx == 0:
 
 # Create an offline ONE instance, we don't want to hit the database when running so many jobs in parallel and have
 # downloaded the data before
-one = ONE(base_url='https://alyx.internationalbrainlab.org', mode='local')
+one = ONE(base_url='https://openalyx.internationalbrainlab.org', mode='local')
 
 # Get info for respective eid from bwm_dataframe
 bwm_df = bwm_query(one=one, freeze='2023_12_bwm_release')
