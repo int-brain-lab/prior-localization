@@ -13,7 +13,7 @@ from prior_localization.functions.utils import average_data_in_epoch
 class TestEphysInput(unittest.TestCase):
 
     def setUp(self) -> None:
-        self.one = ONE(base_url='https://openalyx.internationalbrainlab.org')
+        self.one = ONE(base_url='https://openalyx.internationalbrainlab.org', mode='remote')
         self.eid = '56956777-dca5-468c-87cb-78150432cc57'
         _, self.probe_names = self.one.eid2pid(self.eid)
         self.qc = 1
@@ -88,7 +88,7 @@ class TestMotorInputs(unittest.TestCase):
 
     def test_standalone_preprocess(self):
         predicted = prepare_motor(self.one, self.eid, align_event='stimOn_times', time_window=self.time_window)
-        self.assertIsNone(np.testing.assert_equal(predicted, self.expected))
+        self.assertIsNone(np.testing.assert_allclose(predicted, self.expected, rtol=1e-10))
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()

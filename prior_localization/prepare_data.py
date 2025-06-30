@@ -56,8 +56,8 @@ def prepare_ephys(
 
     # Load spikes and clusters and potentially merge probes
     if isinstance(probe_name, list) and len(probe_name) > 1:
-        to_merge = [load_good_units(one, pid=None, eid=session_id, qc=qc, pname=probe_name)
-                    for probe_name in probe_name]
+        to_merge = [load_good_units(one, pid=None, eid=session_id, qc=qc, pname=pname)
+                    for pname in probe_name]
         spikes, clusters = merge_probes([spikes for spikes, _ in to_merge], [clusters for _, clusters in to_merge])
     else:
         spikes, clusters = load_good_units(one, pid=None, eid=session_id, qc=qc, pname=probe_name)
