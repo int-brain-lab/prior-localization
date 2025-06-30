@@ -21,7 +21,7 @@ output_dir = str(args.output_dir)
 target = str(args.target)
 
 MIN_UNITS = args.min_units
-MIN_TRIALS = args.min_trials
+MIN_TRIALS = int(args.min_trials)
 MIN_SESSIONS_PER_REGION = args.min_sessions_per_region
 N_PSEUDO = args.n_pseudo
 ALPHA_LEVEL = args.alpha_level
