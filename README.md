@@ -1,6 +1,8 @@
 # Prior Localization
 The repository provides the code associated with the manuscript 
-[*Brain-wide representations of prior information in mouse decision-making*](https://doi.org/10.1101/2023.07.04.547684) (Findling, Hubert et al, 2023).
+[*Brain-wide representations of prior information in mouse decision-making*](https://doi.org/10.1101/2023.07.04.547684) (Findling, Hubert et al, 2023)
+as well as [*A brain-wide map of neural activity during complex behavior*](https://doi.org/10.1101/2023.07.04.547681)
+ (International Brain Lab et al 2023).
 
 ## Dependencies
 The code has been tested on Ubuntu 20.04 and 22.04, Rocky Linux 8.8 and OSX 13.4.1, using Python 3.8, 3.9 and 3.10.
@@ -58,6 +60,9 @@ automatically downloaded from the public IBL database, provided that the above O
 This script has been tested on a laptop computer (Intel® Core™ i7 processor, 4 cores, 16GB RAM) running Ubuntu 22.04, with Python 3.10 and Python package versions listed in 
 [software_versions_example.txt](https://github.com/int-brain-lab/prior-localization/blob/main/software_versions_example.txt).
 In this setup, it takes about 2 min to run (including data download times).
+
+See [here](https://github.com/int-brain-lab/prior-localization/blob/main/prior_localization/run_scripts/README.md) 
+for more documentation on how to run decoding analyses at scale on a cluster. 
 
 ## Running tests
 To run the full set of tests you can use e.g. unittest
