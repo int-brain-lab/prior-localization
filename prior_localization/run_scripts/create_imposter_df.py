@@ -36,7 +36,7 @@ def run_main(args):
         binsize = 0.02
 
     # ephys sessions from one of 12 templates
-    one = ONE(base_url='https://openalyx.internationalbrainlab.org', mode='local')
+    one = ONE(base_url='https://openalyx.internationalbrainlab.org')  # , mode='local')
     bwm_df = bwm_query(one=one, freeze='2023_12_bwm_release')
     eids = bwm_df['eid'].unique()
 
