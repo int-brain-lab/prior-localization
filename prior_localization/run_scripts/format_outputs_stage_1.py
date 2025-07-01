@@ -4,19 +4,22 @@ import os
 import pickle
 import pandas as pd
 import glob
+import yaml
 from tqdm import tqdm
 import gc
 from pathlib import Path
 
 parser = argparse.ArgumentParser(description='Format outputs stage 1')
-parser.add_argument('output_dir')
 parser.add_argument('target')
 
 args = parser.parse_args()
-output_dir = str(args.output_dir)
 target = str(args.target)
 
-output_dir = Path(output_dir).joinpath(target)
+# get output dir from config file
+with open(Path(__file__).parent.parent.joinpath('config.yml'), "r") as config_yml:
+    config = yaml.safe_load(config_yml)
+output_dir = Path(config['output_dir']).joinpath(target)
+
 finished = glob.glob(str(output_dir.joinpath("*", "*", "*")))
 
 print("nb files:", len(finished))

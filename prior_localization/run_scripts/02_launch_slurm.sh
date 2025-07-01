@@ -12,7 +12,6 @@
 
 module load anaconda
 
-out_dir=/moto/stats/users/mw3323/results
 n_sessions=459  # number of unique eids in the dataframe that we will index in
 n_pseudo=100  # 200; number of pseudo sessions to generate for each real session
 n_per_job=4  # 100; number of (pseudo)sessions to fit per job on the cluster
@@ -28,4 +27,4 @@ target=wheel-speed  # target to fit
 mkdir -p $out_dir
  
 # After the job is submitted, run the python script
-python run_ephys_decoding.py "$SLURM_ARRAY_TASK_ID" "$n_pseudo" "$n_per_job" "$base_idx" "$out_dir" "$target"
+python run_ephys_decoding.py "$SLURM_ARRAY_TASK_ID" "$n_pseudo" "$n_per_job" "$base_idx" "$target"

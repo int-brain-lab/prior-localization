@@ -2,6 +2,7 @@ import argparse
 import numpy as np
 import os
 import pandas as pd
+import yaml
 
 
 def compute_stats_over_pseudo_ids(group):
@@ -51,14 +52,17 @@ def reformat_df(df):
 
 
 parser = argparse.ArgumentParser(description='Format outputs stage 2')
-parser.add_argument('output_dir')
 parser.add_argument('target')
 parser.add_argument('--n_pseudo', default=200, type=int, required=False)
 
 args = parser.parse_args()
-output_dir = str(args.output_dir)
 target = str(args.target)
 n_pseudo = int(args.n_pseudo)
+
+# get output dir from config file
+with open(Path(__file__).parent.parent.joinpath('config.yml'), "r") as config_yml:
+    config = yaml.safe_load(config_yml)
+output_dir = config['output_dir']
 
 pqt_file = os.path.join(output_dir, target, "collected_results_stage1.pqt")
 

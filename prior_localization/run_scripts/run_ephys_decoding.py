@@ -1,5 +1,6 @@
 import argparse
 import numpy as np
+import yaml
 from pathlib import Path
 
 from one.api import ONE
@@ -20,10 +21,7 @@ job_idx = int(args.job_idx)
 n_pseudo = int(args.n_pseudo)
 n_per_job = int(args.n_per_job)
 base_idx = int(args.base_idx)
-output_dir = str(args.output_dir)
 target = str(args.target)
-
-output_dir = Path(output_dir).joinpath(target)
 
 job_idx += base_idx
 
@@ -40,6 +38,11 @@ pseudo_ids = list(np.array(pseudo_ids) + 1)
 # Add real session to first pseudo block
 if pseudo_idx == 0:
     pseudo_ids = [-1] + pseudo_ids
+
+# get output dir from config file
+with open(Path(__file__).parent.parent.joinpath('config.yml'), "r") as config_yml:
+    config = yaml.safe_load(config_yml)
+output_dir = Path(config['output_dir']).joinpath(target)
 
 # Create an offline ONE instance, we don't want to hit the database when running so many jobs in parallel and have
 # downloaded the data before
