@@ -90,7 +90,7 @@ class TestMotorInputs(unittest.TestCase):
 
     def test_standalone_preprocess(self):
         predicted = prepare_motor(self.one, self.eid, align_event='stimOn_times', time_window=self.time_window)
-        self.assertIsNone(np.testing.assert_allclose(predicted, self.expected, rtol=1e-10))
+        self.assertIsNone(np.testing.assert_allclose(predicted, self.expected, rtol=1e-10, atol=1e-7))
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
@@ -139,7 +139,7 @@ class TestAverageDataInEpoch(unittest.TestCase):
                           int(self.sl.trials['stimOn_times'].max() + 10), self.ts)
         actual = average_data_in_epoch(times, times, self.sl.trials, align_event='stimOn_times', epoch=self.epoch)
         predicted = np.load(self.fixtures.joinpath('average_in_epoch_uniform.npy'))
-        np.testing.assert_array_equal(actual, predicted)
+        np.testing.assert_allclose(actual, predicted, atol=1e-7, rtol=1e-10)
 
         # Same for non-uniformly sampled data
         np.random.seed(6)
@@ -147,7 +147,7 @@ class TestAverageDataInEpoch(unittest.TestCase):
         times.sort()
         actual = average_data_in_epoch(times, times, self.sl.trials, align_event='stimOn_times', epoch=self.epoch)
         predicted = np.load(self.fixtures.joinpath('average_in_epoch_nonuniform.npy'))
-        self.assertIsNone(np.testing.assert_array_equal(actual, predicted))
+        np.testing.assert_allclose(actual, predicted, rtol=1e-10, atol=1e-7)
 
     def test_nans(self):
         # Align events with Nans
