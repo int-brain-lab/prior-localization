@@ -9,8 +9,7 @@ This directory contains scripts for performing brainwide decoding analyses using
 1. **Install Dependencies**:
    Follow the setup instructions in the [`prior-localization` README](https://github.com/int-brain-lab/prior-localization/blob/main/README.md) to:
    - Install the `prior-localization` repo
-   - Connect to the IBL database
-   During this setup, you'll also specify the data directory.
+   - Connect to the IBL database. During this setup, you'll also specify the data directory.
 
    **Data size**: ~100 GB
 
@@ -142,13 +141,13 @@ In `config.yml`:
 estimator: Lasso
 estimator_kwargs: {tol: 0.0001, max_iter: 1000, fit_intercept: True}
 balanced_weighting: False
-imposter_df_path: /absolute/path/to/imposter/df
+imposter_df_path: /absolute/path/to/imposter/dir
 ```
 
 In `02_launch_slurm.sh`:
 
 ```bash
-#SBATCH --array=1-1000
+#SBATCH --array=1-11475
 
 n_pseudo=100
 n_per_job=4
@@ -172,6 +171,8 @@ Second batch:
 #SBATCH --array=1-1000
 base_idx=1000
 ```
+
+...
 
 Final batch:
 
