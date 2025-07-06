@@ -5,7 +5,7 @@ output_dir: null
 revision: 2024-07-10  # final paper revision for ONE
 
 # Data QC config
-unit_qc: 1  # minimum QC value for units to enter analysis (between 0 and 1)
+unit_qc: 0  # minimum QC value for units to enter analysis (between 0 and 1)
 min_units: 10  # minimum number of units per region for a region to enter analysis
 min_trials: 1  # minimum number of trials for a session to be included in analysis
 

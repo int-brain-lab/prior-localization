@@ -34,7 +34,6 @@ from prior_localization.functions.utils import (
 # Set up logger
 logger = logging.getLogger('prior_localization')
 # Load and check configuration file
-config = check_config()
 
 
 def fit_session_ephys(
@@ -42,7 +41,7 @@ def fit_session_ephys(
         min_rt=0.08, max_rt=None, time_window=(-0.6, -0.1), saturation_intervals=None,
         binsize=None, n_bins_lag=None, n_bins=None, model='optBay',
         n_runs=10, compute_neurometrics=False, motor_residuals=False,
-        overwrite=False, stage_only=False,
+        overwrite=False, stage_only=False, config=None,
 ):
     """Fits a single session for ephys data.
 
@@ -104,13 +103,17 @@ def fit_session_ephys(
         overwrite the decoding results if they exist already
     stage_only: bool
         If true, only download all required data, don't perform the actual decoding
-
+    config: dict
+        Any parameter to override the default config file
     Returns
     -------
     list
         List of paths to the results files
 
     """
+    # Check and load config file, user can also override setting files parameters with the input argument
+    config = {} if config is None else config
+    config = check_config() | config
 
     # Check some inputs
     pseudo_ids, output_dir = check_inputs(
@@ -231,7 +234,7 @@ def fit_session_ephys(
 def fit_session_widefield(
         one, session_id, subject, output_dir, pseudo_ids=None, hemisphere=("left", "right"), target='pLeft',
         align_event='stimOn_times', min_rt=0.08, max_rt=None, frame_window=(-2, -2), model='optBay', n_runs=10,
-        compute_neurometrics=False, overwrite=False, stage_only=False, old_data=False,
+        compute_neurometrics=False, overwrite=False, stage_only=False, old_data=False, config=None,
 ):
 
     """Fit a single session for widefield data.
@@ -279,13 +282,17 @@ def fit_session_widefield(
     old_data: False or str
         Only used for sanity check, if false, use updated way of loading data from ONE. If str it should be a path
         to local copies of the previously used version of the data.
-
+    config: dict
+        Any parameter to override the default config file
     Returns
     -------
     list
         List of paths to the results files
 
     """
+    # Check and load config file, user can also override setting files parameters with the input argument
+    config = {} if config is None else config
+    config = check_config() | config
 
     # Check some inputs
     pseudo_ids, output_dir = check_inputs(model, pseudo_ids, target, output_dir, config, logger, compute_neurometrics)
@@ -388,7 +395,8 @@ def fit_session_widefield(
 
 def fit_session_pupil(
         one, session_id, subject, output_dir, pseudo_ids=None, target='pLeft', align_event='stimOn_times',
-        min_rt=0.08, max_rt=None, time_window=(-0.6, -0.1), model='optBay', n_runs=10, overwrite=False, stage_only=False
+        min_rt=0.08, max_rt=None, time_window=(-0.6, -0.1), model='optBay', n_runs=10,
+        overwrite=False, stage_only=False, config=None,
 ):
     """Fit pupil tracking data to behavior (instead of neural activity).
 
@@ -428,12 +436,17 @@ def fit_session_pupil(
     stage_only: bool
         If true, only download all required data, don't perform the actual decoding
 
+    config: dict
+        Any parameter to override the default config file
     Returns
     -------
     list
         List of paths to the results files
 
     """
+    # Check and load config file, user can also override setting files parameters with the input argument
+    config = {} if config is None else config
+    config = check_config() | config
 
     # Check some inputs
     pseudo_ids, output_dir = check_inputs(model, pseudo_ids, target, output_dir, config, logger)
@@ -504,7 +517,8 @@ def fit_session_pupil(
 
 def fit_session_motor(
         one, session_id, subject, output_dir, pseudo_ids=None, target='pLeft', align_event='stimOn_times',
-        min_rt=0.08, max_rt=None, time_window=(-0.6, -0.1), model='optBay', n_runs=10, overwrite=False, stage_only=False
+        min_rt=0.08, max_rt=None, time_window=(-0.6, -0.1), model='optBay', n_runs=10,
+        overwrite=False, stage_only=False, config=None
 ):
     """Fit movement tracking data to behavior (instead of neural actvity).
 
@@ -546,10 +560,17 @@ def fit_session_motor(
 
     Returns
     -------
+    config: dict
+        Any parameter to override the default config file
+    Returns
+    -------
     list
         List of paths to the results files
 
     """
+    # Check and load config file, user can also override setting files parameters with the input argument
+    config = {} if config is None else config
+    config = check_config() | config
 
     # Check some inputs
     pseudo_ids, output_dir = check_inputs(model, pseudo_ids, target, output_dir, config, logger)
@@ -618,7 +639,8 @@ def fit_session_motor(
     return filename
 
 
-def fit_target(all_data, all_targets, all_trials, n_runs, all_neurometrics=None, pseudo_ids=None, base_rng_seed=0):
+def fit_target(all_data, all_targets, all_trials, n_runs, all_neurometrics=None,
+               pseudo_ids=None, base_rng_seed=0, config=None):
     """Fits data (neural, motor, etc) to behavior targets.
 
     Parameters
@@ -640,12 +662,17 @@ def fit_target(all_data, all_targets, all_trials, n_runs, all_neurometrics=None,
     base_rng_seed : int
         seed that will be added to run- and pseudo_id-specific seeds
 
+    config: dict
+        Any parameter to override the default config file
     Returns
     -------
     dict
+        List of paths to the results files
 
     """
-
+    # Check and load config file, user can also override setting files parameters with the input argument
+    config = {} if config is None else config
+    config = check_config() | config
     # Loop over (pseudo) sessions and then over runs
     if pseudo_ids is None:
         pseudo_ids = [-1]
