@@ -68,6 +68,7 @@ def run_main(args):
             sess_loader = SessionLoader(one=one, eid=eid, revision=REVISION)
             sess_loader.load_trials()
             trials_df = sess_loader.trials
+            trials_mask = np.ones(trials_df.shape[0], dtype=bool)
         except Exception as e:
             print('ERROR LOADING TRIALS DF')
             print(e)
