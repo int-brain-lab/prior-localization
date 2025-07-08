@@ -33,7 +33,6 @@ from prior_localization.functions.utils import (
 
 # Set up logger
 logger = logging.getLogger('prior_localization')
-# Load and check configuration file
 
 
 def fit_session_ephys(

@@ -6,6 +6,8 @@ from pathlib import Path
 from one.api import ONE
 from brainwidemap.bwm_loading import bwm_query
 from prior_localization.fit_data import fit_session_ephys
+from prior_localization.functions.utils import check_config
+
 
 # Parse input arguments
 parser = argparse.ArgumentParser(description='Run decoding')
@@ -56,6 +58,10 @@ subject = bwm_df[bwm_df.eid == session_id].subject.unique()[0]
 probe_name = list(bwm_df[bwm_df.eid == session_id].probe_name)
 probe_name = probe_name[0] if len(probe_name) == 1 else probe_name
 
+# Load and check configuration file
+config = check_config()
+config['min_units'] = 1
+
 # set BWM defaults here
 min_rt = 0.08
 max_rt = 2.0
@@ -69,47 +75,58 @@ if target == 'stimside':
     time_window = (0.0, 0.1)
     saturation_intervals = 'saturation_stim_plus01'
     model = 'oracle'
-    estimator = 'LogisticRegression'
+    config['estimator'] = 'LogisticRegression'
+    config['estimator_kwargs']['max_iter'] = 20000
+    config['balanced_weighting'] = True
 
 elif target == 'signcont':
     align_event = 'stimOn_times'
     time_window = (0.0, 0.1)
     saturation_intervals = 'saturation_stim_plus01'
     model = 'oracle'
-    estimator = 'Lasso'
+    config['estimator'] = 'Lasso'
+    config['estimator_kwargs']['max_iter'] = 20000
+    config['balanced_weighting'] = True
 
 elif target == 'choice':
     align_event = 'firstMovement_times'
     time_window = (-0.1, 0.0)
     saturation_intervals = 'saturation_move_minus02'
     model = 'actKernel'
-    estimator = 'LogisticRegression'
+    config['estimator'] = 'LogisticRegression'
+    config['estimator_kwargs']['max_iter'] = 20000
+    config['balanced_weighting'] = True
 
 elif target == 'feedback':
     align_event = 'feedback_times'
     time_window = (0.0, 0.2)
     saturation_intervals = 'saturation_feedback_plus04'
     model = 'actKernel'
-    estimator = 'LogisticRegression'
+    config['estimator'] = 'LogisticRegression'
+    config['estimator_kwargs']['max_iter'] = 20000
+    config['balanced_weighting'] = True
 
 elif target == 'pLeft':
     align_event = 'stimOn_times'
-    saturation_intervals = 'saturation_stim_minus06_plus06'
     time_window = (-0.6, -0.1)
     saturation_intervals = 'saturation_stim_minus06_plus06'
     model = 'optBay'
-    estimator = 'LogisticRegression'
+    config['estimator'] = 'LogisticRegression'
+    config['estimator_kwargs']['max_iter'] = 20000
+    config['balanced_weighting'] = True
 
 elif target in ['wheel-speed', 'wheel-velocity']:
     align_event = 'firstMovement_times'
     time_window = (-0.2, 1.0)
     saturation_intervals = 'saturation_move_minus02'
     model = 'oracle'
-    estimator = 'Lasso'
     binsize = 0.02
     n_bins_lag = 10
     n_bins = 60
     n_runs = 2
+    config['estimator'] = 'Lasso'
+    config['estimator_kwargs']['max_iter'] = 1000
+    config['balanced_weighting'] = False
 
 else:
     raise ValueError(f'{target} is an invalid target value')
@@ -120,7 +137,7 @@ results = fit_session_ephys(
     align_event=align_event, min_rt=min_rt, max_rt=max_rt, time_window=time_window,
     saturation_intervals=saturation_intervals,
     model=model, n_runs=n_runs, binsize=binsize, n_bins_lag=n_bins_lag, n_bins=n_bins,
-    compute_neurometrics=False, motor_residuals=False,
+    compute_neurometrics=False, motor_residuals=False, config=config,
 )
 
 # Print out success string so we can easily sweep through error logs
