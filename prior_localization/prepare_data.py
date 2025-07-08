@@ -1,5 +1,6 @@
 import logging
 import numpy as np
+import os
 from scipy import stats
 import pandas as pd
 from pathlib import Path
@@ -55,8 +56,8 @@ def prepare_ephys(
 
     # Load spikes and clusters and potentially merge probes
     if isinstance(probe_name, list) and len(probe_name) > 1:
-        to_merge = [load_good_units(one, pid=None, eid=session_id, qc=qc, pname=probe_name)
-                    for probe_name in probe_name]
+        to_merge = [load_good_units(one, pid=None, eid=session_id, qc=qc, pname=pname)
+                    for pname in probe_name]
         spikes, clusters = merge_probes([spikes for spikes, _ in to_merge], [clusters for _, clusters in to_merge])
     else:
         spikes, clusters = load_good_units(one, pid=None, eid=session_id, qc=qc, pname=probe_name)
@@ -126,7 +127,7 @@ def prepare_ephys(
 def prepare_motor(one, session_id, align_event='stimOn_times', time_window=(-0.6, -0.1), lick_bins=0.02):
 
     # Initiate session loader, load trials, wheel, motion energy and pose estimates
-    sl = SessionLoader(one, eid=session_id)
+    sl = SessionLoader(one=one, eid=session_id, revision=config['revision'])
     sl.load_trials()
     sl.load_wheel()
     sl.load_motion_energy(views=['left', 'right'])
@@ -188,7 +189,7 @@ def prepare_motor(one, session_id, align_event='stimOn_times', time_window=(-0.6
 
 def prepare_behavior(
         session_id, subject, trials_df, trials_mask, pseudo_ids=None, n_pseudo_sets=1, output_dir=None, model='optBay',
-        target='pLeft', compute_neurometrics=False
+        target='pLeft', compute_neurometrics=False,
 ):
     if pseudo_ids is None:
         pseudo_ids = [-1]  # -1 is always the actual session
@@ -298,7 +299,7 @@ def prepare_behavior(
 
 def prepare_pupil(one, session_id, time_window=(-0.6, -0.1), align_event='stimOn_times', camera='left'):
     # Load the trials data
-    sl = SessionLoader(one, eid=session_id)
+    sl = SessionLoader(one=one, eid=session_id, revision=config['revision'])
     sl.load_trials()
     # TODO: replace this with SessionLoader ones that loads lightning pose
     pupil_data = one.load_object(session_id, f'{camera}Camera', attribute=['lightningPose', 'times'])

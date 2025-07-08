@@ -13,6 +13,8 @@ from pathlib import Path
 from brainwidemap import bwm_query, load_trials_and_mask
 from prior_localization.functions.behavior_targets import add_target_to_trials
 
+REVISION = '2024-07-10'
+
 
 def run_main(args):
 
@@ -63,9 +65,10 @@ def run_main(args):
 
         print('%i: %s' % (i, eid))
         try:
-            sess_loader = SessionLoader(one=one, eid=eid)
+            sess_loader = SessionLoader(one=one, eid=eid, revision=REVISION)
             sess_loader.load_trials()
             trials_df = sess_loader.trials
+            trials_mask = np.ones(trials_df.shape[0], dtype=bool)
         except Exception as e:
             print('ERROR LOADING TRIALS DF')
             print(e)
@@ -109,7 +112,7 @@ def run_main(args):
 
 
 if __name__ == '__main__':
-    """python create_imposter_df.py --target=wheel-speed --save_path=/path/to/folder"""
+    """python create_imposter_df.py --target=wheel-speed --save_dir=/path/to/folder"""
 
     parser = argparse.ArgumentParser()
 

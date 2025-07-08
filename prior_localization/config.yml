@@ -1,3 +1,9 @@
+# Where to save decoding results
+output_dir: null
+
+# Data Revision config
+revision: 2024-07-10  # final paper revision for ONE
+
 # Data QC config
 unit_qc: 1  # minimum QC value for units to enter analysis (between 0 and 1)
 min_units: 10  # minimum number of units per region for a region to enter analysis
@@ -9,7 +15,7 @@ estimator_kwargs: {tol: 0.0001, max_iter: 20000, fit_intercept: True}
 binarization_value: null # threshold to binarize the target -> could be useful with logistic regression estimator
 shuffle: True
 balanced_weighting: True
-save_predictions: True
+save_predictions: True  # needs to be True for unit tests
 hparam_grid: {}
 imposter_df_path: null  # directory path; files should be named f'imposterSessions_{target}.pqt'
 

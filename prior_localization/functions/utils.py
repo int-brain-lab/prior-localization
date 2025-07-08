@@ -219,15 +219,18 @@ def check_inputs(
     return pseudo_ids, output_dir
 
 
-def check_config():
+def check_config(config_in=None):
     """Load config yaml and perform some basic checks"""
     # Get config
+    config_in = {} if config_in is None else config_in
     with open(Path(__file__).parent.parent.joinpath('config.yml'), "r") as config_yml:
         config = yaml.safe_load(config_yml)
 
+    config = config | config_in
     # Estimator from scikit learn
     try:
-        config['estimator'] = getattr(sklm, config['estimator'])
+        if isinstance(config['estimator'], str):
+            config['estimator'] = getattr(sklm, config['estimator'])
     except AttributeError as e:
         logger.error(f'The estimator {config["estimator"]} specified in config.yaml is not a function of scikit-learn'
                      f'linear_model.')
@@ -242,6 +245,7 @@ def check_config():
                              if config['estimator'] == sklm.LogisticRegression
                              else {"alpha": np.array([0.00001, 0.0001, 0.001, 0.01, 0.1])})
 
+    config['revision'] = '2024-07-10'
     return config
 
 

@@ -8,7 +8,6 @@ from behavior_models.models import ActionKernel, StimulusKernel
 
 from prior_localization.functions.utils import check_bhv_fit_exists, check_config
 
-config = check_config()
 logger = setup_logger()
 
 
@@ -133,8 +132,6 @@ def compute_beh_target(trials_df, session_id, subject, model, target, behavior_p
                                          if modetype=None, then it will return the actual pLeft (.2, .5, .8)
     '''
 
-    istrained, fullpath = check_bhv_fit_exists(subject, model, session_id, behavior_path, single_zeta=True)
-
     stim_targets = ['signcont', 'strengthcont', 'stimside']
     if target in stim_targets:
         if 'signedContrast' in trials_df.keys():
@@ -164,6 +161,8 @@ def compute_beh_target(trials_df, session_id, subject, model, target, behavior_p
     elif target in ['wheel-speed', 'wheel-velocity']:
         return trials_df[target].tolist()
 
+    istrained, fullpath = check_bhv_fit_exists(subject, model, session_id, behavior_path, single_zeta=True)
+
     # load behavior model
     if (not istrained) and (target not in stim_targets) and (model != 'oracle'):
         side, stim, act, _ = format_data(trials_df)
@@ -187,6 +186,7 @@ def compute_beh_target(trials_df, session_id, subject, model, target, behavior_p
     signal = model.compute_signal(signal=target_, act=actions, stim=stimuli, side=stim_side)[target_]
 
     tvec = signal.squeeze()
+    config = check_config()
     if config['binarization_value'] is not None:
         tvec = (tvec > config['binarization_value']) * 1
 

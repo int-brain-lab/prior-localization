@@ -1,21 +1,25 @@
 import argparse
+import numpy as np
 import os
 import pickle
 import pandas as pd
 import glob
+import yaml
 from tqdm import tqdm
 import gc
 from pathlib import Path
 
 parser = argparse.ArgumentParser(description='Format outputs stage 1')
-parser.add_argument('output_dir')
 parser.add_argument('target')
 
 args = parser.parse_args()
-output_dir = str(args.output_dir)
 target = str(args.target)
 
-output_dir = Path(output_dir).joinpath(target)
+# get output dir from config file
+with open(Path(__file__).parent.parent.joinpath('config.yml'), "r") as config_yml:
+    config = yaml.safe_load(config_yml)
+output_dir = Path(config['output_dir']).joinpath(target)
+
 finished = glob.glob(str(output_dir.joinpath("*", "*", "*")))
 
 print("nb files:", len(finished))
@@ -41,7 +45,7 @@ for fn in tqdm(finished):
                 "pseudo_id": result["fit"][i_decoding]["pseudo_id"],
                 "run_id": result["fit"][i_decoding]["run_id"] + 1,
                 "score_test": result["fit"][i_decoding]["scores_test_full"],
-                "n_trials": sum(result['fit'][i_decoding]['mask'][0]),
+                "n_trials": len(result["fit"][i_decoding]["predictions_test"]),
             }
             resultslist.append(tmpdict)
     except Exception as e:

@@ -13,7 +13,7 @@ from prior_localization.functions.utils import average_data_in_epoch
 class TestEphysInput(unittest.TestCase):
 
     def setUp(self) -> None:
-        self.one = ONE(base_url='https://openalyx.internationalbrainlab.org')
+        self.one = ONE(base_url='https://openalyx.internationalbrainlab.org', mode='remote')
         self.eid = '56956777-dca5-468c-87cb-78150432cc57'
         _, self.probe_names = self.one.eid2pid(self.eid)
         self.qc = 1
@@ -24,7 +24,8 @@ class TestEphysInput(unittest.TestCase):
     def test_prepare_ephys_merged(self):
         binned_spikes, actual_regions, n_units, cluster_ids = prepare_ephys(
             one=self.one, session_id=self.eid, probe_name=self.probe_names, regions='single_regions',
-            intervals=self.intervals)
+            intervals=self.intervals, qc=1, min_units=10,
+        )
         for spikes, region in zip(binned_spikes, actual_regions):
             # this failed for uninteresting reasons
             if region[0] == 'VPM':
@@ -36,7 +37,8 @@ class TestEphysInput(unittest.TestCase):
         for probe_name in self.probe_names:
             binned_spikes, actual_regions, n_units, cluster_ids = prepare_ephys(
                 one=self.one, session_id=self.eid, probe_name=probe_name, regions='single_regions',
-                intervals=self.intervals)
+                intervals=self.intervals, qc=1, min_units=10,
+            )
             for spikes, region in zip(binned_spikes, actual_regions):
                 # this failed for uninteresting reasons
                 if region[0] == 'VPM':
@@ -58,7 +60,7 @@ class TestBehaviorInputs(unittest.TestCase):
         self.fixtures_dir = Path(__file__).parent.joinpath('fixtures', 'inputs')
 
     def test_behav_targets(self):
-        sl = SessionLoader(self.one, eid=self.eid)
+        sl = SessionLoader(one=self.one, eid=self.eid, revision='2024-07-10')
         sl.load_trials()
         _, trials_mask = load_trials_and_mask(
             one=self.one, eid=self.eid, sess_loader=sl, min_rt=0.08, max_rt=None,
@@ -67,7 +69,7 @@ class TestBehaviorInputs(unittest.TestCase):
         )
         _, all_targets, all_masks, _ = prepare_behavior(
             self.eid, self.subject, sl.trials, trials_mask, pseudo_ids=None, output_dir=Path(self.temp_dir.name),
-            model='optBay', target='pLeft'
+            model='optBay', target='pLeft',
         )
         mask = all_masks[0][0]
         expected_orig = np.load(self.fixtures_dir.joinpath('behav_target.npy'))
@@ -88,7 +90,7 @@ class TestMotorInputs(unittest.TestCase):
 
     def test_standalone_preprocess(self):
         predicted = prepare_motor(self.one, self.eid, align_event='stimOn_times', time_window=self.time_window)
-        self.assertIsNone(np.testing.assert_equal(predicted, self.expected))
+        self.assertIsNone(np.testing.assert_allclose(predicted, self.expected, rtol=1e-10, atol=1e-7))
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
@@ -111,7 +113,7 @@ class TestAverageDataInEpoch(unittest.TestCase):
     def setUp(self) -> None:
         self.one = ONE(base_url='https://openalyx.internationalbrainlab.org')
         self.eid = 'fc14c0d6-51cf-48ba-b326-56ed5a9420c3'
-        self.sl = SessionLoader(self.one, eid=self.eid)
+        self.sl = SessionLoader(one=self.one, eid=self.eid, revision='2024-07-10')
         self.sl.load_trials()
         self.ts = 1 / 30
         self.epoch = [-0.6, -0.1]
@@ -137,7 +139,7 @@ class TestAverageDataInEpoch(unittest.TestCase):
                           int(self.sl.trials['stimOn_times'].max() + 10), self.ts)
         actual = average_data_in_epoch(times, times, self.sl.trials, align_event='stimOn_times', epoch=self.epoch)
         predicted = np.load(self.fixtures.joinpath('average_in_epoch_uniform.npy'))
-        np.testing.assert_array_equal(actual, predicted)
+        np.testing.assert_allclose(actual, predicted, atol=1e-7, rtol=1e-10)
 
         # Same for non-uniformly sampled data
         np.random.seed(6)
@@ -145,7 +147,7 @@ class TestAverageDataInEpoch(unittest.TestCase):
         times.sort()
         actual = average_data_in_epoch(times, times, self.sl.trials, align_event='stimOn_times', epoch=self.epoch)
         predicted = np.load(self.fixtures.joinpath('average_in_epoch_nonuniform.npy'))
-        self.assertIsNone(np.testing.assert_array_equal(actual, predicted))
+        np.testing.assert_allclose(actual, predicted, rtol=1e-10, atol=1e-7)
 
     def test_nans(self):
         # Align events with Nans

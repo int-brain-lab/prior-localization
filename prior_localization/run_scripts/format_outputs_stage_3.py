@@ -2,28 +2,34 @@ import argparse
 import numpy as np
 import os
 import pandas as pd
+import yaml
 from scipy import stats
 from statsmodels.stats.multitest import multipletests
 
 
 parser = argparse.ArgumentParser(description='Format outputs stage 3')
-parser.add_argument('output_dir')
 parser.add_argument('target')
 parser.add_argument('--min_units', default=5, required=False)
 parser.add_argument('--min_trials', default=250, required=False)
 parser.add_argument('--min_sessions_per_region', default=2, required=False)
+parser.add_argument('--n_pseudo', default=200, required=False)
 parser.add_argument('--alpha_level', default=0.05, required=False)
 parser.add_argument('--q_level', default=0.01, required=False)
 
 args = parser.parse_args()
-output_dir = str(args.output_dir)
 target = str(args.target)
 
-MIN_UNITS = args.min_units
-MIN_TRIALS = args.min_trials
-MIN_SESSIONS_PER_REGION = args.min_sessions_per_region
-ALPHA_LEVEL = args.alpha_level
-Q_LEVEL = args.q_level
+MIN_UNITS = int(args.min_units)
+MIN_TRIALS = int(args.min_trials)
+MIN_SESSIONS_PER_REGION = int(args.min_sessions_per_region)
+N_PSEUDO = int(args.n_pseudo)
+ALPHA_LEVEL = float(args.alpha_level)
+Q_LEVEL = float(args.q_level)
+
+# get output dir from config file
+with open(Path(__file__).parent.parent.joinpath('config.yml'), "r") as config_yml:
+    config = yaml.safe_load(config_yml)
+output_dir = config['output_dir']
 
 
 def significance_by_region(group):

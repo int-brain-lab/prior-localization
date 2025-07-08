@@ -1,19 +1,23 @@
 #!/bin/bash
+#SBATCH --account=stats
+#SBATCH -c 8
 #SBATCH --job-name=decoding
-#SBATCH --output=logs/slurm/decoding.%A.%a.out
-#SBATCH --error=logs/slurm/decoding.%A.%a.err
-#SBATCH --partition=shared-cpu
-#SBATCH --mem=128G
-#SBATCH --ntasks=1  # run one thing per job
-#SBATCH --time=12:00:00
+#SBATCH --output=/moto/stats/users/mw3323/logs/slurm/decoding.%A.%a.out
+#SBATCH --error=/moto/stats/users/mw3323/logs/slurm/decoding.%A.%a.err
+#SBATCH --mem=32GB
+#SBATCH --time=11:59:00
+#SBATCH --array=1-475
 
-out_dir=/mnt/ibl/quarantine/prior/ephys
-n_sessions=354  # number of unique eids in the dataframe that we will index in
-n_pseudo=200  # number of pseudo sessions to generate for each real session
-n_per_job=10  # number of (pseudo)sessions to fit per job on the cluster
-target=pLeft  # target to fit
+# --array=1-918
 
-# Potentially activate env here
+module load anaconda
+
+n_sessions=459  # number of unique eids in the dataframe that we will index in
+n_pseudo=100  # 200; number of pseudo sessions to generate for each real session
+n_per_job=4  # 100; number of (pseudo)sessions to fit per job on the cluster
+base_idx=11000  # add this to the task id; terremoto doesn't allow array values >1000
+
+target=wheel-speed  # target to fit
 
 ################################################################################################################
 # ADAPT SETTINGS ABOVE THIS
@@ -21,9 +25,6 @@ target=pLeft  # target to fit
 
 # Make sure output dir exists
 mkdir -p $out_dir
-
-# Get the total number of jobs
-n_jobs=n_jobs=$(($n_sessions * $n_pseudo / $n_per_job))
-
-# Launch slurm job array
-sbatch --array=1-$n_jobs python .run_ephys_decoding "$SLURM_ARRAY_TASK_ID" "$n_pseudo" "$n_per_job" "$out_dir" "$target"
+ 
+# After the job is submitted, run the python script
+python run_ephys_decoding.py "$SLURM_ARRAY_TASK_ID" "$n_pseudo" "$n_per_job" "$base_idx" "$target"
