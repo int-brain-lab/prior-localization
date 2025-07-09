@@ -1,7 +1,7 @@
 # Data QC config
 unit_qc: 1  # minimum QC value for units to enter analysis (between 0 and 1)
 min_units: 10  # minimum number of units per region for a region to enter analysis
-min_trials: 150  # minimum number of trials for a session to be included in analysis
+min_trials: 1  # minimum number of trials for a session to be included in analysis
 
 # Decoding config
 estimator: Ridge  # possible values: LinearRegression, Lasso, Ridge, LogisticRegression,
@@ -11,7 +11,7 @@ shuffle: True
 balanced_weighting: True
 save_predictions: True
 hparam_grid: {}
-imposter_df_path: null
+imposter_df_path: null  # directory path; files should be named f'imposterSessions_{target}.pqt'
 
 # Neurometric curves config
 border_quantiles_neurometrics: [0.3, 0.7]  # [.3, .4, .5, .6, .7]

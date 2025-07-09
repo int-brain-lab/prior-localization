@@ -2,12 +2,14 @@ import numpy as np
 from scipy.interpolate import interp1d
 import torch
 
+from iblutil.util import setup_logger
 from behavior_models.utils import format_data, format_input
 from behavior_models.models import ActionKernel, StimulusKernel
 
 from prior_localization.functions.utils import check_bhv_fit_exists, check_config
 
 config = check_config()
+logger = setup_logger()
 
 
 def optimal_Bayesian(act, side):
@@ -142,8 +144,11 @@ def compute_beh_target(trials_df, session_id, subject, model, target, behavior_p
         if target == 'signcont':
             return out
         elif target == 'stimside':
-            out = (out > 0) * 1
-            return out
+            # return vals in {-1, 0, 1}
+            out_1 = out.copy()
+            out_1[out < 0] = -1
+            out_1[out > 0] = 1
+            return out_1
         else:
             return np.abs(out)
     if target == 'choice':
@@ -313,7 +318,7 @@ def split_behavior_data_by_trial(times, values, intervals, binsize, interval_len
 
     # split data by trial
     if np.all(np.isnan(intervals[:, 0])) or np.all(np.isnan(intervals[:, 1])):
-        print('interval times all nan')
+        logger.warning('interval times all nan')
         good_trial = np.full((intervals.shape[0],), False)
         times_list = []
         values_list = []
@@ -335,31 +340,31 @@ def split_behavior_data_by_trial(times, values, intervals, binsize, interval_len
     for i, (target_time, values) in enumerate(zip(target_times_og_list, target_vals_og_list)):
 
         if len(values) == 0:
-            print('target data not present on trial %i; skipping' % i)
+            logger.debug(f'Target data not present on trial {i}; skipping')
             good_trial[i] = False
             times_list.append(None)
             values_list.append(None)
             continue
         if np.sum(np.isnan(values)) > 0 and not allow_nans:
-            print('nans in target data on trial %i; skipping' % i)
+            logger.debug(f'NaNs in target data on trial {i}; skipping')
             good_trial[i] = False
             times_list.append(None)
             values_list.append(None)
             continue
         if np.isnan(intervals[i, 0]) or np.isnan(intervals[i, 1]):
-            print('bad trial interval data on trial %i; skipping' % i)
+            logger.debug(f'Bad trial interval data on trial {i}; skipping')
             good_trial[i] = False
             times_list.append(None)
             values_list.append(None)
             continue
         if np.abs(intervals[i, 0] - target_time[0]) > binsize:
-            print('target data starts too late on trial %i; skipping' % i)
+            logger.debug(f'Target data starts too late on trial {i}; skipping')
             good_trial[i] = False
             times_list.append(None)
             values_list.append(None)
             continue
         if np.abs(intervals[i, 1] - target_time[-1]) > binsize:
-            print('target data ends too early on trial %i; skipping' % i)
+            logger.debug(f'Target data ends too early on trial {i}; skipping')
             good_trial[i] = False
             times_list.append(None)
             values_list.append(None)
