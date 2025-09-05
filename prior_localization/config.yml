@@ -1,5 +1,5 @@
 # Where to save decoding results
-output_dir: null
+output_dir: /mnt/s1/2025/unit-refine/decoding/vanilla
 
 # Data Revision config
 revision: 2024-07-10  # final paper revision for ONE
@@ -10,7 +10,7 @@ min_units: 10  # minimum number of units per region for a region to enter analys
 min_trials: 1  # minimum number of trials for a session to be included in analysis
 
 # Decoding config
-estimator: Ridge  # possible values: LinearRegression, Lasso, Ridge, LogisticRegression,
+estimator: LogisticRegression  # possible values: LinearRegression, Lasso, Ridge, LogisticRegression,
 estimator_kwargs: {tol: 0.0001, max_iter: 20000, fit_intercept: True}
 binarization_value: null # threshold to binarize the target -> could be useful with logistic regression estimator
 shuffle: True

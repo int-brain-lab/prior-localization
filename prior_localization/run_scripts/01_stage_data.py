@@ -1,5 +1,7 @@
 import yaml
 from pathlib import Path
+import tqdm
+
 from one.api import ONE
 from brainwidemap.bwm_loading import bwm_query
 
@@ -18,9 +20,7 @@ one = ONE(base_url='https://openalyx.internationalbrainlab.org')
 bwm_df = bwm_query(one=one, freeze='2023_12_bwm_release')
 
 # Loop over all sessions to stage ephys data
-for i, session_id in enumerate(bwm_df.eid.unique()):
-
-    print(f'Staging data for session {i}/{len(bwm_df.eid.unique())}:{session_id}')
+for i, session_id in tqdm.tqdm(enumerate(bwm_df.eid.unique()), total=bwm_df.eid.unique().size):
 
     subject = bwm_df[bwm_df.eid == session_id].subject.unique()[0]
 
@@ -32,10 +32,10 @@ for i, session_id in enumerate(bwm_df.eid.unique()):
     # No data will be output, but since an output_dir is required, we just use the output_dir as a front
 
     # Running this will stage all non-wheel data
-    # _ = fit_session_ephys(one, session_id, subject, probe_name, output_dir=config['output_dir'], stage_only=True)
+    _ = fit_session_ephys(one, session_id, subject, probe_name, output_dir=config['output_dir'], stage_only=True)
 
     # Running this will stage wheel data
-    _ = fit_session_ephys(
-        one=one, session_id=session_id, subject=subject, probe_name=probe_name, output_dir=config['output_dir'],
-        target='wheel-speed', binsize=0.02, n_bins_lag=1, stage_only=True,
-    )
+    # _ = fit_session_ephys(
+    #     one=one, session_id=session_id, subject=subject, probe_name=probe_name, output_dir=config['output_dir'],
+    #     target='wheel-speed', binsize=0.02, n_bins_lag=1, stage_only=True,
+    # )
