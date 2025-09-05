@@ -109,14 +109,6 @@ save_predictions: False
 
 #### 1. `stimside`, `choice`, `feedback` (Binary Classification)
 
-In `config.yml`:
-
-```yaml
-estimator: LogisticRegression
-estimator_kwargs: {tol: 0.0001, max_iter: 20000, fit_intercept: True}
-balanced_weighting: True
-```
-
 In `02_launch_slurm.sh`:
 
 ```bash
@@ -138,9 +130,6 @@ Typical runtime: 5–6 hours max per job. Running 100 jobs in parallel takes ~12
 In `config.yml`:
 
 ```yaml
-estimator: Lasso
-estimator_kwargs: {tol: 0.0001, max_iter: 1000, fit_intercept: True}
-balanced_weighting: False
 imposter_df_path: /absolute/path/to/imposter/dir
 ```
 

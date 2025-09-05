@@ -33,7 +33,6 @@ from prior_localization.functions.utils import (
 
 # Set up logger
 logger = logging.getLogger('prior_localization')
-# Load and check configuration file
 
 
 def fit_session_ephys(
@@ -113,7 +112,7 @@ def fit_session_ephys(
     """
     # Check and load config file, user can also override setting files parameters with the input argument
     config = {} if config is None else config
-    config = check_config() | config
+    config = check_config(config)
 
     # Check some inputs
     pseudo_ids, output_dir = check_inputs(
@@ -206,6 +205,7 @@ def fit_session_ephys(
                 all_neurometrics=all_neurometrics[i],
                 pseudo_ids=pseudo_ids,
                 base_rng_seed=str2int(session_id + '_'.join(actual_regions[i])),
+                config=config,
             )
 
             # Add the mask to fit results
@@ -291,8 +291,7 @@ def fit_session_widefield(
 
     """
     # Check and load config file, user can also override setting files parameters with the input argument
-    config = {} if config is None else config
-    config = check_config() | config
+    config = check_config(config)
 
     # Check some inputs
     pseudo_ids, output_dir = check_inputs(model, pseudo_ids, target, output_dir, config, logger, compute_neurometrics)
@@ -370,6 +369,7 @@ def fit_session_widefield(
                 all_neurometrics=all_neurometrics[i],
                 pseudo_ids=pseudo_ids,
                 base_rng_seed=str2int(session_id + '_'.join(actual_regions[i])),
+                config=config,
             )
 
             # Add the mask to fit results
@@ -445,8 +445,7 @@ def fit_session_pupil(
 
     """
     # Check and load config file, user can also override setting files parameters with the input argument
-    config = {} if config is None else config
-    config = check_config() | config
+    config = check_config(config)
 
     # Check some inputs
     pseudo_ids, output_dir = check_inputs(model, pseudo_ids, target, output_dir, config, logger)
@@ -501,6 +500,7 @@ def fit_session_pupil(
         all_neurometrics=all_neurometrics[0],
         pseudo_ids=pseudo_ids,
         base_rng_seed=str2int(session_id),
+        config=config,
     )
 
     # Save outputs
@@ -569,8 +569,7 @@ def fit_session_motor(
 
     """
     # Check and load config file, user can also override setting files parameters with the input argument
-    config = {} if config is None else config
-    config = check_config() | config
+    config = check_config(config)
 
     # Check some inputs
     pseudo_ids, output_dir = check_inputs(model, pseudo_ids, target, output_dir, config, logger)
@@ -625,6 +624,7 @@ def fit_session_motor(
         all_neurometrics=all_neurometrics[0],
         pseudo_ids=pseudo_ids,
         base_rng_seed=str2int(session_id),
+        config=config,
     )
 
     # Save outputs
@@ -671,8 +671,8 @@ def fit_target(all_data, all_targets, all_trials, n_runs, all_neurometrics=None,
 
     """
     # Check and load config file, user can also override setting files parameters with the input argument
-    config = {} if config is None else config
-    config = check_config() | config
+    config = check_config(config)
+
     # Loop over (pseudo) sessions and then over runs
     if pseudo_ids is None:
         pseudo_ids = [-1]
@@ -914,7 +914,9 @@ def decode_cv(
                 model.fit(X_train_array, y_train_array, sample_weight=sample_weight)
             else:
                 if estimator not in [Ridge, Lasso]:
-                    raise NotImplementedError("This case is not implemented")
+                    raise NotImplementedError(
+                        "This case is not implemented for estimators other than Ridge and Lasso. "
+                        "Try using a different estimator or set use_native_sklearn_for_hyperparam_estimation=False in config.")
                 model = (
                     RidgeCV(alphas=hyperparam_grid[key])
                     if estimator == Ridge

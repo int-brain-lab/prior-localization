@@ -8,7 +8,6 @@ from behavior_models.models import ActionKernel, StimulusKernel
 
 from prior_localization.functions.utils import check_bhv_fit_exists, check_config
 
-config = check_config()
 logger = setup_logger()
 
 
@@ -187,6 +186,7 @@ def compute_beh_target(trials_df, session_id, subject, model, target, behavior_p
     signal = model.compute_signal(signal=target_, act=actions, stim=stimuli, side=stim_side)[target_]
 
     tvec = signal.squeeze()
+    config = check_config()
     if config['binarization_value'] is not None:
         tvec = (tvec > config['binarization_value']) * 1
 
