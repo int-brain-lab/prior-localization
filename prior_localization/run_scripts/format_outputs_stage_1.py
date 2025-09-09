@@ -8,6 +8,8 @@ import yaml
 from tqdm import tqdm
 from pathlib import Path
 
+import prior_localization.run_scripts.results
+
 
 def run(output_dir):
     """
@@ -33,44 +35,8 @@ def run(output_dir):
         as a parquet file named 'collected_results_stage1.pqt' in the output directory.
         It also prints progress information and statistics about the processing.
     """
-    finished = glob.glob(str(output_dir.joinpath("*", "*", "*")))
 
-    print("nb files:", len(finished))
-
-    indexers = ["subject", "eid", "probe", "region", "N_units"]
-
-    resultslist = []
-
-    failed_load = 0
-    for fn in tqdm(finished):
-        if os.path.isdir(fn):
-            continue
-        try:
-            fo = open(fn, "rb")
-            result = pickle.load(fo)
-            fo.close()
-            if result["fit"] is None:
-                continue
-            for i_decoding in range(len(result["fit"])):
-                tmpdict = {
-                    **{x: result[x] for x in indexers},
-                    "fold": -1,
-                    "pseudo_id": result["fit"][i_decoding]["pseudo_id"],
-                    "run_id": result["fit"][i_decoding]["run_id"] + 1,
-                    "score_test": result["fit"][i_decoding]["scores_test_full"],
-                    "n_trials": len(result["fit"][i_decoding]["predictions_test"]),
-                }
-                resultslist.append(tmpdict)
-        except Exception as e:
-            print(failed_load)
-            print(e)
-            failed_load += 1
-            pass
-
-    print("loading of %i files failed" % failed_load)
-
-    resultsdf = pd.DataFrame(resultslist)
-
+    resultsdf = prior_localization.run_scripts.results.consolidate_stage1_pkl2pqt(output_dir)
     fn = str(Path(output_dir).joinpath('collected_results_stage1.pqt'))
     resultsdf.to_parquet(fn)
     print(f"Results saved in {fn}")

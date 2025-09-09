@@ -1,5 +1,5 @@
 # Where to save decoding results
-output_dir: /mnt/s1/2025/unit-refine/decoding
+output_dir: null
 
 # Data Revision config
 revision: 2024-07-10  # final paper revision for ONE

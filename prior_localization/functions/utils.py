@@ -226,7 +226,7 @@ def check_config(config_in=None):
     with open(Path(__file__).parent.parent.joinpath('config.yml'), "r") as config_yml:
         config = yaml.safe_load(config_yml)
 
-    config = config | config_in
+    config = config | config_in  # config_in will overwrite config if both dicts have the same keys
     # Estimator from scikit learn
     try:
         if isinstance(config['estimator'], str):

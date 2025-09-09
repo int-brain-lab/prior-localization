@@ -1,20 +1,24 @@
 import argparse
 import joblib
 from pathlib import Path
+import yaml
 
 import numpy as np
 from one.api import ONE
 
 from brainwidemap.bwm_loading import bwm_query
 from prior_localization.fit_data import fit_session_ephys
+import prior_localization
 
 import warnings
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="sklearn")
 
-n_jobs = 12
+n_jobs = 24
 N_PSEUDO = 4
 N_PER_JOB = 4
-TARGET = 'choice'
+TARGET = 'feedback'
+
+OUTPUT_DIR = Path(f'/datadisk/Data/2025/09_unit-refine/decoding/{TARGET}')
 
 TOTAL_JOBS = N_PSEUDO / N_PER_JOB * 459  # 459 sessions
 
@@ -35,7 +39,7 @@ def run_single_job(job_idx, output_dir, config=None):
 
     # Create an offline ONE instance, we don't want to hit the database when running so many jobs in parallel and have
     # downloaded the data before
-    one = ONE(base_url='https://openalyx.internationalbrainlab.org', mode='local')
+    one = ONE(base_url='https://openalyx.internationalbrainlab.org')
 
     # Get info for respective eid from bwm_dataframe
     bwm_df = bwm_query(one=one, freeze='2023_12_bwm_release')
@@ -52,6 +56,12 @@ def run_single_job(job_idx, output_dir, config=None):
     n_bins_lag = None
     n_bins = None
     n_runs = 4
+
+    # loads in the specific target parameters
+    config_target_file = Path(prior_localization.__file__).parent.joinpath('configs', f'{TARGET}.yml')
+    if config_target_file.exists():
+        with open(config_target_file, "r") as config_yml:
+            config = yaml.safe_load(config_yml) | config
 
     if TARGET == 'stimside':
         align_event = 'stimOn_times'
@@ -127,19 +137,19 @@ def run_job(job_idx, output_dir, config):
             f.write(f"Error occurred: {str(e)}\n")
             f.write(traceback.format_exc())
     finally:
-        output_dir.joinpath('joblist', f'jobid_{int(job_idx):05}.txt').unlink()
+        output_dir.joinpath('.00_joblist', f'jobid_{int(job_idx):05}.txt').unlink()
 
 jobs = []
-OUTPUT_DIR = Path('/mnt/s1/2025/unit-refine/decoding')
 for uqc in [1, -1, -2]:  # we don´t  run all units for now
     config = {'unit_qc': uqc, 'estimator': 'LogisticRegression', 'use_native_sklearn_for_hyperparam_estimation': False}
     match config['unit_qc']:
         case 1:
             output_dir = OUTPUT_DIR.joinpath('vanilla')
         case -1:
-            output_dir = OUTPUT_DIR.joinpath('unit-refine')
+            output_dir = OUTPUT_DIR.joinpath('sirena')
         case -2:
-            output_dir = OUTPUT_DIR.joinpath('unit-refine-control')
-    jobs2run = [int(f.stem.split('_')[-1]) for f in output_dir.joinpath('joblist').glob('jobid_*.txt')]
+            output_dir = OUTPUT_DIR.joinpath('sirena-control')
+    jobs2run = [int(f.stem.split('_')[-1]) for f in output_dir.joinpath('.00_joblist').glob('jobid_*.txt')]
+    print(output_dir, len(jobs2run))
     jobs.extend([joblib.delayed(run_job)(job_idx=jid, output_dir=output_dir, config=config) for jid in jobs2run])
 joblib.Parallel(n_jobs=n_jobs)(jobs)

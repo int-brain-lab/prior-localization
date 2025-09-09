@@ -40,8 +40,8 @@ def get_remaining_jobs(output_dir):
     # df_jobs.set_index(['eid', 'first_session', 'last_session'], inplace=True)
     errored_jobs = np.array([float(error_file.stem.split('_')[-1]) for error_file in output_dir.glob('ERROR_jobid_*.txt')]).astype(int)
 
-    file_results = list(output_dir.rglob('*merged_probes_pseudo_ids*.pkl'))
-    print(f'Found {len(file_results)} merged_probes_pseudo_ids.pkl files')
+    file_results = list(output_dir.rglob('*_probe*_pseudo_ids*.pkl'))
+    print(f'Found {len(file_results)} probe pkl files')
     df_results = []
     for file_path in file_results:
         # Extract components from the path
@@ -54,12 +54,12 @@ def get_remaining_jobs(output_dir):
         filename = file_path.name
 
         # Extract region (everything before '_merged_probes_pseudo_ids_')
-        region = filename.split('_merged_probes_pseudo_ids_')[0]
+        region = filename.split('_')[0]
 
         # Extract first and last from the end of the filename
         # Format: {region}_merged_probes_pseudo_ids_{first}_{last}.pkl
-        first_last = filename.split('_merged_probes_pseudo_ids_')[1].replace('.pkl', '')
-        first, last = first_last.split('_')
+        first = filename.split('_')[-2]
+        last = filename.split('_')[-1].replace('.pkl', '')
         # Add to parsed data
         df_results.append({
             # 'subject': subject,
@@ -100,23 +100,33 @@ def delete_all_results(output_dir, dry=True):
     print(f'Deleted {c} merged_probes_pseudo_ids.pkl files')
 
 
-def make_jobs(output_dir):
-    shutil.rmtree(output_dir, ignore_errors=True)
+def make_jobs(output_dir, overwrite=False):
+    if overwrite:
+        shutil.rmtree(output_dir, ignore_errors=True)
     df_status, jobs2run = get_remaining_jobs(output_dir)
-    output_dir.joinpath('joblist').mkdir(parents=True, exist_ok=True)
+    output_dir.joinpath('.00_joblist').mkdir(parents=True, exist_ok=True)
+    print(f"Jobs to run: {jobs2run}]")
     for job_id in jobs2run:
-        output_dir.joinpath('joblist', f'jobid_{int(job_id):05}.txt').touch()
+        output_dir.joinpath('.00_joblist', f'jobid_{int(job_id):05}.txt').touch()
+    # we want to re-use the behaviour models so we don't recompute each time
+    if  (folder_behaviour := output_dir.parents[1].joinpath('behavior')).exists():
+        if not output_dir.joinpath('behavior').exists():
+            output_dir.joinpath('behavior').symlink_to(folder_behaviour)
 
-
-output_dir = Path('/mnt/s1/2025/unit-refine/decoding/vanilla')
-df_status, jobs2run = get_remaining_jobs(output_dir)
-
-# make_jobs(output_dir)
+# %%
+TARGET = 'feedback' #'choice'
+OUTPUT_DIR = Path(f'/datadisk/Data/2025/09_unit-refine/decoding/{TARGET}')
+for unit_selection in ['sirena', 'sirena-control', 'vanilla']:  # ['vanilla', 'sirena', 'sirena-control']
+    output_dir = OUTPUT_DIR.joinpath(unit_selection)
+    print('\n')
+    print(unit_selection)
+    print('-' * len(unit_selection))
+    df_status, jobs2run = get_remaining_jobs(output_dir)
+    make_jobs(output_dir, overwrite=False)
+#
 # delete_all_results(output_dir, dry=True)
 
-
-#make_jobs
-# source ~/PycharmProjects/ibl-task-forces/.venv/bin/activate
-# cd ~/PycharmProjects/ibl-task-forces/prior-localization/prior_localization/run_scripts
+# cd ~/PycharmProjects/bwm/prior-localization/prior_localization/run_scripts
 # python run_ephys_decoding_joblib.py
 
+# TODO mispelled behaviour in the link above
