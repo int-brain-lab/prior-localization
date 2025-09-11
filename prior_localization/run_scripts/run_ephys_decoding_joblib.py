@@ -13,10 +13,10 @@ import prior_localization
 import warnings
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="sklearn")
 
-n_jobs = 24
-N_PSEUDO = 4
+n_jobs = 20  # number of jobs to run concurrently
+N_PSEUDO = 16
 N_PER_JOB = 4
-TARGET = 'feedback'
+TARGET = 'choice'
 
 OUTPUT_DIR = Path(f'/datadisk/Data/2025/09_unit-refine/decoding/{TARGET}')
 
@@ -140,7 +140,7 @@ def run_job(job_idx, output_dir, config):
         output_dir.joinpath('.00_joblist', f'jobid_{int(job_idx):05}.txt').unlink()
 
 jobs = []
-for uqc in [1, -1, -2]:  # we don´t  run all units for now
+for uqc in [-4, -3, -2, -1, 1]:  # we don´t  run all units for now
     config = {'unit_qc': uqc, 'estimator': 'LogisticRegression', 'use_native_sklearn_for_hyperparam_estimation': False}
     match config['unit_qc']:
         case 1:
@@ -149,6 +149,10 @@ for uqc in [1, -1, -2]:  # we don´t  run all units for now
             output_dir = OUTPUT_DIR.joinpath('sirena')
         case -2:
             output_dir = OUTPUT_DIR.joinpath('sirena-control')
+        case -3:
+            output_dir = OUTPUT_DIR.joinpath('unit-refine')
+        case -4:
+            output_dir = OUTPUT_DIR.joinpath('unit-refine-control')
     jobs2run = [int(f.stem.split('_')[-1]) for f in output_dir.joinpath('.00_joblist').glob('jobid_*.txt')]
     print(output_dir, len(jobs2run))
     jobs.extend([joblib.delayed(run_job)(job_idx=jid, output_dir=output_dir, config=config) for jid in jobs2run])

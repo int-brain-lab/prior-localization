@@ -8,7 +8,7 @@ import pandas as pd
 from brainwidemap import bwm_query
 from one.api import ONE
 
-N_PSEUDO = 4
+N_PSEUDO = 16
 N_PER_JOB = 4
 TOTAL_JOBS = N_PSEUDO / N_PER_JOB * 459  # 459 sessions
 
@@ -41,7 +41,6 @@ def get_remaining_jobs(output_dir):
     errored_jobs = np.array([float(error_file.stem.split('_')[-1]) for error_file in output_dir.glob('ERROR_jobid_*.txt')]).astype(int)
 
     file_results = list(output_dir.rglob('*_probe*_pseudo_ids*.pkl'))
-    print(f'Found {len(file_results)} probe pkl files')
     df_results = []
     for file_path in file_results:
         # Extract components from the path
@@ -73,7 +72,13 @@ def get_remaining_jobs(output_dir):
     # Create a DataFrame from the parsed data
     df_results = pd.DataFrame(df_results)
     if df_results.empty:
-        return None, np.arange(1, TOTAL_JOBS + 1).astype(int)
+        info = {
+            'n_complete': 0,
+            'n_total': TOTAL_JOBS,
+            'n_error': 0,
+            'path': output_dir,
+        }
+        return None, np.arange(1, TOTAL_JOBS + 1).astype(int), info
     # Display the DataFrame
     df_complete = df_results.groupby(['eid', 'first', 'last']).agg(
         region_count=pd.NamedAgg(column='region', aggfunc='count'),
@@ -82,13 +87,17 @@ def get_remaining_jobs(output_dir):
     df_status = df_jobs.join(df_complete, on=['eid', 'first', 'last'], how='left').reset_index()
     n_complete = TOTAL_JOBS - df_status['region_count'].isna().sum()
     df_status.loc[df_status['job_id'].isin(errored_jobs), 'region_count'] = -1
-    print(f'Number of complete jobs: {n_complete} over {TOTAL_JOBS} total jobs, {n_complete / TOTAL_JOBS * 100:.2f}%')
-    print(f'Number of errored jobs: {errored_jobs.size} over {TOTAL_JOBS} total jobs, { errored_jobs.size / TOTAL_JOBS * 100:.2f}%')
 
     jobs2run = df_status.loc[df_status.region_count.isna(), 'job_id'].values
 
+    info = {
+        'n_complete': n_complete,
+        'n_total': TOTAL_JOBS,
+        'n_error': errored_jobs.size,
+        'path': output_dir,
 
-    return df_status, jobs2run
+    }
+    return df_status, jobs2run, info
 
 
 def delete_all_results(output_dir, dry=True):
@@ -103,7 +112,7 @@ def delete_all_results(output_dir, dry=True):
 def make_jobs(output_dir, overwrite=False):
     if overwrite:
         shutil.rmtree(output_dir, ignore_errors=True)
-    df_status, jobs2run = get_remaining_jobs(output_dir)
+    df_status, jobs2run, _ = get_remaining_jobs(output_dir)
     output_dir.joinpath('.00_joblist').mkdir(parents=True, exist_ok=True)
     print(f"Jobs to run: {jobs2run}]")
     for job_id in jobs2run:
@@ -114,19 +123,23 @@ def make_jobs(output_dir, overwrite=False):
             output_dir.joinpath('behavior').symlink_to(folder_behaviour)
 
 # %%
-TARGET = 'feedback' #'choice'
-OUTPUT_DIR = Path(f'/datadisk/Data/2025/09_unit-refine/decoding/{TARGET}')
-for unit_selection in ['sirena', 'sirena-control', 'vanilla']:  # ['vanilla', 'sirena', 'sirena-control']
-    output_dir = OUTPUT_DIR.joinpath(unit_selection)
-    print('\n')
-    print(unit_selection)
-    print('-' * len(unit_selection))
-    df_status, jobs2run = get_remaining_jobs(output_dir)
-    make_jobs(output_dir, overwrite=False)
-#
+
+df_info = []
+for TARGET in ['choice', 'feedback']:
+    OUTPUT_DIR = Path(f'/datadisk/Data/2025/09_unit-refine/decoding/{TARGET}')
+    for unit_selection in ['sirena', 'sirena-control', 'vanilla', 'unit-refine', 'unit-refine-control']:
+        output_dir = OUTPUT_DIR.joinpath(unit_selection)
+        df_status, jobs2run, job_info = get_remaining_jobs(output_dir)
+        job_info['target'] = TARGET
+        job_info['unit_selection'] = unit_selection
+        df_info.append(job_info)
+        make_jobs(output_dir, overwrite=False)
+
+df_info = pd.DataFrame(df_info)
+df_info['completion'] = (df_info['n_complete'] + df_info['n_error']) / df_info['n_total']
+print(df_info.to_markdown())
+        # make_jobs(output_dir, overwrite=False)
 # delete_all_results(output_dir, dry=True)
 
 # cd ~/PycharmProjects/bwm/prior-localization/prior_localization/run_scripts
 # python run_ephys_decoding_joblib.py
-
-# TODO mispelled behaviour in the link above
