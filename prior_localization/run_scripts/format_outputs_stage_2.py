@@ -5,7 +5,7 @@ from pathlib import Path
 import pandas as pd
 import yaml
 
-from prior_localization.run_scripts.results import reformat_df
+from prior_localization.run_scripts.results import aggregate_df_per_session_region
 
 
 if __name__ == "__main__":
@@ -24,7 +24,7 @@ if __name__ == "__main__":
 
     pqt_file = os.path.join(output_dir, target, "collected_results_stage1.pqt")
 
-    df_collected = reformat_df(pd.read_parquet(pqt_file))
+    df_collected = aggregate_df_per_session_region(pd.read_parquet(pqt_file))
 
     filename = os.path.join(output_dir, target, "collected_results_stage2.pqt")
     print("saving parquet")

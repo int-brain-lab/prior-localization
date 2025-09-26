@@ -138,8 +138,6 @@ for TARGET in ['choice', 'feedback']:
 df_info = pd.DataFrame(df_info)
 df_info['completion'] = (df_info['n_complete'] + df_info['n_error']) / df_info['n_total']
 print(df_info.to_markdown())
-        # make_jobs(output_dir, overwrite=False)
-# delete_all_results(output_dir, dry=True)
 
 # cd ~/PycharmProjects/bwm/prior-localization/prior_localization/run_scripts
 # python run_ephys_decoding_joblib.py

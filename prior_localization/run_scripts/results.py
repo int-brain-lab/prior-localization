@@ -65,11 +65,8 @@ def consolidate_stage1_pkl2pqt(output_dir):
             pass
 
     print("loading of %i files failed" % failed_load)
-
     resultsdf = pd.DataFrame(resultslist)
-
     return resultsdf
-
 
 
 def compute_stats_over_pseudo_ids(group, n_pseudo=200):
@@ -99,7 +96,7 @@ def compute_stats_over_pseudo_ids(group, n_pseudo=200):
     return result
 
 
-def reformat_df(df, n_pseudo=200):
+def aggregate_df_per_session_region(df, n_pseudo=200):
     """Compute mean over runs and median of null distribution; compute p-value."""
 
     # set regions to be strings instead of lists of strings of length 1
@@ -157,7 +154,8 @@ def significance_by_region(group, n_pseudo=200, min_trials=250, min_sessions_per
 
 def compute_regional_stats(df1, min_units=5, q_level=.01, **kwargs):
     # compute combined p-values for each region
-    df2 = df1[df1.n_units >= min_units].groupby(['region']).apply(lambda x: significance_by_region(x)).reset_index()
+    df2 = df1[df1.n_units >= min_units].groupby(['region']).apply(
+        lambda x: significance_by_region(x, **kwargs)).reset_index()
 
     # run FDR correction on p-values
     mask = ~df2['pval_combined'].isna()
