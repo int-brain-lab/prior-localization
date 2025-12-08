@@ -53,13 +53,25 @@ def prepare_ephys(
         stage_only=False,
 ):
 
+    # Map probe_name(s) to pid(s)
+    all_pids, all_pnames = one.eid2pid(session_id)
+    name2pid = dict(zip(all_pnames, all_pids))
+
     # Load spikes and clusters and potentially merge probes
     if isinstance(probe_name, list) and len(probe_name) > 1:
-        to_merge = [load_good_units(one, pid=None, eid=session_id, qc=qc, pname=probe_name)
-                    for probe_name in probe_name]
-        spikes, clusters = merge_probes([spikes for spikes, _ in to_merge], [clusters for _, clusters in to_merge])
+        # multiple probes: get a pid for each requested probe_name
+        pids = [name2pid[name] for name in probe_name]
+        to_merge = [load_good_units(one, pid=pid, qc=qc) for pid in pids]
+        spikes, clusters = merge_probes(
+            [sp for sp, _ in to_merge],
+            [cl for _, cl in to_merge]
+        )
     else:
-        spikes, clusters = load_good_units(one, pid=None, eid=session_id, qc=qc, pname=probe_name)
+        # single probe; probe_name may be string or list of length 1
+        if isinstance(probe_name, list):
+            probe_name = probe_name[0]
+        pid = name2pid[probe_name]
+        spikes, clusters = load_good_units(one, pid=pid, qc=qc)
 
     # This allows us to just stage the data without running the analysis, we can then switch ONE in local mode
     if stage_only:
