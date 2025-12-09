@@ -103,7 +103,7 @@ def fit_session_ephys(
     )
 
     # Load trials data and compute mask
-    sl = SessionLoader(one, eid=session_id)
+    sl = SessionLoader(one=one, eid=session_id)
     sl.load_trials()
     _, trials_mask = load_trials_and_mask(
         one=one, eid=session_id, sess_loader=sl, min_rt=min_rt, max_rt=max_rt,
